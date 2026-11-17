@@ -108,7 +108,7 @@ layer is the priority of **V2** (owner, 2026-11-17), with FR-37…40.
 ```
 Content-Security-Policy:
   default-src 'none';
-  script-src 'unsafe-inline' 'unsafe-eval';
+  script-src 'unsafe-inline';
   style-src 'unsafe-inline';
   img-src data: blob:;
   font-src data:;
@@ -130,8 +130,16 @@ Content-Security-Policy:
 - User input, local computation, canvas/SVG drawing and animation work without
   a network connection. Artifacts must be self-contained: inline scripts and
   styles, data-URI assets.
+- Framework apps are written as one Preact JSX component through the
+  `openchat_app_write` tool; the tool validates and compiles it to a single
+  portable HTML document at write time. The runtime is never injected per
+  request and needs no `eval`
+  ([`../architecture/07-artifact-runtime.md`](../architecture/07-artifact-runtime.md)).
+- The app sees exactly `window.openchat`: `theme`, `locale`, `onInit(fn)`,
+  `result(payload)` and `setHeight(px)`. Nothing else is privileged.
 - Controls: reset to initial state, reload, fullscreen/present, download
-  source. Reset must not require a new signed URL.
+  source. Reset re-mounts the app inside the frame and must not require a new
+  signed URL.
 - Present mode hides app chrome, keeps an exit affordance and does not grant
   extra permissions.
 - Size grows with content; the iframe reports its height through the bridge,

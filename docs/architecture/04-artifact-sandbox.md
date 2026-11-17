@@ -30,6 +30,9 @@ exfiltrate conversations and phish the owner.
 - It has no network route to OpenCode or the workspace.
 - Egress is disabled. A network namespace or firewall rule drops all outbound
   traffic; an allowlist is not the default.
+- It sends a second policy, `Content-Security-Policy: sandbox allow-scripts`, so
+  the document stays sandboxed even if a future embed forgets the iframe
+  attribute.
 
 ## Iframe
 
@@ -87,7 +90,7 @@ artifact → app: { type: "artifact:result", title?, text?, data?, nonce }
 ```http
 Content-Security-Policy:
   default-src 'none';
-  script-src 'unsafe-inline' 'unsafe-eval';
+  script-src 'unsafe-inline';
   style-src 'unsafe-inline';
   img-src data: blob:;
   font-src data:;
@@ -101,8 +104,10 @@ Content-Security-Policy:
 
 Notes:
 
-- `unsafe-inline`/`unsafe-eval` are acceptable only inside the isolated origin;
-  they are not acceptable on the app origin.
+- `unsafe-inline` is acceptable only inside the isolated origin; it is not
+  acceptable on the app origin. `unsafe-eval` is not granted: the runtime is
+  compiled ahead of time, and the validator rejects `eval` and `new Function`
+  ([`07-artifact-runtime.md`](07-artifact-runtime.md)).
 - Subresource exfiltration is blocked by `connect-src 'none'` **and** by
   allowing no remote image source. `img-src https:` would reopen a channel
   through `new Image().src`; if an artifact needs remote images, proxy them
@@ -116,13 +121,18 @@ Notes:
 - If an artifact needs network access, add an explicit per-artifact allowlist
   and document the threat model; never enable it globally.
 
-## React and build artifacts
+## React, JSX and build artifacts
 
-- Do not `eval` React/JSX on the app origin.
-- For React artifacts, either:
-  - compile to a static bundle in the artifact host sandbox, or
-  - run a self-contained runtime inside the sandboxed iframe.
-- The app only displays the result; it never executes artifact code.
+- The model never writes HTML for an interactive app. It calls
+  `openchat_app_write` with one Preact JSX component; the tool validates and
+  compiles it with `Bun.build`, then stores one portable HTML document. See
+  [`07-artifact-runtime.md`](07-artifact-runtime.md) and ADR-0006.
+- No `eval`, no import maps, no WASM bundler in the frame: the artifact CSP
+  grants no `'unsafe-eval'` and no `'self'`.
+- Fallback if the tool path is unavailable: a Preact + `htm` runtime embedded in
+  the artifact, also eval-free.
+- The app only displays the result; it never executes artifact code on the app
+  origin.
 
 ## Threats and tests
 

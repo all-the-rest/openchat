@@ -47,6 +47,10 @@ One implementation of the `ChatBackend` port, no HTTP:
 - Permissions and forms are scripted events, so approval flows are testable.
 - Artifact tests use a local artifact host on a second port with the real CSP
   and sandbox; the iframe still runs untrusted HTML.
+- Interactive apps are tested from fixture components (`calculator`, `chart`,
+  `broken`, `cdn`) through the real validator and shell assembly; no model is
+  called. The validator table covers CDN URLs, `fetch`, `eval`, storage,
+  `</script`, oversize and syntax errors with position.
 - Screenshots are optional and never contain personal data.
 
 ## Contract tests

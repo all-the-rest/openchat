@@ -317,6 +317,20 @@ signed URL, fetches `view()` bytes through the BFF, and serves them with a
 restrictive CSP in an iframe without `allow-same-origin`. See
 [`04-artifact-sandbox.md`](04-artifact-sandbox.md).
 
+### Creating interactive apps
+
+Interactive apps are created by a tool, not by chat prose:
+
+- `openchat_app_write({ title, code, css? })` is exposed by the
+  `openchat-artifacts` MCP server that ships with the repo and runs next to
+  OpenCode.
+- The tool validates the component, compiles it with `Bun.build` (Preact), and
+  stores one HTML document through the BFF route
+  `POST /internal/artifacts` (bearer token `ARTIFACT_INTERNAL_TOKEN`, never part
+  of the public allowlist).
+- The tool returns `{ artifactID, title, bytes }`; the model never re-emits HTML.
+- Full design: [`07-artifact-runtime.md`](07-artifact-runtime.md), ADR-0006.
+
 ## Image generation
 
 `experimental.generate.image` requires an explicit model

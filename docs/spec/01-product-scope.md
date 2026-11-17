@@ -108,8 +108,8 @@ realtime voice mode, which stays out of scope.
 
 | ID | Requirement | Acceptance | Evidence |
 | --- | --- | --- | --- |
-| FR-37 | Run interactive HTML/CSS/JS artifacts in the sandbox: user input, calculation, charts, simulations and small tools. | A calculator and a chart fixture accept input and recompute without a page reload. | — (OBS-020 pending) |
-| FR-38 | Provide reset, fullscreen/present and download for an interactive artifact. | Reset restores the initial state; present mode removes app chrome; download returns the source. | — |
+| FR-37 | Run interactive HTML/CSS/JS artifacts in the sandbox: user input, calculation, charts, simulations and small tools. | A calculator and a chart fixture accept input and recompute without a page reload; a framework app compiles from one JSX component without `eval`. | — (OBS-020 pending) |
+| FR-38 | Provide reset, fullscreen/present and download for an interactive artifact. | Reset re-mounts the app without a reload; present mode removes app chrome; download returns the stored source bytes. | — |
 | FR-39 | Let an artifact submit a result back to the chat through a narrow, validated `postMessage` bridge. | A fixture artifact posts a JSON result; the UI shows it as a draft or message; messages from a different frame, or with a wrong nonce or shape, are rejected. | — |
 | FR-40 | Interactive artifacts work offline: no network, no CDN, no cookies, no access to the app origin or session. | The sandbox never resolves an external URL and `fetch` fails. | NFR-06 |
 
