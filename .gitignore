@@ -15,3 +15,6 @@ coverage
 
 # Derived CodeGraph index (rebuild with `codegraph init`), not source.
 .codegraph/
+
+# UI-review screenshot set (see apps/web/playwright.screenshots.config.ts)
+ui-review/

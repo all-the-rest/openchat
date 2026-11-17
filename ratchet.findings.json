@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "findings": [
+    {
+      "id": "UI-1",
+      "title": "Jump-to-latest floats over content with a weak edge",
+      "severity": "low",
+      "status": "open",
+      "owner": "orchestrator",
+      "ticket": "#27",
+      "path": "apps/web/src/chat/Transcript.tsx",
+      "note": "White disc on white content, overlapping the last block (math on desktop, code header on mobile). Fix: solid background, stronger border/shadow, larger inset. Evidence: ui-review/filled/desktop/chat-rich-sec0.png, ui-review/filled/mobile/chat-rich-sec0.png"
+    },
+    {
+      "id": "UI-2",
+      "title": "Error card promises a retry action that does not exist",
+      "severity": "medium",
+      "status": "fixed",
+      "owner": "orchestrator",
+      "ticket": "#27",
+      "path": "apps/web/src/render/ErrorCard.tsx",
+      "note": "The card says the error can be retried while retry is deferred to M3. Fix: add a retry button that resends the last prompt, or drop the promise. Evidence: ui-review/filled/desktop/chat-error-sec0.png",
+      "status_since": "2026-11-17",
+      "regression_test": "apps/web/test/transcript.test.tsx \u2014 offers Continue and Retry under a stopped assistant message"
+    },
+    {
+      "id": "UI-3",
+      "title": "No product branding on the login screen",
+      "severity": "low",
+      "status": "open",
+      "owner": "orchestrator",
+      "ticket": "#27",
+      "path": "apps/web/src/pages/LoginPage.tsx",
+      "note": "The app header shows OpenChat, the login card only Sign in. Fix: add the wordmark above the card. Evidence: ui-review/empty/desktop/login.png"
+    },
+    {
+      "id": "UI-4",
+      "title": "Two different empty-state treatments",
+      "severity": "low",
+      "status": "open",
+      "owner": "orchestrator",
+      "ticket": "#27",
+      "path": "apps/web/src/pages/ChatPage.tsx",
+      "note": "Landing centers a hero, an empty chat shows one muted line pinned under the header. Fix: center the chat empty state or reuse the hero. Evidence: ui-review/empty/desktop/chat-empty-sec0.png"
+    },
+    {
+      "id": "UI-5",
+      "title": "Keyboard hint shown on touch viewports",
+      "severity": "low",
+      "status": "open",
+      "owner": "orchestrator",
+      "ticket": "#27",
+      "path": "apps/web/src/chat/Composer.tsx",
+      "note": "Enter sends, Shift+Enter adds a line is shown on phones. Fix: hide under (pointer: coarse) or swap the copy. Evidence: ui-review/empty/mobile/landing.png"
+    },
+    {
+      "id": "UI-6",
+      "title": "Mermaid diagram labels are unreadable on mobile",
+      "severity": "medium",
+      "status": "open",
+      "owner": "orchestrator",
+      "ticket": "#27",
+      "path": "apps/web/src/render/Mermaid.tsx",
+      "note": "Labels render at about 7 px when the diagram is scaled to the 390 px column. Fix: minimum diagram width with horizontal scroll, or tap-to-zoom. Evidence: ui-review/filled/mobile/chat-rich-sec1.png"
+    },
+    {
+      "id": "UI-7",
+      "title": "Password focus ring reads as an error state",
+      "severity": "low",
+      "status": "open",
+      "owner": "orchestrator",
+      "ticket": "#27",
+      "path": "apps/web/src/pages/LoginPage.tsx",
+      "note": "Outline plus border produce a heavy double ring on focus. Fix: use one focus ring. Evidence: ui-review/empty/mobile/login.png"
+    }
+  ]
+}

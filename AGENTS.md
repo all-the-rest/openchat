@@ -72,7 +72,8 @@ context.
 - Backend: OpenCode V2 via `@opencode/client`; optional `@opencode/sdk`.
 - Tests: Vitest + Playwright. Every change ships tests.
 - Quality gates before commit: `pnpm run lint`, `pnpm run typecheck`,
-  `pnpm run test`, `pnpm run build`.
+  `pnpm run test`, `pnpm run build`, `ratchet check --tier fast` (or
+  `pnpm run gates:fast`).
 - CodeGraph index in `.codegraph/`; `.githooks/pre-commit` runs `codegraph sync`.
   Prefer `codegraph explore` over grep for architecture questions.
 - Build agents do not commit or push; the orchestrator commits and reviews

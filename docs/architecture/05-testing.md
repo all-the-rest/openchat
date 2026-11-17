@@ -5,6 +5,28 @@ and E2E must run against mocked endpoints and a fake model. The same fake
 backend doubles as a development mode so the UI can be exercised without a
 provider.
 
+## Quality gates
+
+Two tiers, both runnable locally:
+
+| Tier | Command | Budget | Contents |
+| --- | --- | --- | --- |
+| Fast | `pnpm run gates:fast` | seconds | `pnpm run lint`, `typecheck`, `test`, `build`, then `ratchet check --tier fast` |
+| Slow | `pnpm run test:e2e` | minutes | Playwright against the fake BFF (8787) and Vite (5173) |
+
+The fast ratchet rules live in `ratchet.config.jsonc` and are pinned by
+`ratchet.baseline.json`:
+
+- `ui-review-blockers` — open UI-review findings at critical or high severity;
+  counts `ratchet.findings.json` entries with status `open` or `in-progress`.
+- `i18n-literals` — hard-coded user-visible strings in the web UI; counts the
+  same scan as `scripts/lint-i18n.ts`.
+
+The fast tier needs `ratchet` 0.6.3 on `PATH`; the binary is not vendored.
+After fixing debt, move the baseline in its allowed direction with
+`ratchet baseline update`. A deliberate move against the direction is
+`ratchet baseline raise --rule <id> --value <n> --reason "<text>"`.
+
 ## Layers
 
 | Layer | Runs against | Network | Purpose |

@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    name: fast
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run test
+      - run: pnpm run build
+
+  e2e:
+    name: e2e
+    needs: fast
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @openchat/web exec playwright install --with-deps chromium
+      # The Playwright config starts the fake BFF (8787) and Vite (5173).
+      - run: pnpm run test:e2e
+
+  ratchet:
+    name: ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The i18n counter runs a TypeScript script with Node's native type
+      # stripping, so the job pins the same Node major as the other jobs.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: all-the-rest/ratchet-cli@v1
+        with:
+          mode: validate
+          version: v0.6.3
+          tier: fast

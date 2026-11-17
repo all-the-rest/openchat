@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "rules": {
+    "i18n-literals": {
+      "value": 0
+    },
+    "ui-review-blockers": {
+      "value": 0
+    }
+  }
+}

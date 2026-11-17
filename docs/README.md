@@ -64,5 +64,6 @@ folder (plus architecture and features).
 | [`research/codex-luna-low.md`](research/codex-luna-low.md) | Codex mode run: timeline, file output, timing |
 | [`research/plan-mode.md`](research/plan-mode.md) | Scheduled-tasks surface (OBS-042) |
 | [`implementation/01-m1-m2.md`](implementation/01-m1-m2.md) | What runs today: API, scenarios, renderers, tests, limits |
+| [`implementation/02-ui-review.md`](implementation/02-ui-review.md) | First visual pass at four breakpoints; findings and coverage |
 | [`roadmap.md`](roadmap.md) | Phases and milestones |
 | [`decisions/`](decisions/) | Architecture Decision Records |
