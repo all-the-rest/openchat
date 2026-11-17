@@ -24,8 +24,10 @@ Use **option 1** for v1. Keep the backend behind a `ChatBackend` port and add an
 
 ## Rationale
 
-- Option 1 keeps the official OpenCode web UI available for provider, OAuth and
-  MCP configuration. That is exactly the part we do not want to rebuild.
+- Option 1 keeps the official OpenCode web UI available *behind the admin
+  proxy* for provider, OAuth and MCP configuration. That is exactly the part we
+  do not want to rebuild, and the product UI never links to it unless
+  `ADMIN_PROXY=on`.
 - Process isolation limits the blast radius of an OpenCode crash and makes
   upgrades a container swap.
 - Same-origin proxying removes CORS and hides the internal port.

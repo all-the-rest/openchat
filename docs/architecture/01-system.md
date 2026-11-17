@@ -84,17 +84,17 @@ Every session is created with an explicit `location.directory` taken from
 1. Browser posts to `/api/chat/:sessionId/prompt` (same origin, session cookie).
 2. BFF validates auth, CSRF and payload, then calls OpenCode
    `session.prompt`.
-3. BFF subscribes to `/api/event` and forwards normalized events over SSE
-   (`/api/events`).
+3. BFF subscribes through `event.subscribe()` and forwards normalized events
+   over SSE (`/api/events`).
 4. Browser folds deltas into the transcript.
-5. On completion, the browser reconciles with `session.message.list`.
+5. On completion, the browser reconciles with `message.list({ sessionID })`.
 
 ### Permission
 
 1. OpenCode emits `permission.asked`.
 2. BFF forwards it; the UI blocks the affected tool card.
 3. User chooses allow/deny.
-4. BFF calls `session.permission.reply`; OpenCode resumes.
+4. BFF calls `permission.reply`; OpenCode resumes.
 
 ### Artifact
 

@@ -23,6 +23,12 @@ the prompt is submitted with `delivery: "queue"` (2.3 accepts `steer` or
 `queue`), and the queued turn is shown as pending until the active run
 completes. Steering (`delivery: "steer"`) is a later option, not v1.
 
+The queue is server state, not client state: `session.prompt` returns an inbox
+entry, `session.inbox.list({ sessionID })` restores pending turns after a
+reload, and `session.inbox.cancel()` / `session.inbox.update()` cancel or edit
+them. The UI mirrors `session.inbox.enqueued`, `delivered`, `cancelled` and
+`delivery.changed`.
+
 ## Send flow
 
 1. If no session exists, create one with `location.directory` from
@@ -48,8 +54,11 @@ completes. Steering (`delivery: "steer"`) is a later option, not v1.
 ## Stop
 
 - Show a stop button while `submitting` or `streaming`.
-- Stop calls `session.interrupt`.
+- Stop calls `session.interrupt({ sessionID })`; `resume` is optional and stays
+  off in v1.
 - Keep the partial response, mark it `stopped`, and allow "continue".
+- Cancel queued turns through `session.inbox.cancel()`, not by interrupting the
+  active run.
 - Do not delete the session.
 - While streaming, sharing and other session-level actions are disabled; only
   stop, copy of completed parts and scrolling stay available (OBS-015).

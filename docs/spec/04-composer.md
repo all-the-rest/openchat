@@ -70,7 +70,7 @@ Our implementation:
 
 - Effort values map to the model/provider capability; hide the slider when the
   model does not support reasoning effort.
-- The model list comes from `GET /api/model`; unavailable models are disabled
+- The model list comes from `model.list()`; unavailable models are disabled
   with a reason.
 - Selection is stored on the session (`session.switchModel`,
   `session.switchAgent`) and survives reload.

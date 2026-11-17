@@ -2,7 +2,7 @@
 
 ## Agents
 
-- List agents from `GET /api/agent`.
+- List agents from `agent.list()`.
 - Show name, description, mode (primary/subagent) and model.
 - Select a primary agent per session.
 - Subagents are started by the primary agent through the subagent tool; the UI
@@ -32,7 +32,7 @@ The rest of this section describes the target once the spike succeeds.
 
 The global `/tasks` route combines:
 
-1. **Scheduled tasks** — OpenCode schedules (`experimental/schedule/*`).
+1. **Scheduled tasks** — OpenCode schedules (`experimental.schedule.*`).
 2. **Background jobs** — long-running sessions/subagents.
 3. **Todo summaries** — sessions with open todos.
 
@@ -55,9 +55,9 @@ Each task shows:
 
 - v1 runs in a single `WORKSPACE_DIR`; worktree management is a later surface
   because it needs a project/repository selection first.
-- List worktrees (`GET /api/worktree`).
-- Create (`POST /api/worktree`) for a task; show its directory and branch.
-- Remove (`DELETE /api/worktree`) requires confirmation and must refuse if
+- List worktrees (`worktree.list()`).
+- Create (`worktree.create()`) for a task; show its directory and branch.
+- Remove (`worktree.remove()`) requires confirmation and must refuse if
   uncommitted changes exist, unless the owner explicitly forces it.
 - Parallel tasks should use separate worktrees to avoid file conflicts.
 

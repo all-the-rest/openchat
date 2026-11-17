@@ -28,10 +28,11 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 | Model switch | ✅ | ✅ `session.switchModel` | ✅ | S | yes | Per session |
 | Agent switch | ✅ | ✅ `session.switchAgent` | ✅ | S | yes | Per session |
 | Session persistence | ✅ | ✅ OpenCode store | ✅ | S | yes | |
+| Prompt queue | ✅ | ✅ `session.inbox.list/cancel/update` | ✅ | S | yes | `delivery: "queue"`; returned inbox entry |
 | Session search | ✅ | 🟡 list + client index | 🟡 | M | later | Full-text index if needed |
 | Parallel sessions | ✅ | ✅ | ✅ | M | yes | One active run per session |
-| Background jobs | ✅ | ✅ `session.background`, `Job.*` | ✅ | M | later | |
-| Scheduled tasks | ✅ | ✅ `experimental/schedule/*` | ✅ | M | later | Runs server-side |
+| Background jobs | ✅ | ✅ `session.background()`, `experimental.job.list()` | ✅ | M | later | `JobShell \| JobSubagent \| JobImage` |
+| Scheduled tasks | ✅ | ✅ `experimental.schedule.*` | ✅ | M | later | Runs server-side |
 | Multi-user | — | 🔴 | 🔴 | XL | no | Out of scope |
 
 ## B. Rendering
@@ -45,7 +46,7 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 | Mermaid | ✅ | ✅ text parts | ✅ | M | yes | Sanitize |
 | Images in/out | ✅ | ✅ attachments; ✅ image gen | ✅ | M | yes | Model capability |
 | Files/PDF | ✅ | ✅ attachments | ✅ | M | yes | 20 MiB limit |
-| Artifacts | ✅ | ✅ `experimental/artifacts` | ✅ | L | yes | Needs sandbox host |
+| Artifacts | ✅ | ✅ `experimental.artifacts.*` | ✅ | L | yes | Storage API included; needs sandbox host |
 | Charts | ✅ | 🟡 via code/artifact | 🟡 | M | yes | Render generated files |
 | Citations/sources | ✅ | 🟡 websearch output + UI | 🟡 | M | yes | Tool output schema |
 | Canvas/document editor | ✅ | 🟡 file editing + artifacts | 🟡 | L | later | |
@@ -53,8 +54,8 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 | Maps/places | ✅ | 🟡 MCP/embed | 🟡 | M | later | |
 | Rich cards | ✅ | 🟡 custom card registry | 🟡 | L | later | |
 | Video | ✅ | 🟡 MCP/embed | 🟡 | L | later | |
-| Voice | ✅ | 🟡 `experimental/voice/*` | 🟡 | M | ❓ | Provider dependent |
-| Image generation | ✅ | ✅ `experimental/generate/image` | ✅ | M | yes | Provider dependent |
+| Voice | ✅ | 🟡 `experimental.voice.*` | 🟡 | M | ❓ | Provider dependent |
+| Image generation | ✅ | ✅ `experimental.generate.image` | ✅ | M | yes | Provider dependent |
 | Multiplayer | ✅ | 🔴 | 🔴 | XL | no | |
 
 ## C. Tools and agents
@@ -64,10 +65,10 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 | Shell execution | ✅ | ✅ built-in shell tool | ✅ | S | yes | Permission-gated |
 | File read/write | ✅ | ✅ built-in tools | ✅ | S | yes | Workspace scoped |
 | Browser automation | ✅ | ✅ via `browse` MCP | ✅ | M | yes | Extension/relay |
-| Web search | ✅ | ✅ `/api/websearch` | ✅ | S | yes | Provider config |
+| Web search | ✅ | ✅ `websearch.query` | ✅ | S | yes | Provider config; agent tool |
 | MCP servers | ✅ | ✅ `mcp.servers` | ✅ | S | yes | Status UI |
 | Subagents | ✅ | ✅ built-in | ✅ | M | yes | Parent/child view |
-| Todos/planning | ✅ | ❓ `experimental.todo` only; no API/event in 2.3.0 | ❓ | M | spike | Needs a data source |
+| Todos/planning | ✅ | ❓ no todo method or event in 2.3.0 | ❓ | M | spike | Needs a data source |
 | Worktrees | — | ✅ worktree API | ✅ | M | later | Parallel tasks |
 | Permissions | ✅ | ✅ `permission.asked/replied` | ✅ | M | yes | Blocking cards |
 | Forms/questions | ✅ | ✅ `session.form.*` | ✅ | M | yes | Interactive cards |
@@ -82,9 +83,9 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 | --- | --- | --- | --- | --- | --- | --- |
 | Single-user auth | ✅ | 🟡 custom BFF | 🟡 | S | yes | Basic or session |
 | Provider config | ✅ | ✅ OpenCode config, same-origin admin proxy | 🟡 | S | yes | `ADMIN_PROXY=on`; never publish OpenCode |
-| Model list/capabilities | ✅ | ✅ `/api/model`, `/api/provider` | ✅ | S | yes | |
-| Usage/cost | ✅ | ✅ `experimental/usage/limits`, stats | ✅ | M | later | |
-| Export/import | ✅ | ✅ `experimental/session/export/import` | ✅ | S | yes | JSON/Markdown |
+| Model list/capabilities | ✅ | ✅ `model.list`, `provider.list` | ✅ | S | yes | |
+| Usage/cost | ✅ | ✅ `experimental.usage.limits`, `session.stats` | ✅ | M | later | |
+| Export/import | ✅ | ✅ `session.export/import` | ✅ | S | yes | JSON/Markdown |
 | PWA/offline shell | ✅ | 🟡 custom | 🟡 | M | later | Shell cache only |
 | i18n en/de | ✅ | 🟡 custom | 🟡 | S | yes | Externalized strings |
 | Themes | ✅ | 🟡 custom | 🟡 | S | yes | Tokens |
