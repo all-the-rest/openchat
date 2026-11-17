@@ -171,7 +171,7 @@ Details:
 
 ### OBS-019 — Personalization leaks into the landing surface
 
-`OBS-019 | E1 | 2026-11-17 | Landing | The single suggestion chip on the landing surface is derived from the account's stored memory/preferences, not from a fixed catalogue. | screenshot (content not recorded)`
+`OBS-019 | E1 | 2026-11-17 | Landing | The landing heading and suggestion set are account-derived. At least three heading variants were observed (a question, a "what should we start with" variant and a greeting that embeds the account name as a link). The number of suggestions varies from zero to three, and they render either as 52 px chips with an emoji or as full-width rows with an icon. | screenshot (content not recorded)`
 
 Consequence for our product: suggestions must be opt-in and derived only from
 local data; the default must be static or hidden. No personalized text is
@@ -268,6 +268,41 @@ Rows observed, in order, with separators between groups:
 - The list scrolls inside the panel; the panel itself does not move the composer.
 - A second entry point for the same actions exists as full-width suggestion rows on the landing surface.
 
+### OBS-037 — Settings surface
+
+`OBS-037 | E1/E2 | 2026-11-17 | Settings | Settings is a full-page surface with its own 340 px sidebar and a 768 px content column. The sidebar has Back to app, a search field, and four groups: Profile, Account, App, Data & Privacy. Content pages are a 24 px H1, a one-line description, grouped rows with label + description + control, and destructive actions as red pills. | open account menu → Settings` 
+
+Details:
+
+- Sidebar: same 340 px width and 35 px rows as the chat sidebar; the active row
+  gets the rounded selected background.
+- Sidebar groups: Profile (profile entry), Account (security and login, account,
+  parental controls, trust contact, usage, billing), App (general, appearance,
+  notifications, voice, personalization, pets, keyboard), Data & Privacy
+  (archived chats, storage, data controls).
+- Content column: H1 24 px at 28.8 px line height, description in muted text,
+  rows separated by 1 px rules, label 16 px and description 14 px muted, value
+  right-aligned with an edit affordance.
+- Destructive action: pill button, 36 px high, red text on a ~16 % red
+  background, no border.
+
+Appearance page:
+
+- Theme mode is a three-option radio group (system, light, dark) rendered as
+  preview thumbnails; the accessible group label does not match the visible
+  row label.
+- A theme preset row offers import, copy and a preset picker.
+- Accent, background (`#fcfcfc`) and foreground (`#0d0d0d`) are editable color
+  values, with an "advanced" disclosure for per-theme overrides (design import,
+  code theme, accent, background, ink).
+- This confirms the measured light tokens and shows that arbitrary theme editing
+  exists in the reference; it is not required for our v1.
+
+**Applicability:** most of the tree is account/billing/parental-control chrome
+that does not exist in a single-user self-hosted product. Only appearance,
+models, agents, connectors, data and a server status page are candidates; see
+[`docs/spec/07-settings-auth.md`](../spec/07-settings-auth.md).
+
 ## Pending observations
 
 | ID | What | Why it matters | Status |
@@ -289,3 +324,4 @@ Rows observed, in order, with separators between groups:
 | OBS-034 | Composer "Work" mode | Scope decision | dropped — owner excluded the Work surface |
 | OBS-035 | Tablet and desktop breakpoints | Responsive | done |
 | OBS-036 | Composer add menu | Composer | done |
+| OBS-037 | Settings and appearance | Auth/config | done (subset applies) |

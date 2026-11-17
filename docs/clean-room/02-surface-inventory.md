@@ -66,12 +66,13 @@ product must not personalize by default.
 
 | Surface | Parts | Evidence | Status |
 | --- | --- | --- | --- |
-| Account | profile, login, sessions | — | open |
-| Personalization | instructions, memory, tone | OBS-019 | partial |
+| Settings shell | 340 px sidebar, search, Back to app, grouped rows, 768 px content | OBS-037 | observed |
+| Appearance | theme mode, preset, accent/background/foreground, advanced | OBS-037 | observed |
 | Models | selection, limits, features | OBS-014 | partial |
+| Account, billing, parental controls, pets | reference account chrome | OBS-037 | not applicable (single user, self-hosted) |
+| Personalization | instructions, memory, tone | OBS-019 | reference only |
 | Connectors | MCP/apps, auth status, tools | — | open |
 | Data | export, delete, retention | — | open |
-| Appearance | theme, language, accessibility | — | open |
 
 ## States
 

@@ -106,6 +106,9 @@ architecture decision.
 - Model training or fine-tuning.
 - Importing ChatGPT account data.
 - Cloning OpenAI-specific backend behavior or internal APIs.
+- Account, billing and plan management, parental controls, trust contacts,
+  usage quotas and marketing preferences. They presuppose a hosted multi-tenant
+  account that this single-user self-hosted product does not have.
 - The reference **Work** surface. The owner excluded it: v1 is chat only, and
   no Chat/Work switch is rendered. The observation of the switch (OBS-013)
   stays in the log as context, not as a requirement. (2026-11-17)

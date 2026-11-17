@@ -17,23 +17,33 @@
 - Error messages do not reveal whether the username or password was wrong.
 - Rate limit: exponential backoff per IP and per username.
 - After login, redirect to the originally requested route.
-- Logout is available in the profile menu.
+- Logout is available in the app menu.
 
 ## Settings sections
+
+This is a self-hosted single-user product, not a hosted account. Settings are a
+secondary surface, and v1 needs far fewer of them than the reference. The
+reference settings tree (account, billing, parental controls, pets, usage
+plans) is recorded as observation only and is **not** a requirement.
+
+M1 ships only the language switch and a read-only server status. Everything
+else follows with the feature it configures.
 
 ### Models
 
 - List providers and models from OpenCode.
 - Show context window, capabilities (reasoning, image input, PDF input), cost.
 - Set the default model for new chats.
-- Deep link to the OpenCode web UI for provider credentials and custom models.
+- Provider credentials and custom models are configured in OpenCode; the page
+  shows the configuration path, or the same-origin admin route when
+  `ADMIN_PROXY=on`.
 
 ### Agents
 
 - List agents, their mode and model.
 - Set the default agent.
 - Show the effective permission rules (read-only).
-- Deep link to OpenCode for advanced agent configuration.
+- Advanced agent configuration stays in OpenCode files.
 
 ### Connectors
 
@@ -41,15 +51,16 @@
   `disabled`).
 - Show tools per server.
 - Connect/disconnect where the API supports it.
-- Deep link to the OpenCode web UI for OAuth and configuration.
+- OAuth and server configuration stay in OpenCode, reachable through the
+  same-origin admin route when enabled.
 
 ### Appearance
 
 - Theme: system, light, dark.
 - Language: English, German.
-- Density: comfortable, compact.
 - Reduced motion toggle.
-- Font size.
+- No arbitrary accent, font or per-theme editing in v1; that is reference
+  behavior and adds configuration surface without a single-user benefit.
 
 ### Data
 
@@ -58,12 +69,20 @@
 - Show storage locations and backup hints.
 - No telemetry by default.
 
-### Advanced
+### Server
 
-- OpenCode server status: version, URL, latency.
-- Link to the OpenCode web UI.
-- Show the effective configuration path.
-- Diagnostics: recent errors, event stream status.
+- OpenCode version, URL and latency.
+- Event stream status and the last error.
+- Effective configuration path.
+- The same-origin admin route when `ADMIN_PROXY=on`; otherwise a text
+  instruction to configure OpenCode on the host.
+
+### Explicitly not in scope
+
+Account profile, display name, email and username, password reset by email,
+plan/billing, parental controls, trust contacts, "pets", usage quotas and
+marketing preferences. None of them exists in a single-user self-hosted
+deployment; rendering them would be decoration without a backend.
 
 ## OpenCode configuration flow
 

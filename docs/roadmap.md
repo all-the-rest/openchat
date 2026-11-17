@@ -1,6 +1,9 @@
 # Roadmap
 
 Phases are vertical slices: each ends with something usable and testable.
+Function comes first: the reference UI is the model for behavior and measured
+defaults, not a pixel target. Visual polish is M6, after the functional
+surfaces work.
 
 ## M0 — Clean-room analysis
 
@@ -27,6 +30,8 @@ repo.
 
 **Exit:** a real prompt streams end to end against a local OpenCode server, and
 no component contains a literal user-visible string.
+
+No visual polish in M1 beyond the measured defaults needed for a usable layout.
 
 ## M2 — Rendering core
 
