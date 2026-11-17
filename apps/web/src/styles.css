@@ -1,0 +1,354 @@
+@import "tailwindcss";
+
+/* daisyUI 5 with only our two themes (ADR-0007). No built-in theme ships. */
+@plugin "daisyui" {
+  themes: false;
+  logs: false;
+}
+
+/* ------------------------------------------------------------------------ */
+/* openchat — dark, the default theme. Values from docs/spec/08.            */
+/* ------------------------------------------------------------------------ */
+@plugin "daisyui/theme" {
+  name: "openchat";
+  default: true;
+  color-scheme: dark;
+
+  --color-base-100: #000000;
+  --color-base-200: #1b1b1b;
+  --color-base-300: #1d222b;
+  --color-base-content: #ededed;
+
+  --color-primary: #4f8cff;
+  --color-primary-content: #0b0d11;
+  --color-secondary: #c9c9c9;
+  --color-secondary-content: #0b0d11;
+  --color-accent: #6ba0ff;
+  --color-accent-content: #0b0d11;
+  --color-neutral: #232935;
+  --color-neutral-content: #ededed;
+
+  --color-info: #4f8cff;
+  --color-info-content: #0b0d11;
+  --color-success: #3fb950;
+  --color-success-content: #0b0d11;
+  --color-warning: #d29922;
+  --color-warning-content: #0b0d11;
+  --color-error: #f85149;
+  --color-error-content: #0b0d11;
+
+  /* Measured radii are larger than daisyUI's defaults. */
+  --radius-selector: 1rem;
+  --radius-field: 0.5rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+
+  /* Tokens without a daisyUI counterpart (spec 08, ADR-0007). */
+  --oc-bg-app: #000000;
+  --oc-bg-sidebar: #000000;
+  --oc-bg-elevated: #1d222b;
+  --oc-bg-hover: #232935;
+  --oc-bg-selected: #2a3140;
+  --oc-text-secondary: #c9c9c9;
+  --oc-text-muted: #afafaf;
+  --oc-border-subtle: rgb(255 255 255 / 0.12);
+  --oc-border-strong: #38414f;
+  --oc-focus: #8ab4ff;
+  --oc-bubble-user: #2c6732;
+  --oc-bubble-user-text: #effaf3;
+  --oc-code-bg: #303030;
+  --oc-scrim: rgb(0 0 0 / 0.55);
+  --oc-syntax-keyword: #ff7b72;
+  --oc-syntax-string: #a5d6ff;
+  --oc-syntax-comment: #8b949e;
+  --oc-syntax-number: #79c0ff;
+  --oc-syntax-title: #d2a8ff;
+}
+
+/* ------------------------------------------------------------------------ */
+/* openchat-light — mirrored semantic names with inverted surfaces.         */
+/* ------------------------------------------------------------------------ */
+@plugin "daisyui/theme" {
+  name: "openchat-light";
+  color-scheme: light;
+
+  --color-base-100: #fcfcfc;
+  --color-base-200: #ffffff;
+  --color-base-300: #f4f4f4;
+  --color-base-content: #0d0d0d;
+
+  --color-primary: #4f8cff;
+  --color-primary-content: #0b0d11;
+  --color-secondary: #5d5d5d;
+  --color-secondary-content: #ffffff;
+  --color-accent: #3a74d8;
+  --color-accent-content: #ffffff;
+  --color-neutral: #0d0d0d;
+  --color-neutral-content: #ffffff;
+
+  --color-info: #4f8cff;
+  --color-info-content: #0b0d11;
+  --color-success: #2f7d36;
+  --color-success-content: #ffffff;
+  --color-warning: #9a6b00;
+  --color-warning-content: #ffffff;
+  --color-error: #c22b22;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 1rem;
+  --radius-field: 0.5rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+
+  --oc-bg-app: #fcfcfc;
+  --oc-bg-sidebar: #fcfcfc;
+  --oc-bg-elevated: #ffffff;
+  --oc-bg-hover: rgb(0 0 0 / 0.05);
+  --oc-bg-selected: rgb(0 0 0 / 0.06);
+  --oc-text-secondary: #5d5d5d;
+  --oc-text-muted: #5d5d5d;
+  --oc-border-subtle: rgb(0 0 0 / 0.08);
+  --oc-border-strong: rgb(0 0 0 / 0.2);
+  --oc-focus: #2f6bd8;
+  --oc-bubble-user: #def3e5;
+  --oc-bubble-user-text: #14361a;
+  --oc-code-bg: #f1f1f1;
+  --oc-scrim: rgb(0 0 0 / 0.35);
+  --oc-syntax-keyword: #a626a4;
+  --oc-syntax-string: #1a7f37;
+  --oc-syntax-comment: #6e7781;
+  --oc-syntax-number: #0550ae;
+  --oc-syntax-title: #8250df;
+}
+
+/*
+ * Theme-scoped tokens become normal Tailwind utilities (`bg-bubble-user`,
+ * `border-subtle`, `text-muted`). `inline` keeps the utility pointing at the
+ * runtime variable so both themes share one class vocabulary.
+ */
+@theme inline {
+  --color-app: var(--oc-bg-app);
+  --color-sidebar: var(--oc-bg-sidebar);
+  --color-surface: var(--color-base-200);
+  --color-elevated: var(--oc-bg-elevated);
+  --color-hover: var(--oc-bg-hover);
+  --color-selected: var(--oc-bg-selected);
+  --color-muted: var(--oc-text-muted);
+  --color-subtle: var(--oc-border-subtle);
+  --color-strong: var(--oc-border-strong);
+  --color-focus-ring: var(--oc-focus);
+  --color-bubble-user: var(--oc-bubble-user);
+  --color-bubble-user-text: var(--oc-bubble-user-text);
+  --color-code-bg: var(--oc-code-bg);
+  --color-scrim: var(--oc-scrim);
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@theme {
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.125rem;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+
+  --radius-row: 8px;
+  --radius-card: 16px;
+  --radius-bubble: 22px;
+  --radius-composer: 26px;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-base-100);
+    color: var(--color-base-content);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--oc-focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-primary);
+    color: var(--color-primary-content);
+  }
+}
+
+@layer components {
+  /* Markdown prose. Semantic tokens only, no palette utilities. */
+  .markdown > :first-child {
+    margin-top: 0;
+  }
+
+  .markdown > :last-child {
+    margin-bottom: 0;
+  }
+
+  .markdown p {
+    margin-block: 0.75rem;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+  }
+
+  .markdown h1,
+  .markdown h2,
+  .markdown h3,
+  .markdown h4 {
+    font-weight: 600;
+    line-height: 1.35;
+    margin-block: 1.5rem 0.75rem;
+  }
+
+  .markdown h1 {
+    font-size: var(--text-xl);
+  }
+
+  .markdown h2 {
+    font-size: var(--text-lg);
+  }
+
+  .markdown h3,
+  .markdown h4 {
+    font-size: var(--text-base);
+  }
+
+  .markdown ul,
+  .markdown ol {
+    margin-block: 0.75rem;
+    padding-inline-start: 1.5rem;
+  }
+
+  .markdown ul {
+    list-style: disc;
+  }
+
+  .markdown ol {
+    list-style: decimal;
+  }
+
+  .markdown li {
+    margin-block: 0.25rem;
+  }
+
+  .markdown li > p {
+    margin-block: 0.25rem;
+  }
+
+  .markdown a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .markdown a:hover {
+    color: var(--color-accent);
+  }
+
+  .markdown strong {
+    font-weight: 600;
+  }
+
+  .markdown blockquote {
+    border-inline-start: 2px solid var(--oc-border-strong);
+    color: var(--oc-text-secondary);
+    margin-block: 0.75rem;
+    padding-inline-start: 0.75rem;
+  }
+
+  .markdown hr {
+    border: 0;
+    border-top: 1px solid var(--oc-border-subtle);
+    margin-block: 1.5rem;
+  }
+
+  .markdown table {
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    line-height: 1.25rem;
+    margin-block: 1rem;
+    width: 100%;
+  }
+
+  .markdown th,
+  .markdown td {
+    border-bottom: 1px solid var(--oc-border-subtle);
+    padding: 0.5rem;
+    text-align: start;
+    vertical-align: top;
+  }
+
+  .markdown th {
+    font-weight: 600;
+  }
+
+  .markdown img {
+    border-radius: var(--radius-card);
+    max-width: 100%;
+  }
+
+  .markdown :not(pre) > code {
+    background-color: var(--oc-code-bg);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    padding: 0.1em 0.3em;
+    word-break: break-word;
+  }
+
+  .markdown pre {
+    margin: 0;
+  }
+
+  .markdown pre code {
+    background: transparent;
+    padding: 0;
+  }
+
+  .markdown .katex-display {
+    margin-block: 1rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-block: 0.25rem;
+  }
+}
+
+/* highlight.js token colors live in `styles/highlight.css` and are driven by
+ * the active theme's `--oc-*` variables (spec 08). */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

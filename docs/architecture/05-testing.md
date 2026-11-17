@@ -67,7 +67,7 @@ One implementation of the `ChatBackend` port, no HTTP:
 - `LIVE_TESTS=1`, an explicit `OPENCODE_URL` and a dedicated cheap model.
 - Hard budget: one short prompt, no tools unless the scenario requires it, and
   a timeout that aborts the run.
-- Excluded from CI and from `bun run test`; run with `LIVE_TESTS=1 bun run test`
+- Excluded from CI and from `pnpm run test`; run with `LIVE_TESTS=1 pnpm run test`
   so the suite keeps one entry point and the guard is an env var, not a second
   script.
 - Never runs with the owner's default model by accident; require

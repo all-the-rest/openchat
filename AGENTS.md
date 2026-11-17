@@ -62,16 +62,19 @@ context.
 
 ## Engineering
 
-- Package manager: Bun.
+- Package manager: pnpm (workspaces in `pnpm-workspace.yaml`). Do not add a
+  second package manager.
 - Frontend: React + Vite + TypeScript.
 - Styling: Tailwind CSS 4 + daisyUI 5 over the semantic tokens in
   `docs/spec/08-design-tokens.md` (ADR-0007). Chat-specific surfaces are our own
   components; daisyUI covers the generic controls.
-- BFF: Bun + Hono (or Node + Hono), same-origin.
+- BFF: Node + Hono, same-origin.
 - Backend: OpenCode V2 via `@opencode/client`; optional `@opencode/sdk`.
 - Tests: Vitest + Playwright. Every change ships tests.
-- Quality gates before commit: `bun run lint`, `bun run typecheck`,
-  `bun run test`, `bun run build`.
+- Quality gates before commit: `pnpm run lint`, `pnpm run typecheck`,
+  `pnpm run test`, `pnpm run build`.
+- CodeGraph index in `.codegraph/`; `.githooks/pre-commit` runs `codegraph sync`.
+  Prefer `codegraph explore` over grep for architecture questions.
 - Build agents do not commit or push; the orchestrator commits and reviews
   dependency and script changes in the diff.
 

@@ -1,0 +1,155 @@
+import type { SVGProps } from "react"
+
+type IconProps = SVGProps<SVGSVGElement>
+
+function Icon({ children, ...props }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      {children}
+    </svg>
+  )
+}
+
+export function SendIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 19V5" />
+      <path d="m5 12 7-7 7 7" />
+    </Icon>
+  )
+}
+
+export function StopIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M15 5H6a2 2 0 0 0-2 2v9" />
+    </Icon>
+  )
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m4 12 5 5L20 6" />
+    </Icon>
+  )
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  )
+}
+
+export function MenuIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </Icon>
+  )
+}
+
+export function PlusIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </Icon>
+  )
+}
+
+export function ArrowDownIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 5v14" />
+      <path d="m5 12 7 7 7-7" />
+    </Icon>
+  )
+}
+
+export function SunIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.9 4.9 1.4 1.4" />
+      <path d="m17.7 17.7 1.4 1.4" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m4.9 19.1 1.4-1.4" />
+      <path d="m17.7 6.3 1.4-1.4" />
+    </Icon>
+  )
+}
+
+export function MoonIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+    </Icon>
+  )
+}
+
+export function AlertIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3 2.5 20h19L12 3Z" />
+      <path d="M12 9v5" />
+      <path d="M12 17h.01" />
+    </Icon>
+  )
+}
+
+export function ToolIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="4" />
+      <path d="m7 10 3 2-3 2" />
+      <path d="M12 15h5" />
+    </Icon>
+  )
+}
+
+export function WrapIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6h16" />
+      <path d="M4 12h12a3 3 0 1 1 0 6h-3" />
+      <path d="m15 16-2 2 2 2" />
+      <path d="M4 18h4" />
+    </Icon>
+  )
+}
+
+export function BrainIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9.5 4A3.5 3.5 0 0 0 6 7.5v.2A3 3 0 0 0 5 13a3 3 0 0 0 1.2 5.2A3 3 0 0 0 12 20V6.5A2.5 2.5 0 0 0 9.5 4Z" />
+      <path d="M14.5 4A3.5 3.5 0 0 1 18 7.5v.2a3 3 0 0 1 1 5.3 3 3 0 0 1-1.2 5.2A3 3 0 0 1 12 20" />
+    </Icon>
+  )
+}

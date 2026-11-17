@@ -1,0 +1,242 @@
+import { z } from "zod"
+
+/** Roles that can appear in a transcript. */
+export type Role = "user" | "assistant" | "system"
+
+export type ToolStatus = "queued" | "running" | "success" | "error"
+
+export interface TextPart {
+  type: "text"
+  id: string
+  text: string
+}
+
+export interface ReasoningPart {
+  type: "reasoning"
+  id: string
+  text: string
+}
+
+export interface ToolPart {
+  type: "tool"
+  id: string
+  callID: string
+  name: string
+  status: ToolStatus
+  input?: string
+  output?: string
+  error?: string
+  startedAt?: number
+  endedAt?: number
+}
+
+export interface ErrorPart {
+  type: "error"
+  id: string
+  message: string
+  code?: string
+  retryable?: boolean
+}
+
+export type Part = TextPart | ReasoningPart | ToolPart | ErrorPart
+
+export type MessageStatus = "streaming" | "complete" | "stopped" | "error"
+
+export interface Message {
+  id: string
+  sessionID: string
+  role: Role
+  parts: Part[]
+  created: number
+  status: MessageStatus
+}
+
+export interface SessionInfo {
+  id: string
+  title: string
+  directory: string
+  created: number
+  updated: number
+}
+
+export interface ModelInfo {
+  id: string
+  name: string
+  providerID: string
+}
+
+export interface AgentInfo {
+  id: string
+  name: string
+  description?: string
+}
+
+export interface ServerInfo {
+  version: string
+  mode: "fake" | "live"
+  workspace: string
+}
+
+export interface InfoResponse {
+  server: ServerInfo
+  models: ModelInfo[]
+  agents: AgentInfo[]
+  scenario: string
+}
+
+export interface LoginResponse {
+  user: string
+}
+
+export interface PromptResponse {
+  ok: true
+  messageID: string
+  /** True when the prompt was accepted into the queue of a running session. */
+  queued?: boolean
+}
+
+export interface PromptRequest {
+  text: string
+  /** `queue` accepts the prompt while a run is active instead of rejecting it. */
+  delivery?: "queue"
+}
+
+export interface CreateSessionRequest {
+  title?: string
+}
+
+/** Event names the fake backend and the live adapter normalize to. */
+export const EVENT = {
+  sessionCreated: "session.created",
+  executionStarted: "session.execution.started",
+  executionSucceeded: "session.execution.succeeded",
+  executionFailed: "session.execution.failed",
+  textDelta: "session.text.delta",
+  reasoningDelta: "session.reasoning.delta",
+  toolUpdated: "session.tool.updated",
+  messageCompleted: "session.message.completed",
+  interrupted: "session.interrupted",
+  usageUpdated: "session.usage.updated",
+  error: "session.error",
+} as const
+
+export type EventType = (typeof EVENT)[keyof typeof EVENT]
+
+export interface DurableRef {
+  aggregateID: string
+  seq: number
+  version: number
+}
+
+export interface EventEnvelope {
+  id: string
+  created: number
+  type: string
+  data: Record<string, unknown>
+  durable?: DurableRef
+}
+
+export interface TextDeltaData {
+  sessionID: string
+  messageID: string
+  partID: string
+  delta: string
+}
+
+export interface ReasoningDeltaData extends TextDeltaData {}
+
+export interface ToolUpdatedData {
+  sessionID: string
+  messageID: string
+  part: ToolPart
+}
+
+export interface ExecutionData {
+  sessionID: string
+  messageID: string
+}
+
+export interface SessionErrorData {
+  sessionID: string
+  messageID?: string
+  message: string
+  code?: string
+  retryable?: boolean
+}
+
+/** Scripted fake scenarios; `rich` exercises the M2 renderers. */
+export type FakeScenario =
+  | "default"
+  | "rich"
+  | "reasoning"
+  | "tools"
+  | "error"
+  | "abort"
+  | "slow"
+
+export const promptRequestSchema = z.object({
+  text: z.string().min(1).max(32_000),
+  /** `queue` accepts a prompt while a run is active instead of rejecting it. */
+  delivery: z.literal("queue").optional(),
+})
+
+export const createSessionRequestSchema = z.object({
+  title: z.string().min(1).max(120).optional(),
+})
+
+export const loginRequestSchema = z.object({
+  password: z.string().min(1).max(512),
+})
+
+export const toolPartSchema = z.object({
+  type: z.literal("tool"),
+  id: z.string(),
+  callID: z.string(),
+  name: z.string(),
+  status: z.enum(["queued", "running", "success", "error"]),
+  input: z.string().optional(),
+  output: z.string().optional(),
+  error: z.string().optional(),
+  startedAt: z.number().optional(),
+  endedAt: z.number().optional(),
+})
+
+export const partSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text"), id: z.string(), text: z.string() }),
+  z.object({ type: z.literal("reasoning"), id: z.string(), text: z.string() }),
+  toolPartSchema,
+  z.object({
+    type: z.literal("error"),
+    id: z.string(),
+    message: z.string(),
+    code: z.string().optional(),
+    retryable: z.boolean().optional(),
+  }),
+])
+
+export const messageSchema = z.object({
+  id: z.string(),
+  sessionID: z.string(),
+  role: z.enum(["user", "assistant", "system"]),
+  parts: z.array(partSchema),
+  created: z.number(),
+  status: z.enum(["streaming", "complete", "stopped", "error"]),
+})
+
+export const eventEnvelopeSchema = z.object({
+  id: z.string(),
+  created: z.number(),
+  type: z.string(),
+  data: z.record(z.string(), z.unknown()),
+  durable: z
+    .object({ aggregateID: z.string(), seq: z.number(), version: z.number() })
+    .optional(),
+})
+
+/** Plain text of a message, used for copy and for E2E assertions. */
+export function messageText(message: Message): string {
+  return message.parts
+    .filter((part): part is TextPart => part.type === "text")
+    .map((part) => part.text)
+    .join("\n\n")
+}

@@ -1,0 +1,88 @@
+/*
+ * Syntax highlighting for the token classes rehype-highlight emits.
+ *
+ * highlight.js ships one palette per stylesheet and those are light-only (or
+ * dark-only) fixed colors. Driving every token from the theme's `--oc-*`
+ * variables keeps code readable in both of our themes without a second
+ * stylesheet per theme (spec 08).
+ */
+.hljs {
+  background: transparent;
+  color: inherit;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--oc-syntax-comment);
+  font-style: italic;
+}
+
+.hljs-doctag,
+.hljs-keyword,
+.hljs-formula,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type {
+  color: var(--oc-syntax-keyword);
+}
+
+.hljs-string,
+.hljs-attr,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-regexp,
+.hljs-addition {
+  color: var(--oc-syntax-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-variable,
+.hljs-built_in,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--oc-syntax-number);
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-section,
+.hljs-name {
+  color: var(--oc-syntax-title);
+}
+
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+  color: var(--oc-syntax-comment);
+}
+
+.hljs-tag {
+  color: var(--oc-text-secondary);
+}
+
+/* Structural tokens stay in the surrounding text color. */
+.hljs-subst,
+.hljs-params,
+.hljs-property,
+.hljs-operator,
+.hljs-punctuation {
+  color: inherit;
+}
+
+.hljs-deletion {
+  color: var(--color-error);
+}
+
+.hljs-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
+}

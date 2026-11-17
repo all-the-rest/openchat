@@ -2,19 +2,18 @@
   "name": "openchat",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "packageManager": "pnpm@11.23.0",
   "scripts": {
-    "dev": "bun run --filter '*' dev",
-    "build": "bun run --filter '*' build",
-    "lint": "bun run --filter '*' lint",
-    "typecheck": "bun run --filter '*' typecheck",
-    "test": "bun run --filter '*' test",
-    "test:e2e": "bun run --filter '*' test:e2e"
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "lint": "node scripts/lint-i18n.ts && pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "test:e2e": "pnpm --filter @openchat/web run test:e2e",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "engines": {
-    "bun": ">=1.4.0"
+    "node": ">=24",
+    "pnpm": ">=10"
   }
 }

@@ -29,3 +29,4 @@ not read `docs/reference/**` or the observation logs.
 | `11-implementation-brief.md` | builder onboarding and first slice |
 | `12-i18n.md` | internationalization rules and copy conventions |
 | `13-code-surface.md` | V2 Chat/Code switch and embedded OpenCode UI |
+| `14-interactive-patterns.md` | Catalogue of interactive chat patterns (cards, charts, drafts, artifacts) |

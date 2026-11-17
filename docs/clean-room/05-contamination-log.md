@@ -62,6 +62,28 @@ implementation.
   [`docs/architecture/03-auth-deployment.md`](../architecture/03-auth-deployment.md);
   no site names, credentials or hostnames are copied into the repository.
 
+### C-006 — Interactive elements, Codex run and the planning surface
+
+- **Date:** 2026-11-17
+- **Kind:** reference observations with screenshots and accessibility snapshots
+- **Scope:** OBS-040 and OBS-041 (inline interactive cards, chart, map, draft
+  email, Codex viewer) and OBS-042 (scheduled-tasks surface). Raw captures live
+  in `references/raw/` (gitignored). Notes:
+  [`../research/interactive-chat-elements.md`](../research/interactive-chat-elements.md),
+  [`../research/codex-luna-low.md`](../research/codex-luna-low.md),
+  [`../research/plan-mode.md`](../research/plan-mode.md).
+- **Risk:** the screenshots show reference chrome and generated UI; the Codex
+  viewer used `sandbox="allow-scripts allow-same-origin"`, which our design
+  rejects. The card catalogue is derived from behaviour, not from the
+  reference's markup.
+- **Countermeasure:** the catalogue in
+  [`../spec/14-interactive-patterns.md`](../spec/14-interactive-patterns.md)
+  describes anatomy, states and payloads in our own words and components; no
+  reference markup, CSS, icon or prompt text is reproduced. The builder reads
+  only the spec, never `docs/research/**` or `docs/clean-room/**`. The
+  `openchat_app_write` artifact contract is independent of the reference
+  runner.
+
 ## Rules for new entries
 
 Record:

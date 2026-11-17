@@ -118,7 +118,7 @@ Markdown list instead.
 **And** the choice persists.
 
 **Given** the source tree
-**When** `bun run lint` runs
+**When** `pnpm run lint` runs
 **Then** a hard-coded user-visible string fails the build
 **And** a key missing from either locale fails the build.
 
@@ -144,7 +144,7 @@ Markdown list instead.
 ## N. Zero-quota tests
 
 **Given** a CI environment with no provider credentials and no network access
-**When** `bun run test` and the Playwright suite run
+**When** `pnpm run test` and the Playwright suite run
 **Then** every scenario above runs against `BACKEND_MODE=fake`, except the
 security checks that are explicit properties of the real deployment (the
 OpenCode `401` and the V2 Code host ticket flow), which run as integration
@@ -160,7 +160,7 @@ tests against a local stub
 
 - All scenarios pass in CI against the fake backend (or are explicitly marked
   manual).
-- `bun run lint`, `bun run typecheck`, `bun run test`, `bun run build` pass.
+- `pnpm run lint`, `pnpm run typecheck`, `pnpm run test`, `pnpm run build` pass.
 - No scenario in the default suite contacts a real provider.
 - Accessibility pass has no serious axe findings.
 - Every new user-visible string has an `en` and a `de` translation.

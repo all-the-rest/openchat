@@ -1,0 +1,7 @@
+#!/bin/sh
+# Keep the CodeGraph index in step with what is being committed.
+# Never blocks a commit: a stale or missing index is noise, not a gate.
+if command -v codegraph >/dev/null 2>&1 && [ -d .codegraph ]; then
+  codegraph sync >/dev/null 2>&1 || echo "codegraph: sync failed, index may be stale" >&2
+fi
+exit 0

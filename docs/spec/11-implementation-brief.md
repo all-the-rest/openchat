@@ -63,7 +63,7 @@ Do not build the design system, artifacts or settings before this works.
 ## Definition of done for a slice
 
 - Acceptance scenarios for the slice pass.
-- `bun run lint`, `bun run typecheck`, `bun run test`, `bun run build` pass.
+- `pnpm run lint`, `pnpm run typecheck`, `pnpm run test`, `pnpm run build` pass.
 - New UI has keyboard access and visible focus.
 - New backend calls have timeouts, cancellation and user-visible errors.
 - The issue is updated with what changed and what remains.

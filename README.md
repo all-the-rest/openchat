@@ -88,14 +88,13 @@ paths; local MCP servers live in the user-level config.
 
 ## Development
 
-Not started yet. Planned:
-
 ```bash
-bun install
-bun run dev
+pnpm install
+pnpm run dev        # BFF on :8787, web on :5173
 ```
 
-Requirements: Bun ≥ 1.4, OpenCode ≥ 2.3, optionally Docker for deployment.
+Requirements: Node ≥ 24, pnpm ≥ 10, OpenCode ≥ 2.3, optionally Docker for
+deployment.
 
 ## License
 

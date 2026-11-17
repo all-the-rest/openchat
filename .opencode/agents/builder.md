@@ -138,35 +138,35 @@ permissions:
     effect: deny
 
   # Shell is an exact allowlist of quality-gate commands. Deny everything
-  # first, then open only exact strings: `bun run lint && cat
+  # first, then open only exact strings: `pnpm run lint && cat
   # docs/clean-room/...` does not match and stays closed. The orchestrator
   # commits and pushes.
   - action: shell
     resource: "*"
     effect: deny
   - action: shell
-    resource: "bun install --frozen-lockfile"
+    resource: "pnpm install"
     effect: allow
   - action: shell
-    resource: "bun install"
+    resource: "pnpm install --frozen-lockfile"
     effect: allow
   - action: shell
-    resource: "bun add *"
+    resource: "pnpm add *"
     effect: allow
   - action: shell
-    resource: "bun remove *"
+    resource: "pnpm remove *"
     effect: allow
   - action: shell
-    resource: "bun run lint"
+    resource: "pnpm run lint"
     effect: allow
   - action: shell
-    resource: "bun run typecheck"
+    resource: "pnpm run typecheck"
     effect: allow
   - action: shell
-    resource: "bun run test"
+    resource: "pnpm run test"
     effect: allow
   - action: shell
-    resource: "bun run build"
+    resource: "pnpm run build"
     effect: allow
 ---
 
@@ -196,8 +196,8 @@ orchestrator; the observer resolves it.
 
 - No commits, no pushes. The orchestrator commits.
 - Every change ships tests (Vitest and/or Playwright).
-- Quality gates: `bun run lint`, `bun run typecheck`, `bun run test`,
-  `bun run build`.
+- Quality gates: `pnpm run lint`, `pnpm run typecheck`, `pnpm run test`,
+  `pnpm run build`.
 - Tests use the fake backend and fixtures; never a paid provider by default.
 - All UI strings go through the i18n layer; no literals in components.
 - No secrets, no external assets without a license.

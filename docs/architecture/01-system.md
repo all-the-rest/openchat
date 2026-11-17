@@ -118,7 +118,7 @@ Every session is created with an explicit `location.directory` taken from
 ```
 apps/
   web/                 React + Vite
-  server/              Bun + Hono BFF
+  server/              Node + Hono BFF
   artifact-host/       static artifact origin
   code-host/           authenticated OpenCode UI proxy (V2)
 packages/

@@ -24,6 +24,9 @@ repo.
 
 ## M1 — Walking skeleton
 
+**Status:** implemented (`apps/web`, `apps/server`, `packages/opencode`); see
+[`implementation/01-m1-m2.md`](implementation/01-m1-m2.md).
+
 - Bun workspace, `apps/web`, `apps/server`, `packages/opencode`.
 - Auth (`basic` first), same-origin proxy, `/healthz`.
 - Session list, new chat, prompt, SSE stream, stop.
@@ -42,6 +45,9 @@ component contains a literal user-visible string.
 No visual polish in M1 beyond the measured defaults needed for a usable layout.
 
 ## M2 — Rendering core
+
+**Status:** implemented; renderer rules and tests are listed in
+[`implementation/01-m1-m2.md`](implementation/01-m1-m2.md).
 
 - Renderer registry and message part model.
 - Markdown/GFM, code highlighting, tables, math, Mermaid.
@@ -106,6 +112,22 @@ lifecycle.
   ([parity inventory](research/opencode-web-gate-parity.md), issue #20).
 
 **Exit:** a fresh host can be deployed from the docs and restored from backup.
+
+## v1 additions (owner, 2026-11-17)
+
+Five capabilities were added to v1 after M0 and are tracked as issues:
+
+| Issue | Feature | Phase |
+| --- | --- | --- |
+| #21 | File upload and download for agent-produced files | M3 (transport) + M4 (file cards) |
+| #22 | Office documents: DOCX create/fill, XLSX, PDF conversion | M4 |
+| #23 | Python toolchain (python-docx, openpyxl, pypdf, markitdown, pillow) in dev and the production image | M3 setup, M7 image |
+| #24 | PWA: installable shell, offline state, generated icon set | M6 |
+| #25 | Per-chat working files directory with quotas and path safety | M3 |
+
+They do not reorder the phases; M1 and M2 stay the current slice. The Python
+toolchain is the only one that changes the deployment image (M7), so its size
+budget is part of the deployment checklist.
 
 ## Deferred / V2
 

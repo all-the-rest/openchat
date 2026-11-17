@@ -1,0 +1,102 @@
+/**
+ * English catalogue. This map is the source of the key union; every other
+ * locale must provide exactly the same keys (spec 12).
+ */
+export const en = {
+  "app.name": "OpenChat",
+  "app.tagline": "A workspace for your agent.",
+  "app.loading": "Loading…",
+
+  "nav.skipToContent": "Skip to content",
+  "nav.openSidebar": "Open chat list",
+  "nav.closeSidebar": "Close chat list",
+  "nav.chats": "Chats",
+  "nav.sessionsLabel": "Chat sessions",
+  "nav.newChat": "New chat",
+  "nav.main": "Main navigation",
+
+  "auth.loginTitle": "Sign in",
+  "auth.loginDescription": "Enter your password to open the workspace.",
+  "auth.passwordLabel": "Password",
+  "auth.passwordPlaceholder": "Password",
+  "auth.signIn": "Sign in",
+  "auth.signingIn": "Signing in…",
+  "auth.signOut": "Sign out",
+  "auth.invalidPassword": "Wrong password. Try again.",
+  "auth.loginFailed": "Sign-in failed. Try again.",
+  "auth.bootFailed": "The app could not reach the server.",
+  "auth.retry": "Retry",
+
+  "session.untitled": "Untitled",
+  "session.listLabel": "Chat sessions",
+  "session.empty": "No chats yet.",
+  "session.loading": "Loading chats…",
+  "session.loadFailed": "Chats could not be loaded.",
+  "session.createFailed": "Could not create a chat.",
+
+  "landing.heading": "What do you want to work on?",
+  "landing.description": "Send a message to start a new chat.",
+
+  "chat.transcript": "Chat transcript",
+  "chat.youSaid": "You said",
+  "chat.assistantSaid": "Assistant answer",
+  "chat.empty": "Start the conversation.",
+  "chat.loading": "Loading messages…",
+  "chat.loadFailed": "Messages could not be loaded.",
+  "chat.retry": "Retry",
+  "chat.sendFailed": "Your message could not be sent.",
+  "chat.stopFailed": "The run could not be stopped.",
+  "chat.dismiss": "Dismiss",
+  "chat.statusReady": "Ready",
+  "chat.statusSubmitting": "Sending…",
+  "chat.statusStreaming": "Assistant is responding…",
+  "chat.statusStopped": "Stopped",
+  "chat.statusError": "Failed",
+  "chat.statusQueued": "Queued",
+  "chat.queuedHint": "Your message is queued until the current run finishes.",
+  "chat.continue": "Continue",
+  "chat.retryLast": "Retry",
+  "chat.answerComplete": "Answer complete",
+  "chat.copied": "Copied to clipboard",
+  "chat.copyMessage": "Copy message",
+  "chat.jumpToLatest": "Jump to latest message",
+
+  "composer.label": "Message",
+  "composer.placeholder": "Send a message…",
+  "composer.send": "Send",
+  "composer.stop": "Stop response",
+  "composer.hint": "Enter sends, Shift+Enter adds a line",
+
+  "render.reasoning": "Reasoning",
+  "render.reasoningStreaming": "Reasoning in progress",
+  "render.toolInput": "Input",
+  "render.toolOutput": "Output",
+  "render.showFull": "Show full",
+  "render.showLess": "Show less",
+  "render.error": "Error",
+  "render.errorUnknown": "The request failed.",
+  "render.errorCode": "Code: {code}",
+  "render.retryable": "This error can be retried.",
+  "render.unknownPart": "Unsupported content: {type}",
+  "render.code": "Code",
+  "render.copyCode": "Copy code",
+  "render.wrap": "Toggle line wrapping",
+  "render.copied": "Copied",
+  "render.mermaidLoading": "Rendering diagram…",
+
+  "tool.status.queued": "Queued",
+  "tool.status.running": "Running",
+  "tool.status.success": "Done",
+  "tool.status.error": "Error",
+
+  "theme.label": "Theme",
+  "theme.toggleToLight": "Switch to light theme",
+  "theme.toggleToDark": "Switch to dark theme",
+
+  "language.label": "Interface language",
+  "language.en": "English",
+  "language.de": "Deutsch",
+} as const
+
+export type MessageKey = keyof typeof en
+export type MessageVars = Record<string, string | number>

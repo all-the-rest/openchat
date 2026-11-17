@@ -1,0 +1,121 @@
+{
+  "session": {
+    "id": "ses_fixture",
+    "projectID": "prj_fixture",
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "time": {
+      "created": 1700000000000,
+      "updated": 1700000001000
+    },
+    "title": "Redacted fixture session",
+    "location": {
+      "directory": "/workspace"
+    }
+  },
+  "messages": [
+    {
+      "id": "msg_fixture_user",
+      "time": {
+        "created": 1700000000100
+      },
+      "type": "user",
+      "text": "Redacted example prompt"
+    },
+    {
+      "id": "msg_fixture_assistant",
+      "time": {
+        "created": 1700000000200,
+        "completed": 1700000001000
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "fixture-model",
+        "providerID": "fixture-provider"
+      },
+      "finish": "stop",
+      "content": [
+        {
+          "type": "reasoning",
+          "text": "Redacted reasoning summary."
+        },
+        {
+          "type": "text",
+          "text": "Redacted answer body."
+        },
+        {
+          "type": "tool",
+          "id": "call_fixture",
+          "name": "read",
+          "executed": true,
+          "state": {
+            "status": "completed",
+            "input": {
+              "path": "README.md"
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Example tool output."
+              }
+            ]
+          },
+          "time": {
+            "created": 1700000000300,
+            "ran": 1700000000400,
+            "completed": 1700000000500
+          }
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "evt_fixture_text",
+      "created": 1700000000600,
+      "type": "session.text.delta",
+      "data": {
+        "sessionID": "ses_fixture",
+        "assistantMessageID": "msg_fixture_assistant",
+        "ordinal": 0,
+        "delta": "Redacted"
+      }
+    },
+    {
+      "id": "evt_fixture_started",
+      "created": 1700000000700,
+      "type": "session.execution.started",
+      "durable": {
+        "aggregateID": "ses_fixture",
+        "seq": 1,
+        "version": 1
+      },
+      "data": {
+        "sessionID": "ses_fixture"
+      }
+    },
+    {
+      "id": "evt_fixture_interrupted",
+      "created": 1700000000800,
+      "type": "session.execution.interrupted",
+      "durable": {
+        "aggregateID": "ses_fixture",
+        "seq": 2,
+        "version": 1
+      },
+      "data": {
+        "sessionID": "ses_fixture",
+        "reason": "user"
+      }
+    }
+  ]
+}

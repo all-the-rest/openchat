@@ -39,6 +39,7 @@ folder (plus architecture and features).
 | [`spec/09-accessibility.md`](spec/09-accessibility.md) | Keyboard, screen readers, reduced motion |
 | [`spec/10-acceptance.md`](spec/10-acceptance.md) | Acceptance criteria |
 | [`spec/12-i18n.md`](spec/12-i18n.md) | Internationalization (en/de) |
+| [`spec/14-interactive-patterns.md`](spec/14-interactive-patterns.md) | Reusable interactive chat patterns (P-01 … P-11) |
 
 ## Architecture
 
@@ -59,5 +60,9 @@ folder (plus architecture and features).
 | [`matrix/01-feasibility.md`](matrix/01-feasibility.md) | Feasibility matrix |
 | [`research/opencode-capabilities.md`](research/opencode-capabilities.md) | Evidence-backed OpenCode capabilities |
 | [`research/opencode-web-gate-parity.md`](research/opencode-web-gate-parity.md) | Successor parity with `opencode-web-gate` |
+| [`research/interactive-chat-elements.md`](research/interactive-chat-elements.md) | Inline interactive elements in a normal chat (OBS-040) |
+| [`research/codex-luna-low.md`](research/codex-luna-low.md) | Codex mode run: timeline, file output, timing |
+| [`research/plan-mode.md`](research/plan-mode.md) | Scheduled-tasks surface (OBS-042) |
+| [`implementation/01-m1-m2.md`](implementation/01-m1-m2.md) | What runs today: API, scenarios, renderers, tests, limits |
 | [`roadmap.md`](roadmap.md) | Phases and milestones |
 | [`decisions/`](decisions/) | Architecture Decision Records |

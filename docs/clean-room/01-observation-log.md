@@ -308,15 +308,75 @@ that does not exist in a single-user self-hosted product. Only appearance,
 models, agents, connectors, data and a server status page are candidates; see
 [`docs/spec/07-settings-auth.md`](../spec/07-settings-auth.md).
 
+### OBS-040 — Interactive element inline in an assistant message
+
+`OBS-040 | E1/E2/E3 | 2026-11-17 | Thread | A normal chat contains an interactive calculator inside the assistant message, rendered by an iframe with src https://cdn.platform.openai.com/deployments/dil/v15/runner.html, title "DIL execution sandbox", sandbox="allow-scripts", referrerpolicy="no-referrer", loading="auto". The card is in flow between prose blocks, content-sized, with a title, a label/value row, a range slider, a two-option radio group, four key/value rows and a large result. | owner-provided chat; DOM read, keyboard and pointer interaction`
+
+Details in [`../research/interactive-chat-elements.md`](../research/interactive-chat-elements.md):
+
+- Slider and radio changes recompute all values immediately, locally, with no
+  page or frame reload and no request to the app origin.
+- The accessibility tree exposes the slider and the radios without names
+  ("Slider", "radio"), and the computed result as a level-1 heading; the visible
+  labels are not programmatically associated.
+- There is no surrounding toolbar: no reset, present or download control in this
+  example, and no right-rail panel.
+- The frame reports content height; the card scrolls with the transcript and
+  keeps its state while mounted.
+
+**Applicability:** confirms that inline interactive elements are a chat surface,
+not only an artifact panel. FR-37 … FR-40 and architecture 07 stay valid; the
+a11y gaps become explicit requirements for our artifact template (named
+controls, polite result announcement, meaningful frame title). This partially
+answers OBS-020 for the in-message case; the artifact side panel remains open.
+
+### OBS-041 — Interactive variants: result cards, map, chart, draft email
+
+`OBS-041 | E1/E2/E3 | 2026-11-17 | Thread | Three further owner-provided chats show four more interactive variants: page link cards with thumbnails and a favourites action; an inline Mapbox canvas (500 × 400) with a sources disclosure and an expand control; a host-rendered Recharts chart (~27 rem) with a hover toolbar offering share, "show as table" and "download as image"; and an editable draft-email card with a recipient button, a subject textarea, a ~600 px contenteditable body and an app/connect action group. | owner-provided chats; DOM read, menu opened, chart inspected`
+
+Details in [`../research/interactive-chat-elements.md`](../research/interactive-chat-elements.md):
+
+- Link cards are buttons, not anchors; the page opens through the host, and the
+  thumbnail is a proxied image.
+- The map and the chart are host-rendered React components in the message DOM,
+  not sandboxed frames. The chart's data also exists as a table via the options
+  menu, so the numbers stay accessible.
+- The draft email is inline and editable in place, with a paragraph-structured
+  `contenteditable` body whose accessible name is just its placeholder.
+- None of the three variants exposes a result back into the conversation; the
+  chart can be exported as an image, the email can be handed to a mail app.
+
+**Applicability:** the chart pattern (host-rendered, table toggle, image export)
+is a candidate for our M2/M5 renderers, but only with our own component and
+tokens. Maps need network tiles and stay out of offline artifacts; the email
+draft belongs to a later composer/tool surface, not to the v1 chat core.
+
+### OBS-042 — Planning surface: composer, task rows, recommendations
+
+`OBS-042 | E1/E2 | 2026-11-17 | Tasks | The sidebar entry "Planen" opens /scheduled with an H1, a one-line description, a filter chip, a chat-style composer ("plan a task" + add/dictate/send), a list of task rows (icon, title button, muted "schedule · next run" line, hover actions pause/edit/more) and a collapsible "Recommended" list of one-line suggestion rows with a plus action. | sidebar → Planen; snapshot + screenshot`
+
+Details in [`../research/plan-mode.md`](../research/plan-mode.md):
+
+- Task creation is a prompt, not a form; the schedule is natural language.
+- Rows are 1 px-ruled list rows, not cards; the content column matches the chat
+  width.
+- Accessible names repeat the task title three times per row (open, pause,
+  edit); our rows must name the row once and keep actions short.
+- Recommendations are account-personalized; ours stay static or empty.
+
+**Applicability:** M5 (`spec/06-agents-tasks.md`). Adopt row anatomy, filter
+chip and a prompt-based composer; do not adopt the duplicated names, emoji
+artwork or personalization.
+
 ## Pending observations
 
 | ID | What | Why it matters | Status |
 | --- | --- | --- | --- |
-| OBS-020 | Artifacts and preview panel | Largest UI block | open |
+| OBS-020 | Artifacts and preview panel | Largest UI block | partial — inline element in OBS-040; side panel open |
 | OBS-021 | Image generation and image display | Media | open |
 | OBS-022 | File/PDF attachments and previews | Composer | open |
-| OBS-023 | Web search, citations, source cards | Research | open |
-| OBS-024 | Deep research / agent mode ("Plan") | Planning and history | open |
+| OBS-023 | Web search, citations, source cards | Research | partial — cards, map and chart in OBS-041 |
+| OBS-024 | Deep research / agent mode ("Plan") | Planning and history | partial — scheduled-tasks surface in OBS-042 |
 | OBS-025 | Projects, tasks, GPTs/apps ("Plugins", "Discover") | Information architecture | open |
 | OBS-026 | Settings, connectors, model configuration | Auth/config | open |
 | OBS-027 | Dark theme tokens | Both themes required | done |

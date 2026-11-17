@@ -15,7 +15,8 @@ Legend: `observed` = seen with an evidence ID; `partial` = some parts observed;
 | Header | sidebar/menu toggle, title menu, share, one trailing icon; the reference has a Chat/Work switch (OBS-013), excluded from our product | OBS-010, OBS-013, OBS-015, OBS-029 | observed |
 | Thread | labelled message groups, assistant blocks, actions, scroll-to-bottom | OBS-015, OBS-017 | observed |
 | Composer | pill shell, plus + add menu, text field, effort/model picker, dictation, voice, send/stop, expand | OBS-012, OBS-014, OBS-018, OBS-036 | observed |
-| Right rail | artifact / canvas / file preview | — | open |
+| Right rail | artifact / canvas / file preview | OBS-040 (inline element only) | open |
+| Tasks | composer, filter chip, task rows with hover actions, recommendations | OBS-042 | observed (M5) |
 | Overlays | model picker, title menu, share, settings | OBS-014, OBS-029 | partial |
 
 ## Entry
@@ -33,9 +34,14 @@ product must not personalize by default.
 
 | Surface | Parts | Evidence | Status |
 | --- | --- | --- | --- |
-| Assistant message | text blocks, headings, lists, tables, code, math, diagrams, actions | OBS-016, OBS-017 | observed |
+| Assistant message | text blocks, headings, lists, tables, code, math, diagrams, interactive card, actions | OBS-016, OBS-017, OBS-040 | observed |
 | User message | right-aligned bubble, link detection, copy/share/edit | OBS-015, OBS-017, OBS-028 | observed |
 | Streaming | thinking status, stop button, disabled share, auto title | OBS-015 | observed |
+| Interactive element | sandboxed frame in flow, slider + radio + live result, no toolbar | OBS-040 | observed |
+| Result cards | page link cards with thumbnail, site chip, favourites action | OBS-041 | observed |
+| Map card | inline canvas, sources disclosure, expand control | OBS-041 | observed |
+| Chart card | host-rendered chart, share, table toggle, image export | OBS-041 | observed |
+| Draft email | recipient, subject, editable body, mail actions | OBS-041 | observed |
 | Errors | retry, error text, model switch | — | open |
 | Branching | edit and regenerate, branch history | — | open |
 | In-chat search | hits, navigation | — | open |

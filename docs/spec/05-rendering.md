@@ -81,6 +81,14 @@ Rules:
 - Submits `session.form.reply`.
 - A settled form becomes read-only.
 
+## Interactive patterns
+
+Recurring interactive shapes — parameter cards, charts with a table toggle,
+result cards, place cards, comparison tables, draft composers, step/duration
+disclosures, file pills — are catalogued with payload, anatomy, a11y and tests
+in [`14-interactive-patterns.md`](14-interactive-patterns.md). Implement one
+pattern once and reuse it; do not invent a card per model output.
+
 ## Artifacts
 
 Artifacts cover static documents and **interactive** HTML/CSS/JS (calculators,

@@ -9,3 +9,9 @@ references/raw
 
 # Third-party REA skill (MIT). Installed locally, not vendored.
 .opencode/skills/reverse-engineer-anything/
+test-results
+playwright-report
+coverage
+
+# Derived CodeGraph index (rebuild with `codegraph init`), not source.
+.codegraph/
