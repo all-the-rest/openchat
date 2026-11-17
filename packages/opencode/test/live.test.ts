@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
-import type { ToolPart } from "@openchat/contracts"
-import type { V2Event } from "@opencode/client"
+import type { EventEnvelope, ToolPart } from "@openchat/contracts"
+import type { OpenCodeClient, V2Event } from "@opencode/client"
+import { LiveBackend } from "../src/live"
 import { createToolEventState, normalizeEvent } from "../src/live"
 
 const durable = { aggregateID: "ses_live", seq: 1, version: 1 }
@@ -181,5 +182,165 @@ describe("live tool events", () => {
     )
     expect(toolPart(called).name).toBe("tool")
     expect(toolPart(called).startedAt).toBe(1_000)
+  })
+})
+
+describe("live idle completion", () => {
+  it("uses the tracked assistant message id for session.idle", () => {
+    const state = createToolEventState()
+    normalizeEvent(
+      event({
+        type: "session.text.delta",
+        data: {
+          sessionID: "ses_live",
+          assistantMessageID: "msg_live",
+          ordinal: 0,
+          delta: "hello",
+        },
+      }),
+      state,
+    )
+
+    const idle = normalizeEvent(
+      event({ type: "session.idle", data: { sessionID: "ses_live" } }),
+      state,
+    )
+    expect(idle.type).toBe("session.message.completed")
+    expect(idle.data).toEqual({ sessionID: "ses_live", messageID: "msg_live" })
+  })
+
+  it("keeps session.idle distinct when no assistant message is known", () => {
+    const idle = normalizeEvent(
+      event({ type: "session.idle", data: { sessionID: "ses_live" } }),
+      createToolEventState(),
+    )
+    expect(idle.type).toBe("session.idle")
+    expect(idle.data).toEqual({ sessionID: "ses_live" })
+    expect("messageID" in idle.data).toBe(false)
+  })
+})
+
+function waitFor(predicate: () => boolean, description: string, timeoutMs = 2000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  return new Promise((resolve, reject) => {
+    const poll = () => {
+      if (predicate()) {
+        resolve()
+        return
+      }
+      if (Date.now() > deadline) {
+        reject(new Error(`Timed out waiting for ${description}`))
+        return
+      }
+      setTimeout(poll, 5)
+    }
+    poll()
+  })
+}
+
+function gatedStream(events: V2Event[]): {
+  stream: AsyncIterable<V2Event>
+  release: () => void
+  returned: () => number
+} {
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let returned = 0
+  const stream: AsyncIterable<V2Event> = {
+    [Symbol.asyncIterator](): AsyncIterator<V2Event> {
+      let index = 0
+      return {
+        next: async () => {
+          await gate
+          if (index < events.length) {
+            const value = events[index]
+            index += 1
+            if (value) return { value, done: false }
+          }
+          // Stay open until the adapter closes the subscription.
+          await new Promise<void>(() => {})
+          return { value: undefined, done: true }
+        },
+        return: async () => {
+          returned += 1
+          return { value: undefined, done: true }
+        },
+      }
+    },
+  }
+  return { stream, release: () => release(), returned: () => returned }
+}
+
+describe("live fan-out", () => {
+  it("opens one client subscription and delivers each event once per subscriber", async () => {
+    const events = [
+      event({
+        id: "evt_one",
+        type: "session.text.delta",
+        data: {
+          sessionID: "ses_live",
+          assistantMessageID: "msg_live",
+          ordinal: 0,
+          delta: "one",
+        },
+      }),
+      event({
+        id: "evt_two",
+        type: "session.text.delta",
+        data: {
+          sessionID: "ses_live",
+          assistantMessageID: "msg_live",
+          ordinal: 0,
+          delta: "two",
+        },
+      }),
+    ]
+    const { stream, release, returned } = gatedStream(events)
+    let subscriptions = 0
+    const client = {
+      event: {
+        subscribe: () => {
+          subscriptions += 1
+          return stream
+        },
+      },
+    } as unknown as OpenCodeClient
+
+    const backend = new LiveBackend({
+      baseUrl: "http://unused",
+      password: "unused",
+      workspace: "/workspace",
+      client,
+    })
+
+    const first: EventEnvelope[] = []
+    const second: EventEnvelope[] = []
+    const firstController = new AbortController()
+    const secondController = new AbortController()
+    const runFirst = (async () => {
+      for await (const event of backend.subscribe(firstController.signal)) first.push(event)
+    })()
+    const runSecond = (async () => {
+      for await (const event of backend.subscribe(secondController.signal)) second.push(event)
+    })()
+
+    // Both consumers are attached to the same upstream subscription before it
+    // emits anything.
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(subscriptions).toBe(1)
+    release()
+
+    await waitFor(() => first.length === 2 && second.length === 2, "both subscribers")
+    expect(first.map((entry) => entry.id)).toEqual(second.map((entry) => entry.id))
+    expect(new Set(first.map((entry) => entry.id)).size).toBe(2)
+    expect(subscriptions).toBe(1)
+
+    firstController.abort()
+    secondController.abort()
+    await Promise.all([runFirst, runSecond])
+    // The last subscriber leaving closes the single upstream iterator.
+    await waitFor(() => returned() === 1, "upstream close")
   })
 })

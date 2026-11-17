@@ -108,8 +108,8 @@ anyway.
 
 - **Data:** `{ title, caption?, kind: "bar"|"line", categories: string[],
   series: [{ name, values: number[] }], unit? }`.
-- **Anatomy:** title, optional caption, chart, header-row toggle "show as
-  table", download-as-image.
+- **Anatomy:** title, optional caption, chart, header-row toggle between chart
+  and table, download-as-image.
 - **Behavior:** the table view renders the same data as a real `<table>`; the
   toggle is a segmented control with `aria-pressed`; the chart is decorative
   (`role="img"` with an accessible description) because the table carries the

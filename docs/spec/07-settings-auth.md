@@ -3,19 +3,28 @@
 ## Auth model
 
 - Exactly one user.
-- Credentials come from environment variables (`AUTH_USER`,
-  `AUTH_PASSWORD_HASH`, `AUTH_SECRET`).
+- Credentials come from environment variables: `OPENCHAT_USER` (the
+  username embedded in the session), `OPENCHAT_PASSWORD` (the single
+  credential) and `SESSION_SECRET` (signs the cookie). There is no password
+  hash and no separate username field in the login form.
 - No registration, no password reset by email, no OAuth in v1.
-- Login form sets a signed, HttpOnly, SameSite=Lax session cookie.
+- Login form sets a signed, HttpOnly, SameSite=Lax session cookie. The cookie
+  has a fixed lifetime (`SESSION_TTL_SECONDS`); there is no sliding renewal.
 - Session TTL is configurable; logout clears the cookie.
 - Optional edge Basic Auth (Caddy) in front of the app as a second layer.
 - OpenCode itself is never exposed; the BFF authenticates every request.
 
 ## Login screen
 
-- Minimal: product name, username, password, submit.
-- Error messages do not reveal whether the username or password was wrong.
-- Rate limit: exponential backoff per IP and per username.
+- Minimal: product name, password, submit.
+- One generic error message; it never reveals whether the username or password
+  was wrong (there is only one password).
+- Rate limit: fixed window of 10 failed attempts per client address in 60
+  seconds. Requests over the limit answer `429` with `Retry-After`. A
+  successful login clears the window.
+- Prompt submission has its own cheap fixed window: 30 prompts per address in
+  60 seconds, also `429` with `Retry-After`. Interrupt and inbox reads stay
+  outside that budget.
 - After login, redirect to the originally requested route.
 - Logout is available in the app menu.
 
@@ -102,6 +111,21 @@ With `ADMIN_PROXY=off` the settings page shows the configuration path and says
 Never publish the OpenCode port or a separate `opencode.` subdomain. A public
 OpenCode host would expose a shell-capable backend and break NFR-02. This
 avoids reimplementing provider management while keeping one source of truth.
+
+## M7 deployment (not implemented)
+
+The M1/M2 auth model is one password compared in constant time. The following
+hardening is deliberately deferred to the M7 deployment milestone and is **not
+implemented** today; do not configure these variables yet:
+
+- A separate username field and hashed credentials (`AUTH_USER`,
+  `AUTH_PASSWORD_HASH` with bcrypt/argon2).
+- Exponential backoff per address and per username. The current throttle is a
+  fixed window of 10 failures per address in 60 seconds.
+- Sliding session renewal at most once per hour. The current cookie has a fixed
+  absolute lifetime.
+- A server-side session record that logout can revoke. Logout currently clears
+  the cookie only.
 
 ## Security requirements
 

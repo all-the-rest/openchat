@@ -46,6 +46,8 @@ export const en = {
   "chat.retry": "Retry",
   "chat.sendFailed": "Your message could not be sent.",
   "chat.stopFailed": "The run could not be stopped.",
+  "chat.connectionLost": "Connection lost — reconnecting…",
+  "chat.reconnected": "Reconnected",
   "chat.dismiss": "Dismiss",
   "chat.statusReady": "Ready",
   "chat.statusSubmitting": "Sending…",

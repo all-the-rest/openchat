@@ -121,3 +121,43 @@ describe("FakeBackend queueing", () => {
     expect(messages.map((message) => message.status)).toEqual(["complete", "complete"])
   })
 })
+
+describe("FakeBackend inbox", () => {
+  it("lists pending turns and cancels one by its message id", async () => {
+    const backend = new FakeBackend({ delayMs: 50 })
+    const session = await backend.createSession({ directory: "/workspace" })
+    await backend.prompt(session.id, { text: "first" })
+
+    const second = await backend.prompt(session.id, { text: "second", delivery: "queue" })
+    const third = await backend.prompt(session.id, { text: "third", delivery: "queue" })
+    expect(second.queued).toBe(true)
+    expect(third.queued).toBe(true)
+
+    const entries = await backend.listInbox(session.id)
+    expect(entries.map((entry) => entry.id)).toEqual([second.messageID, third.messageID])
+    expect(entries.map((entry) => entry.text)).toEqual(["second", "third"])
+    expect(entries.every((entry) => entry.kind === "user" && entry.delivery === "queue")).toBe(true)
+
+    await backend.cancelQueued(session.id, second.messageID)
+    expect((await backend.listInbox(session.id)).map((entry) => entry.id)).toEqual([
+      third.messageID,
+    ])
+    const messages = await backend.listMessages(session.id)
+    expect(messages.some((message) => message.id === second.messageID)).toBe(false)
+
+    await backend.cancelQueued(session.id, third.messageID)
+    expect(await backend.listInbox(session.id)).toEqual([])
+    await backend.interrupt(session.id)
+  })
+
+  it("rejects an unknown session and an unknown queue entry", async () => {
+    const backend = new FakeBackend({ delayMs: 0 })
+    await expect(backend.listInbox("ses_missing")).rejects.toMatchObject({
+      code: "not_found",
+    })
+    const session = await backend.createSession({ directory: "/workspace" })
+    await expect(backend.cancelQueued(session.id, "msg_missing")).rejects.toMatchObject({
+      code: "not_found",
+    })
+  })
+})

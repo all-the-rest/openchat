@@ -9,6 +9,7 @@ import {
 } from "@openchat/contracts"
 import type {
   InfoResponse,
+  InboxResponse,
   LoginResponse,
   PromptResponse,
   SessionInfo,
@@ -22,9 +23,13 @@ import {
 import type { AuthSettings } from "./auth"
 import type { EnvConfig } from "./env"
 import { MAX_BODY_BYTES, isBodyTooLarge } from "./limits"
-import { LoginThrottle } from "./throttle"
+import { FixedWindowThrottle } from "./throttle"
 
 export const SERVER_VERSION = "0.1.0"
+
+/** Per-address prompt budget: 30 accepted prompts in a rolling 60 s window. */
+export const PROMPT_LIMIT = 30
+export const PROMPT_WINDOW_MS = 60_000
 
 export interface AppOptions {
   config: EnvConfig
@@ -36,7 +41,15 @@ export interface AppVariables {
   user: string
 }
 
-export type AppEnv = { Variables: AppVariables }
+/**
+ * Values the node adapter passes per request. `remoteAddress` is the socket
+ * peer, not a client header, so it cannot be spoofed.
+ */
+export interface AppBindings {
+  remoteAddress?: string
+}
+
+export type AppEnv = { Bindings: AppBindings; Variables: AppVariables }
 
 function jsonError(
   c: Context,
@@ -128,16 +141,19 @@ function declaredContentLength(c: Context): number | undefined {
 }
 
 /**
- * Per-client failed-login bucket. The BFF runs behind the operator's reverse
- * proxy, which sets `X-Forwarded-For`; there is no socket address in the Hono
- * fetch context. A direct client could spoof the header, which only lets it
- * choose its own bucket on a single-user deployment.
+ * Per-client bucket key. The socket address comes from the node adapter; the
+ * forwarding headers are client-controlled, so they are only read when the
+ * operator explicitly sets `TRUST_PROXY=1` (the BFF sits behind a reverse proxy
+ * that overwrites them).
  */
-function clientAddress(c: Context): string {
-  const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim()
-  if (forwarded) return forwarded
-  const real = c.req.header("x-real-ip")?.trim()
-  return real || "local"
+function clientAddress(c: Context<AppEnv>, trustProxy: boolean): string {
+  if (trustProxy) {
+    const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim()
+    if (forwarded) return forwarded
+    const real = c.req.header("x-real-ip")?.trim()
+    if (real) return real
+  }
+  return c.env?.remoteAddress || "local"
 }
 
 function invalidMessage(error: { issues: Array<{ message?: string }> }): string {
@@ -170,7 +186,11 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
   const { config, backend } = options
   const version = options.version ?? SERVER_VERSION
   const settings = authSettings(config)
-  const loginThrottle = new LoginThrottle()
+  const loginThrottle = new FixedWindowThrottle()
+  const promptThrottle = new FixedWindowThrottle({
+    limit: PROMPT_LIMIT,
+    windowMs: PROMPT_WINDOW_MS,
+  })
   const app = new Hono<AppEnv>()
 
   app.onError((error, c) => {
@@ -228,7 +248,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       return jsonError(c, 400, "invalid_request", invalidMessage(parsed.error))
     }
 
-    const address = clientAddress(c)
+    const address = clientAddress(c, config.TRUST_PROXY)
     const throttle = loginThrottle.check(address)
     if (throttle.limited) {
       c.header("Retry-After", String(throttle.retryAfterSeconds))
@@ -237,10 +257,10 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
 
     const user = verifyPassword(parsed.data.password, settings)
     if (!user) {
-      loginThrottle.recordFailure(address)
+      loginThrottle.record(address)
       return jsonError(c, 401, "invalid_credentials", "Invalid password")
     }
-    loginThrottle.recordSuccess(address)
+    loginThrottle.reset(address)
     if (config.AUTH_MODE === "session") {
       c.header("Set-Cookie", sessionCookie(settings))
     }
@@ -297,6 +317,13 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
   })
 
   app.post("/api/sessions/:id/prompt", async (c) => {
+    const address = clientAddress(c, config.TRUST_PROXY)
+    const throttle = promptThrottle.check(address)
+    if (throttle.limited) {
+      c.header("Retry-After", String(throttle.retryAfterSeconds))
+      return jsonError(c, 429, "too_many_requests", "Too many prompts")
+    }
+
     const body = await readJson(c)
     if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
     if (body === INVALID_JSON) {
@@ -306,6 +333,9 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     if (!parsed.success) {
       return jsonError(c, 400, "invalid_request", invalidMessage(parsed.error))
     }
+    // Count accepted submissions only; a rejected body must not consume the
+    // caller's budget.
+    promptThrottle.record(address)
     // Spec 03: one active run per session. A second send is queued rather than
     // rejected, so the BFF defaults to the queue delivery mode.
     const result = await backend.prompt(c.req.param("id"), {
@@ -315,6 +345,18 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     const response: PromptResponse = { ok: true, messageID: result.messageID }
     if (result.queued) response.queued = true
     return c.json(response)
+  })
+
+  app.get("/api/sessions/:id/inbox", async (c) => {
+    const entries = await backend.listInbox(c.req.param("id"))
+    return c.json({ entries } satisfies InboxResponse)
+  })
+
+  // DELETE is state-changing, so the existing JSON content-type rule applies;
+  // clients send `Content-Type: application/json` even though the body is empty.
+  app.delete("/api/sessions/:id/inbox/:messageID", async (c) => {
+    await backend.cancelQueued(c.req.param("id"), c.req.param("messageID"))
+    return c.json({ ok: true })
   })
 
   app.post("/api/sessions/:id/interrupt", async (c) => {

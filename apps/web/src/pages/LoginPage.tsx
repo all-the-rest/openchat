@@ -1,14 +1,27 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { ApiError } from "../api/client"
 import { useAuth } from "../auth/provider"
 import { LocaleSelect, ThemeToggle } from "../components/controls"
 import { useT } from "../i18n/provider"
 
+/**
+ * Returns the requested same-origin path from a redirect state, or `null`.
+ * Only absolute single-slash paths are accepted: `//evil.example` (and any
+ * non-string) is treated as hostile and falls back to the landing page.
+ */
+export function safeRedirectPath(state: unknown): string | null {
+  if (typeof state !== "object" || state === null) return null
+  const from = (state as { from?: unknown }).from
+  if (typeof from !== "string" || !from.startsWith("/") || from.startsWith("//")) return null
+  return from
+}
+
 export function LoginPage() {
   const t = useT()
   const auth = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [password, setPassword] = useState("")
   const [error, setError] = useState<"invalid" | "failed" | null>(null)
   const [pending, setPending] = useState(false)
@@ -26,7 +39,7 @@ export function LoginPage() {
     setError(null)
     try {
       await auth.signIn(password)
-      navigate("/", { replace: true })
+      navigate(safeRedirectPath(location.state) ?? "/", { replace: true })
     } catch (failure) {
       const unauthorized =
         failure instanceof ApiError &&

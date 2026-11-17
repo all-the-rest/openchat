@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { AppShell } from "../src/components/AppShell"
 import { I18nProvider } from "../src/i18n/provider"
 import { ThemeProvider } from "../src/theme/provider"
@@ -28,6 +28,24 @@ vi.mock("../src/chat/sessions", () => ({
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+/** Stubs the viewport: only the wide layout reports a match. */
+function stubViewport(wide: boolean) {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: wide && query.includes("min-width: 1024px"),
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }))
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 function renderShell() {
   return render(
@@ -81,5 +99,38 @@ describe("sidebar drawer", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(content).not.toHaveAttribute("inert")
     await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it("keeps the closed drawer out of the tab order on a small viewport", async () => {
+    const user = userEvent.setup()
+    stubViewport(false)
+    renderShell()
+
+    const drawer = screen.getByTestId("app-drawer")
+    expect(drawer).toHaveAttribute("inert")
+    expect(drawer.querySelector(FOCUSABLE)).toBeNull()
+
+    const trigger = screen.getByRole("button", { name: "Open chat list" })
+    trigger.focus()
+    await user.tab({ shift: true })
+    expect(drawer.contains(document.activeElement)).toBe(false)
+
+    trigger.focus()
+    await user.tab()
+    expect(document.activeElement).not.toBe(trigger)
+    expect(drawer.contains(document.activeElement)).toBe(false)
+  })
+
+  it("keeps the sidebar links reachable on a wide viewport", async () => {
+    stubViewport(true)
+    renderShell()
+
+    const drawer = screen.getByTestId("app-drawer")
+    expect(drawer).not.toHaveAttribute("inert")
+
+    const newChat = await screen.findByTestId("new-chat")
+    newChat.focus()
+    expect(newChat).toHaveFocus()
+    expect(drawer.contains(newChat)).toBe(true)
   })
 })

@@ -4,6 +4,7 @@ import type {
   ErrorPart,
   EventEnvelope,
   FakeScenario,
+  InboxEntry,
   Message,
   ModelInfo,
   ReasoningPart,
@@ -12,6 +13,11 @@ import type {
   TextPart,
   ToolPart,
 } from "@openchat/contracts"
+import { EventQueue } from "./events"
+import { BackendError } from "./errors"
+
+export { BackendError } from "./errors"
+export type { BackendErrorCode } from "./errors"
 
 export interface PromptInput {
   text: string
@@ -43,8 +49,8 @@ export interface PromptResult {
 
 /**
  * The single port the BFF talks to. The fake and the live adapter both
- * implement it. Queue, permission and form methods are added when M2 needs
- * them; keeping the M1 surface small keeps both adapters honest.
+ * implement it. Permission and form methods are added when a milestone needs
+ * them; keeping the surface small keeps both adapters honest.
  */
 export interface ChatBackend {
   info(): Promise<ServerInfo>
@@ -52,22 +58,14 @@ export interface ChatBackend {
   createSession(input: CreateSessionInput): Promise<SessionInfo>
   listMessages(sessionID: string): Promise<Message[]>
   prompt(sessionID: string, input: PromptInput): Promise<PromptResult>
+  /** Pending turns of a session, oldest first. */
+  listInbox(sessionID: string): Promise<InboxEntry[]>
+  /** Removes one pending turn; `messageID` is the id `prompt` returned. */
+  cancelQueued(sessionID: string, messageID: string): Promise<void>
   interrupt(sessionID: string): Promise<void>
   listModels(): Promise<ModelInfo[]>
   listAgents(): Promise<AgentInfo[]>
   subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope>
-}
-
-export type BackendErrorCode = "not_found" | "conflict" | "invalid"
-
-export class BackendError extends Error {
-  readonly code: BackendErrorCode
-
-  constructor(code: BackendErrorCode, message: string) {
-    super(message)
-    this.name = "BackendError"
-    this.code = code
-  }
 }
 
 const SCENARIOS: FakeScenario[] = [
@@ -94,46 +92,16 @@ export function resolveScenario(text: string, fallback: FakeScenario): FakeScena
   return name && isFakeScenario(name) ? name : fallback
 }
 
-class EventQueue implements AsyncIterable<EventEnvelope> {
-  private values: EventEnvelope[] = []
-  private waiters: Array<(result: IteratorResult<EventEnvelope>) => void> = []
-  private closed = false
-
-  push(value: EventEnvelope): void {
-    if (this.closed) return
-    const waiter = this.waiters.shift()
-    if (waiter) {
-      waiter({ value, done: false })
-      return
-    }
-    this.values.push(value)
+function chunkText(text: string, size: number): string[] {
+  const chunks: string[] = []
+  for (let index = 0; index < text.length; index += size) {
+    chunks.push(text.slice(index, index + size))
   }
+  return chunks
+}
 
-  close(): void {
-    if (this.closed) return
-    this.closed = true
-    this.values.length = 0
-    for (const waiter of this.waiters.splice(0)) {
-      waiter({ value: undefined, done: true })
-    }
-  }
-
-  [Symbol.asyncIterator](): AsyncIterator<EventEnvelope> {
-    return {
-      next: () => this.next(),
-      return: async () => {
-        this.close()
-        return { value: undefined, done: true }
-      },
-    }
-  }
-
-  private next(): Promise<IteratorResult<EventEnvelope>> {
-    const value = this.values.shift()
-    if (value) return Promise.resolve({ value, done: false })
-    if (this.closed) return Promise.resolve({ value: undefined, done: true })
-    return new Promise((resolve) => this.waiters.push(resolve))
-  }
+function clone<T>(value: T): T {
+  return structuredClone(value)
 }
 
 interface RunState {
@@ -149,7 +117,10 @@ interface SessionState {
 }
 
 interface QueuedPrompt {
-  input: PromptInput
+  /** Id of the queued user message; this is the inbox entry id. */
+  messageID: string
+  text: string
+  created: number
 }
 
 export interface FakeBackendOptions {
@@ -222,18 +193,6 @@ const SLOW_TEXT = [
   "Slow scenario chunk six.",
 ].join(" ")
 
-function chunkText(text: string, size: number): string[] {
-  const chunks: string[] = []
-  for (let index = 0; index < text.length; index += size) {
-    chunks.push(text.slice(index, index + size))
-  }
-  return chunks
-}
-
-function clone<T>(value: T): T {
-  return structuredClone(value)
-}
-
 /**
  * Deterministic in-memory backend. No HTTP, no provider, no clock except the
  * injected one. It emits the real envelope shape so normalization is tested.
@@ -243,7 +202,7 @@ export class FakeBackend implements ChatBackend {
   private readonly runs = new Map<string, RunState>()
   /** One FIFO per session; entries are promoted when the active run ends. */
   private readonly queues = new Map<string, QueuedPrompt[]>()
-  private readonly subscribers = new Set<EventQueue>()
+  private readonly subscribers = new Set<EventQueue<EventEnvelope>>()
   private readonly scenario: FakeScenario
   private readonly delayOverride?: number
   private readonly clock: () => number
@@ -310,7 +269,7 @@ export class FakeBackend implements ChatBackend {
 
     if (active) {
       const queue = this.queues.get(sessionID) ?? []
-      queue.push({ input })
+      queue.push({ messageID: userMessage.id, text: input.text, created: userMessage.created })
       this.queues.set(sessionID, queue)
       // The assistant message is created when the queued turn starts, so the
       // active turn is not touched and the transcript keeps its order.
@@ -321,6 +280,34 @@ export class FakeBackend implements ChatBackend {
     session.messages.push(assistantMessage)
     this.startRun(sessionID, assistantMessage.id, input.text)
     return { messageID: assistantMessage.id }
+  }
+
+  async listInbox(sessionID: string): Promise<InboxEntry[]> {
+    this.requireSession(sessionID)
+    return (this.queues.get(sessionID) ?? []).map((entry) => ({
+      id: entry.messageID,
+      sessionID,
+      kind: "user",
+      text: entry.text,
+      delivery: "queue",
+      created: entry.created,
+    }))
+  }
+
+  async cancelQueued(sessionID: string, messageID: string): Promise<void> {
+    const session = this.requireSession(sessionID)
+    const queue = this.queues.get(sessionID) ?? []
+    const index = queue.findIndex((entry) => entry.messageID === messageID)
+    if (index === -1) {
+      throw new BackendError("not_found", `Unknown queued message: ${messageID}`)
+    }
+    queue.splice(index, 1)
+    if (queue.length === 0) this.queues.delete(sessionID)
+    // A cancelled turn disappears from the transcript too; otherwise the user
+    // message would stay pinned as pending without a run behind it.
+    const messageIndex = session.messages.findIndex((message) => message.id === messageID)
+    if (messageIndex !== -1) session.messages.splice(messageIndex, 1)
+    this.emit(EVENT.inboxCancelled, sessionID, { sessionID, messageID }, true)
   }
 
   async interrupt(sessionID: string): Promise<void> {
@@ -339,7 +326,7 @@ export class FakeBackend implements ChatBackend {
   }
 
   subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {
-    const queue = new EventQueue()
+    const queue = new EventQueue<EventEnvelope>()
     const cleanup = () => {
       this.subscribers.delete(queue)
       queue.close()
@@ -417,7 +404,7 @@ export class FakeBackend implements ChatBackend {
     if (queue.length === 0) this.queues.delete(sessionID)
     const assistantMessage = this.createAssistantMessage(sessionID)
     this.requireSession(sessionID).messages.push(assistantMessage)
-    this.startRun(sessionID, assistantMessage.id, next.input.text)
+    this.startRun(sessionID, assistantMessage.id, next.text)
   }
 
   private nextID(prefix: "ses" | "msg" | "part" | "call" | "evt"): string {

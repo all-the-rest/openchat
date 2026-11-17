@@ -6,6 +6,7 @@ export type BackendMode = "fake" | "live"
 export type AuthMode = "session" | "basic"
 
 export interface EnvConfig {
+  HOST: string
   PORT: number
   WORKSPACE_DIR: string
   BACKEND_MODE: BackendMode
@@ -19,6 +20,7 @@ export interface EnvConfig {
   SESSION_SECRET: string
   SESSION_TTL_SECONDS: number
   COOKIE_SECURE: boolean
+  TRUST_PROXY: boolean
 }
 
 export interface LoadEnvOptions {
@@ -29,6 +31,7 @@ export interface LoadEnvOptions {
 }
 
 const DEFAULT_PASSWORD = "openchat-dev"
+const DEFAULT_HOST = "127.0.0.1"
 const DEFAULT_PORT = 8787
 const DEFAULT_TTL_SECONDS = 604_800
 
@@ -133,6 +136,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
   }
 
   return {
+    HOST: read(source, "HOST") ?? DEFAULT_HOST,
     PORT: readNumber(source, "PORT", DEFAULT_PORT, warn),
     WORKSPACE_DIR: read(source, "WORKSPACE_DIR") ?? process.cwd(),
     BACKEND_MODE: backendMode,
@@ -146,5 +150,6 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     SESSION_SECRET: secret,
     SESSION_TTL_SECONDS: readNumber(source, "SESSION_TTL_SECONDS", DEFAULT_TTL_SECONDS, warn),
     COOKIE_SECURE: cookieSecure,
+    TRUST_PROXY: readBoolean(source, "TRUST_PROXY"),
   }
 }

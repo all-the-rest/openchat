@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Composer } from "../chat/Composer"
+import { ConnectionNotice } from "../chat/ConnectionNotice"
 import { useSessions } from "../chat/sessions"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useT } from "../i18n/provider"
@@ -37,6 +38,8 @@ export function LandingPage() {
         {failed ? (
           <ErrorBanner message={t("session.createFailed")} onDismiss={() => setFailed(false)} />
         ) : null}
+
+        <ConnectionNotice />
 
         <Composer
           onSend={send}

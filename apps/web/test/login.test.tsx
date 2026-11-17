@@ -19,18 +19,26 @@ vi.mock("../src/auth/provider", () => ({
   }),
 }))
 
-function renderLogin() {
+function renderLogin(state?: unknown) {
   return render(
     <ThemeProvider initialTheme="dark">
       <I18nProvider initialLocale="en">
-        <MemoryRouter initialEntries={["/login"]}>
+        <MemoryRouter initialEntries={[{ pathname: "/login", state }]}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<p>landing page</p>} />
+            <Route path="/settings" element={<p>settings page</p>} />
           </Routes>
         </MemoryRouter>
       </I18nProvider>
     </ThemeProvider>,
   )
+}
+
+async function signIn(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByTestId("login-password"), "secret")
+  await user.click(screen.getByTestId("login-submit"))
+  await waitFor(() => expect(auth.signIn).toHaveBeenCalledWith("secret"))
 }
 
 beforeEach(() => {
@@ -51,5 +59,32 @@ describe("login error codes", () => {
 
     await waitFor(() => expect(auth.signIn).toHaveBeenCalledWith("secret"))
     expect(await screen.findByRole("alert")).toHaveTextContent("Wrong password. Try again.")
+  })
+})
+
+describe("login redirect", () => {
+  it("returns to the requested route after signing in", async () => {
+    const user = userEvent.setup()
+    auth.signIn.mockResolvedValue(undefined)
+
+    renderLogin({ from: "/settings" })
+    await signIn(user)
+
+    expect(await screen.findByText("settings page")).toBeInTheDocument()
+  })
+
+  it.each([
+    ["a protocol-relative path", { from: "//evil.example" }],
+    ["a non-string value", { from: 42 }],
+    ["an absent state", undefined],
+  ])("falls back to the landing page for %s", async (_label, state) => {
+    const user = userEvent.setup()
+    auth.signIn.mockResolvedValue(undefined)
+
+    renderLogin(state)
+    await signIn(user)
+
+    expect(await screen.findByText("landing page")).toBeInTheDocument()
+    expect(screen.queryByText("settings page")).toBeNull()
   })
 })

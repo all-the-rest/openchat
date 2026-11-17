@@ -101,6 +101,27 @@ export interface PromptRequest {
   delivery?: "queue"
 }
 
+/** Kind of a pending turn, mirroring the OpenCode inbox entry types. */
+export type InboxEntryKind = "user" | "synthetic" | "compaction" | "move"
+
+/**
+ * One pending turn in a session's queue. `id` is the message id the prompt
+ * response returned; cancel targets exactly that id.
+ */
+export interface InboxEntry {
+  id: string
+  sessionID: string
+  kind: InboxEntryKind
+  /** Prompt text for user and synthetic entries; empty for other kinds. */
+  text: string
+  delivery: "steer" | "queue"
+  created: number
+}
+
+export interface InboxResponse {
+  entries: InboxEntry[]
+}
+
 export interface CreateSessionRequest {
   title?: string
 }
@@ -115,6 +136,7 @@ export const EVENT = {
   reasoningDelta: "session.reasoning.delta",
   toolUpdated: "session.tool.updated",
   messageCompleted: "session.message.completed",
+  inboxCancelled: "session.inbox.cancelled",
   interrupted: "session.interrupted",
   usageUpdated: "session.usage.updated",
   error: "session.error",

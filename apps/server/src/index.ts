@@ -88,7 +88,9 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     signal: lifecycle.signal,
   })
 
-  const webResponse = await app.fetch(webRequest)
+  const webResponse = await app.fetch(webRequest, {
+    remoteAddress: request.socket.remoteAddress,
+  })
 
   response.statusCode = webResponse.status
   for (const [name, value] of webResponse.headers) {
@@ -129,8 +131,8 @@ const server = createServer((request, response) => {
   })
 })
 
-server.listen(config.PORT, () => {
+server.listen(config.PORT, config.HOST, () => {
   console.log(
-    `[openchat] server listening on http://localhost:${config.PORT} (mode=${config.BACKEND_MODE})`,
+    `[openchat] server listening on http://${config.HOST}:${config.PORT} (mode=${config.BACKEND_MODE})`,
   )
 })

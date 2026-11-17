@@ -58,4 +58,61 @@ describe("lint-i18n gate", () => {
     expect(result.status).toBe(0)
     expect(result.stdout).toContain("no literal UI strings")
   })
+
+  it("fails on a JSX text node that spans lines", () => {
+    const root = fixture({
+      "src/Component.tsx": [
+        "export function C() {",
+        "  return (",
+        "    <p>",
+        "      Hello there",
+        "    </p>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+    })
+    const result = lint(root)
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("Component.tsx:4")
+    expect(result.stderr).toContain("Hello there")
+  })
+
+  it("fails on a DOM sink in a .ts file", () => {
+    const root = fixture({
+      "src/title.ts": [
+        "export function setTitle() {",
+        '  document.title = "Hello there"',
+        "}",
+        "",
+      ].join("\n"),
+      "src/label.ts": [
+        "export function label(element: HTMLElement) {",
+        '  element.setAttribute("aria-label", "Hello there")',
+        "}",
+        "",
+      ].join("\n"),
+    })
+    const result = lint(root)
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("title.ts:2")
+    expect(result.stderr).toContain("label.ts:2")
+    expect(result.stderr).toContain("Hello there")
+  })
+
+  it("does not flag generic types or expression comparisons", () => {
+    const root = fixture({
+      "src/Component.tsx": [
+        "export function C(): Promise<void> {",
+        "  const ok = 1 > 0",
+        "  return (",
+        "    <p>{ok ? <strong>{t(\"yes\")}</strong> : null}</p>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+    })
+    const result = lint(root)
+    expect(result.status).toBe(0)
+  })
 })

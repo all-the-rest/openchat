@@ -1,8 +1,8 @@
 # UI Review — OpenChat M1/M2 — 2026-11-17
 
 Capture: `npx playwright test -c playwright.screenshots.config.ts` (in `apps/web`) ·
-output: `apps/web/ui-review/` (gitignored) · 18 screenshots, 2 per route and
-viewport, four breakpoints.
+output: `apps/web/ui-review/` (gitignored) · 18 Playwright tests producing 30
+PNGs, four breakpoints.
 
 Verdict: **APPROVED** — no `critical` or `high` findings. One medium finding was
 fixed during the review round; the rest are open in

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { Composer } from "../chat/Composer"
+import { ConnectionNotice } from "../chat/ConnectionNotice"
 import { useSessions } from "../chat/sessions"
 import { Transcript } from "../chat/Transcript"
 import { useChatSession } from "../chat/useChatSession"
@@ -74,6 +75,7 @@ export function ChatPage() {
 
       <div className="shrink-0 border-t border-subtle bg-app px-4 pb-3 pt-3">
         <div className="mx-auto w-full max-w-[768px]">
+          <ConnectionNotice />
           {bannerMessage ? (
             <ErrorBanner message={bannerMessage} onDismiss={chat.clearError} />
           ) : null}

@@ -29,7 +29,10 @@ export default defineConfig({
     trace: "off",
     video: "off",
   },
-  outputDir: "ui-review",
+  // Playwright clears this directory at the start of a run. Keep it away from
+  // the curated `ui-review/<state>/<viewport>/` captures that the spec writes
+  // explicitly, or a fresh run would delete the reviewed screenshot set.
+  outputDir: "test-results/ui-review-run",
   projects: [
     {
       name: "mobile",

@@ -71,10 +71,14 @@ source and can run together.
 
 ```env
 AUTH_MODE=session            # basic | session
-AUTH_USER=owner
-AUTH_PASSWORD_HASH=...       # bcrypt/argon2
-AUTH_SECRET=...              # 32+ random bytes, base64
-SESSION_TTL=604800           # 7 days
+HOST=127.0.0.1               # container: 0.0.0.0
+PORT=8787
+TRUST_PROXY=0                # 1 behind a proxy that sets X-Forwarded-For
+OPENCHAT_USER=owner
+OPENCHAT_PASSWORD=...        # the only credential; hashing is M7
+SESSION_SECRET=...           # 32+ random bytes, base64
+SESSION_TTL_SECONDS=604800   # 7 days
+COOKIE_SECURE=1              # required in production
 ORIGIN=https://chat.example.com
 OPENCODE_URL=http://opencode:4096
 OPENCODE_USERNAME=opencode   # fixed by OpenCode 2.3
@@ -86,7 +90,7 @@ ADMIN_PROXY=off              # on: BFF proxies /admin/opencode behind auth
 STT_URL=                     # empty: dictation hidden
 STT_API_KEY=
 STT_MODEL=whisper-1
-BACKEND_MODE=opencode        # opencode | fake
+BACKEND_MODE=live            # live | fake
 ```
 
 OpenCode 2.3 **does authenticate HTTP requests**. `opencode serve` requires
@@ -136,9 +140,9 @@ credential is optional and independent.
 Generate:
 
 ```bash
-openssl rand -base64 32                 # AUTH_SECRET
+openssl rand -base64 32                 # SESSION_SECRET
 openssl rand -base64 32                 # ARTIFACT_SIGNING_KEY
-caddy hash-password --plaintext '...'   # AUTH_PASSWORD_HASH
+caddy hash-password --plaintext '...'   # optional edge basic_auth credential
 ```
 
 ## OpenCode administration
@@ -194,7 +198,7 @@ chat.example.com {
     X-Frame-Options "DENY"
     Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src https://artifacts.example.com https://code.example.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
   }
-  reverse_proxy app:3000
+  reverse_proxy app:8787
 }
 
 artifacts.example.com {
@@ -242,9 +246,13 @@ artifact host if a use case requires them.
 - `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, **no `Domain` attribute**
   (host-only). Host-only is what keeps `chat.example.com` cookies off
   `artifacts.example.com`; never set a registrable-domain cookie.
-- Signed with `AUTH_SECRET`; rotate the secret to invalidate all sessions.
-- TTL from `SESSION_TTL`; sliding renewal at most once per hour.
-- Logout clears the cookie and the server-side session record.
+- Signed with `SESSION_SECRET`; rotate the secret to invalidate all sessions.
+- TTL from `SESSION_TTL_SECONDS`; the lifetime is fixed, with no sliding
+  renewal (deferred to the M7 deployment work in
+  [`../spec/07-settings-auth.md`](../spec/07-settings-auth.md)).
+- Logout clears the cookie. There is no server-side session record yet, so a
+  copied cookie stays valid until its expiry; revoking sessions means rotating
+  `SESSION_SECRET`.
 
 ## CSRF and abuse
 
@@ -262,7 +270,7 @@ artifact host if a use case requires them.
 - `.env` is `0600`, owned by the service user.
 - Docker secrets or a secret manager for production.
 - No secrets in images, git history or logs.
-- Rotate `AUTH_SECRET` and the password after any suspected exposure.
+- Rotate `SESSION_SECRET` and the password after any suspected exposure.
 
 ## Feature flags
 
@@ -324,10 +332,14 @@ services:
     build: ./apps/server
     environment:
       AUTH_MODE: session
-      AUTH_USER: ${AUTH_USER}
-      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH}
-      AUTH_SECRET: ${AUTH_SECRET}
-      SESSION_TTL: ${SESSION_TTL:-604800}
+      HOST: 0.0.0.0
+      PORT: 8787
+      TRUST_PROXY: "1"
+      OPENCHAT_USER: ${OPENCHAT_USER}
+      OPENCHAT_PASSWORD: ${OPENCHAT_PASSWORD:?set a non-default password}
+      SESSION_SECRET: ${SESSION_SECRET:?set 32+ random bytes}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-604800}
+      COOKIE_SECURE: "1"
       ORIGIN: https://chat.example.com
       OPENCODE_URL: http://opencode:4096
       OPENCODE_USERNAME: opencode
@@ -338,7 +350,7 @@ services:
       ADMIN_PROXY: "off"
       STT_URL: ${STT_URL:-}
       STT_API_KEY: ${STT_API_KEY:-}
-      BACKEND_MODE: ${BACKEND_MODE:-opencode}
+      BACKEND_MODE: ${BACKEND_MODE:-live}
       CODE_SURFACE: ${CODE_SURFACE:-off}
       CODE_HOST_URL: ${CODE_HOST_URL:-}
       CODE_TICKET_SECRET: ${CODE_TICKET_SECRET:-}
@@ -419,8 +431,8 @@ no provider keys and no session secret.
 - **Monitoring:** uptime, disk, error rate, stream disconnects.
 - **Kill switch:** stop the `opencode` service to disable all agent execution
   without taking the UI down.
-- **Incident:** rotate `AUTH_SECRET`, rotate the password, inspect audit logs,
-  check for unexpected shell/network activity.
+- **Incident:** rotate `SESSION_SECRET`, rotate the password, inspect audit
+  logs, check for unexpected shell/network activity.
 
 ## Out of scope
 

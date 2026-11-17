@@ -130,8 +130,9 @@ surfaces, not one widget. Evidence: OBS-041.
   ~27 rem tall, responsive width, with axis titles, grid and four bars.
 - A toolbar appears on hover/focus at the card's top right with two controls:
   share and "chart options".
-- The options menu offers exactly two actions: **show as table** (toggles the
-  same data into an accessible table) and **download as image**.
+- The options menu offers exactly two actions: **toggle between chart and
+  table** (renders the same data as an accessible table) and **download as
+  image**.
 - Values in the surrounding prose stay as text; the chart is an addition, not a
   replacement for the numbers.
 

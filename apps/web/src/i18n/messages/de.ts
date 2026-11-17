@@ -45,6 +45,8 @@ export const de: Record<MessageKey, string> = {
   "chat.retry": "Erneut versuchen",
   "chat.sendFailed": "Deine Nachricht konnte nicht gesendet werden.",
   "chat.stopFailed": "Der Lauf konnte nicht gestoppt werden.",
+  "chat.connectionLost": "Verbindung unterbrochen – neuer Versuch läuft…",
+  "chat.reconnected": "Wieder verbunden",
   "chat.dismiss": "Ausblenden",
   "chat.statusReady": "Bereit",
   "chat.statusSubmitting": "Wird gesendet…",

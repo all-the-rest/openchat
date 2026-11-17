@@ -84,6 +84,19 @@ implementation.
   `openchat_app_write` artifact contract is independent of the reference
   runner.
 
+### C-007 — Observer material inside the implementation commit
+
+- **Date:** 2026-11-17
+- **Kind:** commit history, no new reference material
+- **Scope:** commit `fad110d` adds `docs/research/*` and `docs/spec/14` next to
+  the M1/M2 implementation.
+- **Risk:** the commit mixes observer output with builder output.
+- **Countermeasure:** the observer material was authored in a separate
+  role/session and committed together so the prototype milestone stayed a
+  single pushable commit; the builder session read only `docs/spec/**`,
+  `docs/architecture/**`, `docs/decisions/**` and `features/**`, never
+  `docs/research/**` or the raw logs. History is not rewritten.
+
 ## Rules for new entries
 
 Record:

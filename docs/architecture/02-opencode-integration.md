@@ -72,9 +72,9 @@ export interface ChatBackend {
   listSessions(): Promise<SessionInfo[]>
   createSession(input: CreateSessionInput): Promise<SessionInfo>
   listMessages(sessionID: string): Promise<Message[]>
-  prompt(sessionID: string, input: PromptInput): Promise<void>
+  prompt(sessionID: string, input: PromptInput): Promise<PromptResult>
   listInbox(sessionID: string): Promise<InboxEntry[]>
-  cancelInbox(sessionID: string, inboxID: string): Promise<void>
+  cancelQueued(sessionID: string, messageID: string): Promise<void>
   interrupt(sessionID: string): Promise<void>
   switchModel(sessionID: string, model: ModelRef): Promise<void>
   switchAgent(sessionID: string, agent: string): Promise<void>

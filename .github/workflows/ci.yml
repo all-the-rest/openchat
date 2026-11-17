@@ -16,6 +16,7 @@ jobs:
   fast:
     name: fast
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -33,6 +34,7 @@ jobs:
     name: e2e
     needs: fast
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -48,6 +50,7 @@ jobs:
   ratchet:
     name: ratchet
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       # The i18n counter runs a TypeScript script with Node's native type
@@ -55,7 +58,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - uses: all-the-rest/ratchet-cli@v1
+      - uses: all-the-rest/ratchet-cli@dc43a9a322dd5906a49bc3bd4d7d8e3f8c327c0a # v1
         with:
           mode: validate
           version: v0.6.3

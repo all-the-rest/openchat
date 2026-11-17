@@ -2,17 +2,26 @@ import { useEffect, useRef, useState } from "react"
 import { Outlet } from "react-router-dom"
 import { SidebarToggle } from "../components/controls"
 import { useT } from "../i18n/provider"
+import { useMediaQuery } from "../lib/useMediaQuery"
 import { SessionSidebar } from "../chat/SessionSidebar"
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+/** Desktop layout breakpoint, matching Tailwind's `lg` (spec 08). */
+const WIDE_QUERY = "(min-width: 1024px)"
+
 export function AppShell() {
   const t = useT()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const wide = useMediaQuery(WIDE_QUERY)
   const drawerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const restoreFocus = useRef(false)
+
+  // The drawer is off-canvas only below the wide breakpoint. While it is closed
+  // there its content is inert and unmounted, so it cannot be tabbed into.
+  const drawerHidden = !wide && !sidebarOpen
 
   useEffect(() => {
     if (!sidebarOpen) {
@@ -77,19 +86,23 @@ export function AppShell() {
 
       <div
         ref={drawerRef}
+        data-testid="app-drawer"
         role={sidebarOpen ? "dialog" : undefined}
         aria-modal={sidebarOpen ? true : undefined}
         aria-label={sidebarOpen ? t("session.listLabel") : undefined}
+        inert={drawerHidden}
         className={`fixed inset-y-0 start-0 z-40 transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <SessionSidebar onNavigate={() => setSidebarOpen(false)} />
+        {wide || sidebarOpen ? (
+          <SessionSidebar onNavigate={() => setSidebarOpen(false)} />
+        ) : null}
       </div>
 
       <div
         data-testid="app-content"
-        inert={sidebarOpen}
+        inert={sidebarOpen && !wide}
         className="flex min-w-0 flex-1 flex-col"
       >
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-subtle px-2 lg:hidden">

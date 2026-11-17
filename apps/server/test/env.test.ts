@@ -7,6 +7,8 @@ describe("loadEnv", () => {
     const config = loadEnv({ source: {}, warn: (message) => warnings.push(message) })
 
     expect(config.PORT).toBe(8787)
+    expect(config.HOST).toBe("127.0.0.1")
+    expect(config.TRUST_PROXY).toBe(false)
     expect(config.WORKSPACE_DIR).toBe(process.cwd())
     expect(config.BACKEND_MODE).toBe("fake")
     expect(config.FAKE_SCENARIO).toBe("default")
@@ -26,6 +28,7 @@ describe("loadEnv", () => {
   it("reads explicit values", () => {
     const config = loadEnv({
       source: {
+        HOST: "0.0.0.0",
         PORT: "9999",
         WORKSPACE_DIR: "/srv/workspace",
         BACKEND_MODE: "live",
@@ -37,11 +40,13 @@ describe("loadEnv", () => {
         SESSION_SECRET: "a".repeat(32),
         SESSION_TTL_SECONDS: "60",
         COOKIE_SECURE: "1",
+        TRUST_PROXY: "1",
       },
       warn: () => {},
     })
 
     expect(config).toMatchObject({
+      HOST: "0.0.0.0",
       PORT: 9999,
       WORKSPACE_DIR: "/srv/workspace",
       BACKEND_MODE: "live",
@@ -52,7 +57,16 @@ describe("loadEnv", () => {
       SESSION_SECRET: "a".repeat(32),
       SESSION_TTL_SECONDS: 60,
       COOKIE_SECURE: true,
+      TRUST_PROXY: true,
     })
+  })
+
+  it("binds loopback unless HOST is set explicitly", () => {
+    // Container images set HOST=0.0.0.0; a bare local start must not listen on
+    // every interface.
+    const config = loadEnv({ source: {}, warn: () => {} })
+    expect(config.HOST).toBe("127.0.0.1")
+    expect(loadEnv({ source: { HOST: "0.0.0.0" }, warn: () => {} }).HOST).toBe("0.0.0.0")
   })
 
   it("falls back from an unknown scenario", () => {

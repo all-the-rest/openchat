@@ -46,8 +46,10 @@ No visual polish in M1 beyond the measured defaults needed for a usable layout.
 
 ## M2 — Rendering core
 
-**Status:** implemented; renderer rules and tests are listed in
-[`implementation/01-m1-m2.md`](implementation/01-m1-m2.md).
+**Status:** implemented and documented (2026-11-17). The exit evidence — code,
+tests, screenshots, safety properties and what is not covered — is in
+[`implementation/01-m1-m2.md`](implementation/01-m1-m2.md#m2-exit-evidence); the
+first visual pass is in [`implementation/02-ui-review.md`](implementation/02-ui-review.md).
 
 - Renderer registry and message part model.
 - Markdown/GFM, code highlighting, tables, math, Mermaid.

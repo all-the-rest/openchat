@@ -2,6 +2,7 @@ import { OpenCode } from "@opencode/client"
 import type {
   AgentInfo,
   EventEnvelope,
+  InboxEntry,
   Message,
   MessageStatus,
   ModelInfo,
@@ -25,12 +26,16 @@ import type {
   PromptInput,
   PromptResult,
 } from "./index"
+import { EventQueue } from "./events"
+import { BackendError } from "./errors"
 
 export interface LiveBackendOptions {
   baseUrl: string
   username?: string
   password: string
   workspace: string
+  /** Injected client for tests; production builds one from `baseUrl`. */
+  client?: OpenCodeClient
 }
 
 /**
@@ -51,9 +56,12 @@ function textPartID(messageID: string, kind: "text" | "reasoning", index: number
  * The tool events in `@opencode/client` are split: only
  * `session.tool.input.started` carries the tool name, and
  * `session.tool.called`/`success`/`failed` do not (or only optionally) repeat
- * it. The adapter keeps a small per-stream map so a `ToolPart` can carry the
- * name, the accumulated streaming input and the start time until the tool
- * finishes. State is per subscriber and never leaks across streams.
+ * it. The adapter keeps a small map so a `ToolPart` can carry the name, the
+ * accumulated streaming input and the start time until the tool finishes.
+ *
+ * One state instance is created per subscriber in `subscribe`, so names and
+ * inputs never leak between browser streams. `assistants` remembers the newest
+ * assistant message id per session because `session.idle` carries none.
  */
 interface ToolStreamEntry {
   name: string
@@ -63,10 +71,11 @@ interface ToolStreamEntry {
 
 export interface ToolEventState {
   readonly tools: Map<string, ToolStreamEntry>
+  readonly assistants: Map<string, string>
 }
 
 export function createToolEventState(): ToolEventState {
-  return { tools: new Map() }
+  return { tools: new Map(), assistants: new Map() }
 }
 
 function toolStatus(tool: SessionMessageAssistantTool): ToolStatus {
@@ -228,6 +237,11 @@ export function normalizeEvent(
   event: V2Event,
   state: ToolEventState = createToolEventState(),
 ): EventEnvelope {
+  const data = event.data as { sessionID?: unknown; assistantMessageID?: unknown }
+  if (typeof data.sessionID === "string" && typeof data.assistantMessageID === "string") {
+    state.assistants.set(data.sessionID, data.assistantMessageID)
+  }
+
   switch (event.type) {
     case "session.text.delta":
       return envelope(event, event.type, {
@@ -258,10 +272,21 @@ export function normalizeEvent(
         sessionID: event.data.sessionID,
         reason: event.data.reason,
       })
-    case "session.idle":
+    case "session.idle": {
+      // `session.idle` only names the session. Claiming completion without an
+      // id would make the client close whatever message happens to be last, so
+      // use the assistant id the deltas announced. Without one, keep the event
+      // as a distinct idle signal instead of inventing a completion.
+      const messageID = state.assistants.get(event.data.sessionID)
+      if (!messageID) {
+        return envelope(event, "session.idle", { sessionID: event.data.sessionID })
+      }
+      state.assistants.delete(event.data.sessionID)
       return envelope(event, "session.message.completed", {
         sessionID: event.data.sessionID,
+        messageID,
       })
+    }
     case "session.tool.input.started": {
       const entry: ToolStreamEntry = {
         name: event.data.name,
@@ -394,10 +419,16 @@ export function normalizeEvent(
 export class LiveBackend implements ChatBackend {
   private readonly client: OpenCodeClient
   private readonly workspace: string
-  private readonly toolState = createToolEventState()
+  /** Per-subscriber normalizer state is created in `subscribe`. */
+  private readonly subscribers = new Set<EventQueue<V2Event>>()
+  private upstream?: AsyncIterator<V2Event>
 
   constructor(options: LiveBackendOptions) {
     this.workspace = options.workspace
+    if (options.client) {
+      this.client = options.client
+      return
+    }
     const credentials = base64(`${options.username ?? "opencode"}:${options.password}`)
     this.client = OpenCode.make({
       baseUrl: options.baseUrl,
@@ -465,6 +496,29 @@ export class LiveBackend implements ChatBackend {
     await this.client.session.interrupt({ sessionID })
   }
 
+  async listInbox(sessionID: string): Promise<InboxEntry[]> {
+    const entries = await this.client.session.inbox.list({ sessionID })
+    return entries.map((entry) => ({
+      id: entry.id,
+      sessionID: entry.sessionID,
+      kind: entry.type,
+      text:
+        entry.type === "user" || entry.type === "synthetic" ? entry.payload.text : "",
+      delivery: entry.delivery,
+      created: entry.time.created,
+    }))
+  }
+
+  async cancelQueued(sessionID: string, messageID: string): Promise<void> {
+    // `inbox.cancel` reports failures generically; a pre-read distinguishes an
+    // unknown entry (404 in the BFF) from a transient client error.
+    const entries = await this.client.session.inbox.list({ sessionID })
+    if (!entries.some((entry) => entry.id === messageID)) {
+      throw new BackendError("not_found", `Unknown queued message: ${messageID}`)
+    }
+    await this.client.session.inbox.cancel({ sessionID, inboxID: messageID })
+  }
+
   async listModels(): Promise<ModelInfo[]> {
     const response = await this.client.model.list({ types: ["chat"] })
     return response.data.map((model) => ({
@@ -484,27 +538,67 @@ export class LiveBackend implements ChatBackend {
   }
 
   async *subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {
-    const iterator = this.client.event.subscribe()[Symbol.asyncIterator]()
-    const aborted = new Promise<IteratorResult<never>>((resolve) => {
-      if (!signal) return
-      if (signal.aborted) {
-        resolve({ value: undefined, done: true })
-        return
-      }
-      signal.addEventListener(
-        "abort",
-        () => resolve({ value: undefined, done: true }),
-        { once: true },
-      )
-    })
+    const queue = new EventQueue<V2Event>()
+    // Tool names/inputs and the idle message id are stream state; each browser
+    // gets its own map so a second subscriber cannot consume the first one's
+    // entries.
+    const state = createToolEventState()
+    const remove = () => {
+      if (!this.subscribers.delete(queue)) return
+      queue.close()
+      if (this.subscribers.size === 0) this.stopUpstream()
+    }
+
+    if (signal?.aborted) return
+    this.subscribers.add(queue)
+    this.ensureUpstream()
+    signal?.addEventListener("abort", remove, { once: true })
+
+    const iterator = queue[Symbol.asyncIterator]()
     try {
       while (true) {
-        const next = await Promise.race([iterator.next(), aborted])
+        const next = await iterator.next()
         if (next.done) return
-        yield normalizeEvent(next.value, this.toolState)
+        yield normalizeEvent(next.value, state)
       }
     } finally {
-      await iterator.return?.()
+      signal?.removeEventListener("abort", remove)
+      remove()
     }
+  }
+
+  /** Opens the one upstream subscription when the first browser attaches. */
+  private ensureUpstream(): void {
+    if (this.upstream) return
+    const iterator = this.client.event.subscribe()[Symbol.asyncIterator]()
+    this.upstream = iterator
+    void this.pump(iterator)
+  }
+
+  /** Fans one upstream stream out to every attached subscriber. */
+  private async pump(iterator: AsyncIterator<V2Event>): Promise<void> {
+    try {
+      while (true) {
+        const next = await iterator.next()
+        if (next.done) break
+        for (const queue of this.subscribers) queue.push(next.value)
+      }
+    } catch {
+      // A dropped upstream ends this pump; subscribers fall through to `done`
+      // and reconnect on their next request.
+    }
+    if (this.upstream === iterator) this.upstream = undefined
+    if (this.upstream === undefined) {
+      for (const queue of this.subscribers) queue.close()
+      this.subscribers.clear()
+    }
+  }
+
+  /** Closes the upstream subscription when the last browser leaves. */
+  private stopUpstream(): void {
+    const iterator = this.upstream
+    if (!iterator) return
+    this.upstream = undefined
+    void iterator.return?.()
   }
 }

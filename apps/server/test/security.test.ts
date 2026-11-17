@@ -183,8 +183,8 @@ describe("login throttle", () => {
     expect(blocked.status).toBe(429)
   })
 
-  it("counts attempts per client address", async () => {
-    const server = makeServer()
+  it("counts attempts per trusted client address", async () => {
+    const server = makeServer({ env: { TRUST_PROXY: "1" } })
     for (let attempt = 1; attempt <= 10; attempt += 1) {
       const response = await server.app.request("/api/auth/login", badLoginRequest())
       expect(response.status).toBe(401)
@@ -192,6 +192,35 @@ describe("login throttle", () => {
     const other = await server.app.request(
       "/api/auth/login",
       badLoginRequest({ "x-forwarded-for": "203.0.113.7" }),
+    )
+    expect(other.status).toBe(401)
+  })
+
+  it("ignores a spoofed forwarding header without TRUST_PROXY", async () => {
+    const server = makeServer()
+    for (let attempt = 1; attempt <= 10; attempt += 1) {
+      const response = await server.app.request("/api/auth/login", badLoginRequest())
+      expect(response.status).toBe(401)
+    }
+    // The attacker rotates X-Forwarded-For but the bucket is keyed by the
+    // socket address, so the next attempt is still blocked.
+    const spoofed = await server.app.request(
+      "/api/auth/login",
+      badLoginRequest({ "x-forwarded-for": "203.0.113.99", "x-real-ip": "203.0.113.98" }),
+    )
+    expect(spoofed.status).toBe(429)
+    expect(Number(spoofed.headers.get("retry-after"))).toBeGreaterThan(0)
+  })
+
+  it("honours X-Real-IP with TRUST_PROXY", async () => {
+    const server = makeServer({ env: { TRUST_PROXY: "1" } })
+    for (let attempt = 1; attempt <= 10; attempt += 1) {
+      const response = await server.app.request("/api/auth/login", badLoginRequest())
+      expect(response.status).toBe(401)
+    }
+    const other = await server.app.request(
+      "/api/auth/login",
+      badLoginRequest({ "x-real-ip": "198.51.100.4" }),
     )
     expect(other.status).toBe(401)
   })

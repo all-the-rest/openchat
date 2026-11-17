@@ -1,12 +1,14 @@
 /**
- * In-memory failed-login throttle. Single-user self-hosted BFF, so a Map is
+ * In-memory fixed-window throttle. Single-user self-hosted BFF, so a Map is
  * enough and no state needs to survive a restart.
  *
- * The window is fixed: the first failure opens a `windowMs` window, every
- * further failure inside it counts, and a successful login clears the bucket.
+ * The window is fixed: the first recorded event opens a `windowMs` window,
+ * every further event inside it counts, and the window resets afterwards.
+ * Login uses it for failures (a success clears the bucket), prompts use it for
+ * accepted submissions.
  */
-export interface LoginThrottleOptions {
-  /** Failed attempts allowed inside one window. Defaults to 10. */
+export interface ThrottleOptions {
+  /** Events allowed inside one window. Defaults to 10. */
   limit?: number
   /** Window length in milliseconds. Defaults to 60 seconds. */
   windowMs?: number
@@ -21,7 +23,7 @@ export interface ThrottleStatus {
 }
 
 interface Bucket {
-  failures: number
+  events: number
   resetAt: number
 }
 
@@ -29,13 +31,13 @@ const DEFAULT_LIMIT = 10
 const DEFAULT_WINDOW_MS = 60_000
 const MAX_TRACKED_ADDRESSES = 1024
 
-export class LoginThrottle {
+export class FixedWindowThrottle {
   private readonly buckets = new Map<string, Bucket>()
   private readonly limit: number
   private readonly windowMs: number
   private readonly now: () => number
 
-  constructor(options: LoginThrottleOptions = {}) {
+  constructor(options: ThrottleOptions = {}) {
     this.limit = options.limit ?? DEFAULT_LIMIT
     this.windowMs = options.windowMs ?? DEFAULT_WINDOW_MS
     this.now = options.now ?? (() => Date.now())
@@ -43,7 +45,7 @@ export class LoginThrottle {
 
   check(address: string): ThrottleStatus {
     const bucket = this.activeBucket(address)
-    if (!bucket || bucket.failures < this.limit) {
+    if (!bucket || bucket.events < this.limit) {
       return { limited: false, retryAfterSeconds: 0 }
     }
     return {
@@ -52,17 +54,19 @@ export class LoginThrottle {
     }
   }
 
-  recordFailure(address: string): void {
+  /** Counts one event and opens the window on the first one. */
+  record(address: string): void {
     const bucket = this.activeBucket(address)
     if (!bucket) {
       this.prune()
-      this.buckets.set(address, { failures: 1, resetAt: this.now() + this.windowMs })
+      this.buckets.set(address, { events: 1, resetAt: this.now() + this.windowMs })
       return
     }
-    bucket.failures += 1
+    bucket.events += 1
   }
 
-  recordSuccess(address: string): void {
+  /** Clears the bucket, e.g. after a successful login. */
+  reset(address: string): void {
     this.buckets.delete(address)
   }
 
