@@ -101,6 +101,9 @@ lifecycle.
 - Session auth mode, secrets, rate limits.
 - Monitoring and runbook.
 - Upgrade and rollback test.
+- Successor duties for `opencode-web-gate`: local tunnel mode, shared OpenCode
+  service, agent tool runtime, resource guards, update policy, atomic deploy
+  ([parity inventory](research/opencode-web-gate-parity.md), issue #20).
 
 **Exit:** a fresh host can be deployed from the docs and restored from backup.
 

@@ -63,7 +63,10 @@ context.
 ## Engineering
 
 - Package manager: Bun.
-- Frontend: React + Vite + TypeScript + Tailwind + daisyUI.
+- Frontend: React + Vite + TypeScript.
+- Styling: Tailwind CSS 4 + daisyUI 5 over the semantic tokens in
+  `docs/spec/08-design-tokens.md` (ADR-0007). Chat-specific surfaces are our own
+  components; daisyUI covers the generic controls.
 - BFF: Bun + Hono (or Node + Hono), same-origin.
 - Backend: OpenCode V2 via `@opencode/client`; optional `@opencode/sdk`.
 - Tests: Vitest + Playwright. Every change ships tests.

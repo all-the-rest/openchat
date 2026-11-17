@@ -160,3 +160,27 @@ animation, instant scroll.
 - Every token change is a spec change.
 - The reference measurement may adjust values, but never at the cost of
   contrast or readability.
+
+## Implementation
+
+Tailwind 4 + daisyUI 5 carry these tokens (ADR-0007):
+
+| Ours | daisyUI theme variable |
+| --- | --- |
+| `color-bg-app` | `--color-base-100` |
+| `color-bg-surface` | `--color-base-200` |
+| `color-bg-elevated` | `--color-base-300` |
+| `color-text-primary` | `--color-base-content` |
+| `color-text-secondary` | `--color-secondary` |
+| `color-accent` | `--color-primary` / `--color-accent` |
+| `color-success` / `color-warning` / `color-danger` | `--color-success` / `--color-warning` / `--color-error` |
+| `radius-sm` / `radius-md` / `radius-lg` / `radius-xl` | `--radius-box` / `--radius-field` / `--radius-selector` / bubble token |
+| `font-sans` / `font-mono` | `--font-sans` / `--font-mono` |
+
+- Tokens without a daisyUI counterpart (`color-bubble-user`,
+  `color-code-bg`, `composer-*`) are declared in `@theme` and used as normal
+  utilities (`bg-bubble-user`).
+- Theme switch is `data-theme` on `<html>`; components never use `dark:`
+  variants for colors.
+- daisyUI defaults that contradict the measured bands (`--depth`, `--noise`,
+  small radii, shadows) are reset in both theme blocks.

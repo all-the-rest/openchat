@@ -48,6 +48,9 @@ folder (plus architecture and features).
 | [`architecture/02-opencode-integration.md`](architecture/02-opencode-integration.md) | API, events and SDK usage |
 | [`architecture/03-auth-deployment.md`](architecture/03-auth-deployment.md) | Single-user auth, network, deployment |
 | [`architecture/04-artifact-sandbox.md`](architecture/04-artifact-sandbox.md) | Safe rendering of agent HTML |
+| [`architecture/05-testing.md`](architecture/05-testing.md) | Fake backend, zero-quota tests, E2E |
+| [`architecture/06-code-surface.md`](architecture/06-code-surface.md) | Code host, ticket flow, CSP |
+| [`architecture/07-artifact-runtime.md`](architecture/07-artifact-runtime.md) | Interactive apps: tool, build, shell |
 
 ## Other
 
@@ -55,5 +58,6 @@ folder (plus architecture and features).
 | --- | --- |
 | [`matrix/01-feasibility.md`](matrix/01-feasibility.md) | Feasibility matrix |
 | [`research/opencode-capabilities.md`](research/opencode-capabilities.md) | Evidence-backed OpenCode capabilities |
+| [`research/opencode-web-gate-parity.md`](research/opencode-web-gate-parity.md) | Successor parity with `opencode-web-gate` |
 | [`roadmap.md`](roadmap.md) | Phases and milestones |
 | [`decisions/`](decisions/) | Architecture Decision Records |
