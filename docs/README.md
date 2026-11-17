@@ -18,7 +18,7 @@
 | [`clean-room/03-rendering-matrix.md`](clean-room/03-rendering-matrix.md) | What the reference can render |
 | [`clean-room/04-design-tokens.md`](clean-room/04-design-tokens.md) | Measured layout and design values |
 | [`clean-room/05-contamination-log.md`](clean-room/05-contamination-log.md) | Contamination and countermeasures |
-| [`clean-room/06-implementation-brief.md`](clean-room/06-implementation-brief.md) | Builder onboarding |
+| [`spec/11-implementation-brief.md`](spec/11-implementation-brief.md) | Builder onboarding |
 
 ## Specification
 
@@ -38,6 +38,7 @@ folder (plus architecture and features).
 | [`spec/08-design-tokens.md`](spec/08-design-tokens.md) | Design system |
 | [`spec/09-accessibility.md`](spec/09-accessibility.md) | Keyboard, screen readers, reduced motion |
 | [`spec/10-acceptance.md`](spec/10-acceptance.md) | Acceptance criteria |
+| [`spec/12-i18n.md`](spec/12-i18n.md) | Internationalization (en/de) |
 
 ## Architecture
 

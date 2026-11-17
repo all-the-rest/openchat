@@ -14,8 +14,8 @@ specification.
   (e.g. `persistentPty`).
 - `GET /api/event` is the SSE stream.
 - `POST /api/pair` + `/auth/connect/:code` provide a pairing flow.
-- The server is Express-based in V2; the API is described as experimental
-  `HttpApi`.
+- The API is described as experimental `HttpApi`; the OpenAPI document is the
+  contract, not the framework.
 
 ## Sessions
 
@@ -140,7 +140,8 @@ location.shutdown
 ## Forms
 
 - `GET /api/session/:id/form`, `GET .../:formID`, `POST .../reply`.
-- Field types: string, number, integer, boolean, select, multiselect, score.
+- Field types: string (with options), number, integer, boolean, multiselect,
+  external; per-field `when`, `hidden`, `required`, `default`.
 - Events: `form.created`, `form.replied`, `form.cancelled`.
 
 ## MCP
@@ -174,9 +175,8 @@ location.shutdown
 
 - `GET /api/experimental/voice/models`.
 - `POST /api/experimental/voice/session`.
-- Realtime transport suggested by CSP (`wss://realtime.chatgpt.com` is the
-  reference, not OpenCode).
-- Treat as optional and provider-dependent.
+- Treat as optional and provider-dependent; verify the transport against the
+  installed version rather than assuming one.
 
 ## Schedules and background jobs
 
@@ -193,8 +193,7 @@ location.shutdown
 - `GET /api/fs/list`, `/api/fs/find`, `/api/fs/read/*`.
 - `POST /api/experimental/fs/write`, `GET /api/experimental/fs/watch`.
 - `GET /api/vcs/status|diff|branch|base`; `POST /api/vcs/init`.
-- `GET /api/worktree`, `POST /api/worktree/refresh`; SDK adds `create`,
-  `remove`.
+- `GET/POST/DELETE /api/worktree`, `POST /api/worktree/refresh`.
 
 ## Shell, PTY, terminal
 
@@ -228,9 +227,16 @@ location.shutdown
 
 - The API is labeled experimental; pin versions and generate types from the
   running server.
-- Some operations (worktree create/remove, voice, schedules) are only described
-  in the SDK docs or experimental routes; verify against the actual version.
+- Some operations (voice, schedules) are only described in the SDK docs or
+  experimental routes; verify against the actual version.
 - Event names and payloads must be validated at runtime; do not assume they are
   stable across minor versions.
+- **Todos are unverified.** The 2.3.0 OpenAPI has no todo endpoint and the event
+  union has no todo event; only an `experimental.todo` config flag is known. A
+  planning view needs a spike against the installed version.
+- Experimental features are behind `experimental.*` config keys. The 2.3 OpenAPI
+  documents only `experimental.mcp.event`; artifact, todo and schedule flags are
+  not confirmed by the document. Verify the exact name against the pinned
+  version, enable it explicitly and record it before shipping the feature.
 - The reference product's internal APIs and prompts are not part of this
   evidence and are not to be extracted.

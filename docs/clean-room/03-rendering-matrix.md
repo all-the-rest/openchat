@@ -20,15 +20,15 @@ before they become requirements.
 
 | ID | Capability | Reference evidence | Status | Source in OpenCode | Frontend work | Effort |
 | --- | --- | --- | --- | --- | --- | --- |
-| R-01 | Markdown paragraphs, emphasis, links | — | hypothesis | assistant text parts | Markdown renderer | S |
-| R-02 | Headings, lists, blockquotes, rules | — | hypothesis | assistant text parts | Markdown renderer | S |
-| R-03 | Tables | — | hypothesis | assistant text parts | GFM tables | S |
-| R-04 | Task lists and footnotes | — | hypothesis | assistant text parts | GFM + footnote plugin | S |
-| R-05 | Inline code and code blocks | — | hypothesis | assistant text parts | Shiki/Prism | S |
-| R-06 | Syntax highlighting and copy button | — | hypothesis | assistant text parts | highlighter + clipboard | S |
+| R-01 | Markdown paragraphs, emphasis, links | OBS-016 | observed | assistant text parts | Markdown renderer | S |
+| R-02 | Headings, lists, blockquotes, rules | OBS-016 | observed | assistant text parts | Markdown renderer | S |
+| R-03 | Tables | OBS-016 | observed | assistant text parts | GFM tables | S |
+| R-04 | Task lists and footnotes | — | open | assistant text parts | GFM + footnote plugin | S |
+| R-05 | Inline code and code blocks | OBS-016 | observed | assistant text parts | Shiki/Prism | S |
+| R-06 | Syntax highlighting and copy button | OBS-016 | observed | assistant text parts | highlighter + clipboard | S |
 | R-07 | Diff view | — | open | tool output, session diff | diff renderer | M |
-| R-08 | Inline and block LaTeX | — | hypothesis | assistant text parts | KaTeX | S |
-| R-09 | Mermaid diagrams | — | hypothesis | assistant text parts | Mermaid + sanitizer | M |
+| R-08 | Inline and block LaTeX | OBS-016 (inline only), OBS-033 | partial | assistant text parts | KaTeX | S |
+| R-09 | Mermaid diagrams | OBS-016 | observed | assistant text parts | Mermaid + sanitizer | M |
 | R-10 | Other diagram syntaxes (Graphviz, PlantUML) | — | open | assistant text parts | optional renderer | M |
 
 ## B. Media
@@ -65,7 +65,7 @@ before they become requirements.
 | R-28 | Charts from code execution | — | hypothesis | shell/PTY + artifact files | chart renderer or image | M |
 | R-29 | Data tables with download | — | hypothesis | artifact files | table + CSV download | M |
 | R-30 | Canvas/document editor | CSP: `pages-realtime` | hypothesis | file editing + artifacts | editor | L |
-| R-31 | Interactive apps/widgets | CSP: `*.chatgpt.site`, `snc.apps.openai.com` | hypothesis | MCP tools + custom renderers | widget host | L |
+| R-31 | Interactive apps/widgets | OBS-002: `*.chatgpt.site`, `*.embed.chatgpt.site` | hypothesis | MCP tools + custom renderers | widget host | L |
 | R-32 | Maps and places | CSP: Google Maps, MapKit, Mapbox | hypothesis | tool/MCP output | map embed | M |
 | R-33 | Rich cards (weather, stocks, shopping, recipes) | — | open | tool/MCP output + JSON schema | card registry | L |
 | R-34 | Embedded third-party content (YouTube, Vimeo, CodePen, Google Docs) | CSP frame-src | hypothesis | tool output | embed allowlist | M |
@@ -75,11 +75,11 @@ before they become requirements.
 
 | ID | Capability | Reference evidence | Status | Source in OpenCode | Frontend work | Effort |
 | --- | --- | --- | --- | --- | --- | --- |
-| R-36 | Reasoning/thinking block | — | hypothesis | assistant reasoning parts + `session.reasoning.delta` | collapsible block | S |
+| R-36 | Reasoning/thinking block | OBS-015 (status only) | partial | assistant reasoning parts + `session.reasoning.delta` | collapsible block | S |
 | R-37 | Tool-call card (running/done/error) | — | hypothesis | assistant tool parts + tool state events | tool card | M |
 | R-38 | Permission request card | — | hypothesis | `permission.asked`, `permission.replied` | approve/deny UI | M |
 | R-39 | Interactive question/form card | — | hypothesis | `session.form.*`, `form.replied` | form renderer | M |
-| R-40 | Task/todo list | — | hypothesis | `todowrite`, session todos | checklist | S |
+| R-40 | Task/todo list | — | open | `experimental.todo` (unverified) | checklist + spike | M |
 | R-41 | Agent/browser live view | — | hypothesis | browse MCP screenshots/events | live panel | L |
 | R-42 | Step log and progress timeline | — | hypothesis | tool events + todos | timeline | M |
 | R-43 | Terminal/shell output | — | hypothesis | `session.shell`, PTY, `experimental.persistentPty` | terminal component | M |
@@ -89,11 +89,11 @@ before they become requirements.
 
 | ID | Capability | Reference evidence | Status | Source in OpenCode | Frontend work | Effort |
 | --- | --- | --- | --- | --- | --- | --- |
-| R-45 | Copy, regenerate, edit, branch | — | hypothesis | `session.prompt`, `session.fork`, `session.revert` | actions + branch UI | M |
+| R-45 | Copy, regenerate, edit, branch | OBS-017 (copy/copy prompt/edit) | partial | `session.prompt`, `session.fork`, `session.revert` | actions + branch UI | M |
 | R-46 | Share/export/print | — | hypothesis | `experimental.session.export/import` | export dialog | M |
-| R-47 | Suggestion chips and follow-ups | — | hypothesis | UI-only | chips | S |
-| R-48 | Emoji and Lottie animations | CSP: emojibase/Lottie | hypothesis | UI-only | emoji + Lottie | S |
-| R-49 | Streaming cursor and stop button | — | hypothesis | `session.interrupt`, delta events | stream state | S |
+| R-47 | Suggestion chips and follow-ups | OBS-012, OBS-019 | partial | UI-only | chips | S |
+| R-48 | Emoji and Lottie animations | OBS-004 (Lottie sample referenced); emoji font not measured | hypothesis | UI-only | emoji + optional Lottie | S |
+| R-49 | Streaming cursor and stop button | OBS-015 | observed | `session.interrupt`, delta events | stream state | S |
 | R-50 | Error, retry and rate-limit states | — | hypothesis | structured errors, retry parts | error card | M |
 
 ## Immediate consequence

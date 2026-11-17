@@ -31,6 +31,36 @@ implementation.
 - **Risk:** none for the reference; REA is MIT-licensed tooling, not the target.
 - **Countermeasure:** none.
 
+### C-004 — Authenticated observation session (desktop, dark, mobile)
+
+- **Date:** 2026-11-17
+- **Kind:** live UI inspection with the owner's own account
+- **Scope:** accessibility snapshots, `getComputedStyle` measurements, bounding
+  boxes, screenshots (kept in `references/raw/` only), a synthetic prompt with
+  Markdown/code/math/Mermaid, the model picker, the session title menu, the
+  delete confirmation and a 390 px viewport.
+- **Risk:** medium. The DOM class names and CSS structure were visible in the
+  inspector, even though only measurements were written down. A builder working
+  in the same session could have seen them.
+- **Countermeasure:** the observation was recorded as numeric facts and
+  behaviour only (`OBS-010` … `OBS-030`); no markup, class name, stylesheet or
+  asset was copied into the repository. The builder runs in a separate session
+  without access to `docs/clean-room/**`. Screenshots are not committed.
+- **Affected sections:** design tokens, surface inventory, rendering matrix,
+  spec 02/03/04/05/08/09.
+
+### C-005 — Owner's production Caddyfile
+
+- **Date:** 2026-11-17
+- **Kind:** owner-provided deployment configuration
+- **Scope:** the owner's personal Caddyfile (outside this repository) — Caddy
+  sites with `forward_auth`, Basic headers and health checks.
+- **Risk:** none for the reference product. It is the owner's own infrastructure,
+  not the reference UI.
+- **Countermeasure:** only the authentication topology is used, described in
+  [`docs/architecture/03-auth-deployment.md`](../architecture/03-auth-deployment.md);
+  no site names, credentials or hostnames are copied into the repository.
+
 ## Rules for new entries
 
 Record:

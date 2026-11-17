@@ -1,4 +1,4 @@
-# 06 — Implementation Brief
+# 11 — Implementation Brief
 
 Onboarding for the builder. Read this, then the specification.
 
@@ -14,12 +14,14 @@ Onboarding for the builder. Read this, then the specification.
 8. `docs/spec/08-design-tokens.md`
 9. `docs/spec/09-accessibility.md`
 10. `docs/spec/10-acceptance.md`
-11. `docs/architecture/01-system.md` and the relevant ADRs.
+11. `docs/spec/12-i18n.md`
+12. `docs/architecture/01-system.md` and the relevant ADRs in
+    `docs/decisions/**`.
 
 ## Do not read
 
 - `docs/reference/**`
-- `docs/clean-room/01-*` through `05-*`
+- `docs/clean-room/**` (method, observation logs, tokens, contamination log)
 - `references/**`
 - The reference app, its bundles or assets.
 
@@ -33,9 +35,12 @@ Build the smallest end-to-end path:
 1. Bun workspace with `apps/web`, `apps/server`, `packages/opencode`.
 2. Basic auth (or a stub behind an env flag).
 3. `GET /healthz` and a typed OpenCode client.
-4. Session list + new chat + prompt + SSE stream + stop.
+4. Session list + new chat + prompt + SSE stream + stop, all created with an
+   explicit `location.directory` from `WORKSPACE_DIR`.
 5. A plain transcript: user text, assistant text, error.
-6. Playwright smoke test.
+6. The i18n catalogue (`en`, `de`), the translation hook and the literal lint
+   gate from the first component.
+7. Playwright smoke test.
 
 Do not build the design system, artifacts or settings before this works.
 

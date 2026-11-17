@@ -48,8 +48,12 @@ local task lists as the source of truth.
 | Agent | May read | May write |
 | --- | --- | --- |
 | `observer` | all reference material | `docs/reference/**`, `docs/clean-room/01-*` … `05-*`, `docs/spec/**` |
-| `builder` | `docs/spec/**`, `docs/architecture/**`, `features/**`, code | `apps/**`, `packages/**`, tests, `docs/architecture/**` (with an ADR) |
+| `builder` | `docs/spec/**`, `docs/architecture/**`, `docs/decisions/**`, `features/**`, code | `apps/**`, `packages/**`, `features/**`, tests, root build config, `docs/architecture/**` (with an ADR) |
 | `reviewer` | everything | review notes in the issue only |
+
+The project default agent is `observer` while the analysis is running (M0).
+Switch to `builder` for implementation work; the permissions are the
+enforcement, the default is only a convenience.
 
 Permissions are enforced in `.opencode/agents/*.md`. The separation is a
 process rule; a single model cannot be forced to obey it if an agent ignores

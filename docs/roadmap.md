@@ -21,9 +21,12 @@ repo.
 - Auth (`basic` first), same-origin proxy, `/healthz`.
 - Session list, new chat, prompt, SSE stream, stop.
 - Plain text transcript with user/assistant messages.
+- i18n scaffold (`en`, `de`) from the first component, with a lint gate that
+  fails on hard-coded UI strings (ADR-0003).
 - Playwright smoke: login → send → receive → stop.
 
-**Exit:** a real prompt streams end to end against a local OpenCode server.
+**Exit:** a real prompt streams end to end against a local OpenCode server, and
+no component contains a literal user-visible string.
 
 ## M2 — Rendering core
 
@@ -41,7 +44,7 @@ repo.
 - Model and agent pickers.
 - Permission cards (allow once/always/deny).
 - Retry, edit, branch, compaction notices.
-- i18n scaffolding (en/de) and theme tokens.
+- Theme tokens and the light/dark switch.
 
 **Exit:** a tool-using agent can run with explicit approvals from the UI.
 

@@ -67,7 +67,7 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 | Web search | ✅ | ✅ `/api/websearch` | ✅ | S | yes | Provider config |
 | MCP servers | ✅ | ✅ `mcp.servers` | ✅ | S | yes | Status UI |
 | Subagents | ✅ | ✅ built-in | ✅ | M | yes | Parent/child view |
-| Todos/planning | ✅ | ✅ `todowrite` | ✅ | S | yes | Experimental flag |
+| Todos/planning | ✅ | ❓ `experimental.todo` only; no API/event in 2.3.0 | ❓ | M | spike | Needs a data source |
 | Worktrees | — | ✅ worktree API | ✅ | M | later | Parallel tasks |
 | Permissions | ✅ | ✅ `permission.asked/replied` | ✅ | M | yes | Blocking cards |
 | Forms/questions | ✅ | ✅ `session.form.*` | ✅ | M | yes | Interactive cards |
@@ -81,7 +81,7 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 | Capability | Reference | Self-hosted + OpenCode | SDK | Effort | v1 | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | Single-user auth | ✅ | 🟡 custom BFF | 🟡 | S | yes | Basic or session |
-| Provider config | ✅ | ✅ OpenCode web UI | 🟡 | S | yes | Link out |
+| Provider config | ✅ | ✅ OpenCode config, same-origin admin proxy | 🟡 | S | yes | `ADMIN_PROXY=on`; never publish OpenCode |
 | Model list/capabilities | ✅ | ✅ `/api/model`, `/api/provider` | ✅ | S | yes | |
 | Usage/cost | ✅ | ✅ `experimental/usage/limits`, stats | ✅ | M | later | |
 | Export/import | ✅ | ✅ `experimental/session/export/import` | ✅ | S | yes | JSON/Markdown |

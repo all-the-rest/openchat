@@ -71,12 +71,17 @@ The app owns chat UX, not provider setup. For provider keys, OAuth, custom
 models and MCP configuration:
 
 1. User opens Settings → Connectors/Models.
-2. Clicks "Open OpenCode settings".
-3. The link opens the OpenCode web UI behind the same auth (separate subdomain
-   or proxied path).
+2. Clicks "Open OpenCode settings" (only shown when `ADMIN_PROXY=on`).
+3. The BFF serves `/admin/opencode/*` on the **same origin**, behind the same
+   session cookie, and forwards only configuration endpoints.
 4. After saving, the app refreshes config/models via the API.
 
-This avoids reimplementing provider management and keeps one source of truth.
+With `ADMIN_PROXY=off` the settings page shows the configuration path and says
+"configure OpenCode on the host"; there is no link.
+
+Never publish the OpenCode port or a separate `opencode.` subdomain. A public
+OpenCode host would expose a shell-capable backend and break NFR-02. This
+avoids reimplementing provider management while keeping one source of truth.
 
 ## Security requirements
 

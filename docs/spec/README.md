@@ -26,3 +26,5 @@ not read `docs/reference/**` or the observation logs.
 | `08-design-tokens.md` | design system values |
 | `09-accessibility.md` | keyboard, screen readers, motion, contrast |
 | `10-acceptance.md` | end-to-end acceptance scenarios |
+| `11-implementation-brief.md` | builder onboarding and first slice |
+| `12-i18n.md` | internationalization rules and copy conventions |

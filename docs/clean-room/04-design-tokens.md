@@ -17,7 +17,7 @@ Raw captures and screenshots live in `references/raw/` and are never committed.
 
 | Token | Measured value | Context | Evidence |
 | --- | --- | --- | --- |
-| Family (sans) | system UI sans-serif stack; no custom webfont observed on this surface | body, headings, UI | OBS-012, OBS-016 |
+| Family (sans) | computed stack resolves to the system UI sans-serif stack | body, headings, UI | OBS-012, OBS-016; a custom webfont is referenced in the CSP but its use on this surface is unverified (OBS-004) |
 | Family (mono) | system monospace stack | code | OBS-016 |
 | Body | 16 px / 26 px, weight 400 | assistant and user text | OBS-016 |
 | Page title (H1) | 24 px / 28.8 px (1.2), weight 400 | landing heading | OBS-012 |

@@ -1,7 +1,8 @@
 # 02 — Information Architecture
 
-**Status:** target structure derived from the product goals. Reference-specific
-wording and visual grouping are pending observation.
+**Status:** structure confirmed by the first desktop and mobile pass
+(OBS-010 … OBS-029); routes that depend on unobserved surfaces stay marked
+`open` in the surface inventory.
 
 ## Routes
 
@@ -22,7 +23,15 @@ wording and visual grouping are pending observation.
 | `/settings/appearance` | Theme, language, accessibility |
 | `/settings/data` | Export, delete, retention |
 | `/login` | Login form |
-| `/artifact/:artifactId` | Sandboxed artifact host (separate origin) |
+
+Artifacts are not an app route. The app shows metadata and embeds a signed URL
+on the separate artifact origin (`/a/<id>?exp=…&sig=…`); it never serves artifact
+HTML from the app origin.
+
+Projects, tasks, library and artifacts are **deferred** from v1: the reference
+surfaces are recorded, but OpenCode 2.3 exposes no project-creation API and v1
+runs in a single `WORKSPACE_DIR`. The routes above are the target, not the first
+slice.
 
 ## Shell
 

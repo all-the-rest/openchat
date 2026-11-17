@@ -17,6 +17,36 @@
 The browser never talks to OpenCode directly. The BFF owns authentication and
 proxies the OpenCode API and event stream on the same origin.
 
+## BFF surface
+
+The BFF is **not** a generic reverse proxy. It exposes a fixed, allowlisted API
+and forwards only those calls to OpenCode:
+
+- sessions, messages, prompt, interrupt, fork/revert, compact
+- model/agent lists and selection
+- permissions and forms
+- events (SSE)
+- artifacts (metadata and signed URL)
+- image generation, voice, websearch (feature-gated)
+- MCP status (read-only)
+
+Never exposed, even behind authentication:
+
+```
+/api/fs/*          /api/shell*       /api/pty*
+/api/config*       /api/credential*  /api/debug/*
+/api/plugin*       /api/installation*
+/api/experimental/fs/write
+```
+
+These routes can read or write the host, start processes or reveal secrets. If
+an admin surface is needed, it is a separate, explicit route
+(`/admin/opencode/*`, `ADMIN_PROXY=on`) with its own narrower allowlist, not a
+wildcard passthrough.
+
+Every session is created with an explicit `location.directory` taken from
+`WORKSPACE_DIR`; the browser never chooses a filesystem path.
+
 ## Components
 
 | Component | Responsibility |

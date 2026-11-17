@@ -38,14 +38,19 @@ This document is not legal advice.
 | Role | Task | Sees reference | Writes |
 | --- | --- | --- | --- |
 | Observer | operate, measure, record | yes | `docs/reference/**`, `docs/clean-room/01-*` … `05-*`, `docs/spec/**` |
-| Builder | implement | **no** | `apps/**`, `packages/**`, tests |
+| Builder | implement | **no** | `apps/**`, `packages/**`, `features/**`, tests, root build config, `docs/architecture/**` with an ADR |
 | Reviewer | verify | only for acceptance | review notes in the issue |
 
 The separation is enforced in OpenCode:
 
 - `.opencode/agents/observer.md` cannot write production code.
-- `.opencode/agents/builder.md` cannot read `docs/reference/**` or the
-  observation logs, and cannot use Code Mode (browser/REA).
+- `.opencode/agents/builder.md` cannot read `docs/reference/**`, `docs/clean-room/**`
+  or `references/**`, and cannot use Code Mode. Because V2 resolves permissions
+  last-match-wins, the builder file lists broad allows first and every
+  restriction last; denying `execute` alone is not enough, so the `browse_*` and
+  `rea_*` MCP tools are denied by name as well.
+- The canonical role table lives in `AGENTS.md`; this document only explains the
+  method.
 
 Residual risk: a single model can ignore rules if they are in its context.
 Therefore use separate sessions and never put reference material into the

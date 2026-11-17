@@ -18,7 +18,11 @@ import { OpenCode } from "@opencode/client"
 
 const client = OpenCode.make({
   baseUrl: process.env.OPENCODE_URL!,
-  headers: { authorization: `Bearer ${process.env.OPENCODE_TOKEN}` },
+  // Optional: only when the deployment puts a credential gate in front of
+  // OpenCode. The value stays server-side.
+  headers: process.env.OPENCODE_AUTH
+    ? { authorization: process.env.OPENCODE_AUTH }
+    : undefined,
 })
 
 const session = await client.session.create({
@@ -34,6 +38,12 @@ for await (const event of client.event.subscribe()) {
   // fan out to browser SSE
 }
 ```
+
+OpenCode 2.3 has no built-in HTTP authentication flag. The BFF therefore sends
+no `Authorization` header by default; the security boundary is the loopback or a
+private network. If the deployment puts Basic auth in front of OpenCode (the
+owner's existing edge does this), `OPENCODE_AUTH` carries the server-side header
+value and the browser never sees it.
 
 ### `@opencode/sdk` (embedded)
 
@@ -80,7 +90,7 @@ Both adapters implement it. The UI depends only on the normalized contract.
 | --- | --- |
 | Server info | `GET /api/info` |
 | Sessions | `GET/POST /api/session`, `GET /api/session/:id` |
-| Rename/move/archive/delete | `PATCH/DELETE /api/session/:id` (see OpenAPI) |
+| Rename/move/archive/delete | `PATCH /api/session/:id`; move is `POST /api/session/:id/move` |
 | Messages | `GET /api/session/:id/message` |
 | Prompt | `POST /api/session/:id/prompt` |
 | Interrupt | `POST /api/session/:id/interrupt` |
@@ -103,7 +113,7 @@ Both adapters implement it. The UI depends only on the normalized contract.
 | Shell / PTY | `POST /api/session/:id/shell`, `GET /api/pty`, `GET /api/shell` |
 | Files | `GET /api/fs/list|find|read/*`, `POST /api/experimental/fs/write` |
 | VCS | `GET /api/vcs/status|diff|branch`, `POST /api/vcs/init` |
-| Worktrees | `GET /api/worktree`, `POST /api/worktree/refresh`; SDK adds create/remove |
+| Worktrees | `GET/POST/DELETE /api/worktree`, `POST /api/worktree/refresh` |
 | Plugins | `GET /api/plugin`, `POST /api/plugin/update` |
 | Config | `GET /api/config`, `POST /api/experimental/config` |
 
@@ -216,7 +226,9 @@ wins. Built-in actions include `read`, `edit`, `glob`, `grep`, `shell`,
 ## Forms
 
 `session.form.list/get` returns a schema with string, number, integer, boolean,
-select, multiselect and score fields. Render as an interactive card; submit with
+multiselect and `external` fields, plus `when`, `hidden`, `required` and
+`default` per field. There is no `select` or `score` type; a single-choice field
+is a `string` with options. Render as an interactive card; submit with
 `session.form.reply`. Settled forms are read-only.
 
 ## Artifacts
@@ -249,9 +261,9 @@ open browser.
 
 `GET /api/mcp` lists servers and status. Add/connect/disconnect through
 `experimental/mcp/:server`. MCP configuration itself is file-based
-(`mcp.servers` in `opencode.json`); the app links to the OpenCode web UI for
-OAuth and advanced setup. The `browse` MCP server is how agents get browser
-tools.
+(`mcp.servers` in `opencode.json`); the app serves `/admin/opencode/*` behind
+its own auth when `ADMIN_PROXY=on`, or points the owner at the host. The
+`browse` MCP server is how agents get browser tools.
 
 ## Errors
 

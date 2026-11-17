@@ -11,10 +11,21 @@
 
 ## Planning and todos
 
-- OpenCode's todo tool produces a task list.
+**Spike required.** The 2.3.0 OpenAPI has no todo endpoint and the event union
+has no todo event; only an `experimental.todo` config flag is known. Until a
+spike proves a data source:
+
+- Do not promise a live todo panel.
+- If the agent emits a plan as a tool call or text, render it as a normal tool
+  card or Markdown list.
+- If a todo store exists, poll it behind the spike flag rather than inventing
+  events.
+
+The rest of this section describes the target once the spike succeeds.
+
 - Render todos as a checklist with status: pending, in progress, completed,
   cancelled.
-- Update live from events; do not poll.
+- Update from events or a scoped subscription; do not poll the whole workspace.
 - A todo list belongs to a session, not to the global task board.
 
 ## Task board
@@ -42,10 +53,12 @@ Each task shows:
 
 ## Worktrees
 
-- List worktrees for a project.
-- Create a worktree for a task; show its directory and branch.
-- Removing a worktree requires confirmation and must refuse if uncommitted
-  changes exist, unless the user explicitly forces it.
+- v1 runs in a single `WORKSPACE_DIR`; worktree management is a later surface
+  because it needs a project/repository selection first.
+- List worktrees (`GET /api/worktree`).
+- Create (`POST /api/worktree`) for a task; show its directory and branch.
+- Remove (`DELETE /api/worktree`) requires confirmation and must refuse if
+  uncommitted changes exist, unless the owner explicitly forces it.
 - Parallel tasks should use separate worktrees to avoid file conflicts.
 
 ## Permissions

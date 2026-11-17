@@ -18,63 +18,69 @@ billing and no public sharing in v1.
 
 ## Functional requirements
 
+Evidence column: `OBS-NNN` is a recorded observation. `—` marks a target
+requirement that has **no reference evidence yet**; it is a product decision,
+listed so the scope is complete, and must not be built before the observer
+records it or the owner confirms it. M1 contains only rows with evidence or an
+architecture decision.
+
 ### Chat
 
-| ID | Requirement | Acceptance |
-| --- | --- | --- |
-| FR-01 | Create, list, rename, delete and resume chat sessions. | Sessions persist across restarts and are listed by recency. |
-| FR-02 | Send a prompt as text with optional attachments, agent and skill references. | Prompt is accepted by OpenCode and appears in the thread. |
-| FR-03 | Stream assistant text, reasoning and tool activity live. | Tokens appear incrementally without a full reload. |
-| FR-04 | Stop a running response. | Stop ends the stream and leaves a resumable session. |
-| FR-05 | Retry, edit and branch a message. | A new branch is created without destroying the old one. |
-| FR-06 | Show structured errors and a retry action. | Failed requests are visible and recoverable. |
-| FR-07 | Compact long sessions and show the compaction state. | The UI indicates when context was compacted. |
+| ID | Requirement | Acceptance | Evidence |
+| --- | --- | --- | --- |
+| FR-01 | Create, list, rename, delete and resume chat sessions. | Sessions persist across restarts and are listed by recency. | OBS-011, OBS-029, OBS-030 |
+| FR-02 | Send a prompt as text with optional attachments, agent and skill references. | Prompt is accepted by OpenCode and appears in the thread. | OBS-012, OBS-015 |
+| FR-03 | Stream assistant text, reasoning and tool activity live. | Tokens appear incrementally without a full reload. | OBS-015 |
+| FR-04 | Stop a running response. | Stop ends the stream and leaves a resumable session. | OBS-015 |
+| FR-05 | Retry, edit and branch a message. | A new branch is created without destroying the old one. | OBS-017 (edit action), OBS-032 |
+| FR-06 | Show structured errors and a retry action. | Failed requests are visible and recoverable. | — (OBS-030 pending) |
+| FR-07 | Compact long sessions and show the compaction state. | The UI indicates when context was compacted. | — |
 
 ### Rendering
 
-| ID | Requirement | Acceptance |
-| --- | --- | --- |
-| FR-08 | Render Markdown, tables, task lists, footnotes and links. | CommonMark/GFM fixtures render correctly. |
-| FR-09 | Render code with language label, highlighting and copy. | Code blocks are selectable and copyable. |
-| FR-10 | Render inline and block math. | KaTeX fixtures render without raw TeX. |
-| FR-11 | Render Mermaid diagrams. | Valid diagrams render; invalid ones show a fallback. |
-| FR-12 | Render images, files and PDFs with previews. | Supported types preview; others offer download. |
-| FR-13 | Render citations and source cards. | Sources are linked and traceable to the tool call. |
-| FR-14 | Render tool calls with status, input, output and errors. | Running/done/error states are distinct. |
-| FR-15 | Render reasoning blocks collapsed by default and expanded while streaming. | User can toggle. |
-| FR-16 | Render permission and question forms as interactive cards. | Approve/deny/answer round-trips to OpenCode. |
-| FR-17 | Render artifacts in a sandboxed panel. | HTML/JS cannot access the app origin or credentials. |
+| ID | Requirement | Acceptance | Evidence |
+| --- | --- | --- | --- |
+| FR-08 | Render Markdown, tables, task lists, footnotes and links. | CommonMark/GFM fixtures render correctly. | OBS-016 |
+| FR-09 | Render code with language label, highlighting and copy. | Code blocks are selectable and copyable. | OBS-016 |
+| FR-10 | Render inline and block math. | KaTeX fixtures render without raw TeX. | OBS-016, OBS-033 |
+| FR-11 | Render Mermaid diagrams. | Valid diagrams render; invalid ones show a fallback. | OBS-016 |
+| FR-12 | Render images, files and PDFs with previews. | Supported types preview; others offer download. | — (OBS-022 pending) |
+| FR-13 | Render citations and source cards. | Sources are linked and traceable to the tool call. | — (OBS-023 pending) |
+| FR-14 | Render tool calls with status, input, output and errors. | Running/done/error states are distinct. | — |
+| FR-15 | Render reasoning blocks collapsed by default and expanded while streaming. | User can toggle. | OBS-015 (status only) |
+| FR-16 | Render permission and question forms as interactive cards. | Approve/deny/answer round-trips to OpenCode. | — |
+| FR-17 | Render artifacts in a sandboxed panel. | HTML/JS cannot access the app origin or credentials. | — (OBS-020 pending) |
 
 ### Agents and tasks
 
-| ID | Requirement | Acceptance |
-| --- | --- | --- |
-| FR-18 | Select a primary agent per session and switch it. | Selection persists on the session. |
-| FR-19 | Select a model per session. | Selection persists on the session. |
-| FR-20 | Show todos and update them live. | Todo changes appear without reload. |
-| FR-21 | Show subagent activity and results. | Parent/child relationship is visible. |
-| FR-22 | Create, pause, resume and inspect scheduled tasks. | Schedule state survives restart. |
-| FR-23 | Show worktrees and allow a task to run in one. | Worktree is selectable and visible. |
-| FR-24 | Show MCP servers and their connection status. | Status matches OpenCode. |
+| ID | Requirement | Acceptance | Evidence |
+| --- | --- | --- | --- |
+| FR-18 | Select a primary agent per session and switch it. | Selection persists on the session. | — |
+| FR-19 | Select a model per session. | Selection persists on the session. | OBS-014 |
+| FR-20 | Show todos and update them live — **spike**: 2.3.0 exposes no todo endpoint/event; verify `experimental.todo` first. | Todo changes appear without reload, or the view is not shipped. | — (spike) |
+| FR-21 | Show subagent activity and results. | Parent/child relationship is visible. | — |
+| FR-22 | Create, pause, resume and inspect scheduled tasks. | Schedule state survives restart. | — |
+| FR-23 | Show worktrees and allow a task to run in one. | Worktree is selectable and visible. | — |
+| FR-24 | Show MCP servers and their connection status. | Status matches OpenCode. | — |
 
 ### Input and media
 
-| ID | Requirement | Acceptance |
-| --- | --- | --- |
-| FR-25 | Attach text, images and PDFs by picker, drag/drop and paste. | Attachments reach OpenCode with correct names. |
-| FR-26 | Enforce a 20 MiB per-attachment limit and supported types. | Oversized/unsupported files are rejected with a message. |
-| FR-27 | Generate images and show them in a gallery. | Image appears and can be downloaded. |
-| FR-28 | Record and play voice if the provider supports it. | Feature hides cleanly when unavailable. |
+| ID | Requirement | Acceptance | Evidence |
+| --- | --- | --- | --- |
+| FR-25 | Attach text, images and PDFs by picker, drag/drop and paste. | Attachments reach OpenCode with correct names. | OBS-012 (control only) |
+| FR-26 | Enforce a 20 MiB per-attachment limit and supported types. | Oversized/unsupported files are rejected with a message. | — |
+| FR-27 | Generate images and show them in a gallery. | Image appears and can be downloaded. | — (OBS-021 pending) |
+| FR-28 | Record and play voice if the provider supports it. | Feature hides cleanly when unavailable. | OBS-012 (control only) |
 
 ### Navigation and settings
 
-| ID | Requirement | Acceptance |
-| --- | --- | --- |
-| FR-29 | Search chats and jump to a message. | Results are keyboard-navigable. |
-| FR-30 | Provide settings for model, agent, language, theme and permissions. | Settings persist. |
-| FR-31 | Link to the OpenCode web UI for provider/MCP configuration. | Link opens behind the same auth. |
-| FR-32 | Switch UI language between English and German. | All UI strings change without reload. |
-| FR-33 | Work on mobile widths and as an installable PWA. | Core chat works at 360 px. |
+| ID | Requirement | Acceptance | Evidence |
+| --- | --- | --- | --- |
+| FR-29 | Search chats and jump to a message. | Results are keyboard-navigable. | OBS-011 (control only) |
+| FR-30 | Provide settings for model, agent, language, theme and permissions. | Settings persist. | OBS-014, OBS-029 (partial) |
+| FR-31 | Show the OpenCode configuration path and, when `ADMIN_PROXY=on`, a same-origin `/admin/opencode` link behind the session. OpenCode is never published. | The link is hidden when the proxy is off; no OpenCode port is reachable from outside. | ADR-0002 |
+| FR-32 | Switch UI language between English and German. | All UI strings change without reload. | OBS-010 (German UI) |
+| FR-33 | Work on mobile widths and as an installable PWA. | Core chat works at 360 px. | OBS-028 |
 
 ## Non-functional requirements
 

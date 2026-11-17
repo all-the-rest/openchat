@@ -18,14 +18,15 @@ idle → submitting → streaming → (tool_wait | permission_wait | form_wait) 
 - `stopped`: user interrupted.
 - `failed`: structured error received or transport failed.
 
-Only one active run per session in v1. A second send while running either
-queues (inbox) or is rejected with a clear message. Choose queueing if OpenCode
-exposes an inbox; otherwise reject.
+Only one active run per session in v1. A second send while running is queued:
+the prompt is submitted with `delivery: "queue"` (2.3 accepts `steer` or
+`queue`), and the queued turn is shown as pending until the active run
+completes. Steering (`delivery: "steer"`) is a later option, not v1.
 
 ## Send flow
 
-1. If no session exists, create one with the selected location (project
-   directory), agent and model.
+1. If no session exists, create one with `location.directory` from
+   `WORKSPACE_DIR`, the selected agent and model.
 2. Append the user message locally with a client-generated ID.
 3. Submit `text`, `files`, `agents`, `skills` to OpenCode.
 4. Subscribe to events if not already subscribed.

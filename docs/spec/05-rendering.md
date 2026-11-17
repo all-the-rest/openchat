@@ -75,8 +75,8 @@ Rules:
 
 ## Form card
 
-- Renders string, number, integer, boolean, select, multiselect and score
-  fields.
+- Renders string (with options), number, integer, boolean, multiselect and
+  external fields, including `when`, `hidden`, `required` and `default`.
 - Validates before submit; shows field-level errors.
 - Submits `session.form.reply`.
 - A settled form becomes read-only.
@@ -85,19 +85,21 @@ Rules:
 
 - Artifact metadata: title, provider, entry, URL, session, time.
 - Open in the right rail on desktop, full-screen sheet on mobile.
-- The preview runs on a separate origin (`/artifact/:id`) in a sandboxed
-  iframe:
+- The preview runs on a separate origin in a sandboxed iframe:
 
 ```html
 <iframe
-  sandbox="allow-scripts allow-forms allow-modals allow-popups"
+  sandbox="allow-scripts allow-modals allow-popups"
   referrerpolicy="no-referrer"
-  src="https://artifacts.example.com/artifact/…"
+  src="https://artifacts.example.com/a/<id>?exp=<unix>&sig=<hmac>"
 />
 ```
 
 - Never include `allow-same-origin` together with `allow-scripts`.
+- Omit `allow-forms`; the artifact CSP sets `form-action 'none'`.
 - The artifact host must not send cookies and must set a restrictive CSP.
+- URLs are signed and short-lived; the app never serves artifact HTML on its
+  own origin.
 - Downloads are explicit; no automatic navigation.
 - Version history is optional; at minimum, show the current version and a
   download action.

@@ -4,10 +4,14 @@ End-to-end scenarios. Each scenario is a Playwright test candidate.
 
 ## A. Auth
 
-**Given** the app is running with configured credentials
+**Given** the app runs with `AUTH_MODE=session`
 **When** an unauthenticated user opens `/`
 **Then** the login form is shown
 **And** no API call to OpenCode is made.
+
+**Given** the app runs with `AUTH_MODE=basic`
+**When** an unauthenticated user opens `/`
+**Then** the edge asks for credentials and no page is served without them.
 
 **When** the user logs in with valid credentials
 **Then** a session cookie is set
@@ -24,6 +28,11 @@ End-to-end scenarios. Each scenario is a Playwright test candidate.
 **And** the user message appears immediately
 **And** assistant text streams incrementally
 **And** the final message is persisted.
+
+**Given** a streaming response
+**When** the user sends a second prompt
+**Then** it is queued (`delivery: "queue"`) and shown as pending
+**And** it starts when the active run completes.
 
 ## C. Stop and retry
 
@@ -74,11 +83,14 @@ Mermaid diagram, an image and a citation
 
 ## I. Agents and tasks
 
-**Given** an agent that creates todos and a schedule
+**Given** an agent that creates a schedule
 **When** the run completes
-**Then** the todo list appears in the session
-**And** the task appears under `/tasks`
+**Then** the task appears under `/tasks`
 **And** pause/resume works.
+
+**Given** the todo spike is not shipped
+**Then** no empty todo panel is rendered and a plan is shown as a tool card or
+Markdown list instead.
 
 ## J. Models and settings
 
@@ -92,7 +104,13 @@ Mermaid diagram, an image and a citation
 **Given** the UI language is English
 **When** the user switches to German
 **Then** all UI strings change without reload
+**And** the document `lang` attribute becomes `de`
 **And** the choice persists.
+
+**Given** the source tree
+**When** `bun run lint` runs
+**Then** a hard-coded user-visible string fails the build
+**And** a key missing from either locale fails the build.
 
 ## L. Security
 
@@ -114,4 +132,5 @@ Mermaid diagram, an image and a citation
 - All scenarios pass in CI (or are explicitly marked manual).
 - `bun run lint`, `bun run test`, `bun run build` pass.
 - Accessibility pass has no serious axe findings.
-- The cleanup checklist in the issue is complete.
+- Every new user-visible string has an `en` and a `de` translation.
+- No secrets, no raw reference material and no personal data in the change.

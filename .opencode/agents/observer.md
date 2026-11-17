@@ -38,6 +38,10 @@ permissions:
     effect: allow
 
   # Shell for analysis and storage only, never for commits.
+  # Broad ask first, then the specific allows and final denies (last wins).
+  - action: shell
+    resource: "*"
+    effect: ask
   - action: shell
     resource: "browse *"
     effect: allow
@@ -65,9 +69,6 @@ permissions:
   - action: shell
     resource: "git push *"
     effect: deny
-  - action: shell
-    resource: "*"
-    effect: ask
 ---
 
 You are the clean-room observer for the reference UI.

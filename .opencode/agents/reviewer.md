@@ -11,6 +11,10 @@ permissions:
   - action: execute
     resource: "*"
     effect: deny
+  # Broad ask first; specific allows after it (last match wins).
+  - action: shell
+    resource: "*"
+    effect: ask
   - action: shell
     resource: "git status*"
     effect: allow
@@ -23,9 +27,6 @@ permissions:
   - action: shell
     resource: "bun run *"
     effect: allow
-  - action: shell
-    resource: "*"
-    effect: ask
 ---
 
 You are the reviewer. Check the implementation against `docs/spec/**` and the
