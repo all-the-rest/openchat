@@ -1,0 +1,350 @@
+import { EVENT } from "@openchat/contracts"
+import type {
+  AgentInfo,
+  EventEnvelope,
+  FakeScenario,
+  InboxEntry,
+  Message,
+  ModelInfo,
+  ServerInfo,
+  SessionInfo,
+} from "@openchat/contracts"
+import { BackendError } from "./errors"
+import type {
+  ChatBackend,
+  CreateSessionInput,
+  PromptInput,
+  PromptResult,
+} from "./index"
+import { FakeEvents } from "./fake-events"
+import { clone, errorText, PartWriter } from "./fake-parts"
+import { resolveScenario, runScenario } from "./scenarios"
+import type { ScenarioOutcome } from "./scenarios"
+
+interface RunState {
+  sessionID: string
+  messageID: string
+  cancelled: boolean
+  wake?: () => void
+}
+
+interface SessionState {
+  info: SessionInfo
+  messages: Message[]
+}
+
+interface QueuedPrompt {
+  /** Id of the queued user message; this is the inbox entry id. */
+  messageID: string
+  text: string
+  created: number
+}
+
+export interface FakeBackendOptions {
+  /** Scenario for prompts without a prefix. Defaults to `default`. */
+  scenario?: FakeScenario
+  /**
+   * Delay between scripted chunks in milliseconds. Defaults to 15, or 400 for
+   * the `slow` scenario. Tests pass 0.
+   */
+  delayMs?: number
+  /** Injected clock for deterministic ids/timestamps. */
+  now?: () => number
+  workspace?: string
+  version?: string
+}
+
+/**
+ * Deterministic in-memory backend. No HTTP, no provider, no clock except the
+ * injected one. It emits the real envelope shape so normalization is tested.
+ */
+export class FakeBackend implements ChatBackend {
+  private readonly sessions = new Map<string, SessionState>()
+  private readonly runs = new Map<string, RunState>()
+  /** One FIFO per session; entries are promoted when the active run ends. */
+  private readonly queues = new Map<string, QueuedPrompt[]>()
+  private readonly scenario: FakeScenario
+  private readonly delayOverride?: number
+  private readonly clock: () => number
+  private readonly workspace: string
+  private readonly version: string
+  private readonly events: FakeEvents
+  private readonly parts: PartWriter
+
+  constructor(options: FakeBackendOptions = {}) {
+    this.scenario = options.scenario ?? "default"
+    this.delayOverride = options.delayMs
+    this.clock = options.now ?? (() => Date.now())
+    this.workspace = options.workspace ?? "/workspace"
+    this.version = options.version ?? "0.1.0-fake"
+    this.events = new FakeEvents(this.clock)
+    this.parts = new PartWriter({
+      nextID: (prefix) => this.events.nextID(prefix),
+      clock: () => this.clock(),
+      emit: (type, sessionID, data, durable) =>
+        this.events.emit(type, sessionID, data, durable),
+    })
+  }
+
+  async info(): Promise<ServerInfo> {
+    return { version: this.version, mode: "fake", workspace: this.workspace }
+  }
+
+  async listSessions(): Promise<SessionInfo[]> {
+    return [...this.sessions.values()]
+      .map((session) => clone(session.info))
+      .sort((left, right) => left.created - right.created)
+  }
+
+  async createSession(input: CreateSessionInput): Promise<SessionInfo> {
+    const created = this.clock()
+    const info: SessionInfo = {
+      id: this.events.nextID("ses"),
+      // An empty title lets the UI render its own localized placeholder.
+      title: input.title?.trim() ?? "",
+      directory: input.directory,
+      created,
+      updated: created,
+    }
+    this.sessions.set(info.id, { info, messages: [] })
+    this.events.emit(EVENT.sessionCreated, info.id, {
+      sessionID: info.id,
+      title: info.title,
+      directory: info.directory,
+    }, true)
+    return clone(info)
+  }
+
+  async listMessages(sessionID: string): Promise<Message[]> {
+    return this.requireSession(sessionID).messages.map((message) => clone(message))
+  }
+
+  async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {
+    const session = this.requireSession(sessionID)
+    const active = this.runs.has(sessionID)
+    if (active && input.delivery !== "queue") {
+      throw new BackendError("conflict", `Session ${sessionID} already has an active run`)
+    }
+
+    const userMessage = this.createUserMessage(sessionID, input)
+    session.messages.push(userMessage)
+    session.info.updated = userMessage.created
+
+    if (active) {
+      const queue = this.queues.get(sessionID) ?? []
+      queue.push({ messageID: userMessage.id, text: input.text, created: userMessage.created })
+      this.queues.set(sessionID, queue)
+      // The assistant message is created when the queued turn starts, so the
+      // active turn is not touched and the transcript keeps its order.
+      return { messageID: userMessage.id, queued: true }
+    }
+
+    const assistantMessage = this.createAssistantMessage(sessionID)
+    session.messages.push(assistantMessage)
+    this.startRun(sessionID, assistantMessage.id, input.text)
+    return { messageID: assistantMessage.id }
+  }
+
+  async listInbox(sessionID: string): Promise<InboxEntry[]> {
+    this.requireSession(sessionID)
+    return (this.queues.get(sessionID) ?? []).map((entry) => ({
+      id: entry.messageID,
+      sessionID,
+      kind: "user",
+      text: entry.text,
+      delivery: "queue",
+      created: entry.created,
+    }))
+  }
+
+  async cancelQueued(sessionID: string, messageID: string): Promise<void> {
+    const session = this.requireSession(sessionID)
+    const queue = this.queues.get(sessionID) ?? []
+    const index = queue.findIndex((entry) => entry.messageID === messageID)
+    if (index === -1) {
+      throw new BackendError("not_found", `Unknown queued message: ${messageID}`)
+    }
+    queue.splice(index, 1)
+    if (queue.length === 0) this.queues.delete(sessionID)
+    // A cancelled turn disappears from the transcript too; otherwise the user
+    // message would stay pinned as pending without a run behind it.
+    const messageIndex = session.messages.findIndex((message) => message.id === messageID)
+    if (messageIndex !== -1) session.messages.splice(messageIndex, 1)
+    this.events.emit(EVENT.inboxCancelled, sessionID, { sessionID, messageID }, true)
+  }
+
+  async interrupt(sessionID: string): Promise<void> {
+    const run = this.runs.get(sessionID)
+    if (!run) return
+    run.cancelled = true
+    run.wake?.()
+  }
+
+  async listModels(): Promise<ModelInfo[]> {
+    return [{ id: "fake/echo", name: "Fake Echo", providerID: "fake" }]
+  }
+
+  async listAgents(): Promise<AgentInfo[]> {
+    return [{ id: "build", name: "Build", description: "Deterministic scenario runner" }]
+  }
+
+  subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {
+    return this.events.subscribe(signal)
+  }
+
+  private requireSession(sessionID: string): SessionState {
+    const session = this.sessions.get(sessionID)
+    if (!session) throw new BackendError("not_found", `Unknown session: ${sessionID}`)
+    return session
+  }
+
+  private createUserMessage(sessionID: string, input: PromptInput): Message {
+    return {
+      id: input.id ?? this.events.nextID("msg"),
+      sessionID,
+      role: "user",
+      parts: [{ type: "text", id: this.events.nextID("part"), text: input.text }],
+      created: this.clock(),
+      status: "complete",
+    }
+  }
+
+  private createAssistantMessage(sessionID: string): Message {
+    return {
+      id: this.events.nextID("msg"),
+      sessionID,
+      role: "assistant",
+      parts: [],
+      created: this.clock(),
+      status: "streaming",
+    }
+  }
+
+  private startRun(sessionID: string, messageID: string, text: string): void {
+    const scenario = resolveScenario(text, this.scenario)
+    const delay = this.delayOverride ?? (scenario === "slow" ? 400 : 15)
+    const run: RunState = { sessionID, messageID, cancelled: false }
+    this.runs.set(sessionID, run)
+    void this.run(run, scenario, delay).catch(() => {
+      // A scripting failure must not become an unhandled rejection; the run
+      // already reports failures through events.
+      this.runs.delete(sessionID)
+      this.startNext(sessionID)
+    })
+  }
+
+  /** Promotes the next queued prompt, if any, after a run ended. */
+  private startNext(sessionID: string): void {
+    const queue = this.queues.get(sessionID)
+    const next = queue?.shift()
+    if (!queue || !next) {
+      this.queues.delete(sessionID)
+      return
+    }
+    if (queue.length === 0) this.queues.delete(sessionID)
+    const assistantMessage = this.createAssistantMessage(sessionID)
+    this.requireSession(sessionID).messages.push(assistantMessage)
+    this.startRun(sessionID, assistantMessage.id, next.text)
+  }
+
+  private findMessage(sessionID: string, messageID: string): Message {
+    const message = this.requireSession(sessionID).messages.find((entry) => entry.id === messageID)
+    if (!message) throw new BackendError("not_found", `Unknown message: ${messageID}`)
+    return message
+  }
+
+  /**
+   * Waits for one scripted step. Returns false when the run was interrupted,
+   * either before the wait or while it was sleeping.
+   */
+  private pause(run: RunState, delayMs: number): Promise<boolean> {
+    if (run.cancelled) return Promise.resolve(false)
+    return new Promise((resolve) => {
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const done = () => {
+        if (timer !== undefined) clearTimeout(timer)
+        run.wake = undefined
+        resolve(!run.cancelled)
+      }
+      run.wake = done
+      timer = setTimeout(done, delayMs)
+    })
+  }
+
+  private async run(run: RunState, scenario: FakeScenario, delayMs: number): Promise<void> {
+    const message = this.findMessage(run.sessionID, run.messageID)
+    let outcome: ScenarioOutcome = "completed"
+
+    this.events.emit(EVENT.executionStarted, run.sessionID, {
+      sessionID: run.sessionID,
+      messageID: message.id,
+    }, true)
+
+    try {
+      outcome = await this.performScenario(run, message, scenario, delayMs)
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Unknown fake backend error"
+      this.parts.addError(run.sessionID, message, reason, "fake_error", false)
+      outcome = "failed"
+    }
+
+    if (outcome === "completed") {
+      message.status = "complete"
+      this.completeMessage(run, message)
+      this.events.emit(EVENT.executionSucceeded, run.sessionID, {
+        sessionID: run.sessionID,
+        messageID: message.id,
+      }, true)
+    } else if (outcome === "interrupted") {
+      message.status = "stopped"
+      this.events.emit(EVENT.interrupted, run.sessionID, {
+        sessionID: run.sessionID,
+        messageID: message.id,
+      }, true)
+      this.completeMessage(run, message)
+    } else {
+      message.status = "error"
+      this.completeMessage(run, message)
+      this.events.emit(EVENT.executionFailed, run.sessionID, {
+        sessionID: run.sessionID,
+        messageID: message.id,
+        message: errorText(message) ?? "The fake backend failed",
+        code: "fake_error",
+        retryable: false,
+      }, true)
+    }
+
+    this.runs.delete(run.sessionID)
+    this.startNext(run.sessionID)
+  }
+
+  private performScenario(
+    run: RunState,
+    message: Message,
+    scenario: FakeScenario,
+    delayMs: number,
+  ): Promise<ScenarioOutcome> {
+    return runScenario({
+      pause: () => this.pause(run, delayMs),
+      addTextPart: () => this.parts.addText(message),
+      addReasoningPart: () => this.parts.addReasoning(message),
+      addToolPart: (name, input) => this.parts.addTool(message, name, input),
+      streamText: (partID, delta) => this.parts.streamText(run.sessionID, message, partID, delta),
+      streamReasoning: (partID, delta) =>
+        this.parts.streamReasoning(run.sessionID, message, partID, delta),
+      emitTool: (part, patch) => this.parts.emitTool(run.sessionID, message, part, patch),
+      addErrorPart: (text, code, retryable) =>
+        this.parts.addError(run.sessionID, message, text, code, retryable),
+    }, scenario)
+  }
+
+  private completeMessage(run: RunState, message: Message): void {
+    const session = this.requireSession(run.sessionID)
+    session.info.updated = this.clock()
+    this.events.emit(EVENT.messageCompleted, run.sessionID, {
+      sessionID: run.sessionID,
+      messageID: message.id,
+      message: clone(message),
+    }, true)
+  }
+}

@@ -1,8 +1,13 @@
 # UI Review — OpenChat M1/M2 — 2026-11-17
 
 Capture: `npx playwright test -c playwright.screenshots.config.ts` (in `apps/web`) ·
-output: `apps/web/ui-review/` (gitignored) · 18 Playwright tests producing 30
-PNGs, four breakpoints.
+output: `apps/web/ui-review/` (gitignored) · 36 capture tests (plus one seed
+setup test that writes no PNG) producing 62 PNGs, four breakpoints, plus theme,
+locale, drawer and tool-card variants. The four viewport projects (`mobile`,
+`tablet`, `desktop`, `wide`) run in parallel with four workers; a first `seed`
+project creates the four fixture chats once, before any of them starts, and
+writes their session IDs to `test-results/ui-review-seeds.json`, so the sidebar
+is identical in every capture.
 
 Verdict: **APPROVED** — no `critical` or `high` findings. One medium finding was
 fixed during the review round; the rest are open in
@@ -11,23 +16,58 @@ fixed during the review round; the rest are open in
 
 ## Coverage
 
+The manifest (`apps/web/screenshots/ui-review.config.ts`) is the single source
+of truth; each route can add `variants`, and every variant becomes its own test.
+Base captures are light and English (Playwright's default
+`prefers-color-scheme: light`). `theme` and `locale` are applied through
+`addInitScript` before the app mounts, so the first paint already shows them; no
+UI is clicked through. The drawer and tool-card variants are post-load actions
+(`open-drawer`, `expand-tool`). Each test runs in a fresh context, so variants
+cannot leak into each other. All four scenarios come from one seed set: the
+`seed` project (`apps/web/screenshots/seed.setup.ts`) runs once per capture run,
+logs in through `POST /api/auth/login`, creates the same four chats as before
+and waits for the terminal assistant status, then writes
+`{ rich, tools, error, empty }` session IDs to `UI_REVIEW_SEEDS`. The viewport
+projects only read that file, which is why parallel workers cannot add
+duplicate titles to the sidebar; a missing or incomplete seed file fails the
+run with the file path instead of capturing a wrong sidebar.
+
 | Route | State | Viewports | Screenshots |
 | --- | --- | --- | --- |
 | `login` | empty | 390, 820, 1440, 1920 | `empty/<viewport>/login.png` |
+| `login` | empty, dark · de | 390, 1440 | `empty/<viewport>/login-{dark,de}.png` |
 | `landing` | empty | 390, 820, 1440, 1920 | `empty/<viewport>/landing.png` |
+| `landing` | empty, dark · de | 390, 1440 | `empty/<viewport>/landing-{dark,de}.png` |
+| `landing` | empty, drawer | 390, 820 | `empty/<viewport>/landing-drawer.png` |
 | `chat-rich` | filled | 390, 820, 1440, 1920 | `filled/<viewport>/chat-rich-sec0..1.png` |
+| `chat-rich` | filled, dark · de | 390, 1440 | `filled/<viewport>/chat-rich-{dark,de}-sec0..1.png` |
 | `chat-tools` | filled | 390, 1440 | `filled/<viewport>/chat-tools-sec0.png` |
+| `chat-tools` | filled, dark | 390, 1440 | `filled/<viewport>/chat-tools-dark-sec0.png` |
+| `chat-tools` | filled, expanded | 390, 1440 | `filled/<viewport>/chat-tools-expanded-sec0.png` |
 | `chat-error` | filled | 390, 1440 | `filled/<viewport>/chat-error-sec0.png` |
 | `chat-empty` | empty | 390, 1440 | `empty/<viewport>/chat-empty-sec0.png` |
 
-Scroll coverage is recorded per capture in the sibling `.json` files. The chat
-transcript is the sampled inner scroller (`[data-testid="transcript"]`); at 1440
-px the rich chat needs two sections (0 and 284 px), so top and footer were both
-reviewed. Login and landing are short pages with a full-page overview.
+Measured totals: 36 capture tests (18 base cells + 18 variant cells) plus the
+one `seed` setup test, 37 Playwright tests in total, 62 PNGs — `empty/` 38,
+`filled/` 24. The setup test only writes the seed JSON, so it adds no captured
+file and no test to any viewport project; it runs once, before all of them.
+Scroll coverage is recorded per capture in the sibling `.json` files, which now
+also carry the measured `variant`, `theme` and `locale`. The chat transcript is
+the sampled inner scroller (`[data-testid="transcript"]`); at 1440 px the rich
+chat needs two sections (0 and 252 px), so top and footer were both reviewed.
+Login and landing are short pages with a full-page overview.
 
-What was **not** reviewed: dark theme, German locale, hover/focus states, the
-mobile drawer open, tool cards expanded, permission cards (not implemented),
-attachments and the artifact sandbox (not implemented in M1/M2).
+Theme and locale variants are captured at 390 and 1440 px only: tablet (820)
+and wide (1920) reuse the desktop column and differ mainly in surrounding
+space, so a colour or copy change there adds little signal. Add them to the
+manifest if a specific tablet/wide question comes up.
+
+What was **not** reviewed: hover/focus states beyond the password field,
+permission cards (not implemented), attachments and the artifact sandbox (not
+implemented in M1/M2), dark at 820/1920, `de` at 820/1920, the drawer over a
+non-empty transcript, the tool card's *output* panel (the action expands the
+first card's input sections only), and pixel-diff regression snapshots (the
+harness produces review artifacts, not assertions).
 
 ## Empty · Desktop
 
@@ -42,14 +82,17 @@ attachments and the artifact sandbox (not implemented in M1/M2).
 
 | Id | Severity | Status | Owner | Ticket | File:Line | Screenshot | Finding | Suggested fix |
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
-| UI-5 | low | open | orchestrator | #27 | `apps/web/src/chat/Composer.tsx` | `empty/mobile/landing.png` | "Enter sends, Shift+Enter adds a line" is shown on a touch viewport. | Hide under `(pointer: coarse)` or swap the copy. |
-| UI-7 | low | open | orchestrator | #27 | `apps/web/src/pages/LoginPage.tsx:64` | `empty/mobile/login.png` | Password focus shows an outline plus border as a heavy double ring, close to an error affordance. | Use one focus ring. |
+| UI-5 | low | open | orchestrator | #27 | `apps/web/src/chat/Composer.tsx` | `empty/mobile/landing.png`, `empty/mobile/landing-de.png` | "Enter sends, Shift+Enter adds a line" is shown on a touch viewport (German copy does the same). | Hide under `(pointer: coarse)` or swap the copy. |
+| UI-7 | low | open | orchestrator | #27 | `apps/web/src/pages/LoginPage.tsx:64` | `empty/mobile/login.png`, `empty/mobile/login-dark.png`, `empty/mobile/login-de.png` | Password focus shows an outline plus border as a heavy double ring, close to an error affordance; the same ring is more prominent in dark. | Use one focus ring. |
 
 ## Filled · Desktop
 
 | Id | Severity | Status | Owner | Ticket | File:Line | Screenshot | Finding | Suggested fix |
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
 | — | — | — | — | — | — | `filled/desktop/chat-rich-sec0..1.png` | Coverage: transcript at 768 px, table, math, code, mermaid, tool card and copy affordances render; sidebar 340 px. No defect. | — |
+| — | — | — | — | — | — | `filled/desktop/chat-rich-dark-sec0..1.png`, `filled/desktop/chat-tools-dark-sec0.png` | Coverage: dark palette keeps the same hierarchy — sidebar/content surfaces separate, code and table borders readable, cards keep their border instead of a shadow. No defect. | — |
+| — | — | — | — | — | — | `filled/desktop/chat-rich-de-sec0..1.png` | Coverage: chrome is German ("Neuer Chat", "UNTERHALTUNGEN", "Überlegung", "Abmelden", "Nachricht senden…"); the seeded session titles and prompts stay English because they are fixture data, not UI strings. No layout overflow at 768 px. | — |
+| — | — | — | — | — | — | `filled/desktop/chat-tools-expanded-sec0.png` | Coverage: first tool card's input section expanded (`aria-expanded="true"`) shows the raw JSON in a code block; the collapsed output row keeps its chevron. No defect. | — |
 | UI-1 | low | open | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:104` | `filled/desktop/chat-rich-sec0.png` | Jump-to-latest is a white disc on white content, floating over the last block. | Solid background, stronger border/shadow, larger inset. |
 | UI-6 | medium | open | orchestrator | #27 | `apps/web/src/render/Mermaid.tsx` | `filled/mobile/chat-rich-sec1.png` | Diagram labels shrink to ~7 px at 390 px width. | Minimum width plus horizontal scroll (or tap-to-zoom). |
 
@@ -58,6 +101,8 @@ attachments and the artifact sandbox (not implemented in M1/M2).
 | Id | Severity | Status | Owner | Ticket | File:Line | Screenshot | Finding | Suggested fix |
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
 | — | — | — | — | — | — | `filled/mobile/chat-rich-sec0..1.png` | Coverage: header stack, user bubble, table, blockquote, code, math, mermaid and tool card. No horizontal page overflow; code scrolls inside its block. | — |
+| — | — | — | — | — | — | `filled/mobile/chat-tools-expanded-sec0.png` | Coverage: expanded input panel grows the card by one code block and still fits the viewport (`maxScrollY` 0); the second card and the error card stay collapsed. | — |
+| — | — | — | — | — | — | `filled/mobile/chat-rich-dark-sec0..1.png`, `filled/mobile/chat-tools-dark-sec0.png` | Coverage: dark surfaces hold at 390 px; the code block and the tool-card borders stay distinguishable. | — |
 | UI-1 | low | open | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:104` | `filled/mobile/chat-rich-sec0.png` | Same jump-to-latest disc, here overlapping the code block header. | As above. |
 | UI-6 | medium | open | orchestrator | #27 | `apps/web/src/render/Mermaid.tsx` | `filled/mobile/chat-rich-sec1.png` | Same unreadable diagram labels. | As above. |
 
@@ -65,7 +110,7 @@ attachments and the artifact sandbox (not implemented in M1/M2).
 
 | Id | Severity | Status | Owner | Ticket | File:Line | Screenshot | Finding | Suggested fix |
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
-| — | — | — | — | — | — | `empty/tablet/landing.png`, `filled/tablet/chat-rich-sec0..1.png` | Coverage: sidebar collapses behind the header button, the 768 px column keeps its measure, composer spans the width minus 40 px. No defect. | — |
+| — | — | — | — | — | — | `empty/tablet/landing.png`, `empty/tablet/landing-drawer.png`, `filled/tablet/chat-rich-sec0..1.png` | Coverage: sidebar collapses behind the header button, the 768 px column keeps its measure, composer spans the width minus 40 px. Drawer open: 340 px panel over a full-width scrim, underlying content inert, `aria-modal="true"`; the scrim is the dismiss affordance since it covers the toggle. No defect. | — |
 
 ## Wide · 1920 px
 
@@ -73,14 +118,22 @@ attachments and the artifact sandbox (not implemented in M1/M2).
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
 | — | — | — | — | — | — | `empty/wide/login.png`, `empty/wide/landing.png`, `filled/wide/chat-rich-sec0..1.png` | Coverage: the login card stays narrow while locale/theme controls sit at the far right; the chat column stays at its 768 px measure. No defect. | — |
 
+## Mobile drawer (390 px)
+
+| Id | Severity | Status | Owner | Ticket | File:Line | Screenshot | Finding | Suggested fix |
+|----|----------|--------|-------|--------|-----------|------------|---------|---------------|
+| — | — | — | — | — | — | `empty/mobile/landing-drawer.png` | Coverage: drawer takes `min(340 px, 85vw)` (≈331 px here), full-height scrim over the inert chat, theme/locale/sign-out footer visible at the bottom. No defect. | — |
+
 ## Open follow-ups
 
 - Fix the remaining medium finding (UI-6, mermaid on mobile) and the low
   ones in #27; re-capture `chat-rich` and `login`, then re-run
   `ratchet check --tier fast` (the registry counts open critical/high findings,
   currently zero).
-- The sidebar in the captures lists the seeded chats; a second Playwright
-  project re-runs the seed and creates a duplicate title. Fixture artifact, not
-  a UI defect.
-- Not yet reviewed: dark theme, German locale, drawer open, expanded tool cards.
-  Add them as manifest states once M3 adds attachments and permissions.
+- The sidebar in the captures lists the four seeded chats. The earlier
+  duplicate-title artifact (each Playwright project re-running its own seed) is
+  gone: a single `seed` project creates them once per run, and the viewport
+  projects only read the seed file.
+- Still not captured: `bash: pre` output panels of a tool card, the drawer over
+  a populated transcript, hover/focus states, permission and attachment UI.
+  Add them as manifest variants once M3 lands.

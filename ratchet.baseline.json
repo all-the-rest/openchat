@@ -1,8 +1,14 @@
 {
   "version": 1,
   "rules": {
+    "file-length": {
+      "value": 0
+    },
     "i18n-literals": {
       "value": 0
+    },
+    "test-count": {
+      "value": 163
     },
     "ui-review-blockers": {
       "value": 0

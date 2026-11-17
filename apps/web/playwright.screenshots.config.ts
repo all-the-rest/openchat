@@ -13,13 +13,19 @@ const WEB_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(WEB_DIR, "..", "..")
 const WORKSPACE_DIR = mkdtempSync(join(tmpdir(), "openchat-ui-review-"))
 
+// One seed file for the whole run: the `seed` project writes it, every worker
+// project reads it. Absolute, so the setup test and the workers cannot resolve
+// different paths from different working directories.
+process.env.UI_REVIEW_SEEDS ??= join(WEB_DIR, "test-results", "ui-review-seeds.json")
+
 export default defineConfig({
   testDir: "./screenshots",
   testMatch: "**/*.spec.ts",
-  // One worker keeps the manifest order (and therefore the empty sidebar on the
-  // landing route) deterministic, and avoids interleaved scroll captures.
-  fullyParallel: false,
-  workers: 1,
+  // The four viewport projects run in parallel. The captured sidebar stays
+  // identical because the four seeded sessions are created once, up front, by
+  // the `seed` project below — not once per worker.
+  fullyParallel: true,
+  workers: 4,
   forbidOnly: !!process.env.CI,
   retries: 0,
   timeout: 120_000,
@@ -34,16 +40,31 @@ export default defineConfig({
   // explicitly, or a fresh run would delete the reviewed screenshot set.
   outputDir: "test-results/ui-review-run",
   projects: [
+    // Setup project: creates the four seeded sessions once and writes their
+    // ids to UI_REVIEW_SEEDS. Playwright finishes a project before it starts a
+    // project that depends on it, so every viewport below sees the same
+    // sessions and therefore the same sidebar.
+    { name: "seed", testMatch: /seed\.setup\.ts/ },
     {
       name: "mobile",
+      dependencies: ["seed"],
       use: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
     },
     {
       name: "tablet",
+      dependencies: ["seed"],
       use: { viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
     },
-    { name: "desktop", use: { viewport: { width: 1440, height: 900 } } },
-    { name: "wide", use: { viewport: { width: 1920, height: 1080 } } },
+    {
+      name: "desktop",
+      dependencies: ["seed"],
+      use: { viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: "wide",
+      dependencies: ["seed"],
+      use: { viewport: { width: 1920, height: 1080 } },
+    },
   ],
   webServer: [
     {

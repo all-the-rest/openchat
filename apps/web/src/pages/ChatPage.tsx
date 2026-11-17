@@ -86,7 +86,12 @@ export function ChatPage() {
             running={chat.running}
           />
 
-          <p role="status" aria-live="polite" className="mt-1 px-2 text-xs text-muted">
+          <p
+            role="status"
+            aria-live="polite"
+            data-testid="chat-status"
+            className="mt-1 px-2 text-xs text-muted"
+          >
             {t(statusKey)}
           </p>
           {chat.queued ? (

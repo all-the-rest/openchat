@@ -11,8 +11,10 @@ const REUSE_EXISTING = !process.env.CI
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: false,
-  workers: 1,
+  // Four independent tests share one fake backend, so each test creates and
+  // asserts on its own chat instead of relying on global counts.
+  fullyParallel: true,
+  workers: 4,
   forbidOnly: !!process.env.CI,
   retries: 0,
   timeout: 90_000,

@@ -61,6 +61,7 @@ export function SidebarToggle({
     <button
       type="button"
       ref={ref}
+      data-testid="sidebar-toggle"
       onClick={onOpen}
       aria-label={t("nav.openSidebar")}
       aria-expanded={open}

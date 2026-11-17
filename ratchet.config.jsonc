@@ -5,8 +5,9 @@
   {
     "name": "openchat",
     "tiers": {
-      // Both rules are cheap; the floor makes an empty selection fail.
-      "fast": { "floor": 2 }
+      // All four rules are cheap and need no network; the floor makes an empty
+      // selection fail.
+      "fast": { "floor": 4 }
     },
     "rules": {
       "ui-review-blockers": {
@@ -31,6 +32,28 @@
         "description": "counts literal JSX text and user-visible attributes in apps/web/src outside src/i18n; the same scan as `pnpm run lint`",
         "count": {
           "command": ["node", "scripts/lint-i18n.ts", "--count"]
+        }
+      },
+      "test-count": {
+        "class": "declared functional test cases",
+        "incident": "prevention: nothing else notices when tests are deleted; the scope counted 149 declarations when the rule was introduced at 3ae6739 (148 unit/component plus one E2E spec)",
+        "unit": "declared test case",
+        "direction": "floor",
+        "tier": "fast",
+        "description": "counts `it(...)` and `test(...)` declarations in apps/** and packages/** `*.test.{ts,tsx,mts,cts}` files plus the functional `*.spec.{ts,tsx,mts,cts}` E2E specs under apps/web/e2e; the screenshot harness under apps/web/screenshots is not a functional test",
+        "count": {
+          "command": ["node", "scripts/count-tests.ts"]
+        }
+      },
+      "file-length": {
+        "class": "first-party code files over 400 lines",
+        "incident": "drift: four files passed 400 lines (packages/opencode/src/index.ts, packages/opencode/src/live.ts, apps/server/src/app.ts, apps/web/screenshots/ui-screenshots.spec.ts); splitting them is the paydown",
+        "unit": "file over 400 lines",
+        "direction": "ceiling",
+        "tier": "fast",
+        "description": "counts apps/**, packages/** and scripts/** source files whose line count exceeds 400; generated, vendored and declaration files are skipped",
+        "count": {
+          "command": ["node", "scripts/count-long-files.ts"]
         }
       }
     }

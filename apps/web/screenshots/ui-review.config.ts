@@ -6,12 +6,41 @@
 // through the real login form with the development password. Data comes from
 // the fake backend (`BACKEND_MODE=fake`), so seeds are deterministic and cost no
 // provider quota.
+//
+// Sessions are NOT created here. The `seed` Playwright project
+// (`screenshots/seed.setup.ts`) creates the four scenarios once per run and
+// writes their IDs to `UI_REVIEW_SEEDS`; this manifest only reads that file.
+// One seed set for the whole run is what keeps the sidebar identical in every
+// capture while the four viewport projects run in parallel.
 
 import type { Page } from "@playwright/test"
+import { readFileSync } from "node:fs"
+import { isAbsolute, resolve } from "node:path"
+import process from "node:process"
 
 export type UiReviewState = "filled" | "empty"
 export type UiReviewViewport = "mobile" | "tablet" | "desktop" | "wide"
 export type UiReviewAuth = "user" | "none"
+
+/**
+ * Extra state a capture can add on top of `state` + `viewport`.
+ *
+ * `theme` and `locale` are written to `localStorage` through `addInitScript`
+ * before the app mounts (`THEME_STORAGE_KEY` / `LOCALE_STORAGE_KEY`), so the
+ * first paint already uses them. `action` runs against the loaded page.
+ */
+export type UiReviewTheme = "dark" | "light"
+export type UiReviewLocale = "en" | "de"
+export type UiReviewVariantAction = "open-drawer" | "expand-tool"
+
+export interface UiReviewVariant {
+  name: string
+  theme?: UiReviewTheme
+  locale?: UiReviewLocale
+  action?: UiReviewVariantAction
+  /** Viewports that get this variant; defaults to every route viewport. */
+  viewports?: UiReviewViewport[]
+}
 
 export interface UiReviewViewportSize {
   width: number
@@ -36,6 +65,17 @@ export type UiReviewNavStep = UiReviewClickStep | UiReviewGotoStep
 
 export type UiReviewSeed = () => Promise<Record<string, unknown>>
 
+/** Scenario keys of the seed file, in the order `seedAll()` creates them. */
+export const uiReviewSeedKeys = ["rich", "tools", "error", "empty"] as const
+
+export type UiReviewSeedKey = (typeof uiReviewSeedKeys)[number]
+
+export interface UiReviewSeedRecord {
+  sessionId: string
+}
+
+export type UiReviewSeedFile = Record<UiReviewSeedKey, UiReviewSeedRecord>
+
 export interface UiReviewRoute {
   name: string
   path: string
@@ -50,6 +90,7 @@ export interface UiReviewRoute {
   scrollContainerSelector?: string
   waitForContentReady?: (page: Page) => Promise<void>
   nav?: UiReviewNavStep[]
+  variants?: UiReviewVariant[]
 }
 
 export interface UiReviewConfig {
@@ -63,95 +104,83 @@ export interface UiReviewConfig {
 /** Development password from `playwright.screenshots.config.ts`. */
 export const uiReviewPassword = "test-password"
 
+/** Environment variable that points setup project and workers at the seed file. */
+export const uiReviewSeedFileEnv = "UI_REVIEW_SEEDS"
+export const uiReviewSeedFileDefault = "test-results/ui-review-seeds.json"
+
+/**
+ * Absolute path of the seed file. `playwright.screenshots.config.ts` always
+ * sets the variable to an absolute path, so every process resolves the same
+ * file; the relative default only applies to a manual invocation.
+ */
+export function uiReviewSeedFilePath(): string {
+  const configured = process.env[uiReviewSeedFileEnv] ?? uiReviewSeedFileDefault
+  return isAbsolute(configured) ? configured : resolve(process.cwd(), configured)
+}
+
 const ORIGIN = "http://localhost:5173"
 const APP_TITLE = "OpenChat"
 const ALL_VIEWPORTS: UiReviewViewport[] = ["mobile", "tablet", "desktop", "wide"]
 
-async function loginCookie(): Promise<string> {
-  const response = await fetch(`${ORIGIN}/api/auth/login`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password: uiReviewPassword }),
-  })
-  if (!response.ok) throw new Error(`ui-review seed login failed: ${response.status}`)
-  const cookie = response.headers
-    .getSetCookie()
-    .map((value) => value.split(";", 1)[0])
-    .find((value) => value?.startsWith("oc_session="))
-  if (!cookie) throw new Error("ui-review seed login set no oc_session cookie")
-  return cookie
-}
-
-async function waitForAssistant(
-  cookie: string,
-  sessionID: string,
-  terminal: "complete" | "error" = "complete",
-): Promise<void> {
-  const deadline = Date.now() + 30_000
-  while (Date.now() < deadline) {
-    const response = await fetch(`${ORIGIN}/api/sessions/${sessionID}/messages`, {
-      headers: { cookie },
-    })
-    if (!response.ok) throw new Error(`ui-review seed message poll failed: ${response.status}`)
-    const body = (await response.json()) as unknown
-    const messages = Array.isArray(body) ? body : ((body as { messages?: unknown[] }).messages ?? [])
-    const last = messages[messages.length - 1] as { role?: string; status?: string } | undefined
-    if (last?.role === "assistant" && last.status === terminal) return
-    if (last?.role === "assistant" && last.status === "stopped") {
-      throw new Error("ui-review seed assistant was stopped")
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200))
-  }
-  throw new Error("ui-review seed assistant did not finish within 30 s")
-}
-
-async function createSession(
-  title: string,
-  prompt?: string,
-  terminal: "complete" | "error" = "complete",
-): Promise<{ sessionId: string }> {
-  const cookie = await loginCookie()
-  const created = await fetch(`${ORIGIN}/api/sessions`, {
-    method: "POST",
-    headers: { cookie, "content-type": "application/json" },
-    body: JSON.stringify({ title }),
-  })
-  if (!created.ok) throw new Error(`ui-review seed session failed: ${created.status}`)
-  const { id } = (await created.json()) as { id: string }
-
-  if (prompt) {
-    const prompted = await fetch(`${ORIGIN}/api/sessions/${id}/prompt`, {
-      method: "POST",
-      headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ text: prompt }),
-    })
-    if (!prompted.ok) throw new Error(`ui-review seed prompt failed: ${prompted.status}`)
-    await waitForAssistant(cookie, id, terminal)
-  }
-
-  return { sessionId: id }
-}
+let seedFileCache: UiReviewSeedFile | undefined
 
 /**
- * One session per scenario for the whole run: every viewport shows the same
- * transcript and the sidebar does not grow by one entry per screenshot.
+ * Read the seed file written by the `seed` project (`screenshots/seeds.ts`).
+ *
+ * Memoised per process: the setup project finishes before any viewport project
+ * starts, so each worker reads the file once and every test in the run sees the
+ * same four sessions. A missing seed file is a hard error rather than a silent
+ * re-create, which would add duplicate sessions to the captured sidebar. The
+ * `seed` project runs whenever a viewport project is selected (`--project
+ * <name>` included), but a `--grep` that drops the setup test can reuse the
+ * previous run's file, so run the whole set.
  */
-const seeds = new Map<string, Promise<Record<string, unknown>>>()
-
-function seedOnce(key: string, seed: () => Promise<Record<string, unknown>>) {
-  return () => {
-    const existing = seeds.get(key)
-    if (existing) return existing
-    const created = seed()
-    seeds.set(key, created)
-    return created
+function loadSeeds(): UiReviewSeedFile {
+  if (seedFileCache) return seedFileCache
+  const file = uiReviewSeedFilePath()
+  let raw: string
+  try {
+    raw = readFileSync(file, "utf8")
+  } catch (cause) {
+    throw new Error(
+      `ui-review seeds are missing at ${file}. The "seed" project ` +
+        `(screenshots/seed.setup.ts) writes them once before the viewport projects run, so ` +
+        `run the whole set with \`pnpm --filter @openchat/web run test:screenshots\` rather ` +
+        `than selecting a single viewport project.`,
+      { cause },
+    )
   }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw) as unknown
+  } catch (cause) {
+    throw new Error(`ui-review seeds at ${file} are not valid JSON`, { cause })
+  }
+  const record = (parsed ?? {}) as Partial<Record<UiReviewSeedKey, Partial<UiReviewSeedRecord>>>
+  const seeds = {} as UiReviewSeedFile
+  for (const key of uiReviewSeedKeys) {
+    const sessionId = record[key]?.sessionId
+    if (typeof sessionId !== "string" || sessionId.length === 0) {
+      throw new Error(
+        `ui-review seeds at ${file} have no session id for "${key}"; the file is stale or ` +
+          `incomplete. Delete it and re-run the screenshot set so the "seed" project ` +
+          `recreates it.`,
+      )
+    }
+    seeds[key] = { sessionId }
+  }
+  seedFileCache = seeds
+  return seeds
 }
 
-const seedRichChat = seedOnce("rich", () => createSession("Rendering showcase", "rich: show the rendering"))
-const seedToolsChat = seedOnce("tools", () => createSession("Tool cards", "tools: run the tools"))
-const seedErrorChat = seedOnce("error", () => createSession("Failed run", "error: fail the run", "error"))
-const seedEmptyChat = seedOnce("empty", () => createSession("Fresh chat"))
+function seededSession(key: UiReviewSeedKey): UiReviewSeed {
+  return async () => ({ sessionId: loadSeeds()[key].sessionId })
+}
+
+const seedRichChat = seededSession("rich")
+const seedToolsChat = seededSession("tools")
+const seedErrorChat = seededSession("error")
+const seedEmptyChat = seededSession("empty")
 
 const chatTranscript: UiReviewNavStep[] = [
   {
@@ -168,6 +197,16 @@ const waitForMermaid = async (page: Page) => {
 const waitForToolCards = async (page: Page) => {
   await page.locator('[data-testid="tool-card"]').first().waitFor({ timeout: 30_000 })
 }
+
+/**
+ * Variants only where they change what a reviewer can judge. The base captures
+ * stay light (Playwright's default `prefers-color-scheme: light`), so `dark` has
+ * signal; theme and locale are captured at the two layout extremes rather than
+ * all four widths, because tablet (820) and wide (1920) reuse the desktop
+ * column and only differ in surrounding space.
+ */
+const DARK: UiReviewVariant = { name: "dark", theme: "dark", viewports: ["mobile", "desktop"] }
+const GERMAN: UiReviewVariant = { name: "de", locale: "de", viewports: ["mobile", "desktop"] }
 
 export const uiReviewConfig: UiReviewConfig = {
   outputDir: "ui-review",
@@ -194,6 +233,7 @@ export const uiReviewConfig: UiReviewConfig = {
           reason: "Route guard: unauthenticated visitors land here, so the form is reviewed directly.",
         },
       ],
+      variants: [DARK, GERMAN],
     },
     {
       name: "landing",
@@ -202,7 +242,13 @@ export const uiReviewConfig: UiReviewConfig = {
       states: ["empty"],
       auth: "user",
       viewports: ALL_VIEWPORTS,
-      note: "Transcript empty state. The sidebar lists the seeded chats created by earlier projects in the same run.",
+      note: "Transcript empty state. The sidebar lists the four sessions the seed project created for this run, in creation order.",
+      variants: [
+        DARK,
+        GERMAN,
+        // The drawer only exists below the wide breakpoint.
+        { name: "drawer", action: "open-drawer", viewports: ["mobile", "tablet"] },
+      ],
     },
     {
       name: "chat-rich",
@@ -215,6 +261,7 @@ export const uiReviewConfig: UiReviewConfig = {
       nav: chatTranscript,
       scrollContainerSelector: '[data-testid="transcript"]',
       waitForContentReady: waitForMermaid,
+      variants: [DARK, GERMAN],
     },
     {
       name: "chat-tools",
@@ -227,6 +274,7 @@ export const uiReviewConfig: UiReviewConfig = {
       nav: chatTranscript,
       scrollContainerSelector: '[data-testid="transcript"]',
       waitForContentReady: waitForToolCards,
+      variants: [DARK, { name: "expanded", action: "expand-tool" }],
     },
     {
       name: "chat-error",

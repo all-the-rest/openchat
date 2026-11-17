@@ -46,6 +46,18 @@ jobs:
       - run: pnpm --filter @openchat/web exec playwright install --with-deps chromium
       # The Playwright config starts the fake BFF (8787) and Vite (5173).
       - run: pnpm run test:e2e
+      # UI-review captures: dark/German/drawer/expanded states at the four
+      # breakpoints. Same fake backend, no provider. `always()` keeps these
+      # running after a red E2E step; the upload below is `always()` too, so a
+      # failed run leaves the screenshots that explain it.
+      - run: pnpm --filter @openchat/web run test:screenshots
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-review-screenshots
+          path: apps/web/ui-review/
+          retention-days: 7
 
   ratchet:
     name: ratchet
