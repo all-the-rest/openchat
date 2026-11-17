@@ -10,6 +10,7 @@
 - Model selector.
 - Agent selector.
 - Optional skill selector.
+- Dictation button (microphone), hidden when no STT service is configured.
 - Attachment chips with name, size, type, remove and upload state.
 - Character/token hint and limit warnings.
 
@@ -93,6 +94,46 @@ The reference shows a Chat/Work switch in the header and shrinks it below
 640 px (OBS-013, OBS-035). The Work surface is out of scope and the owner
 excluded it, so **v1 renders no switch at all** — not a disabled or hidden
 one.
+
+## Dictation
+
+Dictation turns speech into composer text. It never sends the prompt.
+
+- The microphone button starts recording only after an explicit click or key
+  press; the app requests the microphone permission at that moment, never on
+  page load.
+- Two gestures: hold to talk, or click to toggle hands-free recording. A
+  recording pill shows elapsed time, a level meter, stop and cancel.
+- Cancel discards the audio and inserts nothing. Stop ends capture and starts
+  transcription; the button shows a busy state.
+- The transcript is inserted at the caret as normal editable text in the
+  current UI language. The owner can correct it before sending.
+- Default limit: 2 minutes or 25 MiB, whichever comes first; both are
+  configurable. Reaching the limit stops capture and transcribes what exists.
+- Capture happens on the device. The browser sends the audio to the same-origin
+  BFF (`POST /api/transcribe`), which forwards it to the configured
+  Whisper-compatible STT service. Nothing is sent to a third party unless the
+  owner configured one.
+- The BFF streams the audio through and does not write it to disk; only the
+  resulting text is kept in the draft. No audio in logs.
+- Optional live partial text when the STT service supports streaming;
+  otherwise show "Transcribing…" and insert once.
+- Errors are specific and recoverable: permission denied (with browser
+  instructions), no input device, unsupported MIME type, service unavailable,
+  timeout, empty transcript. A failed transcription keeps the draft and offers
+  retry; it never silently drops text.
+- The feature is absent when `STT_URL` is unset. There is no fake "listening"
+  state without a working service.
+- Keyboard: the microphone button is focusable and toggles with `Enter` or
+  `Space`; `Escape` cancels recording before it closes any menu.
+
+Implementation notes:
+
+- Prefer `MediaRecorder` with `audio/webm;codecs=opus` where supported and
+  `audio/mp4` on Safari; do not assume one MIME type.
+- Recording must survive a route change within the session or be cancelled
+  explicitly; do not leave the microphone open.
+- iOS Safari requires the recording start inside the user gesture.
 
 ## Mobile composer
 

@@ -38,8 +38,8 @@ local task lists as the source of truth.
    in the product name, metadata or marketing.
 7. **Role separation.** The `observer` writes observations and the
    specification. The `builder` reads only `docs/spec/**`,
-   `docs/architecture/**` and `features/**` — never `docs/reference/**` or the
-   raw observation logs.
+   `docs/architecture/**`, `docs/decisions/**` and `features/**` — never
+   `docs/reference/**` or the raw observation logs.
 8. **Log contamination.** Every encounter with reference code or assets goes
    into `docs/clean-room/05-contamination-log.md`.
 
@@ -48,7 +48,7 @@ local task lists as the source of truth.
 | Agent | May read | May write |
 | --- | --- | --- |
 | `observer` | all reference material | `docs/reference/**`, `docs/clean-room/01-*` … `05-*`, `docs/spec/**` |
-| `builder` | `docs/spec/**`, `docs/architecture/**`, `docs/decisions/**`, `features/**`, code | `apps/**`, `packages/**`, `features/**`, tests, root build config, `docs/architecture/**` (with an ADR) |
+| `builder` | `docs/spec/**`, `docs/architecture/**`, `docs/decisions/**`, `features/**`, code | `apps/**`, `packages/**`, `features/**`, tests, root build config, `docs/architecture/**`; reports decisions, the orchestrator records the ADR |
 | `reviewer` | everything | review notes in the issue only |
 
 The project default agent is `observer` while the analysis is running (M0).

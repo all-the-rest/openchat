@@ -19,13 +19,13 @@ local service discovery.
 ```ts
 import { OpenCode } from "@opencode/client"
 
+const basic = Buffer.from(
+  `${process.env.OPENCODE_USERNAME ?? "opencode"}:${process.env.OPENCODE_PASSWORD}`,
+).toString("base64")
+
 const client = OpenCode.make({
   baseUrl: process.env.OPENCODE_URL!,
-  // Optional: only when the deployment puts a credential gate in front of
-  // OpenCode. The value stays server-side.
-  headers: process.env.OPENCODE_AUTH
-    ? { authorization: process.env.OPENCODE_AUTH }
-    : undefined,
+  headers: { authorization: `Basic ${basic}` },
 })
 
 const session = await client.session.create({
@@ -42,11 +42,11 @@ for await (const event of client.event.subscribe()) {
 }
 ```
 
-OpenCode 2.3 has no built-in HTTP authentication flag. The BFF therefore sends
-no `Authorization` header by default; the security boundary is the loopback or a
-private network. If the deployment puts Basic auth in front of OpenCode (the
-owner's existing edge does this), `OPENCODE_AUTH` carries the server-side header
-value and the browser never sees it.
+OpenCode 2.3 has no auth *flag*, but `serve` still protects its HTTP API with
+HTTP Basic auth: username `opencode`, password from `OPENCODE_PASSWORD` (or
+generated and printed once). Without the header every call returns `401`.
+Network isolation is defense in depth, not the primary control. The credential
+stays server-side; the browser never sees it.
 
 ### `@opencode/sdk` (embedded)
 
@@ -157,11 +157,37 @@ Verified shape:
 }
 ```
 
-`session.prompt` returns an inbox entry (`SessionInboxUser`). The turn starts
-when the runner picks it up; subscribe to `session.inbox.*` and the step events
-to render progress. Attachments use `file:` or `data:` URLs; HTTP(S) is not
-supported. Supported input: UTF-8 text, directories, PNG/JPEG/GIF/WebP, PDF.
-Limit 20 MiB per attachment. SVG is text; audio/video are not included.
+`session.prompt` returns the inbox entry
+`{ id, sessionID, time: { created }, type: "user", payload: { text }, delivery }`.
+The turn starts when the runner picks it up; subscribe to `session.inbox.*` and
+the step events to render progress. Attachments use `file:` or `data:` URLs;
+HTTP(S) is not supported. Supported input: UTF-8 text, directories,
+PNG/JPEG/GIF/WebP, PDF. Limit 20 MiB per attachment. SVG is text; audio/video
+are not included.
+
+## Event envelope
+
+Every event is `{ id, created, type, location?, data, durable? }`. The payload
+is nested under `data`, never at the top level:
+
+```json
+{
+  "id": "evt_…",
+  "created": 1794920313491,
+  "type": "session.text.delta",
+  "location": { "directory": "/workspace" },
+  "data": {
+    "sessionID": "ses_…",
+    "assistantMessageID": "msg_…",
+    "ordinal": 0,
+    "delta": "OK"
+  }
+}
+```
+
+`durable: { aggregateID, seq, version }` is present on durable events and is the
+ordering/dedupe key. Transient deltas have no `durable` block. Normalize the
+envelope once in the BFF and give the browser flat events.
 
 ## Message model
 
@@ -273,8 +299,17 @@ lets the UI ask the owner a structured question. Settled forms are read-only.
 - `create({ title, files: Record<path, string>, entry?, provider?, sessionID? })`.
 - `update(...)` with the same file map.
 - `get(id)` → `{ info, files: Record<path, string> }`.
-- `view({ artifactID, path })` → raw bytes.
+- `view({ artifactID, path })` → raw bytes (`Uint8Array`).
 - `delete(id)`.
+
+Most methods return `{ location, data }`; `session.create` is the exception that
+unwraps to the session. `ArtifactInfo.url` is a relative path such as
+`/api/experimental/artifacts/<id>/view/`, not a public URL, so the app must
+resolve it through the BFF and its own signed artifact URL.
+
+Verified locally: with `experimental.artifacts: true` the default provider is
+`local` with `capabilities: ["static"]`; create/get/view round-trip a file map.
+Without the flag the API answers `403 ForbiddenError: Artifacts are disabled`.
 
 So the app does not implement artifact storage or a provider. It uses the
 OpenCode artifact API and only adds the sandbox: the artifact origin resolves a

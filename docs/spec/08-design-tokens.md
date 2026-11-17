@@ -73,10 +73,14 @@ large text and UI borders).
 
 ## Typography
 
+The reference renders with the platform UI font; the measured stack is system
+UI (OBS-010). Use the system stack. Bundling a webfont requires a license, a
+self-hosted file and a documented reason; do not add one by default.
+
 | Token | Value |
 | --- | --- |
-| `font-sans` | `Inter, system-ui, -apple-system, "Segoe UI", sans-serif` |
-| `font-mono` | `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace` |
+| `font-sans` | `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` |
+| `font-mono` | `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` |
 | `text-xs` | 12 px / 16 px |
 | `text-sm` | 13 px / 18 px |
 | `text-base` | 15 px / 24 px |

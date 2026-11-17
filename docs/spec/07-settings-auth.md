@@ -26,8 +26,9 @@ secondary surface, and v1 needs far fewer of them than the reference. The
 reference settings tree (account, billing, parental controls, pets, usage
 plans) is recorded as observation only and is **not** a requirement.
 
-M1 ships only the language switch and a read-only server status. Everything
-else follows with the feature it configures.
+M1 ships only the language switch (persisted locally) and a read-only server
+status; both live on a minimal `/settings` route. Everything else follows with
+the feature it configures, from M3 onward.
 
 ### Models
 
@@ -35,8 +36,8 @@ else follows with the feature it configures.
 - Show context window, capabilities (reasoning, image input, PDF input), cost.
 - Set the default model for new chats.
 - Provider credentials and custom models are configured in OpenCode; the page
-  shows the configuration path, or the same-origin admin route when
-  `ADMIN_PROXY=on`.
+  shows the configuration path, or the Code surface (V2) / config-only admin
+  route (`ADMIN_PROXY=on`) when enabled.
 
 ### Agents
 

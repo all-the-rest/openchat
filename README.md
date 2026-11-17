@@ -15,11 +15,17 @@ keeping all data, models, tools and agents local or self-hosted:
 
 - chat with streaming, reasoning, tool calls and cancellation
 - Markdown, code, tables, formulas, diagrams and artifacts
-- file and image attachments, image generation, voice
+- file and image attachments, image generation
 - agents, planning, todos, subagents and background tasks
 - browser, file and MCP tools
-- password-protected single-user operation; OpenCode stays internal
+- password-protected single-user operation; OpenCode is authenticated and never
+  public
 - UI i18n with English and German
+- a fake backend and fake model so tests and UI work never spend provider quota
+
+V2 (specified, not v1): dictation, interactive artifacts, a **Chat | Code**
+switch that embeds the original OpenCode web UI (or our own equivalent), and
+multi-source/app search.
 
 ## Architecture in three sentences
 
@@ -43,6 +49,9 @@ See [`docs/architecture/01-system.md`](docs/architecture/01-system.md).
 | Feasibility | [`docs/matrix/01-feasibility.md`](docs/matrix/01-feasibility.md) |
 | OpenCode integration | [`docs/architecture/02-opencode-integration.md`](docs/architecture/02-opencode-integration.md) |
 | Auth & deployment | [`docs/architecture/03-auth-deployment.md`](docs/architecture/03-auth-deployment.md) |
+| Artifact sandbox | [`docs/architecture/04-artifact-sandbox.md`](docs/architecture/04-artifact-sandbox.md) |
+| Testing & fake backend | [`docs/architecture/05-testing.md`](docs/architecture/05-testing.md) |
+| Code surface (V2) | [`docs/architecture/06-code-surface.md`](docs/architecture/06-code-surface.md) |
 | Roadmap | [`docs/roadmap.md`](docs/roadmap.md) |
 
 ## Boundaries

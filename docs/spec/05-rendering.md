@@ -83,26 +83,85 @@ Rules:
 
 ## Artifacts
 
+Artifacts cover static documents and **interactive** HTML/CSS/JS (calculators,
+charts, simulations, small tools). V1 ships the static viewer; the interactive
+layer is the priority of **V2** (owner, 2026-11-17), with FR-37…40.
+
 - Artifact metadata: title, provider, entry, URL, session, time.
 - Open in the right rail on desktop, full-screen sheet on mobile.
 - The preview runs on a separate origin in a sandboxed iframe:
 
 ```html
 <iframe
-  sandbox="allow-scripts allow-modals allow-popups"
+  sandbox="allow-scripts"
   referrerpolicy="no-referrer"
   src="https://artifacts.example.com/a/<id>?exp=<unix>&sig=<hmac>"
 />
 ```
 
 - Never include `allow-same-origin` together with `allow-scripts`.
-- Omit `allow-forms`; the artifact CSP sets `form-action 'none'`.
-- The artifact host must not send cookies and must set a restrictive CSP.
+- Do not grant `allow-modals`, `allow-popups`, `allow-forms`,
+  `allow-top-navigation` or `allow-downloads`. `Escape` and the close control
+  belong to the app, not the artifact.
+- The artifact host sends no cookies and sets:
+
+```
+Content-Security-Policy:
+  default-src 'none';
+  script-src 'unsafe-inline' 'unsafe-eval';
+  style-src 'unsafe-inline';
+  img-src data: blob:;
+  font-src data:;
+  media-src data: blob:;
+  connect-src 'none';
+  form-action 'none';
+  base-uri 'none';
+  frame-ancestors https://chat.example.com
+```
+
 - URLs are signed and short-lived; the app never serves artifact HTML on its
   own origin.
 - Downloads are explicit; no automatic navigation.
 - Version history is optional; at minimum, show the current version and a
   download action.
+
+### Interactivity
+
+- User input, local computation, canvas/SVG drawing and animation work without
+  a network connection. Artifacts must be self-contained: inline scripts and
+  styles, data-URI assets.
+- Controls: reset to initial state, reload, fullscreen/present, download
+  source. Reset must not require a new signed URL.
+- Present mode hides app chrome, keeps an exit affordance and does not grant
+  extra permissions.
+- Size grows with content; the iframe reports its height through the bridge,
+  bounded by a maximum, after which it scrolls.
+
+### Artifact → chat bridge
+
+An artifact can hand a result back to the chat. The protocol is narrow and
+validated on the app side:
+
+- `artifact:ready` → app replies with the artifact id, locale and theme.
+- `artifact:result` → `{ type, title?, text?, data? }`, at most 64 KiB,
+  schema-validated, rate-limited.
+- `artifact:resize` → integer height, clamped.
+- The app checks `event.origin === ARTIFACT_ORIGIN` and
+  `event.source === iframe.contentWindow`, ignores everything else, and never
+  evaluates the payload as HTML or code.
+- A result becomes an editable composer draft by default; the owner chooses
+  whether "send result" posts it as a user message.
+- The bridge exposes no session token, no app API and no privileged action.
+
+### Exfiltration limits
+
+The sandbox and CSP stop subresource requests, `fetch`, forms and cookies.
+They do **not** stop the frame from navigating itself to an external URL with
+data in the query string; CSP has no navigation directive, and the sandbox only
+blocks top-level navigation. The real control is an egress-deny policy on the
+artifact origin's network namespace. The signed URL carries no credentials, so
+a leak cannot escalate beyond the artifact's own content. See
+[`../architecture/04-artifact-sandbox.md`](../architecture/04-artifact-sandbox.md).
 
 ## Files and images
 

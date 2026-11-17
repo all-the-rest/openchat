@@ -11,37 +11,58 @@ permissions:
   - action: edit
     resource: "*"
     effect: allow
+
+  # No network and no code search: both can read the walled reference paths
+  # without naming them. The builder works from explicit files.
   - action: webfetch
     resource: "*"
-    effect: allow
+    effect: deny
   - action: websearch
     resource: "*"
-    effect: allow
-  - action: shell
+    effect: deny
+  - action: grep
     resource: "*"
-    effect: allow
+    effect: deny
+  - action: glob
+    resource: "*"
+    effect: deny
+  - action: subagent
+    resource: "*"
+    effect: deny
   - action: execute
     resource: "*"
     effect: deny
 
-  # Chinese wall: reference material is invisible to the builder.
+  # Chinese wall: reference material is invisible to the builder. The leading
+  # `*` covers absolute paths, because `*` also matches `/` and the same file
+  # must not become readable just because a tool names it absolutely.
   - action: read
     resource: "docs/reference/*"
+    effect: deny
+  - action: read
+    resource: "*docs/reference/*"
     effect: deny
   - action: read
     resource: "docs/clean-room/*"
     effect: deny
   - action: read
+    resource: "*docs/clean-room/*"
+    effect: deny
+  - action: read
     resource: "references/*"
     effect: deny
   - action: read
-    resource: ".env"
+    resource: "*references/*"
+    effect: deny
+  # `*` crosses `/`, so nested env files are covered too.
+  - action: read
+    resource: "*.env"
     effect: deny
   - action: read
-    resource: ".env.*"
+    resource: "*.env.*"
     effect: deny
   - action: read
-    resource: ".env.example"
+    resource: "*.env.example"
     effect: allow
 
   # Production code, architecture and tests; never the spec, the rules or the
@@ -56,6 +77,15 @@ permissions:
     resource: "docs/clean-room/*"
     effect: deny
   - action: edit
+    resource: "docs/decisions/*"
+    effect: deny
+  - action: edit
+    resource: "docs/matrix/*"
+    effect: deny
+  - action: edit
+    resource: "roadmap.md"
+    effect: deny
+  - action: edit
     resource: "references/*"
     effect: deny
   - action: edit
@@ -65,39 +95,71 @@ permissions:
     resource: "AGENTS.md"
     effect: deny
   - action: edit
-    resource: ".env*"
+    resource: "opencode.json"
     effect: deny
+  - action: edit
+    resource: "opencode.jsonc"
+    effect: deny
+  - action: edit
+    resource: "package.json"
+    effect: deny
+  - action: edit
+    resource: "*/package.json"
+    effect: deny
+  - action: edit
+    resource: "bun.lock"
+    effect: deny
+  - action: edit
+    resource: "bun.lockb"
+    effect: deny
+  - action: edit
+    resource: ".github/workflows/*"
+    effect: deny
+  - action: edit
+    resource: "*.env"
+    effect: deny
+  - action: edit
+    resource: "*.env.*"
+    effect: deny
+  - action: edit
+    resource: "*.env.example"
+    effect: allow
 
   # Denying `execute` removes Code Mode, but the MCP tools then appear as
-  # direct tools. Deny them by name as well.
+  # direct tools. Deny every server by name, including codegraph (it reads
+  # the whole tree).
   - action: "browse_*"
     resource: "*"
     effect: deny
   - action: "rea_*"
     resource: "*"
     effect: deny
-
-  # The reference product must never be opened by the builder.
-  - action: webfetch
-    resource: "https://chatgpt.com/*"
-    effect: deny
-  - action: webfetch
-    resource: "https://*.chatgpt.com/*"
+  - action: "codegraph_*"
+    resource: "*"
     effect: deny
 
-  # Shell for build and tests, no commits or pushes.
+  # Shell is an exact allowlist of quality-gate commands. Deny everything
+  # first, then open only exact strings: `bun run lint && cat
+  # docs/clean-room/...` does not match and stays closed. The orchestrator
+  # commits and pushes.
   - action: shell
-    resource: "git commit *"
+    resource: "*"
     effect: deny
   - action: shell
-    resource: "git push *"
-    effect: deny
+    resource: "bun install --frozen-lockfile"
+    effect: allow
   - action: shell
-    resource: "git reset --hard *"
-    effect: deny
+    resource: "bun run lint"
+    effect: allow
   - action: shell
-    resource: "git clean *"
-    effect: deny
+    resource: "bun run typecheck"
+    effect: allow
+  - action: shell
+    resource: "bun run test"
+    effect: allow
+  - action: shell
+    resource: "bun run build"
+    effect: allow
 ---
 
 You are the builder. You implement the application from the specification.
@@ -115,17 +177,20 @@ You are the builder. You implement the application from the specification.
 - `docs/reference/**` (redacted reference excerpts)
 - `docs/clean-room/**` (raw observations and method)
 - `references/**` (raw material)
-- The reference app itself, its bundles, assets or source text. Do not fetch
-  `chatgpt.com` or use the browser/REA MCP tools.
+- The reference app itself, its bundles, assets or source text.
 
-If information is missing: do not guess and do not open the reference. Report
-the open question to the orchestrator; the observer resolves it.
+The permissions above are the enforcement, not a suggestion. `read`, `grep`,
+`glob`, shell, web access and MCP tools are all closed against the walled
+paths. If a task needs a detail from a forbidden source, stop and ask the
+orchestrator; the observer resolves it.
 
 ## Rules
 
 - No commits, no pushes. The orchestrator commits.
 - Every change ships tests (Vitest and/or Playwright).
-- Quality gates: `bun run lint`, `bun run test`, `bun run build`.
+- Quality gates: `bun run lint`, `bun run typecheck`, `bun run test`,
+  `bun run build`.
+- Tests use the fake backend and fixtures; never a paid provider by default.
 - All UI strings go through the i18n layer; no literals in components.
 - No secrets, no external assets without a license.
 - Run agent-generated HTML only in a sandboxed iframe.

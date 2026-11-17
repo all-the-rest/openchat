@@ -23,26 +23,34 @@ The BFF is **not** a generic reverse proxy. It exposes a fixed, allowlisted API
 and forwards only those calls to OpenCode:
 
 - sessions, messages, prompt, interrupt, fork/revert, compact
+- prompt queue (inbox list/update/cancel)
 - model/agent lists and selection
 - permissions and forms
 - events (SSE)
-- artifacts (metadata and signed URL)
+- artifacts (metadata, signed URL, storage via OpenCode)
 - image generation, voice, websearch (feature-gated)
-- MCP status (read-only)
+- multi-source search: web providers, workspace files, chat history, apps
+- schedules and background jobs (feature-gated)
+- export/import
+- MCP status and read-only tool listing; add/connect only behind the admin
+  surface
+- STT proxying for dictation (`/api/transcribe`)
 
-Never exposed, even behind authentication:
+Never exposed through the BFF, even behind authentication:
 
 ```
 /api/fs/*          /api/shell*       /api/pty*
 /api/config*       /api/credential*  /api/debug/*
-/api/plugin*       /api/installation*
+/api/plugin*       /api/pair         /auth/connect/*
 /api/experimental/fs/write
 ```
 
-These routes can read or write the host, start processes or reveal secrets. If
-an admin surface is needed, it is a separate, explicit route
-(`/admin/opencode/*`, `ADMIN_PROXY=on`) with its own narrower allowlist, not a
-wildcard passthrough.
+These routes can read or write the host, start processes, mint credentials or
+reveal secrets. The Code surface is the deliberate exception: it is a separate
+authenticated origin with its own ticket flow, not a wildcard BFF proxy. A
+config-only admin route (`/admin/opencode/*`, `ADMIN_PROXY=on`) remains as a
+fallback with a narrower allowlist: read config, update config, list/connect
+MCP. It never forwards plugin, credential, pair, fs, shell or pty routes.
 
 Every session is created with an explicit `location.directory` taken from
 `WORKSPACE_DIR`; the browser never chooses a filesystem path.
@@ -51,10 +59,11 @@ Every session is created with an explicit `location.directory` taken from
 
 | Component | Responsibility |
 | --- | --- |
-| `apps/web` | React UI, rendering registry, composer, transcript, settings |
-| `apps/server` | Bun/Hono BFF: auth, session cookie, same-origin proxy, static files |
+| `apps/web` | React UI, rendering registry, composer, transcript, settings, surface switch |
+| `apps/server` | Bun/Hono BFF: auth, session cookie, same-origin proxy, static files, STT proxy |
+| `apps/code-host` | Authenticated proxy that embeds the original OpenCode web UI |
 | `apps/artifact-host` | Separate origin for sandboxed agent artifacts |
-| `packages/opencode` | Typed adapter around `@opencode/client` (and later `@opencode/sdk`) |
+| `packages/opencode` | Typed adapter around `@opencode/client`, the fake `ChatBackend`, fixtures |
 | `packages/contracts` | Shared types, event normalization, error shapes |
 | `packages/ui` | Design system components and tokens |
 
@@ -62,8 +71,8 @@ Every session is created with an explicit `location.directory` taken from
 
 | Option | Description | Pros | Cons | Verdict |
 | --- | --- | --- | --- | --- |
-| **A. BFF + OpenCode server** | `opencode serve` as a separate process; BFF uses `@opencode/client` | Official web UI available; process isolation; simple upgrades; CORS solved by proxy; can run on a VPS | Two processes; localhost hop | **Default for v1** |
-| **B. Embedded SDK** | `@opencode/sdk` hosts OpenCode inside the Bun BFF | Single process; no network hop; plugin transforms; tight integration | No official web UI; experimental surface; lifecycle/cleanup; harder upgrades | **Spike, adapter behind the same port** |
+| **A. BFF + OpenCode server** | `opencode serve` as a separate process; BFF uses `@opencode/client` | Code surface can embed the official UI; process isolation; simple upgrades; CORS solved by proxy; can run on a VPS | Two processes; localhost hop | **Default for v1** |
+| **B. Embedded SDK** | `@opencode/sdk` hosts OpenCode inside the Bun BFF | Single process; no network hop; plugin transforms; tight integration | No official web UI, so no Code surface; experimental surface; lifecycle/cleanup; harder upgrades | **Spike, adapter behind the same port** |
 | **C. Fork OpenCode web UI** | Extend the official UI | Fast start; native features | Coupled to upstream; hard to make ChatGPT-like; auth/UX constraints | Rejected |
 | **D. Static client** | Browser talks directly to OpenCode (like `opencode-pwa`) | No backend | CORS, auth, secret exposure, no same-origin, no artifact host | Rejected for this product |
 

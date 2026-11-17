@@ -41,9 +41,6 @@ Raw captures and screenshots live in `references/raw/` and are never committed.
 | User bubble text | `#14361a` | user message | OBS-016 |
 | Accent (voice / send) | `#53b559` | circular action button | OBS-012 |
 | Inactive tab text | `#5d5d5d` | segmented control | OBS-013 |
-| Divider | ~1 px, low-contrast neutral | sidebar/content boundary, table rows | OBS-010, OBS-016 |
-
-Dark theme: **not measured** (OBS-027). Do not infer values.
 
 Dark theme (OBS-027):
 
@@ -136,19 +133,17 @@ padding, 10 × 16 px bubble padding.
 | Token | Measured value | Context | Evidence |
 | --- | --- | --- | --- |
 | Composer | `0 0 0 1px rgba(0,0,0,.04)`, `0 2px 8px rgba(0,0,0,.04)`, `0 4px 80px 8px rgba(0,0,0,.024)` | composer shell | OBS-012 |
-| Popover | soft, low-opacity, large blur | model picker | OBS-014 |
 
 ## Motion
 
-Not measured yet. Record durations and easing for: streaming indicator,
-popover open/close, sidebar section collapse, message insertion, scroll
-affordance. No values before measurement.
+Not measured yet. No values before measurement; see Open.
 
 ## Open
 
-- Dark theme surfaces and text colors (OBS-027).
+- Divider color; only the ~1 px width is measured.
 - Hover, focus, active and disabled states per component.
 - Focus ring color and width.
-- Breakpoints and the collapsed sidebar width (OBS-028).
+- Popover shadow blur/opacity beyond "soft, large blur".
 - Right rail / artifact panel width (OBS-020).
 - Reduced-motion behavior.
+- Motion durations and easing for streaming, popovers, collapse, insertion.

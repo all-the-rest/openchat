@@ -15,6 +15,7 @@ before they become requirements.
 | `hypothesis` | plausible, not yet verified |
 | `open` | unknown, needs a dedicated probe |
 | `absent` | checked and not present |
+| `planned (V2)` | owner-requested, specified outside v1 |
 
 ## A. Text and structure
 
@@ -65,7 +66,7 @@ before they become requirements.
 | R-28 | Charts from code execution | — | hypothesis | shell/PTY + artifact files | chart renderer or image | M |
 | R-29 | Data tables with download | — | hypothesis | artifact files | table + CSV download | M |
 | R-30 | Canvas/document editor | CSP: `pages-realtime` | hypothesis | file editing + artifacts | editor | L |
-| R-31 | Interactive apps/widgets | OBS-002: `*.chatgpt.site`, `*.embed.chatgpt.site` | hypothesis | MCP tools + custom renderers | widget host | L |
+| R-31 | Interactive apps/widgets | indirect: CSP allows `*.chatgpt.site`, `*.embed.chatgpt.site` | planned (V2) | artifact provider + `allow-scripts` + bridge | widget host | L |
 | R-32 | Maps and places | CSP: Google Maps, MapKit, Mapbox | hypothesis | tool/MCP output | map embed | M |
 | R-33 | Rich cards (weather, stocks, shopping, recipes) | — | open | tool/MCP output + JSON schema | card registry | L |
 | R-34 | Embedded third-party content (YouTube, Vimeo, CodePen, Google Docs) | CSP frame-src | hypothesis | tool output | embed allowlist | M |

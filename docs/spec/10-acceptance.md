@@ -79,7 +79,16 @@ Mermaid diagram, an image and a citation
 **Given** an artifact with HTML and JavaScript
 **When** it is opened
 **Then** it renders in the sandboxed iframe on the artifact origin
-**And** it cannot read app cookies or call the app API.
+**And** it cannot read app cookies or call the app API
+**And** it cannot open a popup or navigate the top window
+**And** an attempt to navigate its own frame to an external host is dropped by
+the artifact container's egress policy.
+
+**Given** an interactive artifact (V2)
+**When** the user changes an input
+**Then** it recomputes without a reload
+**And** reset restores the initial state
+**And** a `postMessage` result becomes a draft, not executed HTML.
 
 ## I. Agents and tasks
 
@@ -114,10 +123,13 @@ Markdown list instead.
 
 ## L. Security
 
-- Direct access to the OpenCode port from the public internet fails.
+- Direct unauthenticated access to the OpenCode port fails with 401, even on
+  loopback.
 - API calls without a session cookie return 401.
 - CSRF origin checks reject cross-origin state changes.
-- Artifact iframe has no `allow-same-origin`.
+- Artifact iframe has no `allow-same-origin`, `allow-popups` or `allow-modals`.
+- The Code surface (V2) only loads with a valid single-use ticket; a replayed
+  ticket is rejected.
 - No secrets appear in the client bundle or logs.
 
 ## M. Recovery
@@ -127,10 +139,24 @@ Markdown list instead.
 **Then** the session state is restored from the server
 **And** the user sees a clear notice.
 
+## N. Zero-quota tests
+
+**Given** a CI environment with no provider credentials and no network access
+**When** `bun run test` and the Playwright suite run
+**Then** every scenario above runs against `BACKEND_MODE=fake`
+**And** no request reaches a provider or a real OpenCode server
+**And** the live smoke is skipped unless `LIVE_TESTS=1`.
+
+**Given** `BACKEND_MODE=fake` and `NODE_ENV=production`
+**When** the server starts
+**Then** it refuses to start.
+
 ## Definition of done
 
-- All scenarios pass in CI (or are explicitly marked manual).
-- `bun run lint`, `bun run test`, `bun run build` pass.
+- All scenarios pass in CI against the fake backend (or are explicitly marked
+  manual).
+- `bun run lint`, `bun run typecheck`, `bun run test`, `bun run build` pass.
+- No scenario in the default suite contacts a real provider.
 - Accessibility pass has no serious axe findings.
 - Every new user-visible string has an `en` and a `de` translation.
 - No secrets, no raw reference material and no personal data in the change.

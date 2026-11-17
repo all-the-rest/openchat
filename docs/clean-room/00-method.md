@@ -38,24 +38,26 @@ This document is not legal advice.
 | Role | Task | Sees reference | Writes |
 | --- | --- | --- | --- |
 | Observer | operate, measure, record | yes | `docs/reference/**`, `docs/clean-room/01-*` … `05-*`, `docs/spec/**` |
-| Builder | implement | **no** | `apps/**`, `packages/**`, `features/**`, tests, root build config, `docs/architecture/**` with an ADR |
+| Builder | implement | **no** | `apps/**`, `packages/**`, `features/**`, tests, root build config, `docs/architecture/**`; reports decisions, the orchestrator records the ADR |
 | Reviewer | verify | only for acceptance | review notes in the issue |
 
 The separation is enforced in OpenCode:
 
 - `.opencode/agents/observer.md` cannot write production code.
 - `.opencode/agents/builder.md` cannot read `docs/reference/**`, `docs/clean-room/**`
-  or `references/**`, and cannot use Code Mode. Because V2 resolves permissions
-  last-match-wins, the builder file lists broad allows first and every
-  restriction last; denying `execute` alone is not enough, so the `browse_*` and
-  `rea_*` MCP tools are denied by name as well.
+  or `references/**`, cannot use Code Mode, web access, `grep`, `glob`,
+  subagents or MCP tools (denied by name; `codegraph_*` included), and has an
+  exact shell allowlist for the quality gates. V2 resolves permissions
+  last-match-wins; every allow is followed by the matching denies.
 - The canonical role table lives in `AGENTS.md`; this document only explains the
   method.
 
-Residual risk: a single model can ignore rules if they are in its context.
-Therefore use separate sessions and never put reference material into the
-builder context. Strict separation would require separate accounts or
-containers.
+Residual risk: permissions are process controls, not a sandbox. Code that the
+builder can run (a test, a build script, a dependency) can read any file the
+process can read, and a model can ignore rules that are in its context. Keep
+reference material out of the builder context, use separate sessions, and for a
+hard guarantee run the builder in a checkout that does not contain
+`docs/clean-room/**`, `docs/reference/**` or `references/**` at all.
 
 ## Evidence model
 

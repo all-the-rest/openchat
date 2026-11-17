@@ -50,11 +50,15 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 | Charts | ✅ | 🟡 via code/artifact | 🟡 | M | yes | Render generated files |
 | Citations/sources | ✅ | 🟡 websearch output + UI | 🟡 | M | yes | Tool output schema |
 | Canvas/document editor | ✅ | 🟡 file editing + artifacts | 🟡 | L | later | |
+| Interactive artifacts/widgets | ✅ | ✅ `experimental.artifacts.*` + `allow-scripts` | ✅ | L | v2 | Priority feature; sandbox + bridge |
+| Multi-source search | ✅ | 🟡 `websearch.*` + files + chat index + MCP | 🟡 | L | v2 | Dedupe, rank, cite |
+| App/connector search | ✅ | 🟡 `mcp.*`, `integration.*` | 🟡 | M | v2 | Status + connect |
 | Interactive apps | ✅ | 🟡 MCP + custom renderers | 🟡 | L | later | |
 | Maps/places | ✅ | 🟡 MCP/embed | 🟡 | M | later | |
 | Rich cards | ✅ | 🟡 custom card registry | 🟡 | L | later | |
 | Video | ✅ | 🟡 MCP/embed | 🟡 | L | later | |
-| Voice | ✅ | 🟡 `experimental.voice.*` | 🟡 | M | ❓ | Provider dependent |
+| Voice mode (realtime) | ✅ | 🟡 `voice.models/session` | 🟡 | M | no (v2+) | Provider dependent; not dictation |
+| Dictation (device STT) | ✅ | 🟡 browser capture + Whisper sidecar | 🟡 | M | v2 | No provider quota with local STT |
 | Image generation | ✅ | ✅ `experimental.generate.image` | ✅ | M | yes | Provider dependent |
 | Multiplayer | ✅ | 🔴 | 🔴 | XL | no | |
 
@@ -82,7 +86,8 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 | Capability | Reference | Self-hosted + OpenCode | SDK | Effort | v1 | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | Single-user auth | ✅ | 🟡 custom BFF | 🟡 | S | yes | Basic or session |
-| Provider config | ✅ | ✅ OpenCode config, same-origin admin proxy | 🟡 | S | yes | `ADMIN_PROXY=on`; never publish OpenCode |
+| Provider config | ✅ | ✅ OpenCode config, Code surface (V2) or admin proxy | 🟡 | S | yes | Never publish OpenCode unauthenticated |
+| Code surface (original OpenCode UI) | ✅ | ✅ iframe on dedicated authenticated origin | 🟡 | M | v2 | Fallback: build our own |
 | Model list/capabilities | ✅ | ✅ `model.list`, `provider.list` | ✅ | S | yes | |
 | Usage/cost | ✅ | ✅ `experimental.usage.limits`, `session.stats` | ✅ | M | later | |
 | Export/import | ✅ | ✅ `session.export/import` | ✅ | S | yes | JSON/Markdown |
@@ -97,27 +102,30 @@ Effort: **S** ≤ 1 day, **M** 2–5 days, **L** 1–2 weeks, **XL** > 2 weeks.
 
 | Topic | Assessment |
 | --- | --- |
-| `@opencode/sdk` embedded host | ✅ works; no HTTP listener; same client contract |
+| `@opencode/sdk` embedded host | 🟡 compiles and exposes the contract in theory; no spike recorded yet |
 | Custom agents/tools via plugins | ✅ `OpenCode.create({ plugins })` |
-| Official web UI in embedded mode | 🔴 none; link-out requires a separate server |
+| Official web UI in embedded mode | 🔴 none; V2 embeds it from a separate server via the Code host |
 | Lifecycle/cleanup | 🟡 `await using` / `close()`; needs care |
 | Version coupling | 🟡 pin the SDK; test upgrades |
 | Streaming | ✅ `events.subscribe()` |
 | Deployment | 🟡 single Bun process; no separate OpenCode container |
+| Fake backend / zero-quota E2E | ✅ in-memory `ChatBackend`, scripted envelope; ADR-0004 |
 
 ## Recommended v1 cut
 
 Ship these first:
 
 1. Auth (basic), session list, new chat, prompt, streaming, stop.
-2. Markdown, code, tables, math, Mermaid, reasoning, tool cards.
-3. Model/agent picker, attachments, permissions.
-4. Artifact viewer in the sandbox + image generation.
-5. Todos, subagents, web search, MCP status.
+2. Fake backend + fixtures; the E2E suite never calls a provider.
+3. Markdown, code, tables, math, Mermaid, reasoning, tool cards.
+4. Model/agent picker, attachments, permissions.
+5. Static artifact viewer in the sandbox + image generation.
 6. i18n en/de, dark/light, responsive.
 
-Defer: canvas, interactive apps, maps, rich cards, voice, video, multiplayer,
-terminal, plugins, scheduled tasks (unless the first use case needs them).
+Defer to V2: Code surface, dictation, interactive artifacts, multi-source and
+app search. Defer further: canvas, maps, rich cards, realtime voice, video,
+multiplayer, terminal, plugins, scheduled tasks (unless the first use case needs
+them).
 
 ## Not worth building
 

@@ -23,6 +23,16 @@ specification.
 - `server.pair()` and `server.connect()` provide the pairing flow.
 - The API is described as experimental `HttpApi`; the OpenAPI document is the
   contract, not the framework.
+- **HTTP auth is required.** Verified on a local 2.3.0 server:
+  - `GET /api/info` without credentials → `401` with
+    `WWW-Authenticate: Basic realm="Secure Area"`.
+  - `Authorization: Basic base64("opencode:<password>")` → `200`.
+  - `OPENCODE_PASSWORD` sets the password; `OPENCODE_SERVER_PASSWORD` also works
+    (tested both; `OPENCODE_PASSWORD` wins when both are set). The username is
+    fixed to `opencode`; `OPENCODE_SERVER_USERNAME` was ignored.
+  - With neither variable set, the server prints a generated password at
+    startup.
+- The client sends it via `ClientOptions.headers.authorization`.
 
 ## Sessions
 
@@ -200,6 +210,15 @@ union.
 
 This is a storage and serving API, not just a viewer hook: the app does not
 need to implement an artifact store.
+
+Verified locally with `experimental.artifacts: true`:
+
+- provider `local`, `capabilities: ["static"]`, `default: true`;
+- `create` returns `{ location, data }` and a **relative** `url`
+  (`/api/experimental/artifacts/<id>/view/`);
+- `get` returns the full file map, `view` the bytes;
+- with the flag unset: `403 ForbiddenError: Artifacts are disabled; set
+  experimental.artifacts in config`.
 
 ## Image generation
 

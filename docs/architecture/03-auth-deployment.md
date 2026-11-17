@@ -22,9 +22,10 @@ Internet
   ▼
 Caddy (TLS, optional Basic Auth, rate limit, security headers)
   │ private network
-  ├── app:3000            BFF + static UI
+  ├── app:3000            BFF + static UI + /code switch
+  ├── code:3002           authenticated OpenCode UI proxy (code.example.com)
   ├── artifacts:3001      sandbox origin (separate hostname)
-  └── opencode:4096       internal only, never published
+  └── opencode:4096       internal only, Basic auth, never published
         │
         ├── model providers
         ├── MCP servers (browse, rea, …)
@@ -33,8 +34,10 @@ Caddy (TLS, optional Basic Auth, rate limit, security headers)
 
 Rules:
 
-- OpenCode has **no public port** and no host port binding in production.
-- The BFF is the only public application port.
+- OpenCode has **no public port** and no host port binding in production. Its
+  HTTP API still requires Basic auth; the network is defense in depth.
+- The BFF is the only public application port; the Code host is a second
+  authenticated origin.
 - The artifact host is a separate hostname, cookie-less, and reachable only with
   signed, short-lived URLs and its own CSP.
 - Docker networks isolate services; only Caddy joins the public network.
@@ -74,19 +77,26 @@ AUTH_SECRET=...              # 32+ random bytes, base64
 SESSION_TTL=604800           # 7 days
 ORIGIN=https://chat.example.com
 OPENCODE_URL=http://opencode:4096
-# Optional upstream credential if OpenCode sits behind Basic auth.
-OPENCODE_AUTH=
+OPENCODE_USERNAME=opencode   # fixed by OpenCode 2.3
+OPENCODE_PASSWORD=...        # Basic auth; required unless the server prints one
 WORKSPACE_DIR=/workspace
 ARTIFACT_HOST_URL=https://artifacts.example.com
 ARTIFACT_SIGNING_KEY=...     # 32+ random bytes, HMAC for artifact URLs
 ADMIN_PROXY=off              # on: BFF proxies /admin/opencode behind auth
+STT_URL=                     # empty: dictation hidden
+STT_API_KEY=
+STT_MODEL=whisper-1
+BACKEND_MODE=opencode        # opencode | fake
 ```
 
-`OPENCODE_TOKEN` is deliberately absent: OpenCode does not authenticate HTTP
-requests in 2.3 unless the deployment puts a credential in front of it. Its
-protection is the network — loopback in development, a private Docker network
-with no published port in production. If a deployment needs request-level auth,
-terminate it in the BFF proxy and keep the OpenCode listener private.
+OpenCode 2.3 **does authenticate HTTP requests**. `opencode serve` requires
+HTTP Basic auth with the fixed username `opencode`; the password comes from
+`OPENCODE_PASSWORD` (alias: `OPENCODE_SERVER_PASSWORD`) or is generated and
+printed once at startup. Without it the server answers `401` with
+`WWW-Authenticate: Basic realm="Secure Area"`. The BFF therefore always sends
+`Authorization: Basic base64("opencode:" + OPENCODE_PASSWORD)` and treats the
+password as a required secret. Network isolation remains defense in depth, not
+the only control. Verified against 2.3.0 with a local `opencode serve`.
 
 ## Production pattern (owner's existing edge)
 
@@ -108,7 +118,7 @@ Properties worth keeping:
   browser never reaches OpenCode without a valid cookie.
 - Caddy injects the OpenCode Basic credential upstream (`header_up
   Authorization "Basic …"`), so the browser never sees it. The edge credential
-  and the upstream credential rotate independently.
+  and the OpenCode credential rotate independently.
 - `/login`, `/logout` and `/api/me` are explicit handles above the catch-all.
 - `health_uri /api/info` with the same injected credential marks a dead upstream
   unhealthy and serves an offline page.
@@ -116,12 +126,12 @@ Properties worth keeping:
   covered by `stream_timeout`.
 
 Difference for this app: the BFF, not the browser, talks to OpenCode. The BFF is
-the only component that needs the upstream credential, and it holds it
-server-side (`OPENCODE_URL` + optional Basic header). The artifact origin stays
-credential-free and is addressed only through signed URLs.
+the only component that needs the OpenCode Basic credential and holds it
+server-side (`OPENCODE_USERNAME` + `OPENCODE_PASSWORD`). The artifact origin
+stays credential-free and is addressed only through signed URLs.
 
-**Status:** reference pattern only. Verify the exact credential mechanism against
-the pinned OpenCode version before wiring it.
+**Status:** verified on 2.3.0. The BFF sets the Basic header itself; an edge
+credential is optional and independent.
 
 Generate:
 
@@ -134,18 +144,39 @@ caddy hash-password --plaintext '...'   # AUTH_PASSWORD_HASH
 ## OpenCode administration
 
 Provider keys, custom models, MCP servers and OAuth are configured in OpenCode,
-not reimplemented in our UI. There are three supported ways to reach that
+not reimplemented in our UI. There are four supported ways to reach that
 configuration, in order of preference:
 
 1. **Local only:** run `opencode` on the host or over SSH. Nothing is exposed.
-2. **Same-origin admin proxy:** the BFF serves `/admin/opencode/*` behind the
-   same session cookie and forwards only the configuration endpoints. The
-   OpenCode port stays unpublished.
-3. **No public subdomain.** An `opencode.example.com` host is not supported: it
-   would publish a shell-capable backend and break NFR-02.
+2. **Code surface (recommended for remote use):** `CODE_SURFACE=on` embeds the
+   original OpenCode web UI from `CODE_HOST_URL`, behind the app's auth. See
+   [`06-code-surface.md`](06-code-surface.md).
+3. **Config-only admin proxy (fallback):** the BFF serves `/admin/opencode/*`
+   behind the same session cookie and forwards only the configuration
+   endpoints. The OpenCode port stays unpublished.
+4. **No public subdomain.** An unauthenticated `opencode.example.com` host is
+   not supported: it would publish a shell-capable backend.
 
-The app links to `/admin/opencode` only when `ADMIN_PROXY=on`. With the proxy
-off, the settings page says "configure OpenCode on the host" and shows no link.
+The Code surface subsumes the admin proxy for normal use; `ADMIN_PROXY` remains
+for deployments that cannot add a second hostname. With either off, the settings
+page says "configure OpenCode on the host" and shows no link.
+
+## Code surface
+
+- `CODE_SURFACE=on` renders a **Chat | Code** switch. Code is an iframe of
+  `CODE_HOST_URL`.
+- The Code host (a small proxy service) holds the OpenCode Basic credential,
+  validates a single-use ticket minted by the BFF, sets its own host-only
+  cookie, and forwards `/api/*` and the event stream.
+- The iframe origin is separate from the app and the artifact host. No cookie
+  is shared; the artifact origin never gets a session.
+- `CODE_TICKET_SECRET` signs `{ sub, codeHost, exp, jti }`; TTL ≤ 60 s.
+- The Code host adds `frame-ancestors https://chat.example.com` and does not
+  weaken OpenCode's CSP.
+- The surface can run shell commands; it is an admin surface with the same auth
+  strength as the app.
+- Remote OpenCode: point `OPENCODE_URL` at the remote host; the Code proxy stays
+  next to the app and the browser never talks to the remote machine directly.
 
 ## Caddy sketch
 
@@ -168,12 +199,22 @@ chat.example.com {
 
 artifacts.example.com {
   header {
-    Content-Security-Policy "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors https://chat.example.com"
+    Content-Security-Policy "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors https://chat.example.com"
     X-Content-Type-Options "nosniff"
     Referrer-Policy "no-referrer"
     Cache-Control "no-store"
   }
   reverse_proxy artifacts:3001
+}
+
+code.example.com {
+  header {
+    Content-Security-Policy "frame-ancestors https://chat.example.com"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    Cache-Control "no-store"
+  }
+  reverse_proxy code:3002
 }
 ```
 
@@ -181,13 +222,19 @@ The artifact origin has **no authentication**: it serves only signed, short-live
 URLs (`?exp=…&sig=…`, HMAC with `ARTIFACT_SIGNING_KEY`). Adding Basic Auth would
 break the cross-origin iframe and contradict the "no credentials" rule.
 
+The Code host requires the app's ticket (see
+[`06-code-surface.md`](06-code-surface.md)); without it the request redirects to
+the app login. Caddy only terminates TLS and adds headers.
+
 `img-src` deliberately omits `https:`. With any remote image source an artifact
 can exfiltrate data through `new Image().src`. Remote images are proxied by the
 artifact host if a use case requires them.
 
 ## Session cookie
 
-- `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`.
+- `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, **no `Domain` attribute**
+  (host-only). Host-only is what keeps `chat.example.com` cookies off
+  `artifacts.example.com`; never set a registrable-domain cookie.
 - Signed with `AUTH_SECRET`; rotate the secret to invalidate all sessions.
 - TTL from `SESSION_TTL`; sliding renewal at most once per hour.
 - Logout clears the cookie and the server-side session record.
@@ -212,10 +259,19 @@ artifact host if a use case requires them.
 
 ## Feature flags
 
-Some capabilities sit behind `experimental.*` configuration keys. The 2.3 OpenAPI
-documents only `experimental.mcp.event` in its schema; artifact, automation and
-todo flags mentioned elsewhere are **not** confirmed by the API document. Before
-a feature ships:
+Some capabilities sit behind `experimental.*` configuration keys. The 2.3.0
+config schema documents, among others: `todo`, `artifacts`, `schedules`,
+`image_generate`, `mcp_events`, `background_compaction`, `media_blob`,
+`part_rows`, `subagent_depth`, `location_idle_timeout`, `policies`,
+`portable_shell_scanner`, `codemode_vm`, `console_watches` and `all_flags`.
+The event is `experimental.mcp.event`; the config key is `mcp_events`.
+
+Verified behavior: with `experimental.artifacts` unset, the artifact API returns
+`403 ForbiddenError: Artifacts are disabled; set experimental.artifacts in
+config`. With it enabled, provider `local` (`capabilities: ["static"]`) serves
+`create/list/get/update/view/delete`.
+
+Before a feature ships:
 
 1. Check the pinned OpenCode config schema for the exact flag name.
 2. Enable it in `opencode.json` on the OpenCode volume, never in the browser.
@@ -223,6 +279,28 @@ a feature ships:
 
 No flag is enabled by default. A feature whose flag is absent hides its UI
 instead of failing at runtime.
+
+## Speech-to-text
+
+Dictation is an optional local service, not an OpenCode feature.
+
+- `STT_URL` points at a Whisper-compatible endpoint
+  (`/v1/audio/transcriptions`), typically `whisper.cpp` or `faster-whisper` on
+  the same host or a GPU box.
+- The browser records and posts `multipart/form-data` to the BFF. The BFF adds
+  `STT_API_KEY` server-side and streams the response back.
+- Audio is buffered in memory only, with a size and duration cap; the BFF does
+  not write it to disk and does not log it.
+- A local model uses no provider quota. If the owner points `STT_URL` at a
+  hosted service, that is an explicit choice and must be documented.
+- With `STT_URL` empty, the microphone button is not rendered.
+
+## Testing without quota
+
+`BACKEND_MODE=fake` swaps the `ChatBackend` port for a deterministic in-process
+fake: scripted event sequences, fixed text, no OpenCode and no provider. It is
+how the E2E suite runs and how the owner can exercise the UI without spending
+quota. See [`05-testing.md`](05-testing.md).
 
 ## Deployment sketch
 
@@ -245,10 +323,29 @@ services:
       SESSION_TTL: ${SESSION_TTL:-604800}
       ORIGIN: https://chat.example.com
       OPENCODE_URL: http://opencode:4096
+      OPENCODE_USERNAME: opencode
+      OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?set a random password}
       WORKSPACE_DIR: /workspace
       ARTIFACT_HOST_URL: https://artifacts.example.com
       ARTIFACT_SIGNING_KEY: ${ARTIFACT_SIGNING_KEY}
       ADMIN_PROXY: "off"
+      STT_URL: ${STT_URL:-}
+      STT_API_KEY: ${STT_API_KEY:-}
+      BACKEND_MODE: ${BACKEND_MODE:-opencode}
+      CODE_SURFACE: ${CODE_SURFACE:-off}
+      CODE_HOST_URL: ${CODE_HOST_URL:-}
+      CODE_TICKET_SECRET: ${CODE_TICKET_SECRET:-}
+    networks: [frontend, backend]
+    depends_on: [opencode]
+
+  code:
+    build: ./apps/code-host
+    environment:
+      OPENCODE_URL: http://opencode:4096
+      OPENCODE_USERNAME: opencode
+      OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?same value as the BFF}
+      CODE_TICKET_SECRET: ${CODE_TICKET_SECRET:?set a ticket secret}
+      APP_ORIGIN: https://chat.example.com
     networks: [frontend, backend]
     depends_on: [opencode]
 
@@ -257,17 +354,20 @@ services:
     environment:
       ARTIFACT_SIGNING_KEY: ${ARTIFACT_SIGNING_KEY}
     read_only: true
+    # No egress: self-navigation cannot leak data to an external host.
     networks: [frontend]
 
   opencode:
     image: ${OPENCODE_IMAGE:?pin a verified image tag}
     command: ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
+    environment:
+      OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?same value as the BFF}
     volumes:
       - opencode-data:/root/.local/share/opencode
       - opencode-config:/root/.config/opencode
       - workspace:/workspace
     networks: [backend]
-    # no published ports: reachable only from the BFF
+    # no published ports: reachable only from the BFF and the Code host
 
 networks:
   frontend:
@@ -283,7 +383,9 @@ volumes:
 The image name is intentionally not hard-coded: verify the published OpenCode
 image (or build it) and pin a digest before deploying. The BFF reaches OpenCode
 only over the private `backend` network; `ADMIN_PROXY` (same-origin
-`/admin/opencode`) stays `off` unless the owner enables it.
+`/admin/opencode`) stays `off` unless the owner enables it. The Code host is
+enabled with `CODE_SURFACE=on` and is the only other component with a route to
+OpenCode.
 
 The artifact host shares the `frontend` network with Caddy and the app but has
 no route to `opencode`; it holds no provider keys and no session secret.

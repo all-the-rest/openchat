@@ -1,7 +1,7 @@
 # 02 — Information Architecture
 
-**Status:** structure confirmed by the first desktop and mobile pass
-(OBS-010 … OBS-029); routes that depend on unobserved surfaces stay marked
+**Status:** structure confirmed by the desktop and mobile passes
+(OBS-010 … OBS-037); routes that depend on unobserved surfaces stay marked
 `open` in the surface inventory.
 
 ## Routes
@@ -11,7 +11,10 @@
 | `/` | New chat / landing |
 | `/c/:sessionId` | Chat thread |
 | `/c/:sessionId/:messageId` | Deep link to a message |
+| `/code` | Code surface: the original OpenCode web UI (proposed) |
 | `/search` | Global chat search |
+| `/search?scope=all` | Multi-source search: chats, workspace, web, apps (proposed) |
+| `/apps` | Connected apps, MCP servers, tools and skills (proposed) |
 | `/projects` | Project list |
 | `/projects/:projectId` | Project detail: instructions, files, chats |
 | `/tasks` | Scheduled and background tasks |
@@ -26,12 +29,12 @@
 
 Artifacts are not an app route. The app shows metadata and embeds a signed URL
 on the separate artifact origin (`/a/<id>?exp=…&sig=…`); it never serves artifact
-HTML from the app origin.
+HTML from the app origin. The library route lists artifacts and generated media.
 
-Projects, tasks, library and artifacts are **deferred** from v1: the reference
-surfaces are recorded, but OpenCode 2.3 exposes no project-creation API and v1
-runs in a single `WORKSPACE_DIR`. The routes above are the target, not the first
-slice.
+Projects and tasks are **deferred** from v1: OpenCode 2.3 exposes no
+project-creation API and v1 runs in a single `WORKSPACE_DIR`. Artifacts,
+media and the library are in v1 (M4). The routes above are the target, not all
+of them the first slice.
 
 ## Shell
 
@@ -89,6 +92,12 @@ Rules:
 
 ## Header
 
+- Surface switch at the leading edge: **Chat** and **Code** (proposed
+  2026-11-17). It is not the reference Chat/Work switch; it chooses between our
+  transcript and the original OpenCode web UI. The choice persists per owner;
+  `Cmd/Ctrl+Shift+O` toggles it. On mobile it collapses into the overflow menu.
+- In the Code surface the app chrome shrinks to a slim bar with the switch and
+  a reload action, so the embedded UI gets the space.
 - Sidebar toggle (desktop) or back (mobile).
 - Session title as a menu trigger. Observed actions (OBS-029): rename, pin,
   plugins submenu, lock chat, show files in chat, archive, delete, move to
@@ -100,18 +109,45 @@ Rules:
 - One trailing icon for the session-level panel (currently account/workspace
   actions in the reference).
 - **No Chat/Work switch.** The reference has a mode switch (OBS-013); the Work
-  surface is out of scope, so the switch is not rendered at all.
+  surface is out of scope, so that switch is not rendered at all. The Chat/Code
+  switch above selects between our surface and OpenCode's, not a reference mode.
+
+## Code surface (proposed)
+
+- `/code` embeds the original OpenCode web UI for the same OpenCode server.
+- The embedded surface owns its own navigation; the app does not reimplement
+  OpenCode's screens.
+- The switch is the only app chrome that stays visible; a slim bar carries
+  reload, open-in-new-tab and back-to-Chat.
+- The embedded UI is authenticated by the app. OpenCode is never reachable
+  unauthenticated.
+- If embedding fails (CSP, third-party cookies, unsupported browser), show the
+  reason and a button that opens the Code host in a new tab.
+- Deep links: `/code` accepts a path suffix and passes it to the embedded UI so
+  the owner can bookmark a session or settings page.
+
+## Search surfaces (proposed)
+
+- `/search` today means chat history. With `scope=all` it groups results by
+  source: chats, workspace files, web, connected apps.
+- Each group has a label, a count and a toggle; disabled sources are not
+  queried.
+- Web results show provider and citation; workspace results show path; app
+  results show server/tool and status.
+- `/apps` lists MCP servers, tools and skills with status and connect actions.
+- Search never sends secrets or private data to a provider unless that source
+  is enabled and the query is explicit.
 
 ## Landing surface
 
 Ordered top to bottom (OBS-012):
 
 1. Temporary-chat button in the shell (no mode switch; see the header rules).
-2. Centered H1, one line. The reference rotates the copy (OBS-030), so the
+2. Centered H1, one line. The reference rotates the copy (OBS-019), so the
    heading is a variant set, not a constant.
 3. Composer.
 4. Zero to three suggestion chips or full-width suggestion rows on mobile;
-   absent in a fresh state (OBS-030, OBS-035).
+   absent in a fresh state (OBS-019, OBS-035).
 
 The reference personalizes the suggestion chip from account memory (OBS-019).
 Our product shows a static suggestion, a recent local chat, or nothing; it

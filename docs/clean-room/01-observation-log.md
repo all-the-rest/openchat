@@ -1,8 +1,9 @@
 # 01 — Observation Log
 
-**Status:** 2026-11-17. First authenticated pass done on desktop (1281 × 1143 CSS
-px, DPR 1, `lang="de-DE"`, light theme). Chat titles, message contents and
-account details are redacted; synthetic probe prompts only.
+**Status:** 2026-11-17. Authenticated passes on desktop (1281 × 1143 CSS px,
+DPR 1, `lang="de-DE"`, light theme), mobile (390 × 844), breakpoints, composer
+add menu and settings. Chat titles, message contents and account details are
+redacted; synthetic probe prompts only.
 
 ## Format
 
@@ -14,7 +15,7 @@ OBS-NNN | E0–E5 | date | surface | observation | reproduction
 
 ### OBS-001 — Public app shell is reachable
 
-`OBS-001 | E4 | 2026-11-17 | App shell | https://chatgpt.com returns HTTP 200, Content-Type text/html, title "ChatGPT", Express backend behind Cloudflare, SSR shell with a nonce-based CSP. | curl -sI https://chatgpt.com`
+`OBS-001 | E4 | 2026-11-17 | App shell | https://chatgpt.com returns HTTP 200, Content-Type text/html, title "ChatGPT", Express backend behind Cloudflare, SSR shell with a nonce-based CSP. | curl -s -D headers.txt -o body.html https://chatgpt.com; grep -i '<title' body.html`
 
 No statement about the authenticated UI. It only proves that the surface is
 server-rendered and delivered as an app shell.
@@ -37,13 +38,13 @@ a requirement until the UI shows it.
 
 ### OBS-004 — Static resources and fonts
 
-`OBS-004 | E4 | 2026-11-17 | App shell | The CSP loads styles/fonts from *.oaistatic.com, cdn.openai.com and fonts.gstatic.com; a Lottie sample and "openai-sans" font data are referenced. | curl -sI https://chatgpt.com`
+`OBS-004 | E4 | 2026-11-17 | App shell | The CSP loads styles/fonts from *.oaistatic.com, cdn.openai.com and fonts.gstatic.com; the HTML body references a Lottie sample and an "openai-sans" font resource. | curl -s https://chatgpt.com | grep -o 'oaistatic\|lottie\|openai-sans'`
 
 This suggests animations (Lottie) and custom typography. Do not copy assets.
 
-### OBS-005 — No access to the authenticated UI (resolved)
-
-`OBS-005 | E0 | 2026-11-17 | All | The browse extension was not connected at start time; authenticated surfaces could not be observed. Resolved later the same day. | browse status`
+Note: the browse extension was not connected at the start; authenticated
+surfaces were observed after reconnecting the same day. This is a session note,
+not an observation, and carries no ID.
 
 ## Authenticated observation — desktop
 
@@ -102,7 +103,7 @@ Details:
 
 ### OBS-013 — Mode switch and temporary chat
 
-`OBS-013 | E2 | 2026-11-17 | Header | A segmented control (224 × 36, radius 9999) with two modes, "Chat" (active) and "Work". A separate "Temporary chat" button sits in the shell above the composer. | snapshot + screenshot`
+`OBS-013 | E2 | 2026-11-17 | Header | A segmented control (224 × 36, radius 9999) exposes two modes; the first is active. A separate temporary-chat button sits in the shell above the composer. | snapshot + screenshot`
 
 - Active segment: 112 × 36, radius 9999, white surface, 14 px / 20 px weight
   500; inactive segment label `rgb(93,93,93)`.
@@ -110,12 +111,12 @@ Details:
 
 ### OBS-014 — Model and reasoning-effort picker
 
-`OBS-014 | E2/E3 | 2026-11-17 | Composer | The model button opens a popover above the composer titled "Thinking effort" with a 3-step slider (current: High, step 3 of 3), a "Choose model" row, a "Performance" row, and a radio list of models (GPT-6 checked, GPT-5.6 Sol unchecked). | click + snapshot + screenshot`
+`OBS-014 | E2/E3 | 2026-11-17 | Composer | The model button opens a popover above the composer with an effort title, a 3-step slider (current: high, step 3 of 3), a model-choice row, a performance row, and a radio list of models with the current one checked. | click + snapshot + screenshot`
 
 - Effort is a discrete 3-step slider, not a free value; the status line reads
-  "High, 3 of 3".
+  the current step and total.
 - Model selection is a radio list inside the same popover; the trigger label is
-  the short effort name ("High"), not the model name.
+  the short effort name, not the model name.
 - Popover is anchored above the composer, right-aligned to it, white, radius
   ~16, soft shadow.
 
@@ -125,7 +126,8 @@ Details:
 
 - Streaming indicator: a status element, announced to assistive tech; visually
   a small animated dot cluster near the last block while waiting.
-- The thread exposes screen-reader headings "You said:" and "Latest answer"
+- The thread exposes screen-reader headings for the user turn and the latest
+  answer.
   (level 4), i.e. message groups are labelled landmarks.
 - The chat title in the header and in the sidebar history updates while the
   session is still generating.
@@ -154,7 +156,7 @@ Details:
 
 ### OBS-017 — Message actions and scroll affordance
 
-`OBS-017 | E2 | 2026-11-17 | Thread | Completed assistant turns expose: copy, rate, read aloud, share, more actions. User turns expose: copy, share prompt, edit. When scrolled up, a circular "Scroll to bottom" button floats above the composer. | snapshot`
+`OBS-017 | E2 | 2026-11-17 | Thread | Completed assistant turns expose: copy, rate, read aloud, share, more actions. User turns expose: copy, share prompt, edit. When scrolled up, a circular scroll-to-bottom button floats above the composer. | snapshot`
 
 - Actions are icon buttons in a row below the answer; no persistent toolbar on
   hover-only.
@@ -163,7 +165,7 @@ Details:
 
 ### OBS-018 — Multiline composer expands
 
-`OBS-018 | E2 | 2026-11-17 | Composer | With multi-paragraph input the composer grows and adds an "Expand" control in its toolbar; the model, dictation and send controls stay at the bottom row. | fill + snapshot`
+`OBS-018 | E2 | 2026-11-17 | Composer | With multi-paragraph input the composer grows and adds an expand control in its toolbar; the model, dictation and send controls stay at the bottom row. | fill + snapshot`
 
 - The text field grows to a maximum, then the composer offers an explicit
   expanded editor.
@@ -211,19 +213,19 @@ Details:
 
 ### OBS-029 — Session title menu
 
-`OBS-029 | E2 | 2026-11-17 | Header | The title opens a 240 px menu (radius 16, padding 10, translucent surface) with 36 px rows: rename, pin, plugins submenu, lock chat, show files, archive, delete, move to project. Playback status "Answer complete" is announced separately. | click title + snapshot`
+`OBS-029 | E2 | 2026-11-17 | Header | The title opens a 240 px menu (radius 16, padding 10, translucent surface) with 36 px rows: rename, pin, plugins submenu, lock chat, show files, archive, delete, move to project. Playback status is announced separately. | click title + snapshot`
 
 - Rows are 220 × 36, 14 px, radius 12, padding 6 × 10.
 - Destructive actions (delete) are in the same list, not separated visually at
   this level.
 - "Lock chat" is a privacy feature; "show files" is a session-scoped file list;
   "move to project" is a submenu.
-- Completion is announced with a status element ("Answer complete"), separate
-  from the visual finish.
+- Completion is announced with a status element, separate from the visual
+  finish.
 
 ### OBS-030 — Destructive confirmation and rotating landing copy
 
-`OBS-030 | E2 | 2026-11-17 | Dialog / Landing | Deleting a chat opens a modal confirm with an irreversible warning, a pre-checked option, Cancel and a destructive confirm button. After deletion the landing shows a different H1 variant ("What should we start with?") and no suggestion chip. | click title → Delete → confirm`
+`OBS-030 | E2 | 2026-11-17 | Dialog / Landing | Deleting a chat opens a modal confirm with an irreversible warning, a pre-checked option, Cancel and a destructive confirm button. After deletion the landing shows a different short-question H1 variant and no suggestion chip. | click title → Delete → confirm`
 
 - The confirmation names the chat, states irreversibility and offers cancel.
 - An option is pre-checked by default; a destructive default deserves a review
@@ -251,18 +253,19 @@ Details:
 
 `OBS-036 | E1/E2 | 2026-11-17 | Composer | The plus button expands an inline panel above the composer: 768 × 378 at desktop, radius 20, white, 1 px `rgba(0,0,0,0.1)` border, 8 px padding, an inner 360 px scroll area, and 36 px rows (739 wide, radius 12, padding 6 × 8) with a 14 px label and a muted 12–14 px description. | click plus + snapshot + computed styles` 
 
-Rows observed, in order, with separators between groups:
+Rows observed, in order, with separators between groups. The labels are
+capability classes, not quoted copy:
 
-1. Add photos and files — "upload from computer".
-2. Add from library — "browse and search your files".
-3. Create image — "visualize something".
-4. Web search — "real-time news and info".
-5. Work in a project — "start a chat in a project".
-6. Deep research — "get a detailed report".
-7. Sketch — "draw and attach an image".
-8. Google Calendar — "manage Google Calendar events".
-9. Template Creator — "reusable templates saved as personal skills".
-10. Presentations — "create and edit presentations".
+1. Attach photos and files from the device.
+2. Attach from a file library.
+3. Create an image.
+4. Web search.
+5. Start a chat inside a project.
+6. Deep research / report mode.
+7. Sketch or draw an image.
+8. Calendar connector.
+9. Template/skill creator.
+10. Presentation creator.
 
 - The first row is highlighted (`rgba(0,0,0,0.05)`) as the default/hover target.
 - The list scrolls inside the panel; the panel itself does not move the composer.
@@ -309,15 +312,15 @@ models, agents, connectors, data and a server status page are candidates; see
 | --- | --- | --- | --- |
 | OBS-020 | Artifacts and preview panel | Largest UI block | open |
 | OBS-021 | Image generation and image display | Media | open |
-| OBS-022 | File/PDF attachments and previews | Composer | partial (OBS-036: menu only) |
+| OBS-022 | File/PDF attachments and previews | Composer | open |
 | OBS-023 | Web search, citations, source cards | Research | open |
 | OBS-024 | Deep research / agent mode ("Plan") | Planning and history | open |
 | OBS-025 | Projects, tasks, GPTs/apps ("Plugins", "Discover") | Information architecture | open |
 | OBS-026 | Settings, connectors, model configuration | Auth/config | open |
 | OBS-027 | Dark theme tokens | Both themes required | done |
 | OBS-028 | Mobile layout | Responsive | done |
-| OBS-029 | Keyboard, focus, screen readers, reduced motion | Accessibility | open |
-| OBS-030 | Error, empty, loading and offline states | Completeness | open |
+| OBS-038 | Keyboard, focus, screen readers, reduced motion | Accessibility | open |
+| OBS-039 | Error, empty, loading and offline states | Completeness | open |
 | OBS-031 | Share/export/print | Output | open |
 | OBS-032 | Stop, retry, edit and branch behavior | Core interaction | open |
 | OBS-033 | Block math (`$$…$$`) and malformed Markdown | Renderer edge cases | open |

