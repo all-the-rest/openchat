@@ -66,7 +66,10 @@ Referrer-Policy: no-referrer
 Cache-Control: no-store
 ```
 
-Do not weaken OpenCode's own CSP; add only `frame-ancestors` at the proxy.
+Do not weaken OpenCode's own CSP; add only `frame-ancestors` at the proxy, as an
+appended policy (`header +Content-Security-Policy`), never as a replacement. If
+the upstream sends `X-Frame-Options`, replace it at the proxy; `frame-ancestors`
+is the control.
 
 ### Websockets
 

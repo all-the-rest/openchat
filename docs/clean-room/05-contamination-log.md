@@ -38,16 +38,17 @@ implementation.
 - **Scope:** accessibility snapshots, `getComputedStyle` measurements, bounding
   boxes, screenshots (kept in `references/raw/` only), a synthetic prompt with
   Markdown/code/math/Mermaid, the model picker, the session title menu, the
-  delete confirmation and a 390 px viewport.
+  delete confirmation, a 390 px viewport, the breakpoint sweep, the composer
+  add menu and the settings surface.
 - **Risk:** medium. The DOM class names and CSS structure were visible in the
   inspector, even though only measurements were written down. A builder working
   in the same session could have seen them.
 - **Countermeasure:** the observation was recorded as numeric facts and
-  behaviour only (`OBS-010` … `OBS-030`); no markup, class name, stylesheet or
+  behaviour only (`OBS-010` … `OBS-037`); no markup, class name, stylesheet or
   asset was copied into the repository. The builder runs in a separate session
   without access to `docs/clean-room/**`. Screenshots are not committed.
 - **Affected sections:** design tokens, surface inventory, rendering matrix,
-  spec 02/03/04/05/08/09.
+  spec 02/03/04/05/07/08/09.
 
 ### C-005 — Owner's production Caddyfile
 

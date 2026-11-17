@@ -48,7 +48,7 @@ local task lists as the source of truth.
 | Agent | May read | May write |
 | --- | --- | --- |
 | `observer` | all reference material | `docs/reference/**`, `docs/clean-room/01-*` … `05-*`, `docs/spec/**` |
-| `builder` | `docs/spec/**`, `docs/architecture/**`, `docs/decisions/**`, `features/**`, code | `apps/**`, `packages/**`, `features/**`, tests, root build config, `docs/architecture/**`; reports decisions, the orchestrator records the ADR |
+| `builder` | `docs/spec/**`, `docs/architecture/**`, `docs/decisions/**`, `features/**`, code | `apps/**`, `packages/**`, `features/**`, tests, root build config (`package.json`, lockfile), `docs/architecture/**`; reports decisions, the orchestrator records the ADR |
 | `reviewer` | everything | review notes in the issue only |
 
 The project default agent is `observer` while the analysis is running (M0).
@@ -67,8 +67,10 @@ context.
 - BFF: Bun + Hono (or Node + Hono), same-origin.
 - Backend: OpenCode V2 via `@opencode/client`; optional `@opencode/sdk`.
 - Tests: Vitest + Playwright. Every change ships tests.
-- Quality gates before commit: `bun run lint`, `bun run test`, `bun run build`.
-- Build agents do not commit or push; the orchestrator commits.
+- Quality gates before commit: `bun run lint`, `bun run typecheck`,
+  `bun run test`, `bun run build`.
+- Build agents do not commit or push; the orchestrator commits and reviews
+  dependency and script changes in the diff.
 
 ## Security
 

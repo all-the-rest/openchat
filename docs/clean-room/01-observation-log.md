@@ -18,7 +18,7 @@ a withdrawn session note and a reserved block that was never issued.
 
 ### OBS-001 — Public app shell is reachable
 
-`OBS-001 | E4 | 2026-11-17 | App shell | https://chatgpt.com returns HTTP 200, Content-Type text/html, title "ChatGPT", Express backend behind Cloudflare, SSR shell with a nonce-based CSP. | curl -s -D headers.txt -o body.html https://chatgpt.com; grep -i '<title' body.html`
+`OBS-001 | E4 | 2026-11-17 | App shell | https://chatgpt.com returns HTTP 200, Content-Type text/html, title "ChatGPT", Express backend behind Cloudflare, SSR shell with a nonce-based CSP. | curl -s --create-dirs -D references/raw/chatgpt.headers -o references/raw/chatgpt.html https://chatgpt.com; grep -i '<title' references/raw/chatgpt.html`
 
 No statement about the authenticated UI. It only proves that the surface is
 server-rendered and delivered as an app shell.
@@ -41,7 +41,7 @@ a requirement until the UI shows it.
 
 ### OBS-004 — Static resources and fonts
 
-`OBS-004 | E4 | 2026-11-17 | App shell | The CSP loads styles/fonts from *.oaistatic.com, cdn.openai.com and fonts.gstatic.com; the HTML body references a Lottie sample and an "openai-sans" font resource. | curl -s https://chatgpt.com | grep -o 'oaistatic\|lottie\|openai-sans'`
+`OBS-004 | E4 | 2026-11-17 | App shell | The CSP loads styles/fonts from *.oaistatic.com, cdn.openai.com and fonts.gstatic.com; the HTML body references a Lottie sample and an "openai-sans" font resource. | curl -sI https://chatgpt.com \| grep -i content-security-policy; curl -s https://chatgpt.com \| grep -o 'oaistatic\|lottie\|openai-sans'`
 
 This suggests animations (Lottie) and custom typography. Do not copy assets.
 
@@ -130,8 +130,7 @@ Details:
 - Streaming indicator: a status element, announced to assistive tech; visually
   a small animated dot cluster near the last block while waiting.
 - The thread exposes screen-reader headings for the user turn and the latest
-  answer.
-  (level 4), i.e. message groups are labelled landmarks.
+  answer, i.e. message groups are labelled landmarks.
 - The chat title in the header and in the sidebar history updates while the
   session is still generating.
 - Sharing stays disabled until the turn completes.
@@ -176,7 +175,7 @@ Details:
 
 ### OBS-019 — Personalization leaks into the landing surface
 
-`OBS-019 | E1 | 2026-11-17 | Landing | The landing heading and suggestion set are account-derived. At least three heading variants were observed (a question, a "what should we start with" variant and a greeting that embeds the account name as a link). The number of suggestions varies from zero to three, and they render either as 52 px chips with an emoji or as full-width rows with an icon. | screenshot (content not recorded)`
+`OBS-019 | E1 | 2026-11-17 | Landing | The landing heading and suggestion set are account-derived. At least three heading variants were observed (a question, a short-question variant and a greeting that embeds the account name as a link). The number of suggestions varies from zero to three, and they render either as 52 px chips with an emoji or as full-width rows with an icon. | screenshot (content not recorded)`
 
 Consequence for our product: suggestions must be opt-in and derived only from
 local data; the default must be static or hidden. No personalized text is

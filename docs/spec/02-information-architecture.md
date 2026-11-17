@@ -31,10 +31,10 @@ Artifacts are not an app route. The app shows metadata and embeds a signed URL
 on the separate artifact origin (`/a/<id>?exp=…&sig=…`); it never serves artifact
 HTML from the app origin. The library route lists artifacts and generated media.
 
-Projects and tasks are **deferred** from v1: OpenCode 2.3 exposes no
-project-creation API and v1 runs in a single `WORKSPACE_DIR`. Artifacts,
-media and the library are in v1 (M4). The routes above are the target, not all
-of them the first slice.
+Projects are **deferred** from v1: OpenCode 2.3 exposes no project-creation API
+and v1 runs in a single `WORKSPACE_DIR`. The task board, scheduled tasks,
+artifacts, media and the library are in v1 (M4/M5). The routes above are the
+target, not all of them the first slice.
 
 ## Shell
 

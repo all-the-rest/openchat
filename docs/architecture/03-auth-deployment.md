@@ -192,7 +192,7 @@ chat.example.com {
     Referrer-Policy "no-referrer"
     Permissions-Policy "camera=(), geolocation=(), microphone=(self)"
     X-Frame-Options "DENY"
-    Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src https://artifacts.example.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src https://artifacts.example.com https://code.example.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
   }
   reverse_proxy app:3000
 }
@@ -209,7 +209,10 @@ artifacts.example.com {
 
 code.example.com {
   header {
-    Content-Security-Policy "frame-ancestors https://chat.example.com"
+    # `+` appends a second policy; a bare header would replace OpenCode's own
+    # CSP and drop its default-src/script-src protection. Multiple CSP headers
+    # are enforced as an intersection.
+    +Content-Security-Policy "frame-ancestors https://chat.example.com"
     X-Content-Type-Options "nosniff"
     Referrer-Policy "no-referrer"
     Cache-Control "no-store"
@@ -220,7 +223,9 @@ code.example.com {
 
 The artifact origin has **no authentication**: it serves only signed, short-lived
 URLs (`?exp=…&sig=…`, HMAC with `ARTIFACT_SIGNING_KEY`). Adding Basic Auth would
-break the cross-origin iframe and contradict the "no credentials" rule.
+break the cross-origin iframe and contradict the "no credentials" rule. The
+artifact container joins only the internal `artifacts` network, so it has no
+default route and no path to `opencode` or `code`.
 
 The Code host requires the app's ticket (see
 [`06-code-surface.md`](06-code-surface.md)); without it the request redirects to
@@ -310,7 +315,7 @@ services:
     image: caddy:2
     ports: ["80:80", "443:443"]
     volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy-data:/data"]
-    networks: [frontend]
+    networks: [frontend, artifacts]
     depends_on: [app, artifacts]
 
   app:
@@ -335,7 +340,7 @@ services:
       CODE_SURFACE: ${CODE_SURFACE:-off}
       CODE_HOST_URL: ${CODE_HOST_URL:-}
       CODE_TICKET_SECRET: ${CODE_TICKET_SECRET:-}
-    networks: [frontend, backend]
+    networks: [frontend, backend, artifacts]
     depends_on: [opencode]
 
   code:
@@ -354,8 +359,16 @@ services:
     environment:
       ARTIFACT_SIGNING_KEY: ${ARTIFACT_SIGNING_KEY}
     read_only: true
-    # No egress: self-navigation cannot leak data to an external host.
-    networks: [frontend]
+    # No egress: `internal: true` removes the default route, so an artifact
+    # that navigates its frame to an external host dies at the network. This is
+    # the only control for self-navigation; CSP cannot stop it. Only Caddy and
+    # the BFF join this network.
+    networks: [artifacts]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
 
   opencode:
     image: ${OPENCODE_IMAGE:?pin a verified image tag}
@@ -372,6 +385,9 @@ services:
 networks:
   frontend:
   backend:
+  artifacts:
+    # No route to the internet and no route to backend/opencode.
+    internal: true
 
 volumes:
   caddy-data:

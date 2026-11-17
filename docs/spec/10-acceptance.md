@@ -88,7 +88,8 @@ the artifact container's egress policy.
 **When** the user changes an input
 **Then** it recomputes without a reload
 **And** reset restores the initial state
-**And** a `postMessage` result becomes a draft, not executed HTML.
+**And** a `postMessage` result becomes a draft, not executed HTML
+**And** a result from a different frame or with a wrong nonce is dropped.
 
 ## I. Agents and tasks
 
@@ -127,7 +128,8 @@ Markdown list instead.
   loopback.
 - API calls without a session cookie return 401.
 - CSRF origin checks reject cross-origin state changes.
-- Artifact iframe has no `allow-same-origin`, `allow-popups` or `allow-modals`.
+- Artifact iframe has no `allow-same-origin`, `allow-popups` or `allow-modals`,
+  and the artifact container has no route to the internet.
 - The Code surface (V2) only loads with a valid single-use ticket; a replayed
   ticket is rejected.
 - No secrets appear in the client bundle or logs.
@@ -143,7 +145,10 @@ Markdown list instead.
 
 **Given** a CI environment with no provider credentials and no network access
 **When** `bun run test` and the Playwright suite run
-**Then** every scenario above runs against `BACKEND_MODE=fake`
+**Then** every scenario above runs against `BACKEND_MODE=fake`, except the
+security checks that are explicit properties of the real deployment (the
+OpenCode `401` and the V2 Code host ticket flow), which run as integration
+tests against a local stub
 **And** no request reaches a provider or a real OpenCode server
 **And** the live smoke is skipped unless `LIVE_TESTS=1`.
 

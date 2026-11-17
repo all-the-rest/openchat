@@ -28,13 +28,13 @@ and forwards only those calls to OpenCode:
 - permissions and forms
 - events (SSE)
 - artifacts (metadata, signed URL, storage via OpenCode)
-- image generation, voice, websearch (feature-gated)
-- multi-source search: web providers, workspace files, chat history, apps
+- image generation and web search (feature-gated)
+- multi-source search: web providers, workspace files, chat history, apps (V2)
 - schedules and background jobs (feature-gated)
 - export/import
 - MCP status and read-only tool listing; add/connect only behind the admin
   surface
-- STT proxying for dictation (`/api/transcribe`)
+- STT proxying for dictation, `/api/transcribe` (V2)
 
 Never exposed through the BFF, even behind authentication:
 
@@ -120,6 +120,7 @@ apps/
   web/                 React + Vite
   server/              Bun + Hono BFF
   artifact-host/       static artifact origin
+  code-host/           authenticated OpenCode UI proxy (V2)
 packages/
   contracts/           shared types and event normalization
   opencode/            backend adapters

@@ -30,11 +30,18 @@ are not lost, but they do not block v1.
 
 ## Functional requirements
 
-Evidence column: `OBS-NNN` is a recorded observation. `—` marks a target
-requirement that has **no reference evidence yet**; it is a product decision,
-listed so the scope is complete, and must not be built before the observer
-records it or the owner confirms it. M1 contains only rows with evidence or an
-architecture decision.
+Evidence column:
+
+- `OBS-NNN` — behaviour or layout recorded in the reference.
+- `—` — no reference observation. The row is a product decision or follows from
+  the OpenCode API (architecture 02), not a claim about the reference; it may be
+  built. The observer can still add evidence later.
+- `— (OBS-NNN pending)` — the row depends on a probe that has not happened. It
+  is specified so the scope is complete, but it must not be built until the
+  probe is recorded or the owner confirms the behaviour.
+
+M1 contains only rows with evidence, an architecture decision or an owner
+decision.
 
 ### Chat
 
@@ -103,7 +110,7 @@ realtime voice mode, which stays out of scope.
 | --- | --- | --- | --- |
 | FR-37 | Run interactive HTML/CSS/JS artifacts in the sandbox: user input, calculation, charts, simulations and small tools. | A calculator and a chart fixture accept input and recompute without a page reload. | — (OBS-020 pending) |
 | FR-38 | Provide reset, fullscreen/present and download for an interactive artifact. | Reset restores the initial state; present mode removes app chrome; download returns the source. | — |
-| FR-39 | Let an artifact submit a result back to the chat through a narrow, validated `postMessage` bridge. | A fixture artifact posts a JSON result; the UI shows it as a draft or message; malformed, privileged or foreign-origin messages are rejected. | — |
+| FR-39 | Let an artifact submit a result back to the chat through a narrow, validated `postMessage` bridge. | A fixture artifact posts a JSON result; the UI shows it as a draft or message; messages from a different frame, or with a wrong nonce or shape, are rejected. | — |
 | FR-40 | Interactive artifacts work offline: no network, no CDN, no cookies, no access to the app origin or session. | The sandbox never resolves an external URL and `fetch` fails. | NFR-06 |
 
 ### Surfaces, remote host and search — V2 (proposed 2026-11-17)

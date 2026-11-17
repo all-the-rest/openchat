@@ -140,15 +140,18 @@ Content-Security-Policy:
 ### Artifact → chat bridge
 
 An artifact can hand a result back to the chat. The protocol is narrow and
-validated on the app side:
+validated on the app side (details:
+[`../architecture/04-artifact-sandbox.md`](../architecture/04-artifact-sandbox.md)):
 
-- `artifact:ready` → app replies with the artifact id, locale and theme.
-- `artifact:result` → `{ type, title?, text?, data? }`, at most 64 KiB,
+- The app posts `artifact:init` with the artifact id, locale, theme and a random
+  nonce to `iframe.contentWindow`.
+- `artifact:ready`, `artifact:resize` and `artifact:result` carry that nonce.
+- `artifact:result` is `{ type, title?, text?, data? }`, at most 64 KiB,
   schema-validated, rate-limited.
-- `artifact:resize` → integer height, clamped.
-- The app checks `event.origin === ARTIFACT_ORIGIN` and
-  `event.source === iframe.contentWindow`, ignores everything else, and never
-  evaluates the payload as HTML or code.
+- The app accepts a message only when `event.source === iframe.contentWindow`
+  and the nonce matches. It does **not** check `event.origin`: a sandboxed frame
+  without `allow-same-origin` has an opaque origin and reports `"null"`.
+- The app never evaluates the payload as HTML or code.
 - A result becomes an editable composer draft by default; the owner chooses
   whether "send result" posts it as a user message.
 - The bridge exposes no session token, no app API and no privileged action.

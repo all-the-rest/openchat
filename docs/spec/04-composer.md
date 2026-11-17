@@ -10,9 +10,10 @@
 - Model selector.
 - Agent selector.
 - Optional skill selector.
-- Dictation button (microphone), hidden when no STT service is configured.
 - Attachment chips with name, size, type, remove and upload state.
 - Character/token hint and limit warnings.
+
+A dictation button is **V2** (FR-34 … FR-36); v1 ships no microphone control.
 
 ## Input behavior
 
@@ -95,9 +96,10 @@ The reference shows a Chat/Work switch in the header and shrinks it below
 excluded it, so **v1 renders no switch at all** — not a disabled or hidden
 one.
 
-## Dictation
+## Dictation — V2
 
-Dictation turns speech into composer text. It never sends the prompt.
+Dictation is a V2 input method, not part of v1. It turns speech into composer
+text and never sends the prompt.
 
 - The microphone button starts recording only after an explicit click or key
   press; the app requests the microphone permission at that moment, never on

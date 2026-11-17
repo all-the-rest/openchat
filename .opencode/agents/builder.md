@@ -34,8 +34,9 @@ permissions:
     effect: deny
 
   # Chinese wall: reference material is invisible to the builder. The leading
-  # `*` covers absolute paths, because `*` also matches `/` and the same file
-  # must not become readable just because a tool names it absolutely.
+  # `*` variants cover the same directories when a tool names them by absolute
+  # path (for example a second checkout); in-project reads are normalized to a
+  # location-relative path, so the plain variants already match those.
   - action: read
     resource: "docs/reference/*"
     effect: deny
@@ -86,6 +87,12 @@ permissions:
     resource: "roadmap.md"
     effect: deny
   - action: edit
+    resource: "docs/roadmap.md"
+    effect: deny
+  - action: edit
+    resource: "*docs/roadmap.md"
+    effect: deny
+  - action: edit
     resource: "references/*"
     effect: deny
   - action: edit
@@ -94,23 +101,15 @@ permissions:
   - action: edit
     resource: "AGENTS.md"
     effect: deny
+  # Manifests and lockfiles are editable: the builder has to scaffold the
+  # workspace and add dependencies. The orchestrator reviews every dependency
+  # and script change in the commit diff. `opencode.json` stays closed because
+  # it carries permissions and flags.
   - action: edit
     resource: "opencode.json"
     effect: deny
   - action: edit
     resource: "opencode.jsonc"
-    effect: deny
-  - action: edit
-    resource: "package.json"
-    effect: deny
-  - action: edit
-    resource: "*/package.json"
-    effect: deny
-  - action: edit
-    resource: "bun.lock"
-    effect: deny
-  - action: edit
-    resource: "bun.lockb"
     effect: deny
   - action: edit
     resource: ".github/workflows/*"
@@ -147,6 +146,15 @@ permissions:
     effect: deny
   - action: shell
     resource: "bun install --frozen-lockfile"
+    effect: allow
+  - action: shell
+    resource: "bun install"
+    effect: allow
+  - action: shell
+    resource: "bun add *"
+    effect: allow
+  - action: shell
+    resource: "bun remove *"
     effect: allow
   - action: shell
     resource: "bun run lint"
