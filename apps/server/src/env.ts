@@ -40,6 +40,7 @@ const DEFAULT_PASSWORD = "openchat-dev"
 const DEFAULT_HOST = "127.0.0.1"
 const DEFAULT_PORT = 8787
 const DEFAULT_TTL_SECONDS = 604_800
+const DEFAULT_OPENCODE_URL = "http://127.0.0.1:4096"
 const DEFAULT_DICTATION_MAX_SECONDS = 120
 const DEFAULT_DICTATION_MAX_BYTES = 26_214_400
 /**
@@ -80,6 +81,35 @@ function readNumber(
     return fallback
   }
   return parsed
+}
+
+/**
+ * Validates the upstream Code host. A typo must fail the boot, not silently
+ * fall back to localhost: the app would otherwise talk to the wrong host.
+ * Embedded credentials are rejected because the Basic header comes from
+ * `OPENCODE_USERNAME`/`OPENCODE_PASSWORD` and must never sit in a URL.
+ */
+function readOpencodeUrl(source: Record<string, string | undefined>): string {
+  const raw = read(source, "OPENCODE_URL")
+  if (!raw) return DEFAULT_OPENCODE_URL
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    throw new Error("OPENCODE_URL must be an absolute http(s) URL")
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("OPENCODE_URL must use http or https")
+  }
+  if (url.username || url.password) {
+    throw new Error(
+      "OPENCODE_URL must not embed credentials; use OPENCODE_USERNAME and OPENCODE_PASSWORD",
+    )
+  }
+  // A query or fragment would be dropped by URL resolution anyway; strip the
+  // trailing slash and any search/hash so the value equals what is used.
+  const path = url.pathname.replace(/\/+$/, "")
+  return path.length > 0 ? `${url.origin}${path}` : url.origin
 }
 
 function readBoolean(
@@ -166,7 +196,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     WORKSPACE_DIR: read(source, "WORKSPACE_DIR") ?? process.cwd(),
     BACKEND_MODE: backendMode,
     FAKE_SCENARIO: isFakeScenario(scenarioValue) ? scenarioValue : "default",
-    OPENCODE_URL: read(source, "OPENCODE_URL") ?? "http://127.0.0.1:4096",
+    OPENCODE_URL: readOpencodeUrl(source),
     OPENCODE_USERNAME: read(source, "OPENCODE_USERNAME") ?? "opencode",
     OPENCODE_PASSWORD: readSecret(source, "OPENCODE_PASSWORD") ?? "",
     OPENCHAT_PASSWORD: password,

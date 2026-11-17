@@ -99,6 +99,45 @@ describe("loadEnv", () => {
     expect(text).not.toContain("never-log-this-key")
   })
 
+  it("accepts a remote OPENCODE_URL and strips trailing slashes", () => {
+    const config = loadEnv({
+      source: { OPENCODE_URL: "http://10.0.0.5:4096/" },
+      warn: () => {},
+    })
+    expect(config.OPENCODE_URL).toBe("http://10.0.0.5:4096")
+
+    const tunnel = loadEnv({
+      source: { OPENCODE_URL: "http://127.0.0.1:4096/prefix/" },
+      warn: () => {},
+    })
+    expect(tunnel.OPENCODE_URL).toBe("http://127.0.0.1:4096/prefix")
+
+    // A query or fragment is dropped; URL resolution would ignore it anyway.
+    const withQuery = loadEnv({
+      source: { OPENCODE_URL: "http://10.0.0.5:4096/?token=abc/" },
+      warn: () => {},
+    })
+    expect(withQuery.OPENCODE_URL).toBe("http://10.0.0.5:4096")
+  })
+
+  it("fails the boot for a malformed or credential-bearing OPENCODE_URL", () => {
+    expect(() =>
+      loadEnv({ source: { OPENCODE_URL: "opencode:4096" }, warn: () => {} }),
+    ).toThrow("must use http or https")
+    expect(() =>
+      loadEnv({ source: { OPENCODE_URL: "not a url" }, warn: () => {} }),
+    ).toThrow("absolute http(s) URL")
+    expect(() =>
+      loadEnv({ source: { OPENCODE_URL: "ftp://opencode:4096" }, warn: () => {} }),
+    ).toThrow("must use http or https")
+    expect(() =>
+      loadEnv({
+        source: { OPENCODE_URL: "http://owner:secret@10.0.0.5:4096" },
+        warn: () => {},
+      }),
+    ).toThrow("must not embed credentials")
+  })
+
   it("clamps an absurd byte cap to the ceiling and says why", () => {
     const warnings: string[] = []
     const config = loadEnv({

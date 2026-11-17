@@ -166,6 +166,78 @@ The Code surface subsumes the admin proxy for normal use; `ADMIN_PROXY` remains
 for deployments that cannot add a second hostname. With either off, the settings
 page says "configure OpenCode on the host" and shows no link.
 
+## Remote OpenCode host
+
+The BFF can run next to the UI while OpenCode runs on another machine. The
+browser still talks only to the BFF; the BFF is the only client of the remote
+host and holds its Basic credential.
+
+1. **Private network (preferred).** Give the Code host a WireGuard or Tailscale
+   address and set `OPENCODE_URL=http://100.x.y.z:4096`. Bind OpenCode to that
+   interface and allow only the BFF's address.
+2. **SSH tunnel.** When there is no private network:
+
+   ```bash
+   ssh -N -L 4096:127.0.0.1:4096 owner@code.example.com
+   ```
+
+   and set `OPENCODE_URL=http://127.0.0.1:4096`. Supervise the tunnel (systemd
+   unit, `autossh`, Tailscale). A dead tunnel fails `/api/info` and every API
+   call with `500 internal_error`; `/healthz` is liveness-only and stays `200`,
+   so probe `/api/info` for upstream health. It never falls back to a local
+   default.
+3. **Never publish port 4096.** No public DNS name, no port forwarding and no
+   unauthenticated reverse proxy in front of it.
+
+`OPENCODE_URL` is validated at boot: a malformed value, a non-http scheme or
+embedded credentials (`http://user:pass@host`) stop the boot instead of
+silently pointing at localhost. The Code host proxy stays next to the app, not
+on the remote machine, so the browser never opens a connection to the remote
+host and the remote credential never enters a page.
+
+**Stream and latency.** The event route is an unbuffered SSE response
+(`Content-Type: text/event-stream`, `Cache-Control: no-cache, no-transform`,
+`X-Accel-Buffering: no`), starts with `retry: 2000` and sends a
+`: heartbeat` comment every 15 seconds. The browser's `EventSource` reconnects
+on its own; the UI counts reconnects and resynchronizes from scratch. Latency
+is dominated by the tunnel round trip per request and per event, not by
+throughput: a 20–50 ms tunnel is unnoticeable for chat, while 100 ms and more
+adds to every delta. A reverse proxy in front of the BFF must keep response
+buffering off for `text/event-stream`.
+
+**Backups and upgrades** (run on the remote host):
+
+- Back up `opencode-data`, `opencode-config`, `workspace` and the deployment
+  `.env` or secret store. Snapshot before every upgrade and test a restore into
+  a scratch directory.
+- Upgrade: pin the image digest, back up, pull, restart, run the smoke check,
+  keep the previous digest for rollback. OpenCode's version and the pinned
+  `@opencode/client` should agree; a mismatch is a warning, not an automatic
+  migration.
+
+**Smoke check.** The BFF ships a CLI that behaves like a browser:
+
+```bash
+OPENCHAT_SMOKE_URL=https://chat.example.com \
+OPENCHAT_PASSWORD=... \
+OPENCODE_PASSWORD=... \
+pnpm --filter @openchat/server run smoke:remote -- --heartbeat-ms 20000
+```
+
+It logs in (session cookie with `HttpOnly`, `SameSite` and — over https —
+`Secure`; or `Authorization: Basic` when the deployment runs `AUTH_MODE=basic`;
+`--user`/`OPENCHAT_USER` default to `owner`), checks
+`/healthz`, `/api/info` and the event stream (retry frame, keepalive and
+headers), prints the measured time for each step, and fails if `mode` is not
+`live`. It scans the four response bodies it reads for `OPENCODE_PASSWORD` and
+`OPENCODE_URL`; add more with `--forbid <string>`. It warns when the URL is
+plain `http` to a non-loopback host. Exit codes: `0` pass, `1` a check failed,
+`2` a usage error. Against a local deployment the same command takes
+`--url http://127.0.0.1:8787`; `--allow-fake` skips the live-mode requirement.
+Every non-stream request has a 10 s deadline; the stream's headers are bounded
+by the same deadline and its body by `--stream-ms`/`--heartbeat-ms`, so a
+half-open tunnel fails instead of hanging.
+
 ## Code surface
 
 - `CODE_SURFACE=on` renders a **Chat | Code** switch. Code is an iframe of

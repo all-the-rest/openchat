@@ -93,7 +93,13 @@ stream through the proxy, not just a page load.
   browser never talks to the remote OpenCode directly.
 - The remote host owns chats, workspace and provider keys; backups run there.
 - Latency is dominated by the tunnel; the BFF keeps SSE unbuffered and sends
-  keepalives.
+  keepalives. The stream is `text/event-stream` with `X-Accel-Buffering: no`,
+  `retry: 2000` and a `: heartbeat` comment every 15 s; the browser reconnects
+  and resynchronizes.
+- `apps/server/src/smoke.ts` (CLI: `pnpm --filter @openchat/server run
+  smoke:remote`) logs in like a browser, reads `/healthz`, `/api/info` and the
+  stream, reports per-step latency and fails on a non-live mode or a leaked
+  credential. Run it after every remote upgrade.
 
 ## Security boundaries
 

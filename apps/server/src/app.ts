@@ -9,6 +9,7 @@ import {
   registerRequestGuards,
 } from "./middleware"
 import { registerRoutes } from "./routes"
+import { SSE_HEARTBEAT_MS } from "./sse"
 import { FixedWindowThrottle } from "./throttle"
 import { STT_TIMEOUT_MS } from "./transcribe"
 
@@ -24,6 +25,8 @@ export interface AppOptions {
   version?: string
   /** Upstream STT deadline in milliseconds; tests shorten it. */
   sttTimeoutMs?: number
+  /** SSE keepalive interval in milliseconds; tests shorten it. */
+  sseHeartbeatMs?: number
 }
 
 export interface AppVariables {
@@ -72,6 +75,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     loginThrottle,
     promptThrottle,
     sttTimeoutMs: options.sttTimeoutMs ?? STT_TIMEOUT_MS,
+    sseHeartbeatMs: options.sseHeartbeatMs ?? SSE_HEARTBEAT_MS,
   })
 
   return app

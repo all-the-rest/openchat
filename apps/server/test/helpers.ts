@@ -17,6 +17,7 @@ export interface TestServerOptions {
   delayMs?: number
   env?: Record<string, string | undefined>
   sttTimeoutMs?: number
+  sseHeartbeatMs?: number
 }
 
 export function makeConfig(overrides: Record<string, string | undefined> = {}): EnvConfig {
@@ -44,7 +45,12 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
     workspace: config.WORKSPACE_DIR,
   })
   return {
-    app: createApp({ config, backend, sttTimeoutMs: options.sttTimeoutMs }),
+    app: createApp({
+      config,
+      backend,
+      sttTimeoutMs: options.sttTimeoutMs,
+      sseHeartbeatMs: options.sseHeartbeatMs,
+    }),
     backend,
     config,
   }

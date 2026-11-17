@@ -34,6 +34,33 @@ function textOf(message: Message): string {
     .join("")
 }
 
+describe("remote-safe event stream", () => {
+  it("sends unbuffered SSE with a keepalive comment", async () => {
+    const server = makeServer({ sseHeartbeatMs: 20 })
+    const cookie = await login(server)
+
+    const response = await server.app.request("/api/events", { headers: { cookie } })
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("text/event-stream")
+    expect(response.headers.get("cache-control")).toContain("no-cache")
+    expect(response.headers.get("cache-control")).toContain("no-transform")
+    expect(response.headers.get("x-accel-buffering")).toBe("no")
+    // Consuming or cancelling the body runs the route's cleanup; leaving this
+    // unread would keep its heartbeat interval alive for the rest of the worker.
+    await response.body?.cancel()
+
+    const stream = await openEvents(server, cookie)
+    const deadline = Date.now() + 2_000
+    while (!stream.rawText().includes(": heartbeat") && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    const raw = stream.rawText()
+    expect(raw.startsWith("retry: 2000\n\n")).toBe(true)
+    expect(raw).toContain(": heartbeat")
+    await stream.close()
+  })
+})
+
 describe("prompt and SSE", () => {
   it("streams started, deltas and completion to the browser", async () => {
     const server = makeServer()

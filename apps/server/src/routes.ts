@@ -31,6 +31,7 @@ import {
 } from "./http"
 import { clientAddress } from "./middleware"
 import type { FixedWindowThrottle } from "./throttle"
+import { SSE_RETRY_FRAME } from "./sse"
 import { registerTranscribeRoute } from "./transcribe"
 
 export interface RouteDeps {
@@ -41,6 +42,8 @@ export interface RouteDeps {
   promptThrottle: FixedWindowThrottle
   /** Upstream STT deadline; injectable so tests need not wait 30 s. */
   sttTimeoutMs: number
+  /** SSE keepalive interval; injectable so tests need not wait 15 s. */
+  sseHeartbeatMs: number
 }
 
 function sseHeaders(): Record<string, string> {
@@ -51,8 +54,6 @@ function sseHeaders(): Record<string, string> {
     "X-Accel-Buffering": "no",
   }
 }
-
-const SSE_HEARTBEAT_MS = 15_000
 
 function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   const { config, settings, loginThrottle } = deps
@@ -199,7 +200,7 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
 }
 
 function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
-  const { backend } = deps
+  const { backend, sseHeartbeatMs } = deps
 
   app.get("/api/events", (c) => {
     const lifecycle = new AbortController()
@@ -226,14 +227,14 @@ function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
         }
         const pump = async () => {
           try {
-            write("retry: 2000\n\n")
+            write(`${SSE_RETRY_FRAME}\n\n`)
             heartbeat = setInterval(() => {
               try {
                 write(": heartbeat\n\n")
               } catch {
                 cleanup()
               }
-            }, SSE_HEARTBEAT_MS)
+            }, sseHeartbeatMs)
             for await (const event of subscription) {
               write(`data: ${JSON.stringify(event)}\n\n`)
             }
