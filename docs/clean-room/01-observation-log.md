@@ -11,6 +11,9 @@ redacted; synthetic probe prompts only.
 OBS-NNN | E0–E5 | date | surface | observation | reproduction
 ```
 
+IDs are stable once issued and are never reused. Gaps (OBS-005 … OBS-009) are
+a withdrawn session note and a reserved block that was never issued.
+
 ## Public metadata (no login)
 
 ### OBS-001 — Public app shell is reachable
@@ -319,8 +322,6 @@ models, agents, connectors, data and a server status page are candidates; see
 | OBS-026 | Settings, connectors, model configuration | Auth/config | open |
 | OBS-027 | Dark theme tokens | Both themes required | done |
 | OBS-028 | Mobile layout | Responsive | done |
-| OBS-038 | Keyboard, focus, screen readers, reduced motion | Accessibility | open |
-| OBS-039 | Error, empty, loading and offline states | Completeness | open |
 | OBS-031 | Share/export/print | Output | open |
 | OBS-032 | Stop, retry, edit and branch behavior | Core interaction | open |
 | OBS-033 | Block math (`$$…$$`) and malformed Markdown | Renderer edge cases | open |
@@ -328,3 +329,5 @@ models, agents, connectors, data and a server status page are candidates; see
 | OBS-035 | Tablet and desktop breakpoints | Responsive | done |
 | OBS-036 | Composer add menu | Composer | done |
 | OBS-037 | Settings and appearance | Auth/config | done (subset applies) |
+| OBS-038 | Keyboard, focus, screen readers, reduced motion | Accessibility | open |
+| OBS-039 | Error, empty, loading and offline states | Completeness | open |

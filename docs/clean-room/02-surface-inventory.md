@@ -1,7 +1,8 @@
 # 02 — Surface Inventory
 
-**Status:** first desktop pass done (OBS-010 … OBS-019). Rows still marked
-`open` need a dedicated probe before they become requirements.
+**Status:** desktop, mobile, breakpoint, composer-menu and settings passes are
+done (OBS-010 … OBS-019, OBS-027, OBS-028, OBS-035 … OBS-037). Rows still
+marked `open` need a dedicated probe before they become requirements.
 
 Legend: `observed` = seen with an evidence ID; `partial` = some parts observed;
 `open` = not yet probed; `deferred` = consciously out of v1.
