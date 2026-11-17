@@ -12,6 +12,8 @@ export interface TranscriptProps {
   /** Shown under the last assistant message when it is not streaming. */
   onContinue?: () => void
   onRetryLast?: () => void
+  /** Deep link target: scrolls there and marks the message. */
+  highlightMessageID?: string
 }
 
 const PIN_THRESHOLD = 64
@@ -23,6 +25,7 @@ export function Transcript({
   onRetry,
   onContinue,
   onRetryLast,
+  highlightMessageID,
 }: TranscriptProps) {
   const t = useT()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -65,6 +68,24 @@ export function Transcript({
   useLayoutEffect(() => {
     if (pinnedRef.current) scrollToBottom()
   }, [messages, scrollToBottom])
+
+  const scrolledHighlight = useRef<string | null>(null)
+
+  // A deep link scrolls once, when the target first exists. Repeating it on
+  // every message change would pin the reader to the linked message while the
+  // rest of the session keeps streaming.
+  useEffect(() => {
+    if (!highlightMessageID || scrolledHighlight.current === highlightMessageID) return
+    const element = document.getElementById(`message-${highlightMessageID}`)
+    if (!element) return
+    scrolledHighlight.current = highlightMessageID
+    element.scrollIntoView({ block: "center" })
+    // Moving focus rather than only drawing a ring: a keyboard or screen-reader
+    // user activating a search hit must land on what they followed.
+    element.focus({ preventScroll: true })
+    pinnedRef.current = false
+    setPinned(false)
+  }, [highlightMessageID, messages])
 
   const lastMessage = messages[messages.length - 1]
   useEffect(() => {
@@ -119,6 +140,7 @@ export function Transcript({
               <MessageItem
                 key={message.id}
                 message={message}
+                highlighted={message.id === highlightMessageID}
                 onContinue={
                   !anyStreaming && message.role === "assistant" && message.id === lastAssistantID
                     ? onContinue

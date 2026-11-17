@@ -15,7 +15,7 @@ interface ChatLocationState {
 
 export function ChatPage() {
   const t = useT()
-  const { sessionId = "" } = useParams()
+  const { sessionId = "", messageId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
   const { sessions } = useSessions()
@@ -69,6 +69,7 @@ export function ChatPage() {
         loading={chat.loading}
         failed={chat.error === "load"}
         onRetry={() => void chat.reload()}
+        highlightMessageID={messageId}
         onContinue={canRecover ? () => void chat.continueRun() : undefined}
         onRetryLast={canRecover && chat.canRetry ? () => void chat.retryLast() : undefined}
       />

@@ -20,6 +20,7 @@ function message(id: string, status: MessageStatus = "complete", text = `message
 function renderTranscript(
   messages: Message[],
   actions: { onContinue?: () => void; onRetryLast?: () => void } = {},
+  highlightMessageID?: string,
 ) {
   return render(
     <ThemeProvider initialTheme="dark">
@@ -31,6 +32,7 @@ function renderTranscript(
           onRetry={() => undefined}
           onContinue={actions.onContinue}
           onRetryLast={actions.onRetryLast}
+          highlightMessageID={highlightMessageID}
         />
       </I18nProvider>
     </ThemeProvider>,
@@ -61,6 +63,121 @@ function stubScroll(element: HTMLElement, metrics: { scrollHeight: number; clien
     },
   }
 }
+
+describe("message deep link", () => {
+  it("scrolls to the linked message and marks it", () => {
+    const scrollIntoView = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      const { container } = renderTranscript([message("msg_1"), message("msg_2")], {}, "msg_2")
+
+      const target = container.querySelector<HTMLElement>('[id="message-msg_2"]')
+      expect(target).not.toBeNull()
+      expect(target?.className).toContain("ring-2")
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+      // The link moves focus, so a keyboard user lands on what they followed
+      // instead of on the document body.
+      expect(document.activeElement).toBe(target)
+
+      const other = container.querySelector<HTMLElement>('[id="message-msg_1"]')
+      expect(other?.className).not.toContain("ring-2")
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
+  it("does not jump back while the session keeps streaming", () => {
+    const scrollIntoView = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      const first = message("msg_1")
+      const second = message("msg_2")
+      const { rerender } = renderTranscript([first, second], {}, "msg_2")
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+
+      // A new event arrives in the same session: the reader stays where they
+      // were sent, instead of being centred on the link again.
+      rerender(
+        <ThemeProvider initialTheme="dark">
+          <I18nProvider initialLocale="en">
+            <Transcript
+              messages={[first, second, message("msg_3")]}
+              loading={false}
+              failed={false}
+              onRetry={() => undefined}
+              highlightMessageID="msg_2"
+            />
+          </I18nProvider>
+        </ThemeProvider>,
+      )
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
+  it("scrolls when the target arrives after a loading render, and once per id", () => {
+    const scrollIntoView = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      const first = message("msg_1")
+      const second = message("msg_2")
+      const { rerender } = renderTranscript([], {}, "msg_2")
+      expect(scrollIntoView).not.toHaveBeenCalled()
+
+      // The transcript was empty while the session loaded; the target shows up
+      // with the first page of messages and must still be visited once.
+      rerender(
+        <ThemeProvider initialTheme="dark">
+          <I18nProvider initialLocale="en">
+            <Transcript
+              messages={[first, second]}
+              loading={false}
+              failed={false}
+              onRetry={() => undefined}
+              highlightMessageID="msg_2"
+            />
+          </I18nProvider>
+        </ThemeProvider>,
+      )
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+
+      // A second link in the same session is a new target and scrolls again.
+      rerender(
+        <ThemeProvider initialTheme="dark">
+          <I18nProvider initialLocale="en">
+            <Transcript
+              messages={[first, second]}
+              loading={false}
+              failed={false}
+              onRetry={() => undefined}
+              highlightMessageID="msg_1"
+            />
+          </I18nProvider>
+        </ThemeProvider>,
+      )
+      expect(scrollIntoView).toHaveBeenCalledTimes(2)
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
+  it("ignores a message id that is not in the transcript", () => {
+    const scrollIntoView = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      const { container } = renderTranscript([message("msg_1")], {}, "missing")
+      expect(scrollIntoView).not.toHaveBeenCalled()
+      expect(container.querySelector("[data-highlighted]")).toBeNull()
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+})
 
 describe("Transcript scrolling", () => {
   it("keeps the bottom pinned while streaming and scrolls on a new message", () => {
