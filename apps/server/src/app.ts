@@ -10,6 +10,7 @@ import {
 } from "./middleware"
 import { registerRoutes } from "./routes"
 import { FixedWindowThrottle } from "./throttle"
+import { STT_TIMEOUT_MS } from "./transcribe"
 
 export const SERVER_VERSION = "0.1.0"
 
@@ -21,6 +22,8 @@ export interface AppOptions {
   config: EnvConfig
   backend: ChatBackend
   version?: string
+  /** Upstream STT deadline in milliseconds; tests shorten it. */
+  sttTimeoutMs?: number
 }
 
 export interface AppVariables {
@@ -68,6 +71,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     settings,
     loginThrottle,
     promptThrottle,
+    sttTimeoutMs: options.sttTimeoutMs ?? STT_TIMEOUT_MS,
   })
 
   return app

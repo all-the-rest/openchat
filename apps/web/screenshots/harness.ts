@@ -23,6 +23,8 @@ import type {
 
 /** How long the drawer slide-in (`duration-200`) needs before the pixels hold. */
 const DRAWER_TRANSITION_MS = 250
+/** Long enough for the dictation clock to leave `0:00` and the meter to move. */
+const DICTATION_SETTLE_MS = 1200
 
 function resolvePath(pattern: string, params: Record<string, unknown>): string {
   return pattern.replace(/:([A-Za-z]+)/g, (_match, key: string) => {
@@ -118,7 +120,7 @@ async function applyVariantSettings(page: Page, variant?: UiReviewVariant): Prom
   )
 }
 
-/** Post-load variant: open the mobile drawer or expand the first tool card. */
+/** Post-load variant: open the mobile drawer, expand a tool card or start dictation. */
 async function applyVariantAction(page: Page, variant?: UiReviewVariant): Promise<void> {
   if (variant?.action === "open-drawer") {
     await page.getByTestId("sidebar-toggle").click()
@@ -126,6 +128,15 @@ async function applyVariantAction(page: Page, variant?: UiReviewVariant): Promis
     await expect(drawer).toBeVisible()
     await expect(drawer).toHaveAttribute("aria-modal", "true")
     await page.waitForTimeout(DRAWER_TRANSITION_MS)
+    return
+  }
+
+  if (variant?.action === "start-dictation") {
+    // The control only exists when `/api/info` advertises a configured STT
+    // service, so a missing button is a real failure, not an empty state.
+    await page.getByTestId("dictation").click()
+    await expect(page.getByTestId("dictation-pill")).toBeVisible()
+    await page.waitForTimeout(DICTATION_SETTLE_MS)
     return
   }
 

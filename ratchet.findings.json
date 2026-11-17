@@ -9,7 +9,7 @@
       "owner": "orchestrator",
       "ticket": "#27",
       "path": "apps/web/src/chat/Transcript.tsx",
-      "note": "White disc on white content, overlapping the last block (math on desktop, code header on mobile). Fix: solid background, stronger border/shadow, larger inset. Evidence: ui-review/filled/desktop/chat-rich-sec0.png, ui-review/filled/mobile/chat-rich-sec0.png"
+      "note": "White disc on white content, overlapping the last block (math on desktop, tool card on wide, code header on mobile). It sits bottom-centre of the transcript, so it always covers whatever content reaches the fold. Fix: solid background, stronger border/shadow, larger inset. Evidence: ui-review/filled/desktop/chat-rich-sec0.png, ui-review/filled/mobile/chat-rich-sec0.png, ui-review/filled/wide/chat-rich-sec0.png"
     },
     {
       "id": "UI-2",
@@ -72,6 +72,16 @@
       "ticket": "#27",
       "path": "apps/web/src/pages/LoginPage.tsx",
       "note": "Outline plus border produce a heavy double ring on focus. Fix: use one focus ring. Evidence: ui-review/empty/mobile/login.png"
+    },
+    {
+      "id": "UI-8",
+      "title": "Dictation microphone has no button surface next to the filled send disc",
+      "severity": "low",
+      "status": "open",
+      "owner": "orchestrator",
+      "ticket": "#27",
+      "path": "apps/web/src/dictation/DictationButton.tsx",
+      "note": "The idle mic is a bare glyph in a transparent circle while the send control beside it is a filled disc, so the mic reads as decoration rather than a control at 390 and 1440 px. The recording pill itself is clean (clock, meter, stop, cancel). Fix: give the idle mic the same soft surface as the send button, or make both ghost. Evidence: ui-review/empty/desktop/landing.png, ui-review/empty/mobile/landing.png"
     }
   ]
 }

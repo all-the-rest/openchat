@@ -6,6 +6,7 @@ import type { AppEnv } from "./app"
 import type { EnvConfig } from "./env"
 import { jsonError, payloadTooLarge } from "./http"
 import { MAX_BODY_BYTES } from "./limits"
+import { TRANSCRIBE_PATH } from "./transcribe"
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
 const LOGOUT_PATH = "/api/auth/logout"
@@ -48,7 +49,9 @@ function isCrossOrigin(c: Context): boolean {
 function isJsonEndpoint(c: Context): boolean {
   if (SAFE_METHODS.has(c.req.method)) return false
   if (!c.req.path.startsWith("/api/")) return false
-  return c.req.path !== LOGOUT_PATH
+  // Logout has no body; transcribe carries raw audio and enforces the
+  // dictation cap itself.
+  return c.req.path !== LOGOUT_PATH && c.req.path !== TRANSCRIBE_PATH
 }
 
 function hasJsonContentType(c: Context): boolean {
@@ -103,7 +106,13 @@ export function registerRequestGuards(app: Hono<AppEnv>): void {
       return jsonError(c, 415, "unsupported_media_type", "Content-Type must be application/json")
     }
     const declared = declaredContentLength(c)
-    if (declared !== undefined && declared > MAX_BODY_BYTES) {
+    // Dictation uploads are capped by DICTATION_MAX_BYTES inside the route,
+    // which reads the stream and aborts at the cap.
+    if (
+      c.req.path !== TRANSCRIBE_PATH &&
+      declared !== undefined &&
+      declared > MAX_BODY_BYTES
+    ) {
       return payloadTooLarge(c)
     }
     await next()

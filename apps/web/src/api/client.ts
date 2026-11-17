@@ -6,6 +6,7 @@ import type {
   PromptRequest,
   PromptResponse,
   SessionInfo,
+  TranscriptionResponse,
 } from "@openchat/contracts"
 
 export interface ApiErrorBody {
@@ -130,6 +131,21 @@ export const api = {
       method: "POST",
       // The BFF requires a JSON content type on state-changing requests.
       body: JSON.stringify({}),
+    })
+  },
+
+  /**
+   * Sends one recording to the BFF. The body is the raw audio blob; the BFF
+   * accepts the base MIME type (`audio/webm`, `audio/mp4`, `audio/ogg`) and
+   * rejects anything else with `415 unsupported_media_type`.
+   */
+  transcribe(audio: Blob, options: { language?: string } = {}): Promise<TranscriptionResponse> {
+    const query = options.language ? `?language=${encodeURIComponent(options.language)}` : ""
+    const mime = audio.type.split(";")[0]?.trim() || "application/octet-stream"
+    return request<TranscriptionResponse>(`/api/transcribe${query}`, {
+      method: "POST",
+      body: audio,
+      headers: { "content-type": mime },
     })
   },
 }

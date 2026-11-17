@@ -31,7 +31,7 @@ export type UiReviewAuth = "user" | "none"
  */
 export type UiReviewTheme = "dark" | "light"
 export type UiReviewLocale = "en" | "de"
-export type UiReviewVariantAction = "open-drawer" | "expand-tool"
+export type UiReviewVariantAction = "open-drawer" | "expand-tool" | "start-dictation"
 
 export interface UiReviewVariant {
   name: string
@@ -297,6 +297,9 @@ export const uiReviewConfig: UiReviewConfig = {
       seeds: { empty: seedEmptyChat },
       nav: chatTranscript,
       scrollContainerSelector: '[data-testid="transcript"]',
+      // The microphone and the recording pill only render when the BFF
+      // advertises a configured STT service, which the screenshots config sets.
+      variants: [{ name: "recording", action: "start-dictation" }],
     },
   ],
 }

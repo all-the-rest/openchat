@@ -3,7 +3,7 @@ import { MAX_BODY_BYTES, isBodyTooLarge } from "./limits"
 
 export function jsonError(
   c: Context,
-  status: 400 | 401 | 403 | 404 | 413 | 415 | 429 | 500,
+  status: 400 | 401 | 403 | 404 | 413 | 415 | 422 | 429 | 500 | 502 | 503 | 504,
   code: string,
   message: string,
 ): Response {

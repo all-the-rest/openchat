@@ -153,3 +153,22 @@ export function BrainIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function MicIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3Z" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 17.5V21" />
+    </Icon>
+  )
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 6 12 12" />
+      <path d="m18 6-12 12" />
+    </Icon>
+  )
+}

@@ -21,6 +21,12 @@ export interface EnvConfig {
   SESSION_TTL_SECONDS: number
   COOKIE_SECURE: boolean
   TRUST_PROXY: boolean
+  /** Empty when no Whisper-compatible service is configured (dictation off). */
+  STT_URL: string
+  /** Sent upstream as a bearer token; empty when unset. Never logged. */
+  STT_API_KEY: string
+  DICTATION_MAX_SECONDS: number
+  DICTATION_MAX_BYTES: number
 }
 
 export interface LoadEnvOptions {
@@ -34,6 +40,14 @@ const DEFAULT_PASSWORD = "openchat-dev"
 const DEFAULT_HOST = "127.0.0.1"
 const DEFAULT_PORT = 8787
 const DEFAULT_TTL_SECONDS = 604_800
+const DEFAULT_DICTATION_MAX_SECONDS = 120
+const DEFAULT_DICTATION_MAX_BYTES = 26_214_400
+/**
+ * Upper bound for a single upload. The route buffers the audio in memory, so a
+ * misconfigured gigabyte cap must not become an OOM. 100 MiB leaves ample room
+ * above the 25 MiB default.
+ */
+const DICTATION_MAX_BYTES_CEILING = 104_857_600
 
 function read(source: Record<string, string | undefined>, key: string): string | undefined {
   const value = source[key]
@@ -62,7 +76,7 @@ function readNumber(
   if (!value) return fallback
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    warn(`${key} must be a positive integer; using ${fallback}`)
+    warn(`${key} must be a positive integer; using the default`)
     return fallback
   }
   return parsed
@@ -135,6 +149,17 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     warn("SESSION_SECRET is unset; generated an ephemeral secret for this boot")
   }
 
+  let dictationMaxBytes = readNumber(
+    source,
+    "DICTATION_MAX_BYTES",
+    DEFAULT_DICTATION_MAX_BYTES,
+    warn,
+  )
+  if (dictationMaxBytes > DICTATION_MAX_BYTES_CEILING) {
+    warn(`DICTATION_MAX_BYTES is above the 100 MiB ceiling; using the ceiling`)
+    dictationMaxBytes = DICTATION_MAX_BYTES_CEILING
+  }
+
   return {
     HOST: read(source, "HOST") ?? DEFAULT_HOST,
     PORT: readNumber(source, "PORT", DEFAULT_PORT, warn),
@@ -151,5 +176,14 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     SESSION_TTL_SECONDS: readNumber(source, "SESSION_TTL_SECONDS", DEFAULT_TTL_SECONDS, warn),
     COOKIE_SECURE: cookieSecure,
     TRUST_PROXY: readBoolean(source, "TRUST_PROXY"),
+    STT_URL: read(source, "STT_URL") ?? "",
+    STT_API_KEY: readSecret(source, "STT_API_KEY") ?? "",
+    DICTATION_MAX_SECONDS: readNumber(
+      source,
+      "DICTATION_MAX_SECONDS",
+      DEFAULT_DICTATION_MAX_SECONDS,
+      warn,
+    ),
+    DICTATION_MAX_BYTES: dictationMaxBytes,
   }
 }

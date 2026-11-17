@@ -1,10 +1,12 @@
 import { createServer } from "node:http"
 import type { IncomingMessage, ServerResponse } from "node:http"
+import { Readable } from "node:stream"
 import { FakeBackend, LiveBackend } from "@openchat/opencode"
 import type { ChatBackend } from "@openchat/opencode"
 import { createApp } from "./app"
 import { loadEnv } from "./env"
 import { MAX_BODY_BYTES } from "./limits"
+import { TRANSCRIBE_PATH } from "./transcribe"
 
 const config = loadEnv()
 
@@ -44,31 +46,10 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   const lifecycle = new AbortController()
   response.on("close", () => lifecycle.abort())
 
-  const declared = Number(request.headers["content-length"] ?? "")
-  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-    request.resume()
-    respondPayloadTooLarge(response)
-    return
-  }
-
-  const chunks: Buffer[] = []
-  let size = 0
-  let tooLarge = false
-  for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-    size += buffer.byteLength
-    if (size > MAX_BODY_BYTES) {
-      tooLarge = true
-      break
-    }
-    chunks.push(buffer)
-  }
-  if (tooLarge) {
-    // Discard the rest without buffering it; the response is already decided.
-    request.resume()
-    respondPayloadTooLarge(response)
-    return
-  }
+  const method = request.method ?? "GET"
+  const hasBody = method !== "GET" && method !== "HEAD"
+  const host = request.headers.host ?? `127.0.0.1:${config.PORT}`
+  const url = new URL(request.url ?? "/", `http://${host}`)
 
   const headers = new Headers()
   for (const [name, value] of Object.entries(request.headers)) {
@@ -76,17 +57,53 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     headers.set(name, Array.isArray(value) ? value.join(", ") : value)
   }
 
-  const method = request.method ?? "GET"
-  const hasBody = method !== "GET" && method !== "HEAD" && chunks.length > 0
-  const host = request.headers.host ?? `127.0.0.1:${config.PORT}`
-  const url = new URL(request.url ?? "/", `http://${host}`)
+  let webRequest: Request
 
-  const webRequest = new Request(url, {
-    method,
-    headers,
-    body: hasBody ? new Uint8Array(Buffer.concat(chunks)) : undefined,
-    signal: lifecycle.signal,
-  })
+  if (url.pathname === TRANSCRIBE_PATH) {
+    // Audio is streamed straight into Hono: the route reads incrementally and
+    // aborts at DICTATION_MAX_BYTES, so a large upload is never buffered here.
+    const init: RequestInit & { duplex: "half" } = {
+      method,
+      headers,
+      body: hasBody ? (Readable.toWeb(request) as ReadableStream<Uint8Array>) : undefined,
+      signal: lifecycle.signal,
+      duplex: "half",
+    }
+    webRequest = new Request(url, init)
+  } else {
+    const declared = Number(request.headers["content-length"] ?? "")
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+      request.resume()
+      respondPayloadTooLarge(response)
+      return
+    }
+
+    const chunks: Buffer[] = []
+    let size = 0
+    let tooLarge = false
+    for await (const chunk of request) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+      size += buffer.byteLength
+      if (size > MAX_BODY_BYTES) {
+        tooLarge = true
+        break
+      }
+      chunks.push(buffer)
+    }
+    if (tooLarge) {
+      // Discard the rest without buffering it; the response is already decided.
+      request.resume()
+      respondPayloadTooLarge(response)
+      return
+    }
+
+    webRequest = new Request(url, {
+      method,
+      headers,
+      body: hasBody && chunks.length > 0 ? new Uint8Array(Buffer.concat(chunks)) : undefined,
+      signal: lifecycle.signal,
+    })
+  }
 
   const webResponse = await app.fetch(webRequest, {
     remoteAddress: request.socket.remoteAddress,

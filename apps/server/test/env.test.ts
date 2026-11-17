@@ -19,6 +19,10 @@ describe("loadEnv", () => {
     expect(config.AUTH_MODE).toBe("session")
     expect(config.SESSION_TTL_SECONDS).toBe(604_800)
     expect(config.COOKIE_SECURE).toBe(false)
+    expect(config.STT_URL).toBe("")
+    expect(config.STT_API_KEY).toBe("")
+    expect(config.DICTATION_MAX_SECONDS).toBe(120)
+    expect(config.DICTATION_MAX_BYTES).toBe(26_214_400)
     expect(config.SESSION_SECRET.length).toBeGreaterThanOrEqual(32)
 
     expect(warnings.some((entry) => entry.includes("OPENCHAT_PASSWORD"))).toBe(true)
@@ -41,6 +45,10 @@ describe("loadEnv", () => {
         SESSION_TTL_SECONDS: "60",
         COOKIE_SECURE: "1",
         TRUST_PROXY: "1",
+        STT_URL: "http://stt:8080/v1",
+        STT_API_KEY: "stt-secret-key",
+        DICTATION_MAX_SECONDS: "45",
+        DICTATION_MAX_BYTES: "1048576",
       },
       warn: () => {},
     })
@@ -58,7 +66,51 @@ describe("loadEnv", () => {
       SESSION_TTL_SECONDS: 60,
       COOKIE_SECURE: true,
       TRUST_PROXY: true,
+      STT_URL: "http://stt:8080/v1",
+      STT_API_KEY: "stt-secret-key",
+      DICTATION_MAX_SECONDS: 45,
+      DICTATION_MAX_BYTES: 1_048_576,
     })
+  })
+
+  it("treats a blank STT_URL as no dictation service", () => {
+    const config = loadEnv({ source: { STT_URL: "   " }, warn: () => {} })
+    expect(config.STT_URL).toBe("")
+  })
+
+  it("falls back from invalid dictation caps without echoing values", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: {
+        STT_API_KEY: "never-log-this-key",
+        DICTATION_MAX_SECONDS: "not-a-number",
+        DICTATION_MAX_BYTES: "-5",
+      },
+      warn: (message) => warnings.push(message),
+    })
+
+    expect(config.DICTATION_MAX_SECONDS).toBe(120)
+    expect(config.DICTATION_MAX_BYTES).toBe(26_214_400)
+    const text = warnings.join("\n")
+    expect(text).toContain("DICTATION_MAX_SECONDS")
+    expect(text).toContain("DICTATION_MAX_BYTES")
+    expect(text).not.toContain("not-a-number")
+    expect(text).not.toContain("-5")
+    expect(text).not.toContain("never-log-this-key")
+  })
+
+  it("clamps an absurd byte cap to the ceiling and says why", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: { DICTATION_MAX_BYTES: "999999999999" },
+      warn: (message) => warnings.push(message),
+    })
+
+    expect(config.DICTATION_MAX_BYTES).toBe(104_857_600)
+    const text = warnings.join("\n")
+    expect(text).toContain("DICTATION_MAX_BYTES")
+    expect(text).toContain("100 MiB")
+    expect(text).not.toContain("999999999999")
   })
 
   it("binds loopback unless HOST is set explicitly", () => {

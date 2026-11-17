@@ -16,6 +16,7 @@ export interface TestServerOptions {
   scenario?: FakeScenario
   delayMs?: number
   env?: Record<string, string | undefined>
+  sttTimeoutMs?: number
 }
 
 export function makeConfig(overrides: Record<string, string | undefined> = {}): EnvConfig {
@@ -42,7 +43,11 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
     delayMs: options.delayMs ?? 0,
     workspace: config.WORKSPACE_DIR,
   })
-  return { app: createApp({ config, backend }), backend, config }
+  return {
+    app: createApp({ config, backend, sttTimeoutMs: options.sttTimeoutMs }),
+    backend,
+    config,
+  }
 }
 
 export async function login(server: TestServer, password = "secret-password"): Promise<string> {

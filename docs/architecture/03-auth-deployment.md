@@ -88,8 +88,9 @@ ARTIFACT_HOST_URL=https://artifacts.example.com
 ARTIFACT_SIGNING_KEY=...     # 32+ random bytes, HMAC for artifact URLs
 ADMIN_PROXY=off              # on: BFF proxies /admin/opencode behind auth
 STT_URL=                     # empty: dictation hidden
-STT_API_KEY=
-STT_MODEL=whisper-1
+STT_API_KEY=                 # optional bearer token; never logged
+DICTATION_MAX_SECONDS=120    # recording limit advertised to the composer
+DICTATION_MAX_BYTES=26214400 # 25 MiB upload cap; clamped to 100 MiB
 BACKEND_MODE=live            # live | fake
 ```
 
@@ -299,16 +300,49 @@ instead of failing at runtime.
 
 Dictation is an optional local service, not an OpenCode feature.
 
-- `STT_URL` points at a Whisper-compatible endpoint
-  (`/v1/audio/transcriptions`), typically `whisper.cpp` or `faster-whisper` on
-  the same host or a GPU box.
-- The browser records and posts `multipart/form-data` to the BFF. The BFF adds
-  `STT_API_KEY` server-side and streams the response back.
+- `STT_URL` points at a Whisper-compatible endpoint. The BFF posts to
+  `${STT_URL}/audio/transcriptions` (so include `/v1` in the URL when the
+  service expects it), typically `whisper.cpp` or `faster-whisper` on the same
+  host or a GPU box.
+- The browser records and posts the raw audio to `POST /api/transcribe` with an
+  `audio/*` content type; the BFF forwards it as `multipart/form-data` with
+  `model=whisper-1` and an optional `?language=` hint, and adds `STT_API_KEY`
+  server-side.
 - Audio is buffered in memory only, with a size and duration cap; the BFF does
   not write it to disk and does not log it.
 - A local model uses no provider quota. If the owner points `STT_URL` at a
   hosted service, that is an explicit choice and must be documented.
 - With `STT_URL` empty, the microphone button is not rendered.
+
+### Dictation API
+
+`POST /api/transcribe` is behind the same session/basic auth and the same
+same-origin guard as every other state-changing route. It accepts only
+`audio/*` and answers with one of:
+
+| Status | Condition |
+| --- | --- |
+| `200` | `{ text, durationMs }`; `durationMs` is the upstream call time |
+| `400` | the audio body is empty |
+| `401` | no valid session or Basic credential |
+| `403` | cross-origin `Origin` or `Sec-Fetch-Site` (the shared guard applies here too) |
+| `413` | declared or streamed body exceeds `DICTATION_MAX_BYTES` |
+| `415` | `Content-Type` is missing or not `audio/*` |
+| `422` | the service returned no non-empty `text` |
+| `502` | upstream status other than 2xx, network error, or invalid JSON |
+| `503` | `STT_URL` is unset |
+| `504` | the upstream call exceeded 30 s |
+
+`/api/info` advertises `dictation: { enabled, maxSeconds, maxBytes }`; the UI
+hides the control when `enabled` is false but a direct call still fails with
+`503`.
+
+Privacy properties: the audio arrives on the same origin as the app, is read
+incrementally with the byte cap enforced while the upload is still in flight,
+is forwarded from memory inside the same request, and is never persisted. The
+BFF does not log the body, the transcript, the `STT_API_KEY` or the upstream
+response; only `{ text, durationMs }` leaves the route. Avoiding a temporary
+file means a crash or a full disk cannot leave a recording behind.
 
 ## Testing without quota
 
@@ -350,6 +384,8 @@ services:
       ADMIN_PROXY: "off"
       STT_URL: ${STT_URL:-}
       STT_API_KEY: ${STT_API_KEY:-}
+      DICTATION_MAX_SECONDS: ${DICTATION_MAX_SECONDS:-120}
+      DICTATION_MAX_BYTES: ${DICTATION_MAX_BYTES:-26214400}
       BACKEND_MODE: ${BACKEND_MODE:-live}
       CODE_SURFACE: ${CODE_SURFACE:-off}
       CODE_HOST_URL: ${CODE_HOST_URL:-}

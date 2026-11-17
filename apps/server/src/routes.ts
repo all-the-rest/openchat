@@ -6,6 +6,7 @@ import {
   promptRequestSchema,
 } from "@openchat/contracts"
 import type {
+  DictationInfo,
   InfoResponse,
   InboxResponse,
   LoginResponse,
@@ -30,6 +31,7 @@ import {
 } from "./http"
 import { clientAddress } from "./middleware"
 import type { FixedWindowThrottle } from "./throttle"
+import { registerTranscribeRoute } from "./transcribe"
 
 export interface RouteDeps {
   config: EnvConfig
@@ -37,6 +39,8 @@ export interface RouteDeps {
   settings: AuthSettings
   loginThrottle: FixedWindowThrottle
   promptThrottle: FixedWindowThrottle
+  /** Upstream STT deadline; injectable so tests need not wait 30 s. */
+  sttTimeoutMs: number
 }
 
 function sseHeaders(): Record<string, string> {
@@ -107,6 +111,11 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
       models,
       agents,
       scenario: config.BACKEND_MODE === "fake" ? config.FAKE_SCENARIO : "live",
+      dictation: {
+        enabled: Boolean(config.STT_URL),
+        maxSeconds: config.DICTATION_MAX_SECONDS,
+        maxBytes: config.DICTATION_MAX_BYTES,
+      } satisfies DictationInfo,
     } satisfies InfoResponse)
   })
 }
@@ -256,5 +265,6 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerAuthRoutes(app, deps)
   registerInfoRoutes(app, deps)
   registerSessionRoutes(app, deps)
+  registerTranscribeRoute(app, deps)
   registerEventRoute(app, deps)
 }

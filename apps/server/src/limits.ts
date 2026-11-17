@@ -1,6 +1,7 @@
 /**
- * Request bodies are capped before authentication and before parsing. The
- * limit applies to every route; the BFF only accepts small JSON commands.
+ * Generic request-body cap, applied before authentication and before parsing.
+ * Every JSON route is small; `/api/transcribe` is the one exception and
+ * enforces `DICTATION_MAX_BYTES` itself while it streams the audio.
  */
 export const MAX_BODY_BYTES = 128 * 1024
 

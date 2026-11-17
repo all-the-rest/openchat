@@ -82,6 +82,20 @@ export interface InfoResponse {
   models: ModelInfo[]
   agents: AgentInfo[]
   scenario: string
+  dictation: DictationInfo
+}
+
+/** Dictation availability and the limits the composer must respect. */
+export interface DictationInfo {
+  enabled: boolean
+  maxSeconds: number
+  maxBytes: number
+}
+
+/** Result of one `POST /api/transcribe` call. */
+export interface TranscriptionResponse {
+  text: string
+  durationMs: number
 }
 
 export interface LoginResponse {

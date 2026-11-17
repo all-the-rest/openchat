@@ -34,6 +34,12 @@ export default defineConfig({
     baseURL: "http://localhost:5173",
     trace: "off",
     video: "off",
+    // The dictation variant needs a capture device. Chromium's fake device
+    // needs no OS microphone and auto-accepts the permission prompt.
+    launchOptions: {
+      args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+    },
+    permissions: ["microphone"],
   },
   // Playwright clears this directory at the start of a run. Keep it away from
   // the curated `ui-review/<state>/<viewport>/` captures that the spec writes
@@ -80,6 +86,7 @@ export default defineConfig({
         OPENCHAT_PASSWORD: "test-password",
         SESSION_SECRET: "test-secret",
         WORKSPACE_DIR,
+        STT_URL: "http://127.0.0.1:8899",
       },
     },
     {
@@ -88,6 +95,15 @@ export default defineConfig({
       url: "http://localhost:5173",
       reuseExistingServer: false,
       timeout: 60_000,
+    },
+    {
+      // Same fake Whisper service the E2E dictation spec uses. `tsx` is not a
+      // dependency of the web package; Node ≥ 24 strips the types itself.
+      command: "node e2e/fake-stt.ts",
+      cwd: WEB_DIR,
+      url: "http://127.0.0.1:8899/healthz",
+      reuseExistingServer: false,
+      timeout: 30_000,
     },
   ],
 })

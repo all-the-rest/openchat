@@ -99,7 +99,7 @@ One implementation of the `ChatBackend` port, no HTTP:
 
 ## E2E
 
-- Four independent tests (`auth`, `render`, `stop`, `preferences`), each in its
+- Five independent tests (`auth`, `render`, `stop`, `preferences`, `dictation`), each in its
   own file, run `fullyParallel: true` on four workers from the first second.
 - The backend is shared and in memory, so it already holds the other tests'
   chats. Every test logs in and creates its own chat, then asserts on the
