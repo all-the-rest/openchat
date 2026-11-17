@@ -31,6 +31,43 @@ available. Do not copy a stylesheet or class names.
 Light theme mirrors the same semantic names with inverted surfaces. The accent
 is intentionally independent of the reference brand.
 
+Measured light values (OBS-010 … OBS-016) — use these for the light theme:
+
+| Token | Light value |
+| --- | --- |
+| `color-bg-app` | `#fcfcfc` |
+| `color-bg-sidebar` | `#fcfcfc` |
+| `color-bg-surface` | `#ffffff` |
+| `color-bg-hover` | `rgba(0, 0, 0, 0.05)` |
+| `color-bg-selected` | `rgba(0, 0, 0, 0.05)` |
+| `color-text-primary` | `#0d0d0d` |
+| `color-text-secondary` | `#5d5d5d` |
+| `color-text-muted` | `#8f8f8f` |
+| `color-border-subtle` | `rgba(0, 0, 0, 0.08)` |
+| `color-bubble-user` | `#def3e5` |
+| `color-bubble-user-text` | `#14361a` |
+| `color-action` | `#2f7d36` |
+
+`#8f8f8f` on `#fcfcfc` is below 4.5:1: use it only for non-essential meta, and
+use `#5d5d5d` where the text must be readable. The reference action green
+(`#53b559`) is too light for white label text; darken it to `#2f7d36` for
+primary buttons and keep the lighter green for icon-only accents.
+
+Measured dark values (OBS-027):
+
+| Token | Dark value |
+| --- | --- |
+| `color-bg-app` | `#000000` |
+| `color-bg-sidebar` | `#000000` |
+| `color-bg-surface` | `#1b1b1b` at 95 % opacity |
+| `color-bg-code` | `#303030` |
+| `color-text-primary` | `#ededed` |
+| `color-text-secondary` | `#c9c9c9` |
+| `color-text-muted` | `#afafaf` |
+| `color-bubble-user` | `#2c6732` |
+| `color-bubble-user-text` | `#effaf3` |
+| `color-border-subtle` | `rgba(255, 255, 255, 0.12)` |
+
 Contrast: text on its background must reach WCAG AA (4.5:1 for body, 3:1 for
 large text and UI borders).
 
@@ -62,25 +99,31 @@ characters.
 
 | Token | Value |
 | --- | --- |
-| `radius-sm` | 6 px |
-| `radius-md` | 10 px |
-| `radius-lg` | 14 px |
-| `radius-xl` | 20 px |
+| `radius-sm` | 8 px |
+| `radius-md` | 16 px |
+| `radius-lg` | 22 px |
+| `radius-xl` | 26 px |
 | `radius-full` | 9999 px |
 
-Messages use `radius-lg`; inputs and buttons `radius-md`; chips `radius-full`.
+Sidebar rows use `radius-sm`; chips, cards and diagram blocks `radius-md`;
+user bubbles `radius-lg`; the composer shell `radius-xl`; buttons and the
+segmented control `radius-full`.
 
 ## Layout
 
 | Token | Value |
 | --- | --- |
-| `sidebar-width` | 260 px |
-| `sidebar-collapsed` | 64 px |
+| `sidebar-width` | 340 px |
+| `sidebar-collapsed` | 64 px (not measured) |
 | `content-max` | 768 px |
+| `thread-width` | 768 px |
+| `thread-text` | 736 px |
 | `composer-max` | 768 px |
-| `right-rail-width` | 420 px |
-| `header-height` | 56 px |
+| `right-rail-width` | 420 px (not measured) |
+| `header-height` | 52 px |
 | `composer-min-height` | 52 px |
+| `chip-height` | 52 px |
+| `sidebar-row` | 35 px high, 8 px gutter |
 | `touch-target` | 44 px |
 
 Breakpoints: `sm` 640, `md` 768, `lg` 1024, `xl` 1280.

@@ -28,8 +28,12 @@ No keyboard trap. Overlays restore focus to the trigger.
 ## Semantics
 
 - Landmarks: `banner`, `navigation`, `main`, `complementary`, `contentinfo`.
+- The reference labels message groups with visually hidden level-4 headings
+  ("You said", "Latest answer") (OBS-015); mirror that pattern.
 - Message list: `role="log"` with `aria-live="polite"` for completed messages.
 - Streaming text uses a separate live region with throttled announcements.
+  The reference exposes a thinking status while waiting (OBS-015); announce it
+  once, not per token.
 - Buttons have names; icon-only buttons have `aria-label`.
 - Tool cards use `aria-expanded` for the details.
 - Permission cards use `role="alertdialog"` and return focus after a decision.

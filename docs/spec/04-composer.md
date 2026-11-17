@@ -46,15 +46,59 @@ Interactions:
 - Remove before send.
 - Clear error per file; one bad file does not discard the prompt.
 
-## Model and agent selection
+## Model and effort selection
 
-- The list comes from `GET /api/model` and `GET /api/agent`.
-- Show provider, model name, context window, reasoning capability and image/PDF
-  input capability.
-- Unavailable models are hidden or disabled with a reason.
+Observed (OBS-014):
+
+- The composer shows a compact trigger labelled with the reasoning effort
+  ("High"), not the model name.
+- The popover opens above the composer and contains:
+  - a title row,
+  - a discrete 3-step effort slider with a status line ("High, 3 of 3"),
+  - a "Choose model" row,
+  - a "Performance" row,
+  - a radio list of available models with the current one checked.
+- Effort is a small enum, not a free number.
+
+Our implementation:
+
+- Effort values map to the model/provider capability; hide the slider when the
+  model does not support reasoning effort.
+- The model list comes from `GET /api/model`; unavailable models are disabled
+  with a reason.
 - Selection is stored on the session (`session.switchModel`,
-  `session.switchAgent`).
-- Changing the model mid-session affects the next prompt, not the transcript.
+  `session.switchAgent`) and survives reload.
+- Changing model or effort affects the next prompt, never the transcript.
+
+## Composer growth
+
+Observed (OBS-018): with multi-paragraph input the composer grows and adds an
+"Expand" control; the action row stays at the bottom.
+
+Our implementation:
+
+- Grow to a maximum height (8 lines), then scroll.
+- Offer an expanded editor overlay for long input.
+- Keep send/stop, attachments and model trigger reachable at every height.
+
+## Mode switch
+
+Observed (OBS-013): a segmented control in the header switches between **Chat**
+and **Work**. Our v1 ships Chat only; the control is hidden unless a second mode
+is implemented. Do not render a dead switch.
+
+## Mobile composer
+
+Observed (OBS-028): at 390 px the composer is two rows — text field on top,
+plus/effort/mic/voice below — with a 16 px side inset and a ~28 px radius.
+
+Our implementation:
+
+- Keep the action row below the field on narrow widths; never shrink icon
+  buttons below 36 px, and raise the touch target to 44 px via padding.
+- The send/stop button stays at the bottom right and is always reachable.
+- Attachments open a sheet rather than a popover.
+- The scroll-to-bottom control sits above the composer, not over the field.
 
 ## Tool menu
 

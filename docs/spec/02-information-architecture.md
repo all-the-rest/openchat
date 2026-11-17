@@ -57,24 +57,58 @@ wording and visual grouping are pending observation.
 
 ## Sidebar sections
 
-1. New chat
-2. Search
-3. Library
-4. Projects
-5. Tasks
-6. Chat history, grouped by date
-7. Profile and settings
+Observed order (OBS-011):
 
-Order and grouping are provisional; the reference observation may adjust them.
+1. Brand row with account menu, search and sidebar collapse.
+2. New chat.
+3. Plan (tasks and scheduled work).
+4. Library.
+5. Plugins.
+6. Discover.
+7. Pinned chats.
+8. Projects, expandable to their chats.
+9. Recent chats, single line, truncated.
+10. Profile footer with display name and plan/status line.
+
+Rules:
+
+- Sections are collapsible and remember their state.
+- Only one row carries a persistent selected background at a time.
+- Projects expand inline; their chats are indented under the project.
+- Recent chats show a trailing status indicator while a run is active.
+- The sidebar scrolls independently of the thread.
 
 ## Header
 
-- Back (mobile) or sidebar toggle (desktop).
-- Session title, inline editable.
-- Model selector.
-- Agent selector.
-- Share/export.
-- Overflow: rename, archive, delete, branch, settings.
+- Sidebar toggle (desktop) or back (mobile).
+- Session title as a menu trigger. Observed actions (OBS-029): rename, pin,
+  plugins submenu, lock chat, show files in chat, archive, delete, move to
+  project. Our v1 ships rename, pin, archive, delete, export; the rest appear
+  only when the corresponding feature exists.
+- A destructive action sits in the same menu but requires a confirmation step
+  and is visually marked; the reference does not separate it.
+- Mode switch, centered: **Chat** and **Work** (OBS-013). Work mode is a
+  separate product surface; see the open question below.
+- Share action, disabled while a turn is streaming (OBS-015).
+- One trailing icon for the session-level panel (currently account/workspace
+  actions in the reference).
+
+## Landing surface
+
+Ordered top to bottom (OBS-012):
+
+1. Mode switch and temporary-chat button in the shell.
+2. Centered H1, one line. The reference rotates the copy (OBS-030), so the
+   heading is a variant set, not a constant.
+3. Composer.
+4. Zero or one suggestion chip; absent in a fresh state (OBS-030).
+
+The reference personalizes the suggestion chip from account memory (OBS-019).
+Our product shows a static suggestion, a recent local chat, or nothing; it
+never derives suggestions from stored personal data unless the owner enables it.
+
+Temporary chat: a session that is not written to history. In scope only if the
+storage layer can enforce it; otherwise hide the control instead of faking it.
 
 ## Composer
 

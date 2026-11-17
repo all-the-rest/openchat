@@ -103,6 +103,9 @@ billing and no public sharing in v1.
 
 ## Open questions
 
+- `OPEN:` Is the reference "Work" mode (header switch) in scope for v1, hidden,
+  or a separate later surface? (OBS-013)
+- `OPEN:` Is a temporary, non-persisted chat required in v1? (OBS-013)
 - `OPEN:` Which image-generation provider/model is available in the owner's
   OpenCode setup?
 - `OPEN:` Which voice provider, if any, is available?

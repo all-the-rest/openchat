@@ -50,6 +50,8 @@ exposes an inbox; otherwise reject.
 - Stop calls `session.interrupt`.
 - Keep the partial response, mark it `stopped`, and allow "continue".
 - Do not delete the session.
+- While streaming, sharing and other session-level actions are disabled; only
+  stop, copy of completed parts and scrolling stay available (OBS-015).
 
 ## Retry
 

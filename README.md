@@ -3,9 +3,10 @@
 A clean-room rebuild of a ChatGPT-like chat interface powered by a
 self-hosted [OpenCode](https://opencode.ai) backend.
 
-**Status:** analysis phase. There is no production code yet. The first task is
-an evidence-based observation of the reference UI and the derivation of an
-implementable specification.
+**Status:** analysis phase. There is no production code yet. The first desktop
+and mobile observation pass is recorded in
+[`docs/clean-room/01-observation-log.md`](docs/clean-room/01-observation-log.md);
+the remaining surfaces are still open.
 
 ## Goal
 

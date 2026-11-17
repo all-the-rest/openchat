@@ -23,12 +23,23 @@ Message
 - CommonMark + GFM: tables, task lists, strikethrough, autolinks, footnotes.
 - Raw HTML is disabled by default. If enabled, sanitize with an allowlist.
 - Links open in a new tab with `rel="noopener noreferrer"`.
-- Code blocks: language label, copy, wrap toggle, optional line numbers.
+- Code blocks: language label, copy, wrap toggle, optional line numbers
+  (OBS-016: header row with language icon, language name and two icon actions;
+  code 12 px mono, 20 px line height, light gray surface).
 - Inline code: monospace, no wrapping inside words.
 - Math: `$…$` and `$$…$$` via KaTeX; invalid TeX falls back to text.
-- Mermaid: fenced `mermaid` blocks render a diagram; errors show the source.
+  Observed: inline `$…$` renders; a `\[ … \]` block stays raw text (OBS-016), so
+  support both block forms rather than guessing which one a model emits.
+- Diagrams: fenced `mermaid` blocks render a diagram block with its own actions
+  (options, expand, copy), not a code block (OBS-016). Errors show the source.
+- Tables: 14 px cells, 20 px line height, 8 px vertical padding, header weight
+  600, horizontal rules only, no zebra striping (OBS-016).
 - Images: markdown images are proxied or loaded from allowed origins only.
 - Citations: `[n]` chips resolve to the source list of the same message.
+
+Preserve the model's list structure rather than repairing it: in the reference
+an empty trailing numbered item still renders its number (OBS-016). Repairing
+would hide a model mistake the owner may want to see.
 
 ## Tool card
 
@@ -98,12 +109,29 @@ Rules:
 - PDF: embedded viewer if allowed, otherwise a download card.
 - Generated images: grid with prompt metadata and download.
 
+## Message actions
+
+Observed (OBS-017):
+
+- Assistant turn: copy, rate, read aloud, share, more.
+- User turn: copy, share prompt, edit.
+- A circular "scroll to bottom" button appears when the thread is scrolled up.
+- A long stream does not steal scroll position; the affordance is explicit.
+
+Our implementation:
+
+- Actions are icon buttons with accessible names and tooltips.
+- Copy writes plain text (Markdown source on demand) and announces success.
+- Edit opens the composer prefilled and creates a branch on submit.
+- Rate and read-aloud only appear when a backend/model supports them.
+
 ## Streaming
 
 - Append deltas without re-rendering the whole thread.
 - Keep scroll position stable unless the user is at the bottom.
 - Show a "jump to latest" control when scrolled up.
 - Do not animate every token; use a subtle cursor.
+- Announce completion once, not per token.
 
 ## Safety
 
