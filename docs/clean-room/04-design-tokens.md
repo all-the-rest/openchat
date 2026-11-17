@@ -77,7 +77,7 @@ non-essential text or be darkened in our implementation.
 | Suggestion chip | 768 × 52 px | landing | OBS-012 |
 | Sidebar row | 328 × 35 px at x 6 | primary actions, history | OBS-011 |
 | Segmented control | 224 × 36 px | header center | OBS-013 |
-| Mode segment | 112 × 36 px | Chat / Work | OBS-013 |
+| Mode segment | 112 × 36 px | Chat / Work (reference only, not implemented) | OBS-013 |
 | Icon button | 36 × 36 px | plus, mic, voice, scroll | OBS-012, OBS-017 |
 | Popover | right-aligned to composer, above it | model picker | OBS-014 |
 
@@ -93,6 +93,29 @@ Mobile (390 px, OBS-028):
 | Composer form height | 87 px (two rows) |
 | Composer radius | ~28 px |
 | Scroll-to-bottom button | 36 px circle, centered above the composer |
+
+Tablet and desktop breakpoints (OBS-035):
+
+| Token | Measured value |
+| --- | --- |
+| Sidebar visible | ≥ 768 px |
+| Sidebar hidden | < 768 px |
+| Composer single row | ≥ 640 px |
+| Composer two rows | < 640 px |
+| Content inset | ~32 px at 640–1023 px, 16 px below 640 px |
+| Thread max width | 768 px |
+
+## Add menu
+
+| Token | Measured value | Context | Evidence |
+| --- | --- | --- | --- |
+| Panel | 768 px wide, max 378 px high | above the composer | OBS-036 |
+| Panel radius | 20 px | | OBS-036 |
+| Panel padding | 8 px | | OBS-036 |
+| Panel border | 1 px `rgba(0,0,0,0.1)` | light theme | OBS-036 |
+| Row | 739 × 36 px, radius 12, padding 6 × 8 | | OBS-036 |
+| Row label / description | 14 px / muted | | OBS-036 |
+| Scroll area | 360 px high inside the panel | | OBS-036 |
 
 Spacing: 6 px sidebar gutter, 16 px section inset, 8 px composer inner gap,
 22 px heading-to-composer gap, 24 px composer-to-suggestion gap, 8 px table cell

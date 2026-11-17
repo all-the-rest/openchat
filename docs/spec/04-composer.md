@@ -42,9 +42,15 @@ Limits:
 Interactions:
 
 - Picker, drag/drop and paste.
+- Upload on send, not on selection, unless the backend needs a pre-upload.
+- Show each attachment as a removable chip with name, size and type icon.
 - Upload progress and cancel.
 - Remove before send.
 - Clear error per file; one bad file does not discard the prompt.
+- A failed upload keeps the draft and offers a retry; it never silently drops
+  the file.
+- Images and PDFs are passed as OpenCode file parts; do not inline large
+  binaries into the transcript.
 
 ## Model and effort selection
 
@@ -83,14 +89,16 @@ Our implementation:
 
 ## Mode switch
 
-Observed (OBS-013): a segmented control in the header switches between **Chat**
-and **Work**. Our v1 ships Chat only; the control is hidden unless a second mode
-is implemented. Do not render a dead switch.
+The reference shows a Chat/Work switch in the header and shrinks it below
+640 px (OBS-013, OBS-035). The Work surface is out of scope and the owner
+excluded it, so **v1 renders no switch at all** — not a disabled or hidden
+one.
 
 ## Mobile composer
 
-Observed (OBS-028): at 390 px the composer is two rows — text field on top,
-plus/effort/mic/voice below — with a 16 px side inset and a ~28 px radius.
+Observed (OBS-028, OBS-035): the composer is two rows below 640 px — text field
+on top, plus/effort/mic/voice below — with a 16 px side inset and a ~28 px
+radius. At 640 px it is a single row with ~32 px insets.
 
 Our implementation:
 
@@ -99,6 +107,26 @@ Our implementation:
 - The send/stop button stays at the bottom right and is always reachable.
 - Attachments open a sheet rather than a popover.
 - The scroll-to-bottom control sits above the composer, not over the field.
+
+## Add menu
+
+Observed (OBS-036): the plus button expands an inline panel above the composer,
+768 px wide and up to 378 px high, radius 20, 1 px border, 8 px padding, an
+inner scroll area and 36 px rows (radius 12, padding 6 × 8) with a 14 px label
+and a muted description. The first row is highlighted; the panel scrolls
+independently of the page.
+
+Our implementation:
+
+- The first action is **Add files**, which opens the file picker and accepts
+  drag/drop and paste.
+- Further rows appear only for shipped features: web search, image generation,
+  deep research. Each row has a label and a one-line description.
+- No row is a dead placeholder; a section is absent when the backend cannot
+  serve it.
+- The panel closes on Escape, on outside click and after an action; focus
+  returns to the plus button.
+- On mobile the same actions open a bottom sheet.
 
 ## Tool menu
 

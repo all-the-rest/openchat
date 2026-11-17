@@ -96,21 +96,22 @@ Rules:
   only when the corresponding feature exists.
 - A destructive action sits in the same menu but requires a confirmation step
   and is visually marked; the reference does not separate it.
-- Mode switch, centered: **Chat** and **Work** (OBS-013). Work mode is a
-  separate product surface; see the open question below.
 - Share action, disabled while a turn is streaming (OBS-015).
 - One trailing icon for the session-level panel (currently account/workspace
   actions in the reference).
+- **No Chat/Work switch.** The reference has a mode switch (OBS-013); the Work
+  surface is out of scope, so the switch is not rendered at all.
 
 ## Landing surface
 
 Ordered top to bottom (OBS-012):
 
-1. Mode switch and temporary-chat button in the shell.
+1. Temporary-chat button in the shell (no mode switch; see the header rules).
 2. Centered H1, one line. The reference rotates the copy (OBS-030), so the
    heading is a variant set, not a constant.
 3. Composer.
-4. Zero or one suggestion chip; absent in a fresh state (OBS-030).
+4. Zero to three suggestion chips or full-width suggestion rows on mobile;
+   absent in a fresh state (OBS-030, OBS-035).
 
 The reference personalizes the suggestion chip from account memory (OBS-019).
 Our product shows a static suggestion, a recent local chat, or nothing; it

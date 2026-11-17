@@ -232,22 +232,60 @@ Details:
   suggestion chip is absent in a fresh state. The implementation must not
   assume a single string.
 
+### OBS-035 — Breakpoints
+
+`OBS-035 | E1/E2 | 2026-11-17 | Responsive | The sidebar stays 340 px down to 768 px and disappears below it into a drawer. The composer switches from one row to two at 640 px. The thread caps at 768 px and shrinks with ~32 px side insets at 640–1023 px and 16 px below 640 px. | emulate 1281/1024/820/768/767/640/600/390`
+
+Details:
+
+- ≥ 768 px: sidebar 340, content = viewport − 340.
+- At 1024: content 684, thread/composer 621, suggestion chips 599.
+- At 820: content 480, composer 417.
+- At 768: content 428, composer 365.
+- < 768: sidebar `display: none`, a 36 px menu button appears at x 8 in the 52 px header.
+- At 640: composer 52 px high, 578 wide at x 31 (≈32 px inset).
+- < 640 px: composer 87 px high (two rows), 16 px inset; segmented control segments shrink from 112 to 96 px.
+- At 390: H1 24 px / 28.8 px, suggestions are full-width 358 × 52 rows (icon + label, 16 px muted) instead of the desktop chips.
+
+### OBS-036 — Composer add menu
+
+`OBS-036 | E1/E2 | 2026-11-17 | Composer | The plus button expands an inline panel above the composer: 768 × 378 at desktop, radius 20, white, 1 px `rgba(0,0,0,0.1)` border, 8 px padding, an inner 360 px scroll area, and 36 px rows (739 wide, radius 12, padding 6 × 8) with a 14 px label and a muted 12–14 px description. | click plus + snapshot + computed styles` 
+
+Rows observed, in order, with separators between groups:
+
+1. Add photos and files — "upload from computer".
+2. Add from library — "browse and search your files".
+3. Create image — "visualize something".
+4. Web search — "real-time news and info".
+5. Work in a project — "start a chat in a project".
+6. Deep research — "get a detailed report".
+7. Sketch — "draw and attach an image".
+8. Google Calendar — "manage Google Calendar events".
+9. Template Creator — "reusable templates saved as personal skills".
+10. Presentations — "create and edit presentations".
+
+- The first row is highlighted (`rgba(0,0,0,0.05)`) as the default/hover target.
+- The list scrolls inside the panel; the panel itself does not move the composer.
+- A second entry point for the same actions exists as full-width suggestion rows on the landing surface.
+
 ## Pending observations
 
 | ID | What | Why it matters | Status |
 | --- | --- | --- | --- |
 | OBS-020 | Artifacts and preview panel | Largest UI block | open |
 | OBS-021 | Image generation and image display | Media | open |
-| OBS-022 | File/PDF attachments and previews | Composer | open |
+| OBS-022 | File/PDF attachments and previews | Composer | partial (OBS-036: menu only) |
 | OBS-023 | Web search, citations, source cards | Research | open |
 | OBS-024 | Deep research / agent mode ("Plan") | Planning and history | open |
 | OBS-025 | Projects, tasks, GPTs/apps ("Plugins", "Discover") | Information architecture | open |
 | OBS-026 | Settings, connectors, model configuration | Auth/config | open |
 | OBS-027 | Dark theme tokens | Both themes required | done |
-| OBS-028 | Mobile layout and breakpoints | Responsive | done |
+| OBS-028 | Mobile layout | Responsive | done |
 | OBS-029 | Keyboard, focus, screen readers, reduced motion | Accessibility | open |
 | OBS-030 | Error, empty, loading and offline states | Completeness | open |
 | OBS-031 | Share/export/print | Output | open |
 | OBS-032 | Stop, retry, edit and branch behavior | Core interaction | open |
 | OBS-033 | Block math (`$$…$$`) and malformed Markdown | Renderer edge cases | open |
-| OBS-034 | Composer "Work" mode | Scope decision | open |
+| OBS-034 | Composer "Work" mode | Scope decision | dropped — owner excluded the Work surface |
+| OBS-035 | Tablet and desktop breakpoints | Responsive | done |
+| OBS-036 | Composer add menu | Composer | done |

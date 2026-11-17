@@ -11,9 +11,9 @@ Legend: `observed` = seen with an evidence ID; `partial` = some parts observed;
 | Surface | Parts | Evidence | Status |
 | --- | --- | --- | --- |
 | Sidebar | brand + account menu, search, collapse, New chat, Plan, Library, Plugins, Discover, Pinned, Projects, Recent, profile footer | OBS-010, OBS-011 | observed |
-| Header | mode switch (Chat / Work), title menu, share, one trailing icon | OBS-010, OBS-013, OBS-015 | observed |
+| Header | sidebar/menu toggle, title menu, share, one trailing icon; the reference has a Chat/Work switch (OBS-013), excluded from our product | OBS-010, OBS-013, OBS-015, OBS-029 | observed |
 | Thread | labelled message groups, assistant blocks, actions, scroll-to-bottom | OBS-015, OBS-017 | observed |
-| Composer | pill shell, plus, text field, effort/model picker, dictation, voice, send/stop, expand | OBS-012, OBS-014, OBS-018 | observed |
+| Composer | pill shell, plus + add menu, text field, effort/model picker, dictation, voice, send/stop, expand | OBS-012, OBS-014, OBS-018, OBS-036 | observed |
 | Right rail | artifact / canvas / file preview | — | open |
 | Overlays | model picker, title menu, share, settings | OBS-014, OBS-029 | partial |
 
@@ -21,7 +21,7 @@ Legend: `observed` = seen with an evidence ID; `partial` = some parts observed;
 
 | Surface | Parts | Evidence | Status |
 | --- | --- | --- | --- |
-| New chat | H1, composer, one suggestion chip, temporary-chat button, mode switch | OBS-012, OBS-013, OBS-019 | observed |
+| New chat | H1, composer, add menu, 0–3 suggestion chips (rows on mobile), temporary-chat button | OBS-012, OBS-013, OBS-019, OBS-035, OBS-036 | observed |
 | Empty history | empty state, recent chats | — | open |
 | Onboarding | hints, feature tour | — | open |
 
@@ -89,6 +89,7 @@ product must not personalize by default.
 
 | Width | Behavior | Evidence | Status |
 | --- | --- | --- | --- |
-| ≥ 1024 px | sidebar 340 px + content column | OBS-010 | observed |
-| 640–1023 px | sidebar collapses to overlay; right rail becomes sheet | — | open |
-| < 640 px | single column, drawer sidebar, two-row composer, 70 % bubble width | OBS-028 | observed |
+| ≥ 1024 px | sidebar 340 px + content column; thread capped at 768 px | OBS-010, OBS-035 | observed |
+| 768–1023 px | sidebar stays 340 px; thread shrinks with ~32 px insets | OBS-035 | observed |
+| 640–767 px | sidebar becomes a drawer; composer still one row | OBS-035 | observed |
+| < 640 px | two-row composer, 16 px inset, full-width suggestion rows | OBS-028, OBS-035 | observed |

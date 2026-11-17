@@ -105,9 +105,10 @@ characters.
 | `radius-xl` | 26 px |
 | `radius-full` | 9999 px |
 
-Sidebar rows use `radius-sm`; chips, cards and diagram blocks `radius-md`;
-user bubbles `radius-lg`; the composer shell `radius-xl`; buttons and the
-segmented control `radius-full`.
+Sidebar rows use `radius-sm`; chips, cards, diagram blocks and the add-menu rows
+`radius-md`; user bubbles `radius-lg`; the composer shell and the add-menu panel
+`radius-xl`; buttons use `radius-full`. One token per measured band — do not add
+a token per component.
 
 ## Layout
 

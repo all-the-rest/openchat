@@ -92,6 +92,7 @@ lifecycle.
 
 ## Deferred
 
+- The reference "Work" surface (excluded by the owner 2026-11-17; chat only).
 - Canvas/document editor.
 - Interactive apps/widgets.
 - Maps, rich cards, video.
