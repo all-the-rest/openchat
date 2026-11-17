@@ -66,10 +66,13 @@ artifact → app: { type: "artifact:result", title?, text?, data?, nonce }
   and no `allow-same-origin`, the frame has an opaque origin, so `event.origin`
   is the string `"null"`. An origin check would reject the artifact's own
   messages (and `"null"` matches any other opaque frame).
-- The identity check is therefore `event.source === iframe.contentWindow` plus
-  the random `nonce` sent in `artifact:init`. The app posts the init message to
-  `iframe.contentWindow` with `targetOrigin: "*"`, which is safe because the
-  frame is the only recipient and carries no credentials.
+- The app posts `artifact:init` on the iframe's `load` event, never earlier. If
+  no `artifact:ready` arrives within ~1 s it reposts `artifact:init` (twice at
+  most), because a slow artifact may attach its listener after `load`. Every
+  repost carries the same nonce.
+- The identity check is `event.source === iframe.contentWindow` plus the random
+  nonce. The app posts to `iframe.contentWindow` with `targetOrigin: "*"`, which
+  is safe because the frame is the only recipient and carries no credentials.
 - Do not add `allow-same-origin` to obtain a real origin: that would give the
   artifact its origin's storage and cookies and defeat the sandbox.
 - Validate the shape; drop unknown types and wrong nonces. Limit a result to

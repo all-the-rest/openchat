@@ -40,7 +40,7 @@ Rules:
   authenticated origin.
 - The artifact host is a separate hostname, cookie-less, and reachable only with
   signed, short-lived URLs and its own CSP.
-- Docker networks isolate services; only Caddy joins the public network.
+- Docker networks isolate services; only Caddy publishes ports to the host.
 
 ## Auth modes
 
@@ -213,6 +213,8 @@ code.example.com {
     # CSP and drop its default-src/script-src protection. Multiple CSP headers
     # are enforced as an intersection.
     +Content-Security-Policy "frame-ancestors https://chat.example.com"
+    # Remove an upstream X-Frame-Options; frame-ancestors is the control here.
+    -X-Frame-Options
     X-Content-Type-Options "nosniff"
     Referrer-Policy "no-referrer"
     Cache-Control "no-store"
@@ -403,8 +405,9 @@ only over the private `backend` network; `ADMIN_PROXY` (same-origin
 enabled with `CODE_SURFACE=on` and is the only other component with a route to
 OpenCode.
 
-The artifact host shares the `frontend` network with Caddy and the app but has
-no route to `opencode`; it holds no provider keys and no session secret.
+The artifact host shares the internal `artifacts` network with Caddy and the app
+but has no route to the internet and no route to `opencode` or `code`; it holds
+no provider keys and no session secret.
 
 ## Operations
 

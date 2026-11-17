@@ -143,8 +143,9 @@ An artifact can hand a result back to the chat. The protocol is narrow and
 validated on the app side (details:
 [`../architecture/04-artifact-sandbox.md`](../architecture/04-artifact-sandbox.md)):
 
-- The app posts `artifact:init` with the artifact id, locale, theme and a random
-  nonce to `iframe.contentWindow`.
+- The app posts `artifact:init` on the iframe's `load` event with the artifact
+  id, locale, theme and a random nonce, and reposts it up to twice if no
+  `artifact:ready` arrives.
 - `artifact:ready`, `artifact:resize` and `artifact:result` carry that nonce.
 - `artifact:result` is `{ type, title?, text?, data? }`, at most 64 KiB,
   schema-validated, rate-limited.
