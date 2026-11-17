@@ -199,6 +199,17 @@ const waitForToolCards = async (page: Page) => {
 }
 
 /**
+ * The search page debounces 250 ms, asks the BFF and then renders; waiting for
+ * the first hit covers both and fails loudly if the fixture stops matching.
+ */
+const waitForSearchResults = async (page: Page) => {
+  await page.locator("[data-search-result]").first().waitFor({ timeout: 30_000 })
+}
+
+const searchQuery = "/search?scope=all&q=opencode"
+const searchNoHits = "/search?scope=all&q=nothing"
+
+/**
  * Variants only where they change what a reviewer can judge. The base captures
  * stay light (Playwright's default `prefers-color-scheme: light`), so `dark` has
  * signal; theme and locale are captured at the two layout extremes rather than
@@ -286,6 +297,41 @@ export const uiReviewConfig: UiReviewConfig = {
       seeds: { filled: seedErrorChat },
       nav: chatTranscript,
       scrollContainerSelector: '[data-testid="transcript"]',
+    },
+    {
+      name: "search",
+      path: searchQuery,
+      expectedTitle: APP_TITLE,
+      states: ["filled"],
+      auth: "user",
+      viewports: ALL_VIEWPORTS,
+      note: "Grouped multi-source search over the fake fixtures: workspace and web hits for 'opencode', web citations with provider and hostname, the source toggles including a disabled one.",
+      nav: [
+        {
+          kind: "goto",
+          path: searchQuery,
+          reason: "The query lives in the URL, so the page loads straight into a result set.",
+        },
+      ],
+      waitForContentReady: waitForSearchResults,
+      variants: [DARK, GERMAN],
+    },
+    {
+      name: "search-empty",
+      path: searchNoHits,
+      expectedTitle: APP_TITLE,
+      states: ["empty"],
+      auth: "user",
+      viewports: ["mobile", "desktop"],
+      note: "A query with no matches: the empty-result announcement instead of an empty page.",
+      nav: [
+        {
+          kind: "goto",
+          path: searchNoHits,
+          reason: "Empty state is a real query, not a blank field.",
+        },
+      ],
+      variants: [DARK],
     },
     {
       name: "chat-empty",

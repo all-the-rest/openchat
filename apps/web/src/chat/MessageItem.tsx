@@ -66,10 +66,13 @@ export function MessageItem({
   message,
   onContinue,
   onRetry,
+  highlighted = false,
 }: {
   message: Message
   onContinue?: () => void
   onRetry?: () => void
+  /** A search result or deep link points at this message. */
+  highlighted?: boolean
 }) {
   const t = useT()
   const headingID = useId()
@@ -78,15 +81,29 @@ export function MessageItem({
 
   if (message.role === "system") {
     return (
-      <p className="my-3 text-center text-xs text-muted">{messageText(message)}</p>
+      <p
+        id={`message-${message.id}`}
+        data-highlighted={highlighted ? "true" : undefined}
+        tabIndex={highlighted ? -1 : undefined}
+        className={`my-3 rounded-row text-center text-xs text-muted ${
+          highlighted ? "ring-2 ring-primary" : ""
+        }`}
+      >
+        {messageText(message)}
+      </p>
     )
   }
 
   return (
     <article
+      id={`message-${message.id}`}
       data-testid={`message-${message.role}`}
       aria-labelledby={headingID}
-      className="flex flex-col gap-1"
+      data-highlighted={highlighted ? "true" : undefined}
+      tabIndex={highlighted ? -1 : undefined}
+      className={`flex flex-col gap-1 rounded-row ${
+        highlighted ? "ring-2 ring-primary" : ""
+      }`}
     >
       <h4 id={headingID} className="sr-only">
         {isUser ? t("chat.youSaid") : t("chat.assistantSaid")}

@@ -7,6 +7,7 @@ import { I18nProvider, useT } from "./i18n/provider"
 import { ChatPage } from "./pages/ChatPage"
 import { LandingPage } from "./pages/LandingPage"
 import { LoginPage } from "./pages/LoginPage"
+import { SearchPage } from "./search/SearchPage"
 import { ThemeProvider } from "./theme/provider"
 
 function ProtectedShell() {
@@ -72,7 +73,9 @@ function AppRoutes() {
       />
       <Route element={<ProtectedShell />}>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/c/:sessionId" element={<ChatPage />} />
+        <Route path="/c/:sessionId/:messageId" element={<ChatPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -5,6 +5,8 @@ import type {
   Message,
   PromptRequest,
   PromptResponse,
+  SearchResponse,
+  SearchSource,
   SessionInfo,
   TranscriptionResponse,
 } from "@openchat/contracts"
@@ -117,6 +119,20 @@ export const api = {
   async listMessages(sessionID: string): Promise<Message[]> {
     const body = await request<unknown>(`${sessionPath(sessionID)}/messages`)
     return unwrapList<Message>(body, "messages")
+  },
+
+  /** One grouped query; `sources` limits what the BFF is allowed to query. */
+  search(input: {
+    query: string
+    sources: readonly SearchSource[]
+    limit?: number
+    signal?: AbortSignal
+  }): Promise<SearchResponse> {
+    const params = new URLSearchParams({ q: input.query, sources: input.sources.join(",") })
+    if (input.limit !== undefined) params.set("limit", String(input.limit))
+    return request<SearchResponse>(`/api/search?${params.toString()}`, {
+      signal: input.signal,
+    })
   },
 
   prompt(sessionID: string, input: PromptRequest): Promise<PromptResponse> {
