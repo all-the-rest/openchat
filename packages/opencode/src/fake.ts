@@ -6,6 +6,7 @@ import type {
   InboxEntry,
   Message,
   ModelInfo,
+  SearchSource,
   ServerInfo,
   SessionInfo,
 } from "@openchat/contracts"
@@ -15,8 +16,11 @@ import type {
   CreateSessionInput,
   PromptInput,
   PromptResult,
+  SearchInput,
+  SearchOutcome,
 } from "./index"
 import { FakeEvents } from "./fake-events"
+import { fakeSearch } from "./fake-search"
 import { clone, errorText, PartWriter } from "./fake-parts"
 import { resolveScenario, runScenario } from "./scenarios"
 import type { ScenarioOutcome } from "./scenarios"
@@ -52,6 +56,10 @@ export interface FakeBackendOptions {
   now?: () => number
   workspace?: string
   version?: string
+  /** Sources the fake reports as unavailable, for the disabled group state. */
+  disabledSources?: readonly SearchSource[]
+  /** Sources whose query throws, for a partial failure in the response. */
+  failingSources?: readonly SearchSource[]
 }
 
 /**
@@ -68,6 +76,8 @@ export class FakeBackend implements ChatBackend {
   private readonly clock: () => number
   private readonly workspace: string
   private readonly version: string
+  private readonly disabledSources: readonly SearchSource[]
+  private readonly failingSources: readonly SearchSource[]
   private readonly events: FakeEvents
   private readonly parts: PartWriter
 
@@ -77,6 +87,8 @@ export class FakeBackend implements ChatBackend {
     this.clock = options.now ?? (() => Date.now())
     this.workspace = options.workspace ?? "/workspace"
     this.version = options.version ?? "0.1.0-fake"
+    this.disabledSources = options.disabledSources ?? []
+    this.failingSources = options.failingSources ?? []
     this.events = new FakeEvents(this.clock)
     this.parts = new PartWriter({
       nextID: (prefix) => this.events.nextID(prefix),
@@ -186,6 +198,17 @@ export class FakeBackend implements ChatBackend {
 
   async listAgents(): Promise<AgentInfo[]> {
     return [{ id: "build", name: "Build", description: "Deterministic scenario runner" }]
+  }
+
+  async search(input: SearchInput): Promise<SearchOutcome> {
+    return fakeSearch(
+      input,
+      [...this.sessions.values()].map((session) => ({
+        info: session.info,
+        messages: session.messages,
+      })),
+      { disabled: this.disabledSources, failing: this.failingSources },
+    )
   }
 
   subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {

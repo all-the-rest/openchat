@@ -1,5 +1,5 @@
 import type { Hono } from "hono"
-import type { EventEnvelope, FakeScenario } from "@openchat/contracts"
+import type { EventEnvelope, FakeScenario, SearchSource } from "@openchat/contracts"
 import { FakeBackend } from "@openchat/opencode"
 import { createApp } from "../src/app"
 import type { AppEnv } from "../src/app"
@@ -18,6 +18,10 @@ export interface TestServerOptions {
   env?: Record<string, string | undefined>
   sttTimeoutMs?: number
   sseHeartbeatMs?: number
+  /** Sources the fake reports as unavailable. */
+  disabledSources?: readonly SearchSource[]
+  /** Sources whose fake query throws. */
+  failingSources?: readonly SearchSource[]
 }
 
 export function makeConfig(overrides: Record<string, string | undefined> = {}): EnvConfig {
@@ -43,6 +47,8 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
     scenario: options.scenario ?? config.FAKE_SCENARIO,
     delayMs: options.delayMs ?? 0,
     workspace: config.WORKSPACE_DIR,
+    disabledSources: options.disabledSources,
+    failingSources: options.failingSources,
   })
   return {
     app: createApp({

@@ -14,10 +14,13 @@ import type {
   CreateSessionInput,
   PromptInput,
   PromptResult,
+  SearchInput,
+  SearchOutcome,
 } from "./index"
 import { EventQueue } from "./events"
 import { BackendError } from "./errors"
 import { createToolEventState, normalizeEvent } from "./live-events"
+import { liveSearch } from "./live-search"
 import { normalizeMessage, normalizeSession } from "./live-normalize"
 
 // The normalizers stay importable from this module; the BFF only needs the
@@ -168,6 +171,10 @@ export class LiveBackend implements ChatBackend {
       name: agent.name,
       description: agent.description,
     }))
+  }
+
+  async search(input: SearchInput): Promise<SearchOutcome> {
+    return liveSearch(this.client, this.workspace, input)
   }
 
   async *subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {

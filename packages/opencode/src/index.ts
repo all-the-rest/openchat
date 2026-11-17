@@ -4,6 +4,8 @@ import type {
   InboxEntry,
   Message,
   ModelInfo,
+  SearchHit,
+  SearchSource,
   ServerInfo,
   SessionInfo,
 } from "@openchat/contracts"
@@ -26,6 +28,23 @@ export interface CreateSessionInput {
   title?: string
   /** Absolute workspace directory; the browser never chooses this. */
   directory: string
+}
+
+export interface SearchInput {
+  /** Trimmed, validated by the route; 1–200 characters. */
+  query: string
+  /** Only these sources are queried. */
+  sources: readonly SearchSource[]
+  /** Per-source cap. */
+  limit: number
+}
+
+export interface SearchOutcome {
+  /** Sources this deployment can query, independent of `input.sources`. */
+  available: SearchSource[]
+  hits: SearchHit[]
+  /** Sources that were requested but failed; the route reports them per group. */
+  failed: SearchSource[]
 }
 
 export interface PromptResult {
@@ -57,6 +76,8 @@ export interface ChatBackend {
   interrupt(sessionID: string): Promise<void>
   listModels(): Promise<ModelInfo[]>
   listAgents(): Promise<AgentInfo[]>
+  /** Grouped multi-source search; only `input.sources` are queried. */
+  search(input: SearchInput): Promise<SearchOutcome>
   subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope>
 }
 

@@ -30,6 +30,7 @@ import {
   readJson,
 } from "./http"
 import { clientAddress } from "./middleware"
+import { registerSearchRoute } from "./search"
 import type { FixedWindowThrottle } from "./throttle"
 import { SSE_RETRY_FRAME } from "./sse"
 import { registerTranscribeRoute } from "./transcribe"
@@ -266,6 +267,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerAuthRoutes(app, deps)
   registerInfoRoutes(app, deps)
   registerSessionRoutes(app, deps)
+  registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
   registerEventRoute(app, deps)
 }

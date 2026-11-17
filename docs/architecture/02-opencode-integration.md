@@ -134,6 +134,27 @@ No todo method or event exists in 2.3.0. That is the one remaining spike.
 Do not hard-code paths: generate types from the running server's OpenAPI and
 smoke-test the methods the UI calls after every upgrade.
 
+### Multi-source search
+
+`GET /api/search` groups results by source and proxies the host's own
+surfaces; the BFF stores no provider key.
+
+| Source | Client method | Availability |
+| --- | --- | --- |
+| `chats` | `session.list({ search, directory, limit })` | always |
+| `workspace` | `file.find({ location: { directory }, query, limit })` | always |
+| `web` | `websearch.providers()`, then `websearch.query({ query })` | at least one provider configured on the host |
+| `apps` | `mcp.list()` + `skill.list()` | always |
+
+Only requested sources are queried; the one exception is a
+`websearch.providers()` configuration read that keeps `available`
+request-independent. A source that fails is reported as `failed` without
+affecting the others; an unconfigured source is `disabled` and is not queried.
+`session.list` searches chat titles (no message-level hit or snippet), and
+`file.find` matches paths (it does not return file content, so a hit has a path
+but no snippet). The pinned client cannot list a server's tools, so `apps` stops
+at server and skill level. See `docs/implementation/05-search.md`.
+
 ## Prompt payload
 
 Verified shape:

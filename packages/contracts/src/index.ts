@@ -98,6 +98,51 @@ export interface TranscriptionResponse {
   durationMs: number
 }
 
+/** Sources `/api/search` can group by. */
+export const SEARCH_SOURCES = ["chats", "workspace", "web", "apps"] as const
+export type SearchSource = (typeof SEARCH_SOURCES)[number]
+
+/** One search hit. Fields are set by the source that produced it. */
+export interface SearchHit {
+  source: SearchSource
+  /** Stable within the source; used as the React key. */
+  id: string
+  title: string
+  snippet?: string
+  /** `chats`: the session and, when the match is in a message, that message. */
+  sessionID?: string
+  messageID?: string
+  /** `workspace`: path relative to the workspace root. */
+  path?: string
+  /** `web`: citation and the provider that answered. */
+  url?: string
+  provider?: string
+  published?: number
+  /** `apps`: MCP server, tool or skill and its status. */
+  app?: string
+  /** `tool` is reserved: the pinned client cannot list a server's tools. */
+  appKind?: "server" | "tool" | "skill"
+  status?: string
+}
+
+/** `disabled`: not configured on the host, so it was not queried. */
+export type SearchGroupState = "ok" | "failed" | "disabled"
+
+export interface SearchGroup {
+  source: SearchSource
+  state: SearchGroupState
+  /** Number of hits in this response; never more than the request limit. */
+  total: number
+  hits: SearchHit[]
+}
+
+export interface SearchResponse {
+  query: string
+  /** Sources this deployment can query; the client renders its toggles from it. */
+  available: SearchSource[]
+  groups: SearchGroup[]
+}
+
 export interface LoginResponse {
   user: string
 }
