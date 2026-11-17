@@ -12,7 +12,7 @@
 
 ## Tracker
 
-GitHub Issues in `all-the-rest/cleanroom-chat` are the only task tracker. No
+GitHub Issues in `all-the-rest/openchat` are the only task tracker. No
 local task lists as the source of truth.
 
 - Commits link their issue: `Refs #N` or `Closes #N`.

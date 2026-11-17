@@ -1,5 +1,5 @@
 {
-  "name": "cleanroom-chat",
+  "name": "openchat",
   "private": true,
   "type": "module",
   "workspaces": [

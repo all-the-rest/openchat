@@ -1,4 +1,4 @@
-# CleanRoom Chat
+# OpenChat
 
 A clean-room rebuild of a ChatGPT-like chat interface powered by a
 self-hosted [OpenCode](https://opencode.ai) backend.

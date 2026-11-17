@@ -7,7 +7,7 @@ surfaces work.
 
 Tracking: the milestones `v1.0` and `v2.0` on GitHub hold one issue per phase,
 one per V2 capability and one release checklist each. Progress is visible at
-<https://github.com/all-the-rest/cleanroom-chat/milestones>.
+<https://github.com/all-the-rest/openchat/milestones>.
 
 ## M0 — Clean-room analysis
 
