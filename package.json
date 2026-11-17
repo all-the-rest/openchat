@@ -1,0 +1,19 @@
+{
+  "name": "cleanroom-chat",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter '*' dev",
+    "build": "bun run --filter '*' build",
+    "lint": "bun run --filter '*' lint",
+    "test": "bun run --filter '*' test",
+    "test:e2e": "bun run --filter '*' test:e2e"
+  },
+  "engines": {
+    "bun": ">=1.4.0"
+  }
+}
