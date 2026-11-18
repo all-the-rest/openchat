@@ -2,7 +2,11 @@ import type { Hono } from "hono"
 import { STT_MODEL_ID } from "@openchat/contracts"
 import type { ChatBackend } from "@openchat/opencode"
 import { FakeHostSwitch, SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
-import { createSessionRequestSchema, loginRequestSchema } from "@openchat/contracts"
+import {
+  compactRequestSchema,
+  createSessionRequestSchema,
+  loginRequestSchema,
+} from "@openchat/contracts"
 import type {
   AppsSurfaceInfo,
   CodeSurfaceInfo,
@@ -246,9 +250,22 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
 
   // Manual compaction. The host rejects a streaming session with `conflict`,
   // which `createApp` maps to 409; the transcript then renders the failure
-  // event and offers a retry.
+  // event and offers a retry. The optional `id` makes a retried request
+  // idempotent: the host requires the `msg_` prefix on that field.
   app.post("/api/sessions/:id/compact", async (c) => {
-    const outcome = await backend.compact(c.req.param("id"), { reason: "manual" })
+    const body = await readJson(c)
+    if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
+    if (body === INVALID_JSON) {
+      return jsonError(c, 400, "invalid_request", "Invalid JSON body")
+    }
+    const parsed = compactRequestSchema.safeParse(body ?? {})
+    if (!parsed.success) {
+      return jsonError(c, 400, "invalid_request", invalidMessage(parsed.error))
+    }
+    const outcome = await backend.compact(c.req.param("id"), {
+      reason: "manual",
+      id: parsed.data.id,
+    })
     return c.json({ ok: true, status: outcome.status })
   })
 }

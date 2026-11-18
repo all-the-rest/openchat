@@ -181,6 +181,38 @@ describe("manual compaction route", () => {
     await stream.close()
   })
 
+  it("compacts once for a repeated idempotency key", async () => {
+    const server = makeServer()
+    const cookie = await login(server)
+    const session = await createSession(server, cookie)
+    const body = JSON.stringify({ id: "msg_compact_test" })
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await server.app.request(`/api/sessions/${session.id}/compact`, {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body,
+      })
+      expect(response.status).toBe(200)
+    }
+    expect(server.backend.compactionRecord(session.id).count).toBe(1)
+  })
+
+  it("rejects an idempotency key without the host prefix", async () => {
+    const server = makeServer()
+    const cookie = await login(server)
+    const session = await createSession(server, cookie)
+
+    const response = await server.app.request(`/api/sessions/${session.id}/compact`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ id: "soft-cap:2" }),
+    })
+    expect(response.status).toBe(400)
+    expect(await json(response)).toMatchObject({ error: { code: "invalid_request" } })
+    expect(server.backend.compactionRecord(session.id).count).toBe(0)
+  })
+
   it("rejects a streaming session with 409", async () => {
     const server = makeServer({ delayMs: 150 })
     const cookie = await login(server)

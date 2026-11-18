@@ -47,6 +47,18 @@ compacts at **130 000** tokens and keeps at least 12 000 recent tokens. With a
 1 000 000-token window and the same buffer the threshold is 650 000; the BFF
 cap is what actually pulls that down for chat.
 
+### Deliberate deviation from the issue text
+
+The issue asks for `buffer: "20%"`, `keep.tokens: 15000`, a compaction model in
+the seed and a soft cap only as a named override. The owner chose otherwise in
+this milestone: compact **early** (`35%`, keep `12 000`) because the chat chain
+is capped at 200 000 tokens anyway, and keep the BFF cap as a default (`200 000`)
+because the owner wants the guard active without per-deployment configuration;
+`CHAT_CONTEXT_SOFT_CAP=0` turns it off. No compaction model is seeded: the host
+falls back to its own default, and inventing a provider id in the seed would
+point at a model the owner has not chosen. Both choices are recorded in the
+issue (#53) with this reasoning.
+
 ## BFF soft cap
 
 `CHAT_CONTEXT_SOFT_CAP` (default `200 000`, `0` turns it off) is the owner's

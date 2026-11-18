@@ -246,9 +246,12 @@ export const api = {
 
   /** Asks the host to compact this session; the transcript follows the events. */
   compact(sessionID: string): Promise<{ ok: true; status: string }> {
+    // A fresh key per click: a double submit or a retry of the same click must
+    // not pay for a second summary. The host requires the `msg_` prefix.
+    const id = `msg_compact_${crypto.randomUUID().replaceAll("-", "")}`
     return request<{ ok: true; status: string }>(`${sessionPath(sessionID)}/compact`, {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify({ id }),
     })
   },
 

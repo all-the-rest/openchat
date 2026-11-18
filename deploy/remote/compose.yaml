@@ -76,6 +76,9 @@ services:
       # The in-stack service always wins; a stale OPENCODE_URL in .env cannot
       # point the BFF at the predecessor's instance by accident.
       OPENCODE_URL: http://opencode:4096
+      # The soft cap is a deployment knob, not a build constant: 0 turns the
+      # BFF-side compaction off for hosts that only want the host policy.
+      CHAT_CONTEXT_SOFT_CAP: ${CHAT_CONTEXT_SOFT_CAP:-200000}
     networks:
       # The alias is the DNS name the host Caddyfile uses (`openchat-bff:8787`);
       # the Compose service name alone would resolve as `bff`.

@@ -17,9 +17,12 @@ const REASON_KEY: Record<CompactionNotice["reason"], MessageKey> = {
 export function CompactionSections({
   notices,
   onRetry,
+  disabled = false,
 }: {
   notices: CompactionNotice[]
   onRetry?: (id: string) => void
+  /** True while a run streams: the host rejects compaction with 409. */
+  disabled?: boolean
 }) {
   const t = useT()
   if (notices.length === 0) return null
@@ -53,6 +56,7 @@ export function CompactionSections({
             <button
               type="button"
               data-testid="compaction-retry"
+              disabled={disabled}
               onClick={() => onRetry(notice.id)}
               className="btn btn-ghost btn-xs mt-2"
             >

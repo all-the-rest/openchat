@@ -3,7 +3,6 @@ import type {
   InboxEntry,
   Message,
   MessageStatus,
-  PromptNotice,
   TokenUsage,
 } from "@openchat/contracts"
 import { EVENT, messageText } from "@openchat/contracts"
@@ -20,14 +19,9 @@ import { completeModelValue, useCompletionOrNull } from "./completion"
 import { applyCompactionEvent, dropCompaction } from "./compaction"
 import { lastMessageUsage, readTokenUsage } from "./context-fill"
 import { applyInboxEvent } from "./inbox"
-import { usageFromEvent } from "./usage"
+import { noticeMessages } from "./notices"
 
 export type ChatError = "load" | "send" | "stop" | "cancel" | "compact" | null
-
-const NOTICE_KEYS: Record<PromptNotice, MessageKey> = {
-  contextCompacted: "chat.contextCompactedNotice",
-  contextCompactionFailed: "chat.contextCompactionFailedNotice",
-}
 
 export interface ChatSessionValue {
   messages: Message[]
@@ -246,22 +240,9 @@ export function useChatSession(sessionID: string): ChatSessionValue {
             : { text: trimmed, ...choice },
         )
         if (result?.queued) setQueued(true)
-        if (result?.notices) {
-          const notes: Message[] = result.notices.map((notice) => ({
-            id: createID("msg"),
-            sessionID,
-            role: "system",
-            parts: [
-              {
-                type: "text",
-                id: createID("part"),
-                text: translate(locale, NOTICE_KEYS[notice]),
-              },
-            ],
-            created: Date.now(),
-            status: "complete",
-          }))
-          if (notes.length > 0) setMessages((current) => [...current, ...notes])
+        if (result?.notices?.length) {
+          const notes = noticeMessages(result.notices, sessionID, locale)
+          setMessages((current) => [...current, ...notes])
         }
       } catch (failure) {
         // Keep the draft in the composer by throwing; drop the optimistic echo.
@@ -343,10 +324,17 @@ export function useChatSession(sessionID: string): ChatSessionValue {
 
   const retryCompaction = useCallback(
     async (noticeID: string) => {
-      setCompactions((current) => dropCompaction(current, noticeID))
-      await compactNow()
+      setError(null)
+      try {
+        await api.compact(sessionID)
+        // Drop the failed section only once the host accepted the retry, so a
+        // refusal keeps the reason and the summary on screen.
+        setCompactions((current) => dropCompaction(current, noticeID))
+      } catch {
+        setError("compact")
+      }
     },
-    [compactNow],
+    [sessionID],
   )
 
   const clearError = useCallback(() => setError(null), [])

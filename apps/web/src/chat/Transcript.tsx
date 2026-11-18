@@ -14,6 +14,8 @@ export interface TranscriptProps {
   /** Compaction attempts observed in this session, rendered as collapsed notes. */
   compactions?: CompactionNotice[]
   onRetryCompaction?: (id: string) => void
+  /** True while a run streams; the host rejects a compaction with 409. */
+  compactionDisabled?: boolean
   /** Shown under the last assistant message when it is not streaming. */
   onContinue?: () => void
   onRetryLast?: () => void
@@ -30,6 +32,7 @@ export function Transcript({
   onRetry,
   compactions = [],
   onRetryCompaction,
+  compactionDisabled = false,
   onContinue,
   onRetryLast,
   highlightMessageID,
@@ -171,7 +174,11 @@ export function Transcript({
             ))
           )}
           {!loading && !failed ? (
-            <CompactionSections notices={compactions} onRetry={onRetryCompaction} />
+            <CompactionSections
+              notices={compactions}
+              onRetry={onRetryCompaction}
+              disabled={compactionDisabled}
+            />
           ) : null}
         </div>
       </div>

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react"
+import { contextTokens } from "@openchat/contracts"
 import type { TokenUsage } from "@openchat/contracts"
 import { useCompletionOrNull } from "./completion"
 import { useI18n, useT } from "../i18n/provider"
-import { contextFill, toUsageReport, usageView } from "./usage"
+import { toUsageReport, usageView } from "./usage"
 
 function formatCount(value: number, locale: "en" | "de"): string {
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value)
@@ -31,7 +32,13 @@ export function UsagePanel({ report }: { report: TokenUsage | null }) {
   const selected = model ?? (models.length === 1 ? (models[0]?.id ?? null) : null)
   const contextLimit = models.find((entry) => entry.id === selected)?.contextLimit ?? null
   const view = usageView(toUsageReport(report), contextLimit)
-  const fill = contextFill(view)
+  // The meter and the panel must agree: both count prompt tokens with the
+  // provider cache, never input+output alone.
+  const used = report ? contextTokens(report) : 0
+  const fill =
+    contextLimit !== null && contextLimit > 0 && used > 0
+      ? { ratio: Math.min(1, used / contextLimit) }
+      : null
 
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false)

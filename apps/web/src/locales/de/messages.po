@@ -442,6 +442,7 @@ msgstr "Code: {code}"
 msgid "palette.label"
 msgstr "Befehlspalette"
 
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.compactNow"
 msgstr "Jetzt komprimieren"
@@ -450,6 +451,11 @@ msgstr "Jetzt komprimieren"
 #: src/i18n/messages/chat.ts
 msgid "chat.compactionFailed"
 msgstr "Komprimierung fehlgeschlagen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionRetry"
+msgstr "Komprimierung wiederholen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -497,10 +503,12 @@ msgid "chat.connectionLost"
 msgstr "Verbindung unterbrochen – neuer Versuch läuft…"
 
 #. js-lingui-explicit-id
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.contextWindow"
 msgstr "Kontextfenster: {tokens} Token"
-
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "usage.contextLimit"
 msgstr "Kontextfenster"
 
@@ -508,7 +516,8 @@ msgstr "Kontextfenster"
 #: src/i18n/messages/chat.ts
 msgid "usage.fill"
 msgstr "Füllstand des Kontextfensters"
-
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.contextCompactionFailedNotice"
 msgstr "Die Kontextkomprimierung ist fehlgeschlagen; deine Nachricht wird trotzdem gesendet."
 

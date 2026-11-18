@@ -78,7 +78,7 @@ export class ContextSoftCap {
     let outcome: CompactionOutcome
     try {
       outcome = await this.options.backend.compact(sessionID, {
-        id: `soft-cap:${sessionID}:${used}`,
+        id: `msg_softcap_${sessionID}_${used}`,
         waitMs: this.waitMs,
         reason: "auto",
       })

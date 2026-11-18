@@ -1,7 +1,23 @@
+import { z } from "zod"
+
 /**
  * Context compaction: the token accounting the host reports, the notices the
  * transcript renders and the outcome one compaction call returns (spec 27).
  */
+
+/**
+ * Body of `POST /api/sessions/:id/compact`. The host types the idempotency key
+ * as a message id, so the prefix is part of the contract; a missing key lets
+ * the host mint one.
+ */
+export const compactRequestSchema = z.object({
+  id: z
+    .string()
+    .trim()
+    .regex(/^msg_[A-Za-z0-9_-]{1,80}$/)
+    .optional(),
+})
+export type CompactRequest = z.infer<typeof compactRequestSchema>
 
 /** Token counts a host reports for one assistant turn. */
 export interface TokenUsage {

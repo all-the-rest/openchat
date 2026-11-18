@@ -442,6 +442,7 @@ msgstr "Code: {code}"
 msgid "palette.label"
 msgstr "Command palette"
 
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.compactNow"
 msgstr "Compact now"
@@ -450,6 +451,11 @@ msgstr "Compact now"
 #: src/i18n/messages/chat.ts
 msgid "chat.compactionFailed"
 msgstr "Compaction failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionRetry"
+msgstr "Retry compaction"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -497,10 +503,12 @@ msgid "chat.connectionLost"
 msgstr "Connection lost — reconnecting…"
 
 #. js-lingui-explicit-id
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.contextWindow"
 msgstr "Context window: {tokens} tokens"
-
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "usage.contextLimit"
 msgstr "Context limit"
 
@@ -508,7 +516,8 @@ msgstr "Context limit"
 #: src/i18n/messages/chat.ts
 msgid "usage.fill"
 msgstr "Context window fill"
-
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.contextCompactionFailedNotice"
 msgstr "Context compaction failed; sending your message anyway."
 

@@ -139,6 +139,7 @@ export function ChatPage() {
         onRetry={() => void chat.reload()}
         compactions={chat.compactions}
         onRetryCompaction={(id) => void chat.retryCompaction(id)}
+        compactionDisabled={chat.running || chat.streaming}
         highlightMessageID={messageId}
         onContinue={canRecover ? () => void chat.continueRun() : undefined}
         onRetryLast={
