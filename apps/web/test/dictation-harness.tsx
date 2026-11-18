@@ -159,8 +159,11 @@ export async function startRecording(user: {
   click(element: HTMLElement): Promise<void>
 }): Promise<FakeMediaRecorder> {
   await user.click(screen.getByTestId("dictation"))
-  await screen.findByTestId("dictation-pill")
-  await waitFor(() => expect(FakeMediaRecorder.instances).toHaveLength(1))
-  await screen.findByTestId("dictation-stop")
+  // getUserMedia resolves on a microtask, then status + pill render; under a
+  // parallel gate run that exceeds the 1 s findBy default without being slow.
+  const wait = { timeout: 5_000 }
+  await screen.findByTestId("dictation-pill", {}, wait)
+  await waitFor(() => expect(FakeMediaRecorder.instances).toHaveLength(1), wait)
+  await screen.findByTestId("dictation-stop", {}, wait)
   return FakeMediaRecorder.last()
 }
