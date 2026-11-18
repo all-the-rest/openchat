@@ -137,7 +137,11 @@ export function ScheduleList({ sessions, schedules, onChanged }: ScheduleListPro
                     data-testid="tasks-schedule-session"
                     className="mt-1 inline-block text-sm link link-hover"
                   >
-                    {t("tasks.schedules.session", { title: schedule.sessionID })}
+                    {t("tasks.schedules.session", {
+                      title:
+                        sessions.find((session) => session.id === schedule.sessionID)?.title ??
+                        schedule.sessionID,
+                    })}
                   </Link>
                 ) : (
                   <span className="mt-1 block text-xs text-muted">
