@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useEventStreamOrNull } from "../api/events"
 import { useSurface } from "../code/SurfaceProvider"
 import { useT } from "../i18n/provider"
 import { AlertIcon } from "./icons"
@@ -9,13 +10,24 @@ export const HOST_BANNER_ID = "host-unreachable-banner"
 /**
  * Shell-wide state for a dead OpenCode host. The app answering at all proves
  * it is up, so this banner states the split and offers the only useful action:
- * read `/api/info` once more. It never polls, retries on its own, or takes
- * focus, and it is not dismissible because the condition is still true.
+ * read `/api/info` once more. A dropped event stream is the outage signal; a
+ * reopened stream asks again, so the banner clears on reconnect without a
+ * reload. It never polls, takes focus, or dismisses itself: the condition, not
+ * the notice, decides when it is gone.
  */
 export function HostStatusBanner() {
   const t = useT()
   const { hostReachable, refresh } = useSurface()
+  const connection = useEventStreamOrNull()?.connection
   const [retrying, setRetrying] = useState(false)
+
+  // The stream is the cheapest proof that the host path changed: it closes
+  // when the upstream goes away and reopens when it is back. Ask then, not on a
+  // timer; the guards keep one transition to one read.
+  useEffect(() => {
+    if (connection === "closed" && hostReachable !== false) void refresh()
+    if (connection === "open" && hostReachable === false) void refresh()
+  }, [connection, hostReachable, refresh])
 
   if (hostReachable !== false) return null
 

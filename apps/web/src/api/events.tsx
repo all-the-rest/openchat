@@ -107,3 +107,11 @@ export function useEventStream(): EventStreamValue {
   if (!value) throw new Error("useEventStream must be used inside EventStreamProvider")
   return value
 }
+
+/**
+ * Null outside an `EventStreamProvider`. Shell chrome that must also render in
+ * isolated component tests uses this; it simply has no stream transitions.
+ */
+export function useEventStreamOrNull(): EventStreamValue | null {
+  return useContext(EventStreamContext)
+}

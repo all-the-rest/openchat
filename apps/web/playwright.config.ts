@@ -13,6 +13,11 @@ import {
   E2E_ARTIFACT_TITLE,
 } from "./e2e/artifact-fixture"
 import { CODE_STUB_ORIGIN, CODE_STUB_SECRET } from "./e2e/code-stub"
+import {
+  HOST_STATUS_BFF_ORIGIN,
+  HOST_STATUS_BFF_PORT,
+  HOST_STATUS_WEB_PORT,
+} from "./e2e/host-status-fixture"
 
 const WEB_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(WEB_DIR, "..", "..")
@@ -112,6 +117,32 @@ export default defineConfig({
         ARTIFACTS_DIR,
         ARTIFACT_FRAME_ANCESTORS: E2E_ARTIFACT_FRAME_ANCESTORS,
       },
+    },
+    {
+      // A private fake stack for the host-outage spec. Flipping the shared
+      // backend down would break the four parallel workers, so this pair owns
+      // its own in-memory host and can stop and restart it mid-test.
+      command: "pnpm --filter @openchat/server start",
+      cwd: REPO_ROOT,
+      url: `${HOST_STATUS_BFF_ORIGIN}/healthz`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        PORT: String(HOST_STATUS_BFF_PORT),
+        BACKEND_MODE: "fake",
+        OPENCHAT_PASSWORD: "test-password",
+        SESSION_SECRET: "test-secret",
+        WORKSPACE_DIR,
+        OPENCODE_PASSWORD: "unused-in-fake-mode",
+      },
+    },
+    {
+      command: `pnpm --filter @openchat/web dev --port ${HOST_STATUS_WEB_PORT} --strictPort`,
+      cwd: REPO_ROOT,
+      url: `http://localhost:${HOST_STATUS_WEB_PORT}`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: { OPENCHAT_BFF_TARGET: HOST_STATUS_BFF_ORIGIN },
     },
     {
       // Stub Code host: redeems the real tickets the BFF mints, so the switch,

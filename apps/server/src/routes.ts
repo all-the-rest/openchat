@@ -1,6 +1,6 @@
 import type { Hono } from "hono"
 import type { ChatBackend } from "@openchat/opencode"
-import { SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
+import { FakeHostSwitch, SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
 import {
   createSessionRequestSchema,
   loginRequestSchema,
@@ -41,6 +41,7 @@ import { registerArtifactInternalRoute } from "./artifacts-internal"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
+import { registerFakeHostRoute } from "./fake-host-route"
 import type { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { SSE_RETRY_FRAME } from "./sse"
 import { registerTranscribeRoute } from "./transcribe"
@@ -375,4 +376,8 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
   registerEventRoute(app, deps)
+  // Fake mode only; the live adapter has no outage switch to expose.
+  if (deps.config.BACKEND_MODE === "fake" && deps.backend instanceof FakeHostSwitch) {
+    registerFakeHostRoute(app, deps.backend)
+  }
 }

@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { EventStreamProvider } from "../src/api/events"
 import { SurfaceProvider } from "../src/code/SurfaceProvider"
 import { AppShell } from "../src/components/AppShell"
 import { I18nProvider } from "../src/i18n/provider"
@@ -32,9 +33,45 @@ vi.mock("../src/chat/sessions", () => ({
   }),
 }))
 
-vi.mock("../src/api/events", () => ({
-  useEventStream: () => ({ connection: "open", reconnect: 0 }),
-}))
+type Listener = (event: MessageEvent) => void
+
+class FakeEventSource {
+  static instances: FakeEventSource[] = []
+
+  readonly url: string
+  closed = false
+  private listeners = new Map<string, Set<Listener>>()
+
+  constructor(url: string) {
+    this.url = url
+    FakeEventSource.instances.push(this)
+  }
+
+  addEventListener(type: string, listener: Listener): void {
+    const set = this.listeners.get(type) ?? new Set<Listener>()
+    set.add(listener)
+    this.listeners.set(type, set)
+  }
+
+  removeEventListener(type: string, listener: Listener): void {
+    this.listeners.get(type)?.delete(listener)
+  }
+
+  close(): void {
+    this.closed = true
+  }
+
+  emit(type: string): void {
+    const event = { type } as MessageEvent
+    for (const listener of this.listeners.get(type) ?? []) listener(event)
+  }
+}
+
+function stream(): FakeEventSource {
+  const instance = FakeEventSource.instances.at(-1)
+  if (!instance) throw new Error("EventSource was not created")
+  return instance
+}
 
 const healthy = {
   host: { reachable: true },
@@ -54,12 +91,14 @@ function renderShell(entry: string) {
       <I18nProvider initialLocale="en">
         <MemoryRouter initialEntries={[entry]}>
           <SurfaceProvider>
-            <Routes>
-              <Route element={<AppShell />}>
-                <Route index element={<LandingPage />} />
-                <Route path="/search" element={<p>search page</p>} />
-              </Route>
-            </Routes>
+            <EventStreamProvider>
+              <Routes>
+                <Route element={<AppShell />}>
+                  <Route index element={<LandingPage />} />
+                  <Route path="/search" element={<p>search page</p>} />
+                </Route>
+              </Routes>
+            </EventStreamProvider>
           </SurfaceProvider>
         </MemoryRouter>
       </I18nProvider>
@@ -87,6 +126,8 @@ function stubWideViewport() {
 
 beforeEach(() => {
   stubWideViewport()
+  FakeEventSource.instances = []
+  vi.stubGlobal("EventSource", FakeEventSource)
   mocks.info.mockReset()
   mocks.create.mockReset()
   mocks.create.mockResolvedValue({
@@ -146,6 +187,29 @@ describe("host unreachable banner", () => {
 
     await waitFor(() => expect(screen.queryByTestId("host-unreachable")).toBeNull())
     expect(mocks.info).toHaveBeenCalledTimes(2)
+  })
+
+  it("follows the event stream: appears when it drops, clears when it reopens", async () => {
+    mocks.info.mockResolvedValue(healthy)
+    renderShell("/search")
+    await screen.findByText("search page")
+    expect(mocks.info).toHaveBeenCalledTimes(1)
+
+    // The first open is the initial connection; the host is up, so no re-read.
+    act(() => stream().emit("open"))
+    expect(mocks.info).toHaveBeenCalledTimes(1)
+
+    // A dropped stream is the outage signal; the info read says the host is down.
+    mocks.info.mockResolvedValue(down)
+    act(() => stream().emit("error"))
+    expect(await screen.findByTestId("host-unreachable")).toBeInTheDocument()
+    expect(mocks.info).toHaveBeenCalledTimes(2)
+
+    // The reopened stream is the recovery signal; the banner clears on its own.
+    mocks.info.mockResolvedValue(healthy)
+    act(() => stream().emit("open"))
+    await waitFor(() => expect(screen.queryByTestId("host-unreachable")).toBeNull())
+    expect(mocks.info).toHaveBeenCalledTimes(3)
   })
 })
 

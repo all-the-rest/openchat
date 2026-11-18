@@ -94,9 +94,11 @@ warns).
 - **Latency**: dominated by the tunnel round trip per request and per event.
   The smoke output is the baseline; a sudden increase points at the tunnel, not
   at the UI.
-- **Failure shape**: a dead tunnel makes `/api/info` and every API call answer
-  `500 internal_error`. `/healthz` is liveness-only and stays `200`; use
-  `/api/info` as the upstream probe.
+- **Failure shape**: a dead tunnel makes the host-backed API calls fail and
+  ends the event stream. `/api/info` is the exception: it answers `200` with
+  `host.reachable: false`, `server: null` and empty model/agent lists (see
+  [`10-host-status.md`](10-host-status.md)). `/healthz` is liveness-only and
+  stays `200`; use `/api/info` as the upstream probe.
 - **Path prefix**: `OPENCODE_URL` may carry a path (`https://host/opencode`);
   the SDK resolves `api/…` below it, and the boot strips only the trailing
   slash.

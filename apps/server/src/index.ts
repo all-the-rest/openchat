@@ -1,7 +1,7 @@
 import { createServer } from "node:http"
 import type { IncomingMessage, ServerResponse } from "node:http"
 import { Readable } from "node:stream"
-import { FakeBackend, LiveBackend } from "@openchat/opencode"
+import { FakeBackend, FakeHostSwitch, LiveBackend } from "@openchat/opencode"
 import type { ChatBackend } from "@openchat/opencode"
 import { createApp } from "./app"
 import { INTERNAL_ARTIFACTS_PATH } from "./artifacts-internal"
@@ -27,11 +27,13 @@ const backend: ChatBackend =
         password: config.OPENCODE_PASSWORD,
         workspace: config.WORKSPACE_DIR,
       })
-    : new FakeBackend({
-        scenario: config.FAKE_SCENARIO,
-        workspace: config.WORKSPACE_DIR,
-        appsAvailable: config.FAKE_APPS,
-      })
+    : new FakeHostSwitch(
+        new FakeBackend({
+          scenario: config.FAKE_SCENARIO,
+          workspace: config.WORKSPACE_DIR,
+          appsAvailable: config.FAKE_APPS,
+        }),
+      )
 
 const app = createApp({ config, backend })
 

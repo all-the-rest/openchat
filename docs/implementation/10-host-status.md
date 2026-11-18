@@ -60,8 +60,8 @@ Before this slice the route awaited `Promise.all` over the same three calls, so
 any host failure became `500 internal_error` and the shell showed its boot
 error. `/api/info` now always answers `200`, with `Cache-Control: no-store`,
 and never copies upstream error text into the body. There is no new health
-endpoint and nothing polls: the provider reads `/api/info` once at boot and
-again only when the user retries.
+endpoint and no timer: the provider reads `/api/info` at boot, when the event
+stream drops or reopens, and when the user retries.
 
 ## What the banner does
 
@@ -75,10 +75,14 @@ still true.
 - **Hint** — the OpenCode host did not answer; retry when the tunnel is back
   (`host.unreachableHint`).
 - **Retry** — calls `SurfaceProvider.refresh()`, which re-reads `/api/info`
-  once. It is the only action, and it is user-triggered.
+  once.
+- **Stream transitions** — a dropped `EventSource` asks once more, so the banner
+  appears without a manual Retry; a reopened stream asks again, so it clears on
+  reconnect without a page reload.
 
 The session list keeps its own Retry from the sessions provider; the two are
-deliberately not coupled.
+deliberately not coupled. A host recovery also refreshes the session list and
+silently re-reads the active chat transcript, so both heal with the banner.
 
 ## What the composer does
 
@@ -118,7 +122,8 @@ its own.
 | --- | --- |
 | `apps/server/test/host-status.test.ts` | every call rejecting → `200`, `reachable: false`, `server: null`, empty lists, `code`/`apps` still answered, no upstream text; partial failure → `reachable: true` with empty models; healthy fake → reachable |
 | `apps/server/test/no-spawn.test.ts` | the shared-service proof above |
-| `apps/web/test/host-status.test.tsx` | banner absent when reachable, present on a protected route with `role="status"`, failed info counts as unreachable, retry re-reads and hides it, send blocked with the draft preserved and re-enabled afterwards |
+| `apps/web/test/host-status.test.tsx` | banner absent when reachable, present on a protected route with `role="status"`, failed info counts as unreachable, retry re-reads and hides it, a dropped stream shows it and a reopened stream clears it, send blocked with the draft preserved and re-enabled afterwards |
+| `apps/web/e2e/host-status.spec.ts` | an isolated fake BFF drops mid-chat: banner, preserved transcript and draft, then reconnect and a new prompt; a host that is already down at first paint clears when it returns |
 | `packages/contracts/src/contracts.test.ts` | a dead host types without server info |
 
 ## Manual checks that remain manual

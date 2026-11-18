@@ -48,6 +48,34 @@ describe("/api/info host degradation", () => {
     expect(text).not.toContain("ticket-secret")
   })
 
+  it("treats a refused OPENCODE_URL exactly like any other host outage", async () => {
+    const methods = ["info", "listModels", "listAgents"] as const
+    const refused = makeServer()
+    for (const method of methods) {
+      vi.spyOn(refused.backend, method).mockRejectedValue(
+        Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:4096"), {
+          code: "ECONNREFUSED",
+        }),
+      )
+    }
+    const unavailable = makeServer()
+    for (const method of methods) {
+      vi.spyOn(unavailable.backend, method).mockRejectedValue(
+        new Error("The OpenCode host is not reachable"),
+      )
+    }
+
+    const refusedBody = await readInfo(refused)
+    const unavailableBody = await readInfo(unavailable)
+
+    // Same status, same shape, same null/empty fragments: a refused tunnel is
+    // not a distinct state with its own code path in the BFF.
+    expect(refusedBody).toEqual(unavailableBody)
+    expect(refusedBody.host).toEqual({ reachable: false })
+    expect(refusedBody.server).toBeNull()
+    expect(JSON.stringify(refusedBody)).not.toContain("ECONNREFUSED")
+  })
+
   it("keeps the reachable answer of a partial failure", async () => {
     const server = makeServer()
     vi.spyOn(server.backend, "listModels").mockRejectedValue(new Error("models down"))

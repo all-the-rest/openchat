@@ -292,7 +292,8 @@ describe("artifact bridge", () => {
     await act(async () => {})
     const { frame } = frames()
     fireEvent.load(frame)
-    expect(vi.getTimerCount()).toBe(1)
+    // The bridge's repost and the viewer's handshake grace are both pending.
+    expect(vi.getTimerCount()).toBe(2)
 
     view.unmount()
     // Unmounted, no repost may survive to fire into a viewer that is gone.
