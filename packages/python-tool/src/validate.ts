@@ -27,6 +27,9 @@ export const MAX_CELL_CHARS = 5_000
 export const MAX_MARKDOWN_CHARS = 200_000
 /** Longest accepted output file name. */
 const MAX_NAME_CHARS = 120
+/** `chats/<session>/files/<name>` is short; anything longer is not a template. */
+export const MAX_TEMPLATE_PATH_CHARS = 300
+const OUTPUT_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _.-]{0,119}$/
 
 const PLACEHOLDER_KEY = /^[A-Za-z0-9_.-]{1,64}$/
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/
@@ -64,6 +67,25 @@ export type DocumentKind = "docx" | "xlsx" | "pdf"
 export interface ReadDocumentInput {
   name: string
   kind: DocumentKind
+  bytes: Uint8Array
+}
+
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+export interface DocumentsFillInput {
+  templatePath: string
+  values: Record<string, JsonValue>
+  name: string
+}
+
+export interface DocumentExtractInput {
+  name: string
   bytes: Uint8Array
 }
 
@@ -371,4 +393,127 @@ export function validateReadDocument(input: unknown): ValidationResult<ReadDocum
     return { ok: false, error: `document: not a .${kind} package (ZIP magic missing)` }
   }
   return { ok: true, value: { name, kind, bytes: bytes.value } }
+}
+
+const MAX_VALUE_DEPTH = 4
+const MAX_ARRAY_ENTRIES = 200
+
+function validateJsonValue(value: unknown, at: string, depth: number): ValidationResult<JsonValue> {
+  if (depth > MAX_VALUE_DEPTH) return { ok: false, error: `${at}: nested too deeply` }
+  if (value === null || typeof value === "boolean") return { ok: true, value }
+  if (typeof value === "number") {
+    return Number.isFinite(value)
+      ? { ok: true, value }
+      : { ok: false, error: `${at}: must be a finite number` }
+  }
+  if (typeof value === "string") {
+    if ([...value].length > MAX_VALUE_CHARS) {
+      return { ok: false, error: `${at}: longer than ${MAX_VALUE_CHARS} characters` }
+    }
+    return CONTROL_CHARACTERS.test(value)
+      ? { ok: false, error: `${at}: contains a control character` }
+      : { ok: true, value }
+  }
+  if (Array.isArray(value)) {
+    if (value.length > MAX_ARRAY_ENTRIES) {
+      return { ok: false, error: `${at}: ${value.length} entries > ${MAX_ARRAY_ENTRIES}` }
+    }
+    const items: JsonValue[] = []
+    for (const [index, entry] of value.entries()) {
+      const item = validateJsonValue(entry, `${at}[${index}]`, depth + 1)
+      if (!item.ok) return item
+      items.push(item.value)
+    }
+    return { ok: true, value: items }
+  }
+  if (isRecord(value)) {
+    return validateStructuredValues(value, at, depth)
+  }
+  return { ok: false, error: `${at}: must be a JSON scalar, array or object` }
+}
+
+/** Placeholder values may be scalars or simple nested lists/maps for loops. */
+export function validateStructuredValues(
+  value: unknown,
+  at = "values",
+  depth = 0,
+): ValidationResult<Record<string, JsonValue>> {
+  if (value === undefined) return { ok: true, value: {} }
+  if (!isRecord(value)) return { ok: false, error: `${at}: must be an object` }
+  const entries = Object.entries(value)
+  if (entries.length > MAX_VALUES) {
+    return { ok: false, error: `${at}: ${entries.length} keys > ${MAX_VALUES}` }
+  }
+  const result: Record<string, JsonValue> = {}
+  for (const [key, entry] of entries) {
+    if (!PLACEHOLDER_KEY.test(key) || key.includes("..")) {
+      return { ok: false, error: `${at}.${key}: keys are letters, digits, dot, dash or underscore` }
+    }
+    const checked = validateJsonValue(entry, `${at}.${key}`, depth + 1)
+    if (!checked.ok) return checked
+    result[key] = checked.value
+  }
+  return { ok: true, value: result }
+}
+
+export function validateDocumentsFill(input: unknown): ValidationResult<DocumentsFillInput> {
+  if (!isRecord(input)) {
+    return { ok: false, error: "input: expected templatePath, values and an optional name" }
+  }
+  if (typeof input.templatePath !== "string" || input.templatePath.trim().length === 0) {
+    return { ok: false, error: "templatePath: must be a non-empty string" }
+  }
+  const templatePath = input.templatePath.trim()
+  if ([...templatePath].length > MAX_TEMPLATE_PATH_CHARS) {
+    return { ok: false, error: `templatePath: longer than ${MAX_TEMPLATE_PATH_CHARS} characters` }
+  }
+  if (CONTROL_CHARACTERS.test(templatePath) || templatePath.includes("\u0000")) {
+    return { ok: false, error: "templatePath: contains a control character" }
+  }
+  if (templatePath.includes("..") || templatePath.includes("\\") || templatePath.startsWith("/")) {
+    return { ok: false, error: "templatePath: use a path inside WORKSPACE_DIR/chats" }
+  }
+  const segments = templatePath.split("/")
+  if (segments.length !== 3 || segments[1] !== "files") {
+    return { ok: false, error: "templatePath: expected chats/<sessionID>/files/<name>" }
+  }
+  if (!/\.(docx|dotx)$/i.test(templatePath)) {
+    return { ok: false, error: "templatePath: only .docx and .dotx templates are accepted" }
+  }
+  const values = validateStructuredValues(input.values)
+  if (!values.ok) return values
+  let name = "document"
+  if (input.name !== undefined) {
+    if (typeof input.name !== "string" || !OUTPUT_NAME_PATTERN.test(input.name)) {
+      return { ok: false, error: "name: letters, digits, space, dot, dash and underscore only" }
+    }
+    name = input.name
+  }
+  return { ok: true, value: { templatePath, values: values.value, name } }
+}
+
+const EXTRACT_EXTENSIONS = [
+  ".csv", ".docx", ".html", ".htm", ".json", ".md", ".pdf",
+  ".pptx", ".txt", ".xlsx", ".xml", ".zip",
+] as const
+
+export function validateDocumentExtract(input: unknown): ValidationResult<DocumentExtractInput> {
+  if (!isRecord(input)) {
+    return { ok: false, error: "input: expected an object with name and base64" }
+  }
+  if (typeof input.name !== "string") return { ok: false, error: "name: must be a string" }
+  const name = input.name.trim()
+  if (name.length === 0 || [...name].length > MAX_NAME_CHARS) {
+    return { ok: false, error: `name: must be 1-${MAX_NAME_CHARS} characters` }
+  }
+  if (name.includes("/") || name.includes("\\") || name.startsWith(".") || name.includes("..")) {
+    return { ok: false, error: "name: must be one file name, not a path" }
+  }
+  if (CONTROL_CHARACTERS.test(name)) return { ok: false, error: "name: contains a control character" }
+  if (!EXTRACT_EXTENSIONS.some((extension) => name.toLowerCase().endsWith(extension))) {
+    return { ok: false, error: `name: ${EXTRACT_EXTENSIONS.join(", ")} only` }
+  }
+  const bytes = decodeBase64(input.base64, "document", MAX_DOCUMENT_BYTES)
+  if (!bytes.ok) return bytes
+  return { ok: true, value: { name, bytes: bytes.value } }
 }

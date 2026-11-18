@@ -1,3 +1,4 @@
+import { createDocumentsClient } from "./documents-client"
 import { loadDocumentsEnv } from "./env"
 import { serveStdio } from "./mcp"
 import { DOCUMENT_TOOLS, artifactSink, callDocumentTool } from "./tools"
@@ -10,12 +11,18 @@ import { DOCUMENT_TOOLS, artifactSink, callDocumentTool } from "./tools"
 export async function main(): Promise<void> {
   const env = loadDocumentsEnv()
   const sink = artifactSink({ bffUrl: env.bffUrl, token: env.token })
+  const documents = createDocumentsClient({ url: env.documentsUrl, token: env.documentsToken })
   await serveStdio({
     input: process.stdin,
     output: process.stdout,
     tools: DOCUMENT_TOOLS,
     call: async (name, args) => {
-      const result = await callDocumentTool(name, args, { python: env.python, sink })
+      const result = await callDocumentTool(name, args, {
+        python: env.python,
+        sink,
+        workspaceDir: env.workspaceDir,
+        documents,
+      })
       if (!result.ok) {
         return {
           text: `Document tool failed. Fix exactly this and retry at most twice: ${result.error}`,

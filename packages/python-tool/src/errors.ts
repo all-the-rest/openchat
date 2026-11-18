@@ -17,6 +17,13 @@ export const ERROR_TEXT = {
   macro_document: "unsupported: macro-enabled documents (.docm/.xlsm) are rejected",
   unsupported_document: "unsupported: only .docx, .xlsx and .pdf are readable",
   empty_document: "unsupported: the document contains no extractable text",
+  invalid_template: "template: not a readable DOCX or DOTX package",
+  unknown_placeholder: "values: the template has a placeholder without a value",
+  convert_failed: "convert: the document could not be exported as a PDF",
+  service_unavailable:
+    "service: the documents service is unreachable; check DOCUMENTS_URL and DOCUMENTS_TOKEN",
+  service_error: "service: the documents service rejected the request",
+  invalid_path: "templatePath: use a path inside WORKSPACE_DIR/chats/<session>/files",
 } as const
 
 export type ErrorCode = keyof typeof ERROR_TEXT

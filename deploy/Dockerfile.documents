@@ -1,0 +1,48 @@
+# Documents service (issue #46): fill .dotx/.docx templates, export PDF with
+# LibreOffice, and extract Markdown with markitdown. This is a glibc image:
+# markitdown's magika -> onnxruntime has no musllinux wheel for Python 3.14, so
+# it cannot live in the Alpine agent image. It carries no Node and no repo
+# checkout, publishes no port, and is reachable only on the internal `backend`
+# compose network. Build needs the index; the running container makes no
+# outbound request and installs nothing.
+ARG BASE_IMAGE=python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
+FROM ${BASE_IMAGE}
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONHASHSEED=0 \
+    PIP_NO_CACHE_DIR=1 \
+    DOCUMENTS_PORT=8099
+
+# writer-nogui is the headless writer engine; core-nogui is its dependency.
+# Carlito/Caladea are metric-compatible with Calibri/Cambria, so Word layouts
+# do not shift when LibreOffice renders a template.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      libreoffice-writer-nogui \
+      libreoffice-core-nogui \
+      fontconfig \
+      fonts-dejavu-core \
+      fonts-crosextra-carlito \
+      fonts-crosextra-caladea \
+ && fc-cache -f \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY apps/documents/requirements.lock /app/requirements.lock
+RUN pip install --no-cache-dir -r /app/requirements.lock \
+ && python -c "import docxtpl, docx, markitdown, pypdf, PIL; print('documents deps ok')"
+
+COPY apps/documents/documents /app/documents
+
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin documents \
+ && mkdir -p /tmp/openchat-documents \
+ && chown -R documents:documents /app /tmp/openchat-documents
+USER documents
+ENV HOME=/home/documents TMPDIR=/tmp/openchat-documents
+
+EXPOSE 8099
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD python -c "import os,sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('DOCUMENTS_PORT','8099')+'/healthz',timeout=3).status==200 else 1)"
+
+ENTRYPOINT ["python", "-B", "-m", "documents.server"]

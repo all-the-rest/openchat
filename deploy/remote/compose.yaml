@@ -124,6 +124,21 @@ services:
     volumes:
       - /opt/stacks/openchat/disks/artifacts:/artifacts:ro
 
+  documents:
+    image: openchat-documents:${OPENCHAT_TAG:-local}
+    # LibreOffice is the memory peak: one job at a time, one render plus one
+    # conversion per request. The base file's 1500m cap is lowered here to fit
+    # beside the predecessor stack; a killed job is retried by the caller.
+    mem_limit: 1024m
+    # ~180 MiB working set after a conversion; 2x.
+    mem_reservation: 384m
+    depends_on:
+      disks-ready:
+        condition: service_completed_successfully
+    # No ports, no disks: reached by the agent tool on `backend` only.
+    networks:
+      backend: {}
+
   opencode:
     # The derived image: the official 2.3.2 base plus git, ripgrep, the Docker
     # CLI and the artifact tool. Built here, never pulled as `latest` (1.x).

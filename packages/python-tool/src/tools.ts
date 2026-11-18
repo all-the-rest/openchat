@@ -2,10 +2,21 @@ import type { ArtifactInternalCreateRequest, ArtifactWriteReceipt } from "@openc
 import { postDocument } from "@openchat/artifact-tool/bff"
 import type { BffOptions } from "@openchat/artifact-tool/bff"
 import { buildFileCard, mimeForDocument } from "./card"
+import type { DocumentsClient } from "./documents-client"
+import { errorText } from "./errors"
 import type { ProcessRunner } from "./process"
 import { runPython } from "./runner"
 import type { PythonScript } from "./runner"
-import { kib, validateDocxFill, validatePdfFromMarkdown, validateReadDocument, validateXlsxWrite } from "./validate"
+import { readTemplate } from "./template"
+import {
+  kib,
+  validateDocxFill,
+  validateDocumentExtract,
+  validateDocumentsFill,
+  validatePdfFromMarkdown,
+  validateReadDocument,
+  validateXlsxWrite,
+} from "./validate"
 
 /**
  * The four typed document tools. Each one validates its arguments, runs one
@@ -29,6 +40,10 @@ export interface DocumentToolDeps {
   /** Interpreter command or absolute path (`OPENCHAT_PYTHON`). */
   python: string
   sink: FileSink
+  /** Root of `chats/<session>/files`; only templates below it can be read. */
+  workspaceDir?: string
+  /** Client for the headless documents service. */
+  documents?: DocumentsClient
   runProcess?: ProcessRunner
   scriptDir?: URL
   tempRoot?: string
@@ -164,6 +179,60 @@ export const DOCUMENT_TOOLS: readonly ToolSpec[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "documents_fill",
+    title: "Fill an uploaded Word template and export a PDF",
+    description: [
+      "Fill a .docx or .dotx template that was uploaded into a chat and download both outputs.",
+      "Pass `templatePath` as `<sessionID>/files/<file>` inside WORKSPACE_DIR/chats — never an absolute path.",
+      "The template is read with symlinks refused and a size cap; macro-enabled files are rejected.",
+      "`values` are Jinja placeholders from the template; scalars, lists and nested maps are supported for `{% for %}` loops.",
+      "The filled DOCX and its LibreOffice PDF are stored as two downloadable file cards; both file names are returned.",
+      "Rendering is faithful to the template's layout but LibreOffice may differ from Word on exotic fields.",
+      "Never pass a template as raw bytes and never pass a path outside WORKSPACE_DIR/chats.",
+      RETRY,
+    ].join(" "),
+    inputSchema: {
+      type: "object",
+      properties: {
+        templatePath: {
+          type: "string",
+          description: "Relative path `chats/<sessionID>/files/<name>.docx|.dotx` under WORKSPACE_DIR.",
+        },
+        values: {
+          type: "object",
+          description: "Placeholder values; keys are letters, digits, dot, dash or underscore.",
+        },
+        name: {
+          type: "string",
+          description: "Optional base name for the two outputs, at most 120 characters.",
+        },
+      },
+      required: ["templatePath", "values"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "document_extract",
+    title: "Extract any document as Markdown",
+    description: [
+      "Convert an uploaded document to Markdown with the markitdown service.",
+      "Use this for PPTX, HTML and other formats that `read_document` does not read locally.",
+      "Pass the file name in `name` and its bytes as base64 in `base64` (at most 8 MiB decoded).",
+      "DOCX, XLSX and PDF are still read locally by `read_document`; this tool uses the service.",
+      "Never pass a file path. Returns text truncated at 200000 characters.",
+      RETRY,
+    ].join(" "),
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "One file name ending in a supported extension." },
+        base64: { type: "string", description: "The document bytes as base64, at most 8 MiB decoded." },
+      },
+      required: ["name", "base64"],
+      additionalProperties: false,
+    },
+  },
 ] as const
 
 export const DOCUMENT_TOOL_NAMES = DOCUMENT_TOOLS.map((tool) => tool.name)
@@ -264,6 +333,56 @@ export async function callDocumentTool(
     if (text.length === 0) {
       return { ok: false, error: "unsupported: the document contains no extractable text" }
     }
+    return { ok: true, text }
+  }
+
+  if (name === "documents_fill") {
+    const validated = validateDocumentsFill(input)
+    if (!validated.ok) return validated
+    const client = deps.documents
+    if (!client) return { ok: false, error: errorText("service_unavailable") }
+    const workspaceDir = deps.workspaceDir
+    if (!workspaceDir) return { ok: false, error: errorText("invalid_path") }
+    const template = await readTemplate(workspaceDir, validated.value.templatePath)
+    if (!template.ok) return { ok: false, error: errorText(template.code) }
+    const filled = await client.fill({
+      template: Buffer.from(template.bytes).toString("base64"),
+      values: validated.value.values,
+      name: validated.value.name,
+    })
+    if (!filled.ok) return filled
+    const docx = await storeFile(validated.value.name, {
+      name: filled.value.docxName,
+      bytes: filled.value.docx,
+    }, deps)
+    if (!docx.ok) return docx
+    const pdf = await storeFile(validated.value.name, {
+      name: filled.value.pdfName,
+      bytes: filled.value.pdf,
+    }, deps)
+    if (!pdf.ok) return pdf
+    return {
+      ok: true,
+      text: [
+        docx.text,
+        pdf.text,
+        `Filled files: ${filled.value.docxName}, ${filled.value.pdfName}.`,
+      ].join("\n"),
+    }
+  }
+
+  if (name === "document_extract") {
+    const validated = validateDocumentExtract(input)
+    if (!validated.ok) return validated
+    const client = deps.documents
+    if (!client) return { ok: false, error: errorText("service_unavailable") }
+    const extracted = await client.extract({
+      name: validated.value.name,
+      base64: Buffer.from(validated.value.bytes).toString("base64"),
+    })
+    if (!extracted.ok) return extracted
+    const text = extracted.value.markdown.trim()
+    if (text.length === 0) return { ok: false, error: errorText("empty_document") }
     return { ok: true, text }
   }
 

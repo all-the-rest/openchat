@@ -17,6 +17,7 @@ const IMAGES = {
   bff: readFileSync(join(ROOT, "deploy/Dockerfile.bff"), "utf8"),
   codeHost: readFileSync(join(ROOT, "deploy/Dockerfile.code-host"), "utf8"),
   artifactHost: readFileSync(join(ROOT, "deploy/Dockerfile.artifact-host"), "utf8"),
+  documents: readFileSync(join(ROOT, "deploy/Dockerfile.documents"), "utf8"),
   tools: readFileSync(join(ROOT, "deploy/code-host/tools.Dockerfile"), "utf8"),
 }
 const SWAP = readFileSync(join(ROOT, "deploy/swap.sh"), "utf8")
@@ -76,6 +77,7 @@ describe("compose stack boundaries", () => {
       "bff",
       "code-host",
       "dind",
+      "documents",
       "opencode",
       "toolbox",
     ])
@@ -178,6 +180,7 @@ describe("compose stack boundaries", () => {
       "CODE_TICKET_SECRET",
       "ARTIFACT_SIGNING_KEY",
       "ARTIFACT_INTERNAL_TOKEN",
+      "DOCUMENTS_TOKEN",
     ]
     for (const key of secretKeys) {
       const assignments = [...COMPOSE.matchAll(new RegExp(`^\\s*${key}: (.*)$`, "gm"))]
@@ -205,7 +208,7 @@ describe("compose stack boundaries", () => {
   })
 
   it("keeps the env template secret-free", () => {
-    for (const key of ["OPENCHAT_PASSWORD", "OPENCHAT_PASSWORD_HASH", "SESSION_SECRET", "OPENCODE_PASSWORD", "CODE_TICKET_SECRET", "ARTIFACT_SIGNING_KEY", "ARTIFACT_INTERNAL_TOKEN", "STT_API_KEY"]) {
+    for (const key of ["OPENCHAT_PASSWORD", "OPENCHAT_PASSWORD_HASH", "SESSION_SECRET", "OPENCODE_PASSWORD", "CODE_TICKET_SECRET", "ARTIFACT_SIGNING_KEY", "ARTIFACT_INTERNAL_TOKEN", "DOCUMENTS_TOKEN", "STT_API_KEY"]) {
       expect(ENV_TEMPLATE, `${key} must stay empty in the template`).toMatch(
         new RegExp(`^${key}=$`, "m"),
       )
@@ -289,6 +292,67 @@ describe("compose interpolation of required values", () => {
   it("passes the same OpenCode credential to the BFF and the Code host", () => {
     expect(service("bff")).toContain("OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?")
     expect(service("code-host")).toContain("OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?")
+  })
+})
+
+describe("documents service boundaries", () => {
+  const block = service("documents")
+
+  it("is a local, unpublished glibc service on the backend network only", () => {
+    expect(block).not.toMatch(/^ {4}ports:/m)
+    expect(block).toMatch(/^ {6}expose:\n {6}- "8099"$/m)
+    expect(block).toMatch(/^\s*- backend$/m)
+    expect(block).not.toMatch(/^\s*- edge$/m)
+    expect(block).not.toMatch(/^\s*- artifacts$/m)
+    expect(block).toContain("dockerfile: deploy/Dockerfile.documents")
+    expect(block).toContain("image: openchat-documents:${OPENCHAT_TAG:-local}")
+  })
+
+  it("takes its token from .env and never bakes one", () => {
+    expect(block).toContain("DOCUMENTS_TOKEN: ${DOCUMENTS_TOKEN:?")
+    expect(block).toContain("DOCUMENTS_PORT: \"8099\"")
+    const holders = [...SERVICES].filter(([, body]) => body.includes("DOCUMENTS_TOKEN")).map(([name]) => name)
+    expect(holders).toEqual(["documents"])
+  })
+
+  it("runs read-only with a writable temp dir and no new privileges", () => {
+    expect(block).toMatch(/^ {4}read_only: true$/m)
+    expect(block).toMatch(/^ {6}- \/tmp:size=256m,mode=1777$/m)
+    expect(block).toMatch(/^ {4}security_opt:\n {6}- no-new-privileges:true$/m)
+  })
+})
+
+describe("documents image invariants", () => {
+  const image = IMAGES.documents
+
+  it("uses a digest-pinned glibc Python base, not Alpine and not Node", () => {
+    expect(image).toMatch(/^ARG BASE_IMAGE=python:3\.13-slim@sha256:[0-9a-f]{64}$/m)
+    expect(image).toMatch(/^FROM \$\{BASE_IMAGE\}$/m)
+    expect(image).not.toMatch(/alpine|node:|NODE_IMAGE/)
+  })
+
+  it("installs headless LibreOffice and metric-compatible fonts", () => {
+    expect(image).toContain("libreoffice-writer-nogui")
+    expect(image).toContain("libreoffice-core-nogui")
+    expect(image).toContain("fonts-crosextra-carlito")
+    expect(image).toContain("fonts-crosextra-caladea")
+    expect(image).toContain("apt-get install -y --no-install-recommends")
+  })
+
+  it("installs a fully pinned lock at build time and verifies the imports", () => {
+    expect(image).toContain("COPY apps/documents/requirements.lock")
+    expect(image).toMatch(/pip install --no-cache-dir -r \/app\/requirements\.lock/)
+    expect(image).toContain("markitdown")
+    expect(image).not.toMatch(/pip install(?!.*requirements\.lock)/)
+  })
+
+  it("runs as a non-root user, exposes a healthcheck and copies no secret", () => {
+    expect(image).toMatch(/^USER documents$/m)
+    expect(image).not.toMatch(/^USER (?:root|0)$/m)
+    expect(image).toMatch(/^HEALTHCHECK /m)
+    expect(image).toMatch(/^ENTRYPOINT \["python", "-B", "-m", "documents\.server"\]$/m)
+    expect(image).not.toMatch(/COPY .*\.env/)
+    expect(image).not.toMatch(/ENV .*(?:PASSWORD|SECRET|TOKEN)=/)
   })
 })
 

@@ -19,7 +19,9 @@
 # (the official image sets no user), so the container can read it while host
 # users other than root cannot. That removes the host-user exposure of the
 # token: it authorizes `POST /internal/artifacts` on the BFF, which is reachable
-# only from the compose `backend` network and is not published.
+# only from the compose `backend` network and is not published. The documents
+# MCP entry gets a second, independent token for the headless documents service
+# on the same network.
 #
 # No value is printed: the script names the path and the number of entries.
 
@@ -37,6 +39,8 @@ TOOL_ENTRY=/opt/artifact-tool/packages/artifact-tool/src/index.ts
 DOCUMENT_ENTRY=/opt/artifact-tool/packages/python-tool/src/index.ts
 PYTHON=/usr/bin/python3
 BFF_URL=http://bff:8787
+DOCUMENTS_URL=http://documents:8099
+WORKSPACE=/workspace
 
 usage() {
   cat <<'EOF'
@@ -104,9 +108,11 @@ main() {
   fi
 
   [ -r "$STACK_DIR/.env" ] || die "missing $STACK_DIR/.env; run env-bootstrap.sh first"
-  local token
+  local token documents_token
   token=$(env_value ARTIFACT_INTERNAL_TOKEN)
   [ -n "$token" ] || die "$STACK_DIR/.env has no ARTIFACT_INTERNAL_TOKEN"
+  documents_token=$(env_value DOCUMENTS_TOKEN)
+  [ -n "$documents_token" ] || die "$STACK_DIR/.env has no DOCUMENTS_TOKEN"
 
   if [ "$DRY_RUN" -eq 1 ]; then
     note "would: write $file (0600) with two local MCP entries for $BFF_URL"
@@ -135,7 +141,10 @@ main() {
       "environment": {
         "OPENCHAT_BFF_URL": "$BFF_URL",
         "ARTIFACT_INTERNAL_TOKEN": "$token",
-        "OPENCHAT_PYTHON": "$PYTHON"
+        "OPENCHAT_PYTHON": "$PYTHON",
+        "WORKSPACE_DIR": "$WORKSPACE",
+        "DOCUMENTS_URL": "$DOCUMENTS_URL",
+        "DOCUMENTS_TOKEN": "$documents_token"
       }
     }
   }

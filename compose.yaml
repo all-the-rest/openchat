@@ -219,6 +219,51 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Headless document service (issue #46). Fills .dotx/.docx templates, exports
+  # PDFs with LibreOffice and extracts Markdown with markitdown. It is glibc
+  # based because markitdown's onnxruntime has no musllinux wheel; it carries no
+  # Node and no repo checkout. No published port: only the agent tool on
+  # `backend` calls it, with a bearer token from .env. No egress code path.
+  documents:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.documents
+    image: openchat-documents:${OPENCHAT_TAG:-local}
+    restart: unless-stopped
+    read_only: true
+    # LibreOffice keeps its HOME and single-user profile in a per-request temp
+    # dir; nothing is written to the image or the workspace.
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1500m
+    mem_reservation: 256m
+    cpus: 1.0
+    pids_limit: 256
+    expose:
+      - "8099"
+    environment:
+      DOCUMENTS_PORT: "8099"
+      DOCUMENTS_TOKEN: ${DOCUMENTS_TOKEN:?set 32+ random characters in .env}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os,sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('DOCUMENTS_PORT','8099')+'/healthz',timeout=3).status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # Optional local OpenCode service. Off by default: OPENCODE_URL usually points
   # at an existing service (remote host or tunnel, docs/implementation/04).
   # The default is the official versioned image. `opencode:latest` is the stale

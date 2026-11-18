@@ -79,7 +79,7 @@ describe("MCP: server version", () => {
 })
 
 describe("MCP: tools", () => {
-  it("lists the four document tools", async () => {
+  it("lists the six document tools", async () => {
     const response = await handleRpc(rpc("tools/list"), DOCUMENT_TOOLS, call)
     const result = (response as { result?: unknown } | null)?.result as {
       tools: Array<{ name: string; inputSchema: { required?: string[] } }>
@@ -89,6 +89,8 @@ describe("MCP: tools", () => {
       "xlsx_write",
       "pdf_from_markdown",
       "read_document",
+      "documents_fill",
+      "document_extract",
     ])
     expect(result.tools[0]?.inputSchema.required).toEqual(["title"])
   })

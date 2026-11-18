@@ -99,16 +99,20 @@ function deps(runner: ProcessRunner, sink: FileSink): DocumentToolDeps {
 }
 
 describe("tool registry", () => {
-  it("exposes exactly the four document tools", () => {
+  it("exposes exactly the six document tools", () => {
     expect(DOCUMENT_TOOLS.map((tool) => tool.name)).toEqual([
       "docx_fill",
       "xlsx_write",
       "pdf_from_markdown",
       "read_document",
+      "documents_fill",
+      "document_extract",
     ])
     for (const tool of DOCUMENT_TOOLS) {
       expect(tool.description).toContain("retry at most twice")
-      expect(tool.description).toContain("Never pass a file path")
+    }
+    for (const name of ["docx_fill", "xlsx_write", "pdf_from_markdown", "read_document", "document_extract"]) {
+      expect(DOCUMENT_TOOLS.find((tool) => tool.name === name)?.description).toContain("Never pass a file path")
     }
   })
 
