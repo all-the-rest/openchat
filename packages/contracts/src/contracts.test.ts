@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import type { InfoResponse } from "../src/index"
 import {
   APP_STATUSES,
   EVENT,
@@ -67,6 +68,23 @@ describe("contracts", () => {
     expect(promptRequestSchema.safeParse({ text: "hi", delivery: "queue" }).success).toBe(true)
     expect(promptRequestSchema.safeParse({ text: "hi" }).success).toBe(true)
     expect(promptRequestSchema.safeParse({ text: "hi", delivery: "steer" }).success).toBe(false)
+  })
+
+  it("types an unreachable host without server info", () => {
+    const info: InfoResponse = {
+      host: { reachable: false },
+      server: null,
+      models: [],
+      agents: [],
+      scenario: "live",
+      dictation: { enabled: false, maxSeconds: 60, maxBytes: 1 },
+      code: { configured: false, expectedVersion: "2.3.0" },
+      apps: { available: false },
+      artifacts: { available: false },
+    }
+
+    expect(info.host.reachable).toBe(false)
+    expect(info.server).toBeNull()
   })
 
   it("requires an event type and data object", () => {

@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({ info: vi.fn() }))
 vi.mock("../src/api/client", () => ({ api: mocks }))
 
 beforeEach(() => {
-  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2.3.0" } })
+  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2" } })
 })
 
 vi.mock("../src/auth/provider", () => ({
@@ -158,7 +158,7 @@ describe("sidebar apps entry", () => {
   it("links to /apps when the host reports an app surface", async () => {
     stubViewport(true)
     mocks.info.mockResolvedValue({
-      code: { configured: true, expectedVersion: "2.3.0" },
+      code: { configured: true, expectedVersion: "2" },
       apps: { available: true },
     })
     renderShell()
@@ -170,7 +170,7 @@ describe("sidebar apps entry", () => {
   it("hides the entry when the host has no app surface", async () => {
     stubViewport(true)
     mocks.info.mockResolvedValue({
-      code: { configured: true, expectedVersion: "2.3.0" },
+      code: { configured: true, expectedVersion: "2" },
       apps: { available: false },
     })
     renderShell(<AvailabilityProbe />)

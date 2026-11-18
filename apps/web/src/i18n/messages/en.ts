@@ -7,6 +7,11 @@ export const en = {
   "app.tagline": "A workspace for your agent.",
   "app.loading": "Loading…",
 
+  "host.unreachable": "OpenCode host not reachable",
+  "host.unreachableHint":
+    "The app is running, but the OpenCode host did not answer. Retry once the tunnel is back.",
+  "host.retry": "Retry",
+
   "nav.skipToContent": "Skip to content",
   "nav.openSidebar": "Open chat list",
   "nav.closeSidebar": "Close chat list",
@@ -41,8 +46,8 @@ export const en = {
   "code.downStatus": "The health probe got no answer from the Code host.",
   "code.ticketTitle": "No Code sign-in ticket",
   "code.ticketBody": "The app could not create a sign-in ticket. The ticket limit may be exhausted; wait a minute and try again.",
-  "code.expectedVersion": "This app expects version {version}.",
-  "code.versionMismatch": "The Code host reports version {version}; this app expects {expected}.",
+  "code.expectedVersion": "This app is built for OpenCode major version {version}.",
+  "code.versionMismatch": "The Code host runs OpenCode {version}; this app supports major version {expected}.",
   "code.signedOutTitle": "Sign in to open Code",
   "code.signedOutBody": "The Code host has no session in this browser. Signing in mints a fresh ticket.",
   "code.signIn": "Sign in to Code",

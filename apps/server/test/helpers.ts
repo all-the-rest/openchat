@@ -40,6 +40,9 @@ export interface TestServerOptions {
   appsCacheMs?: number
   appsNow?: () => number
   appsActionThrottle?: FixedWindowThrottle
+  /** Artifact creation throttle; tests inject a clock-bound instance. */
+  artifactsThrottle?: FixedWindowThrottle
+  artifactsNow?: () => number
 }
 
 export function makeConfig(overrides: Record<string, string | undefined> = {}): EnvConfig {
@@ -85,6 +88,8 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
       appsCacheMs: options.appsCacheMs,
       appsNow: options.appsNow,
       appsActionThrottle: options.appsActionThrottle,
+      artifactsThrottle: options.artifactsThrottle,
+      artifactsNow: options.artifactsNow,
     }),
     backend,
     config,

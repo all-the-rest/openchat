@@ -6,6 +6,11 @@ export const de: Record<MessageKey, string> = {
   "app.tagline": "Ein Arbeitsplatz für deinen Agenten.",
   "app.loading": "Wird geladen…",
 
+  "host.unreachable": "OpenCode-Host nicht erreichbar",
+  "host.unreachableHint":
+    "Die App läuft, aber der OpenCode-Host hat nicht geantwortet. Versuch es erneut, sobald der Tunnel wieder steht.",
+  "host.retry": "Erneut versuchen",
+
   "nav.skipToContent": "Zum Inhalt springen",
   "nav.openSidebar": "Chatliste öffnen",
   "nav.closeSidebar": "Chatliste schließen",
@@ -40,8 +45,8 @@ export const de: Record<MessageKey, string> = {
   "code.downStatus": "Die Statusprüfung hat keine Antwort vom Code-Host erhalten.",
   "code.ticketTitle": "Kein Anmelde-Ticket für Code",
   "code.ticketBody": "Die App konnte kein Anmelde-Ticket erstellen. Möglicherweise ist das Ticket-Limit erschöpft; warte eine Minute und versuch es erneut.",
-  "code.expectedVersion": "Diese App erwartet Version {version}.",
-  "code.versionMismatch": "Der Code-Host meldet Version {version}; diese App erwartet {expected}.",
+  "code.expectedVersion": "Diese App ist für OpenCode-Hauptversion {version} gebaut.",
+  "code.versionMismatch": "Der Code-Host betreibt OpenCode {version}; diese App unterstützt Hauptversion {expected}.",
   "code.signedOutTitle": "Melde dich an, um Code zu öffnen",
   "code.signedOutBody": "Der Code-Host hat in diesem Browser keine Sitzung. Die Anmeldung erstellt ein neues Ticket.",
   "code.signIn": "Bei Code anmelden",

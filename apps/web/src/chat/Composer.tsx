@@ -9,6 +9,8 @@ import {
 import type { DictationInfo } from "@openchat/contracts"
 import { useI18n, useT } from "../i18n/provider"
 import { SendIcon, StopIcon } from "../components/icons"
+import { HOST_BANNER_ID } from "../components/HostStatusBanner"
+import { useSurfaceOrNull } from "../code/SurfaceProvider"
 import { DictationButton } from "../dictation/DictationButton"
 import { DictationFeedback } from "../dictation/DictationFeedback"
 import { RecordingPill } from "../dictation/RecordingPill"
@@ -44,6 +46,9 @@ export function Composer({
 }: ComposerProps) {
   const t = useT()
   const { locale } = useI18n()
+  // The shell's banner explains the outage; here it only disables the send
+  // path. Keep the textarea usable so the draft is not lost.
+  const hostUnreachable = useSurfaceOrNull()?.hostReachable === false
   const [value, setValue] = useState(() => (draftKey ? readDraft(draftKey) : ""))
   const [sending, setSending] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -116,6 +121,7 @@ export function Composer({
   }, [value])
 
   const submit = useCallback(async () => {
+    if (hostUnreachable) return
     const text = value.trim()
     if (!text || sending) return
     setSending(true)
@@ -128,7 +134,7 @@ export function Composer({
     } finally {
       setSending(false)
     }
-  }, [value, sending, onSend, updateValue])
+  }, [hostUnreachable, value, sending, onSend, updateValue])
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     updateValue(event.target.value)
@@ -137,6 +143,9 @@ export function Composer({
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== "Enter" || event.shiftKey) return
     if (event.nativeEvent.isComposing) return
+    // While the host is down Enter edits the draft (a newline) instead of
+    // firing a request that cannot succeed.
+    if (hostUnreachable) return
     event.preventDefault()
     void submit()
   }
@@ -186,9 +195,10 @@ export function Composer({
             type="button"
             data-testid="send"
             onClick={() => void submit()}
-            disabled={disabled || value.trim().length === 0}
+            disabled={disabled || hostUnreachable || value.trim().length === 0}
+            aria-describedby={hostUnreachable ? HOST_BANNER_ID : undefined}
             aria-label={t("composer.send")}
-            title={t("composer.send")}
+            title={hostUnreachable ? t("host.unreachable") : t("composer.send")}
             className="btn btn-primary btn-circle"
           >
             {sending ? (

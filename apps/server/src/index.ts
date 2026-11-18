@@ -6,6 +6,7 @@ import type { ChatBackend } from "@openchat/opencode"
 import { createApp } from "./app"
 import { loadEnv } from "./env"
 import { MAX_BODY_BYTES } from "./limits"
+import { pumpResponseBody } from "./pump"
 import { TRANSCRIBE_PATH } from "./transcribe"
 
 const config = loadEnv()
@@ -123,18 +124,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     return
   }
 
-  const reader = webResponse.body.getReader()
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      if (!response.write(Buffer.from(value))) {
-        await new Promise<void>((resolve) => response.once("drain", resolve))
-      }
-    }
-  } finally {
-    response.end()
-  }
+  await pumpResponseBody(webResponse.body, response)
 }
 
 const server = createServer((request, response) => {

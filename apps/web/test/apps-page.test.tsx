@@ -53,7 +53,7 @@ beforeEach(() => {
   appsRead = null
   fixture = { available: true, servers: [], skills: [] }
   info = {
-    code: { configured: true, expectedVersion: "2.3.0" },
+    code: { configured: true, expectedVersion: "2" },
     apps: { available: true },
   }
 

@@ -5,11 +5,12 @@ import type { AuthSettings } from "./auth"
 import type { AppEnv } from "./app"
 import type { EnvConfig } from "./env"
 import { jsonError, payloadTooLarge } from "./http"
-import { MAX_BODY_BYTES } from "./limits"
+import { ARTIFACT_BODY_MAX_BYTES, MAX_BODY_BYTES } from "./limits"
 import { TRANSCRIBE_PATH } from "./transcribe"
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
 const LOGOUT_PATH = "/api/auth/logout"
+const ARTIFACTS_PATH = "/api/artifacts"
 
 function requestHost(c: Context): string | undefined {
   const header = c.req.header("host")?.trim()
@@ -66,20 +67,59 @@ function declaredContentLength(c: Context): number | undefined {
   return Number.isFinite(value) ? value : undefined
 }
 
+/** Caps a header-derived key so a huge header cannot grow the throttle map. */
+const MAX_ADDRESS_LENGTH = 128
+
+function trimmedHeader(value: string | undefined): string | undefined {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : undefined
+}
+
+/**
+ * Last non-empty `X-Forwarded-For` entry. nginx (`$proxy_add_x_forwarded_for`)
+ * and Traefik *append* the hop they observed, so the rightmost entry is the one
+ * the trusted proxy added; everything to its left was supplied by the client.
+ */
+function lastForwardedEntry(header: string | undefined): string | undefined {
+  if (!header) return undefined
+  const entries = header.split(",")
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index]?.trim()
+    if (entry) return entry
+  }
+  return undefined
+}
+
+/**
+ * Declared-body cap per path. An artifact document may be 1 MiB, far above the
+ * generic JSON cap, so that one route gets its own ceiling; the route enforces
+ * the document limit itself. Dictation uploads are capped by
+ * `DICTATION_MAX_BYTES` inside the route, which streams and aborts at the cap.
+ */
+function bodyCap(pathname: string): number {
+  if (pathname === TRANSCRIBE_PATH) return Number.POSITIVE_INFINITY
+  if (pathname === ARTIFACTS_PATH) return ARTIFACT_BODY_MAX_BYTES
+  return MAX_BODY_BYTES
+}
+
 /**
  * Per-client bucket key. The socket address comes from the node adapter; the
  * forwarding headers are client-controlled, so they are only read when the
- * operator explicitly sets `TRUST_PROXY=1` (the BFF sits behind a reverse proxy
- * that overwrites them).
+ * operator explicitly sets `TRUST_PROXY=1`. The deployment must run exactly one
+ * reverse proxy and that proxy must append to `X-Forwarded-For`; the last entry
+ * is then the only hop the client could not forge. `X-Real-IP` is the fallback
+ * for a proxy that sets only that header. See
+ * `docs/implementation/11-proxy-addressing.md`.
  */
 export function clientAddress(c: Context<AppEnv>, trustProxy: boolean): string {
+  let address: string | undefined
   if (trustProxy) {
-    const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim()
-    if (forwarded) return forwarded
-    const real = c.req.header("x-real-ip")?.trim()
-    if (real) return real
+    address =
+      lastForwardedEntry(c.req.header("x-forwarded-for")) ??
+      trimmedHeader(c.req.header("x-real-ip"))
   }
-  return c.env?.remoteAddress || "local"
+  // Never return an empty string, and never let a header grow the throttle map.
+  return (address ?? c.env?.remoteAddress ?? "").slice(0, MAX_ADDRESS_LENGTH) || "local"
 }
 
 export function authSettings(config: EnvConfig): AuthSettings {
@@ -106,14 +146,8 @@ export function registerRequestGuards(app: Hono<AppEnv>): void {
       return jsonError(c, 415, "unsupported_media_type", "Content-Type must be application/json")
     }
     const declared = declaredContentLength(c)
-    // Dictation uploads are capped by DICTATION_MAX_BYTES inside the route,
-    // which reads the stream and aborts at the cap.
-    if (
-      c.req.path !== TRANSCRIBE_PATH &&
-      declared !== undefined &&
-      declared > MAX_BODY_BYTES
-    ) {
-      return payloadTooLarge(c)
+    if (declared !== undefined && declared > bodyCap(c.req.path)) {
+      return payloadTooLarge(c, bodyCap(c.req.path))
     }
     await next()
   })

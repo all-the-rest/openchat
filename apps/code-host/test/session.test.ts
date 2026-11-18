@@ -1,5 +1,5 @@
+import { createHmac } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import { loadEnv } from "../src/env"
 import {
   CODE_SESSION_COOKIE,
   SECURE_CODE_SESSION_COOKIE,
@@ -105,19 +105,30 @@ describe("parseCookies", () => {
   })
 })
 
-describe("production boot", () => {
-  it("derives a session key from CODE_TICKET_SECRET", () => {
-    const config = loadEnv({
-      source: {
-        NODE_ENV: "production",
-        CODE_TICKET_SECRET: "a-production-ticket-secret-1234",
-        OPENCODE_PASSWORD: "upstream-password",
-        APP_ORIGIN: "https://chat.example.com",
-        CODE_HOST_ORIGIN: "https://code.example.com",
-        COOKIE_SECURE: "1",
-      },
-      warn: () => {},
-    })
-    expect(config.CODE_TICKET_SECRET).toBe("a-production-ticket-secret-1234")
+describe("derived session key", () => {
+  it("is stable for one secret and changes with the secret", () => {
+    const first = createSessionValue(settings(), "owner", NOW)
+    const again = createSessionValue(settings(), "owner", NOW)
+    expect(again).toBe(first)
+    expect(
+      createSessionValue(settings({ secret: `${SECRET}-other` }), "owner", NOW),
+    ).not.toBe(first)
+  })
+
+  it("signs with HMAC(secret, label), not with the secret itself", () => {
+    const value = createSessionValue(settings(), "owner", NOW)
+    const [version, payload, signature] = value.split(".") as [string, string, string]
+    const key = createHmac("sha256", SECRET).update("openchat:code-session").digest()
+
+    const derived = createHmac("sha256", key)
+      .update(`${version}.${payload}`)
+      .digest("base64url")
+    expect(derived).toBe(signature)
+
+    // A value signed straight with CODE_TICKET_SECRET is not a session.
+    const raw = createHmac("sha256", SECRET)
+      .update(`${version}.${payload}`)
+      .digest("base64url")
+    expect(raw).not.toBe(signature)
   })
 })

@@ -105,4 +105,29 @@ describe("response pump", () => {
     expect(response.written).toHaveLength(0)
     expect(response.ended).toBe(false)
   })
+
+  it("abandons a reader whose cancel never settles", async () => {
+    let cancelCalled = false
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1]))
+      },
+      cancel() {
+        cancelCalled = true
+        // A hostile stream keeps its teardown promise pending forever.
+        return new Promise<void>(() => {})
+      },
+    })
+    const response = new FakeResponse()
+    const pump = pumpResponseBody(body, asServerResponse(response), 20)
+
+    await vi.waitFor(() => expect(response.written).toHaveLength(1))
+    await tick()
+    response.destroyed = true
+    response.emit("close")
+
+    await expect(withTimeout(pump)).resolves.toBeUndefined()
+    expect(cancelCalled).toBe(true)
+    expect(response.ended).toBe(false)
+  })
 })

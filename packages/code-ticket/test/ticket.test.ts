@@ -123,6 +123,22 @@ describe("readTicket", () => {
     expect(read(claims(nowSeconds + 86_400))).toBeNull()
   })
 
+  it("applies the receiver's configured TTL to the read ceiling", () => {
+    const nowSeconds = Math.floor(NOW / 1000)
+    const claims = (exp: number) =>
+      forge(encode({ sub: "owner", codeHost: CODE_HOST, exp, jti: "id" }))
+
+    // 100 s sits inside the fixed 60 s + 60 s skew ceiling ...
+    expect(read(claims(nowSeconds + 100))).not.toBeNull()
+    // ... but a receiver configured for 20 s refuses it.
+    expect(read(claims(nowSeconds + 100), { ttlSeconds: 20 })).toBeNull()
+    expect(read(claims(nowSeconds + 20), { ttlSeconds: 20 })).not.toBeNull()
+
+    // An out-of-range configured TTL is clamped to the hard ceiling instead of
+    // disabling the check.
+    expect(read(claims(nowSeconds + 3_600), { ttlSeconds: 100_000 })).toBeNull()
+  })
+
   it("rejects a ticket bound to another Code host", () => {
     const token = mintTicket({ sub: "owner", codeHost: CODE_HOST, secret: SECRET, ttlSeconds: 30, now: NOW })
     expect(read(token, { codeHost: "https://code.example.org" })).toBeNull()

@@ -7,6 +7,9 @@ dist
 .DS_Store
 references/raw
 
+# Default artifact store of a development run (`ARTIFACTS_DIR`).
+.openchat-artifacts/
+
 # Third-party REA skill (MIT). Installed locally, not vendored.
 .opencode/skills/reverse-engineer-anything/
 test-results

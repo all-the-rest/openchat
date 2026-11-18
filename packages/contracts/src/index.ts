@@ -1,8 +1,10 @@
 import { z } from "zod"
 
 import type { AppsSurfaceInfo } from "./apps"
+import type { ArtifactsSurfaceInfo } from "./artifacts"
 
 export * from "./apps"
+export * from "./artifacts"
 
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"
@@ -81,14 +83,29 @@ export interface ServerInfo {
   workspace: string
 }
 
+/**
+ * State of the OpenCode host behind the BFF, not of the BFF itself: the BFF
+ * answering at all proves that it is up, so only the host can be down.
+ *
+ * `reachable` is false when every host call failed. A host that answered one
+ * call is up, so a partial failure keeps `reachable: true` and reports the
+ * failed fragments as empty (`server: null`, `models: []`, `agents: []`).
+ */
+export interface HostStatus {
+  reachable: boolean
+}
+
 export interface InfoResponse {
-  server: ServerInfo
+  host: HostStatus
+  /** `null` when the host did not answer its info call. */
+  server: ServerInfo | null
   models: ModelInfo[]
   agents: AgentInfo[]
   scenario: string
   dictation: DictationInfo
   code: CodeSurfaceInfo
   apps: AppsSurfaceInfo
+  artifacts: ArtifactsSurfaceInfo
 }
 
 /**
@@ -98,7 +115,10 @@ export interface InfoResponse {
 export interface CodeSurfaceInfo {
   /** False when the deployment has no Code host; the UI must hide the switch. */
   configured: boolean
-  /** The `@opencode/client` version the BFF pins, e.g. "2.3.0". */
+  /**
+   * The supported `@opencode/client` major as a string, e.g. `"2"`. Any host on
+   * `2.x.y` matches; a `3.x` host does not.
+   */
   expectedVersion: string
 }
 
@@ -115,8 +135,9 @@ export interface CodeStatusResponse {
   reachable: boolean
   /** The Code host's upstream version, when reachable. */
   version?: string
+  /** The supported `@opencode/client` major, e.g. `"2"`. */
   expectedVersion: string
-  /** `version === expectedVersion`; false when unreachable. */
+  /** True when `version` is on `expectedVersion`'s major; false when unreachable. */
   matches: boolean
 }
 

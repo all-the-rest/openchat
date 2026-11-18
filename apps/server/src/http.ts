@@ -13,18 +13,22 @@ export function jsonError(
 export const INVALID_JSON = Symbol("invalid-json")
 export const BODY_TOO_LARGE = Symbol("body-too-large")
 
-export function payloadTooLarge(c: Context): Response {
+export function payloadTooLarge(c: Context, maxBytes = MAX_BODY_BYTES): Response {
   return jsonError(
     c,
     413,
     "payload_too_large",
-    `Request body must not exceed ${MAX_BODY_BYTES} bytes`,
+    `Request body must not exceed ${maxBytes} bytes`,
   )
 }
 
-export async function readJson(c: Context): Promise<unknown> {
+/**
+ * Reads the body as JSON. `maxBytes` lets one route carry a larger document
+ * (`POST /api/artifacts`); everything else keeps the generic cap.
+ */
+export async function readJson(c: Context, maxBytes = MAX_BODY_BYTES): Promise<unknown> {
   const buffer = await c.req.arrayBuffer()
-  if (isBodyTooLarge(buffer)) return BODY_TOO_LARGE
+  if (isBodyTooLarge(buffer, maxBytes)) return BODY_TOO_LARGE
   const text = new TextDecoder().decode(buffer)
   if (text.trim() === "") return undefined
   try {

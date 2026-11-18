@@ -105,8 +105,30 @@ export { LiveBackend } from "./live"
 export type { LiveBackendOptions } from "./live"
 
 /**
- * The `@opencode/client` version this BFF builds against. The Code surface
- * compares it with the Code host's upstream version and warns on a mismatch.
- * `test/pinned-version.test.ts` fails when this drifts from the manifest.
+ * The `@opencode/client` range this BFF builds against: the major is pinned,
+ * while minor and patch releases are adopted through a dependency PR that runs
+ * the full CI. The lockfile decides the installed version. Keep this aligned
+ * with `package.json`; `test/supported-major.test.ts` checks both.
  */
-export const PINNED_OPENCODE_VERSION = "2.3.0"
+export const OPENCODE_CLIENT_RANGE = "^2.3.0"
+
+const OPENCODE_CLIENT_RANGE_RE = /^\^(\d+)\.(\d+)\.(\d+)$/
+
+/** The one `@opencode/client` major this BFF supports. Derived from the range. */
+export const SUPPORTED_OPENCODE_MAJOR = Number(
+  OPENCODE_CLIENT_RANGE_RE.exec(OPENCODE_CLIENT_RANGE)?.[1],
+)
+
+/** The `expectedVersion` value the API reports: the major as a string, e.g. "2". */
+export const SUPPORTED_OPENCODE_MAJOR_LABEL = String(SUPPORTED_OPENCODE_MAJOR)
+
+const VERSION_RE = /^(\d+)\.(\d+)\.(\d+)/
+
+/**
+ * Whether an upstream version is on the supported major. The Code surface
+ * warns on a major skew only: a 2.4.0 host next to a 2.3.0 client is healthy.
+ */
+export function matchesSupportedMajor(version: string): boolean {
+  const major = VERSION_RE.exec(version)?.[1]
+  return major !== undefined && Number(major) === SUPPORTED_OPENCODE_MAJOR
+}

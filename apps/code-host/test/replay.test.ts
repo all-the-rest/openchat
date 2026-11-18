@@ -46,8 +46,17 @@ describe("TicketReplayCache", () => {
     expect(cache.claim("", EXP, NOW)).toBe(false)
   })
 
-  it("has a documented default bound", () => {
-    expect(MAX_REPLAY_ENTRIES).toBeGreaterThan(0)
-    expect(new TicketReplayCache().claim("one", EXP, NOW)).toBe(true)
+  it("evicts the oldest claim at the documented default bound", () => {
+    const cache = new TicketReplayCache()
+    for (let index = 0; index <= MAX_REPLAY_ENTRIES; index += 1) {
+      expect(cache.claim(`jti-${index}`, EXP, NOW)).toBe(true)
+    }
+    expect(cache.size).toBe(MAX_REPLAY_ENTRIES)
+
+    // The first entry is gone, so its jti can be claimed again; the second
+    // and the newest are still recorded as used.
+    expect(cache.claim(`jti-${MAX_REPLAY_ENTRIES}`, EXP, NOW)).toBe(false)
+    expect(cache.claim("jti-1", EXP, NOW)).toBe(false)
+    expect(cache.claim("jti-0", EXP, NOW)).toBe(true)
   })
 })

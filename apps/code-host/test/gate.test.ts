@@ -102,7 +102,7 @@ describe("CSRF origin check on the gate", () => {
     expect(upstream.requests).toHaveLength(0)
   })
 
-  it("proxies an unsafe method with same-origin evidence or none at all", async () => {
+  it("proxies an unsafe method with same-origin evidence", async () => {
     const upstream = await stubUpstream()
     const { app, config } = makeApp({ OPENCODE_URL: upstream.url })
     const cookie = cookieFor(config)
@@ -110,8 +110,8 @@ describe("CSRF origin check on the gate", () => {
     const cases: Array<Record<string, string>> = [
       { origin: CODE_HOST_ORIGIN },
       { "sec-fetch-site": "same-origin" },
+      { referer: `${CODE_HOST_ORIGIN}/session/1` },
       { origin: CODE_HOST_ORIGIN, "sec-fetch-site": "same-origin" },
-      {},
     ]
     for (const headers of cases) {
       const response = await app.request("/api/x", {
@@ -121,6 +121,59 @@ describe("CSRF origin check on the gate", () => {
       expect(response.status, JSON.stringify(headers)).toBe(200)
     }
     expect(upstream.requests).toHaveLength(cases.length)
+  })
+
+  it("refuses a cookie-bearing unsafe request with no evidence at all", async () => {
+    const upstream = await stubUpstream()
+    const { app, config } = makeApp({ OPENCODE_URL: upstream.url })
+
+    // An end-of-life browser omits Origin and ignores SameSite: the cookie
+    // arrives on a cross-site POST with no header that could prove otherwise.
+    const response = await app.request("/api/x", {
+      method: "POST",
+      headers: { cookie: cookieFor(config) },
+    })
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: "cross_origin_forbidden" })
+    expect(upstream.requests).toHaveLength(0)
+  })
+
+  it("keeps the cookie-less allowance for clients that send no evidence", async () => {
+    const upstream = await stubUpstream()
+    const { app } = makeApp({ OPENCODE_URL: upstream.url })
+
+    // curl and server-to-server clients never send Origin; without a session
+    // cookie the request reaches the auth gate (401), it is not a CSRF 403.
+    const response = await app.request("/api/x", { method: "POST" })
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ error: "code_session_required" })
+    expect(upstream.requests).toHaveLength(0)
+  })
+
+  it("treats every method outside the read allowlist as unsafe", async () => {
+    const upstream = await stubUpstream()
+    const { app, config } = makeApp({ OPENCODE_URL: upstream.url })
+    const cookie = cookieFor(config)
+
+    for (const method of ["PROPFIND", "PURGE", "POTS"]) {
+      const response = await app.request("/api/x", { method, headers: { cookie } })
+      expect(response.status, method).toBe(403)
+    }
+    expect(upstream.requests).toHaveLength(0)
+  })
+
+  it("rejects a cross-site unsafe request before the session is read", async () => {
+    const upstream = await stubUpstream()
+    const { app } = makeApp({ OPENCODE_URL: upstream.url })
+
+    // No cookie: if the origin check moved behind the auth gate this would be
+    // the gate's 401 rather than the CSRF 403.
+    const response = await app.request("/api/x", {
+      method: "POST",
+      headers: { origin: "https://artifacts.example.com" },
+    })
+    expect(response.status).toBe(403)
+    expect(upstream.requests).toHaveLength(0)
   })
 
   it("leaves reads alone even with a cross-site fetch site", async () => {

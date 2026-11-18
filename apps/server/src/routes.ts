@@ -1,6 +1,6 @@
 import type { Hono } from "hono"
 import type { ChatBackend } from "@openchat/opencode"
-import { PINNED_OPENCODE_VERSION } from "@openchat/opencode"
+import { SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
 import {
   createSessionRequestSchema,
   loginRequestSchema,
@@ -36,6 +36,7 @@ import { clientAddress } from "./middleware"
 import { registerAppsRoutes } from "./apps"
 import { AppsCache, probeApps } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
+import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
@@ -68,6 +69,10 @@ export interface RouteDeps {
   appsCacheMs?: number
   /** Injected clock for the app snapshot cache. */
   appsNow?: () => number
+  /** Artifact creation throttle, per client address. */
+  artifactsThrottle: FixedWindowThrottle
+  /** Injected clock for signed artifact URLs. */
+  artifactsNow?: () => number
 }
 
 function sseHeaders(): Record<string, string> {
@@ -126,18 +131,28 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
   const { config, backend } = deps
 
   app.get("/api/info", async (c) => {
-    const [server, models, agents, appsAvailable] = await Promise.all([
+    // The host may be unreachable (a dead tunnel is a normal operating state),
+    // so the three host calls settle independently: one answer proves the host
+    // is up, and a failed fragment degrades instead of failing the page load.
+    const appsProbe = probeApps(appsCache)
+    const [info, models, agents] = await Promise.allSettled([
       backend.info(),
       backend.listModels(),
       backend.listAgents(),
-      // Shares the `/api/apps` cache and never throws: an unreachable host must
-      // still boot and answer, with `apps.available === false`.
-      probeApps(appsCache),
     ])
+    const appsAvailable = await appsProbe
+
+    const hostReachable =
+      info.status === "fulfilled" ||
+      models.status === "fulfilled" ||
+      agents.status === "fulfilled"
+
+    c.header("Cache-Control", "no-store")
     return c.json({
-      server,
-      models,
-      agents,
+      host: { reachable: hostReachable },
+      server: info.status === "fulfilled" ? info.value : null,
+      models: models.status === "fulfilled" ? models.value : [],
+      agents: agents.status === "fulfilled" ? agents.value : [],
       scenario: config.BACKEND_MODE === "fake" ? config.FAKE_SCENARIO : "live",
       dictation: {
         enabled: Boolean(config.STT_URL),
@@ -146,9 +161,10 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
       } satisfies DictationInfo,
       code: {
         configured: Boolean(config.CODE_HOST_ORIGIN),
-        expectedVersion: PINNED_OPENCODE_VERSION,
+        expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL,
       } satisfies CodeSurfaceInfo,
       apps: { available: appsAvailable } satisfies AppsSurfaceInfo,
+      artifacts: artifactsSurface(config),
     } satisfies InfoResponse)
   })
 }
@@ -319,6 +335,11 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     cache: appsCache,
     config: deps.config,
     actionThrottle: deps.appsActionThrottle,
+  })
+  registerArtifactsRoutes(app, {
+    config: deps.config,
+    createThrottle: deps.artifactsThrottle,
+    now: deps.artifactsNow,
   })
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
