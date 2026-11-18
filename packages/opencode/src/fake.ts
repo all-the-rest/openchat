@@ -6,6 +6,8 @@ import type {
   InboxEntry,
   Message,
   ModelInfo,
+  PermissionDecision,
+  PermissionRequest,
   SearchSource,
   ServerInfo,
   SessionInfo,
@@ -22,6 +24,7 @@ import type {
 } from "./index"
 import { FakeAppInventory } from "./fake-apps"
 import { FakeEvents } from "./fake-events"
+import { FakePermissions } from "./fake-permissions"
 import { fakeSearch } from "./fake-search"
 import { clone, errorText, PartWriter } from "./fake-parts"
 import { resolveScenario, runScenario } from "./scenarios"
@@ -44,6 +47,13 @@ interface QueuedPrompt {
   messageID: string
   text: string
   created: number
+}
+
+/** Last accepted prompt of a session, exposed through the fake-mode probe. */
+export interface RecordedPrompt {
+  text: string
+  model?: string
+  agent?: string
 }
 
 export interface FakeBackendOptions {
@@ -87,6 +97,8 @@ export class FakeBackend implements ChatBackend {
   private readonly apps: FakeAppInventory
   private readonly onAppAction?: (action: "connect" | "disconnect", name: string) => void
   private readonly events: FakeEvents
+  private readonly permissions: FakePermissions
+  private readonly recorded = new Map<string, RecordedPrompt>()
   private readonly parts: PartWriter
 
   constructor(options: FakeBackendOptions = {}) {
@@ -100,11 +112,13 @@ export class FakeBackend implements ChatBackend {
     this.apps = new FakeAppInventory({ available: options.appsAvailable })
     this.onAppAction = options.onAppAction
     this.events = new FakeEvents(this.clock)
+    this.permissions = new FakePermissions((type, sid, data, durable) =>
+      this.events.emit(type, sid, data, durable),
+    )
     this.parts = new PartWriter({
       nextID: (prefix) => this.events.nextID(prefix),
       clock: () => this.clock(),
-      emit: (type, sessionID, data, durable) =>
-        this.events.emit(type, sessionID, data, durable),
+      emit: (type, sid, data, durable) => this.events.emit(type, sid, data, durable),
     })
   }
 
@@ -120,19 +134,14 @@ export class FakeBackend implements ChatBackend {
 
   async createSession(input: CreateSessionInput): Promise<SessionInfo> {
     const created = this.clock()
+    // An empty title lets the UI render its own localized placeholder.
     const info: SessionInfo = {
-      id: this.events.nextID("ses"),
-      // An empty title lets the UI render its own localized placeholder.
-      title: input.title?.trim() ?? "",
-      directory: input.directory,
-      created,
-      updated: created,
+      id: this.events.nextID("ses"), title: input.title?.trim() ?? "",
+      directory: input.directory, created, updated: created,
     }
     this.sessions.set(info.id, { info, messages: [] })
     this.events.emit(EVENT.sessionCreated, info.id, {
-      sessionID: info.id,
-      title: info.title,
-      directory: info.directory,
+      sessionID: info.id, title: info.title, directory: info.directory,
     }, true)
     return clone(info)
   }
@@ -143,6 +152,7 @@ export class FakeBackend implements ChatBackend {
 
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {
     const session = this.requireSession(sessionID)
+    this.recorded.set(sessionID, { text: input.text, model: input.model, agent: input.agent })
     const active = this.runs.has(sessionID)
     if (active && input.delivery !== "queue") {
       throw new BackendError("conflict", `Session ${sessionID} already has an active run`)
@@ -156,8 +166,7 @@ export class FakeBackend implements ChatBackend {
       const queue = this.queues.get(sessionID) ?? []
       queue.push({ messageID: userMessage.id, text: input.text, created: userMessage.created })
       this.queues.set(sessionID, queue)
-      // The assistant message is created when the queued turn starts, so the
-      // active turn is not touched and the transcript keeps its order.
+      // The assistant message waits for the active turn to end, keeping order.
       return { messageID: userMessage.id, queued: true }
     }
 
@@ -170,12 +179,8 @@ export class FakeBackend implements ChatBackend {
   async listInbox(sessionID: string): Promise<InboxEntry[]> {
     this.requireSession(sessionID)
     return (this.queues.get(sessionID) ?? []).map((entry) => ({
-      id: entry.messageID,
-      sessionID,
-      kind: "user",
-      text: entry.text,
-      delivery: "queue",
-      created: entry.created,
+      id: entry.messageID, sessionID, kind: "user", text: entry.text,
+      delivery: "queue", created: entry.created,
     }))
   }
 
@@ -188,8 +193,7 @@ export class FakeBackend implements ChatBackend {
     }
     queue.splice(index, 1)
     if (queue.length === 0) this.queues.delete(sessionID)
-    // A cancelled turn disappears from the transcript too; otherwise the user
-    // message would stay pinned as pending without a run behind it.
+    // A cancelled turn must not stay pinned as pending in the transcript.
     const messageIndex = session.messages.findIndex((message) => message.id === messageID)
     if (messageIndex !== -1) session.messages.splice(messageIndex, 1)
     this.events.emit(EVENT.inboxCancelled, sessionID, { sessionID, messageID }, true)
@@ -210,6 +214,31 @@ export class FakeBackend implements ChatBackend {
     return [{ id: "build", name: "Build", description: "Deterministic scenario runner" }]
   }
 
+  async listPermissions(sessionID: string): Promise<PermissionRequest[]> {
+    this.requireSession(sessionID)
+    return this.permissions.list(sessionID)
+  }
+
+  async replyPermission(
+    sessionID: string,
+    requestID: string,
+    decision: PermissionDecision,
+  ): Promise<void> {
+    this.requireSession(sessionID)
+    this.permissions.reply(sessionID, requestID, decision)
+  }
+
+  /** Fake-mode probe: the last accepted prompt, including model and agent. */
+  recordedPrompt(sessionID: string): RecordedPrompt | undefined {
+    return this.recorded.get(sessionID)
+  }
+
+  /** Fake-mode control: raises an approval the browser must answer. */
+  askPermission(sessionID: string, tool: string, action: string): PermissionRequest {
+    this.requireSession(sessionID)
+    return this.permissions.ask(sessionID, tool, action)
+  }
+
   async listApps(): Promise<AppsSnapshot> {
     return this.apps.list()
   }
@@ -225,13 +254,11 @@ export class FakeBackend implements ChatBackend {
   }
 
   async search(input: SearchInput): Promise<SearchOutcome> {
+    const sessions = [...this.sessions.values()].map((session) => ({
+      info: session.info, messages: session.messages,
+    }))
     return fakeSearch(
-      input,
-      [...this.sessions.values()].map((session) => ({
-        info: session.info,
-        messages: session.messages,
-      })),
-      this.apps.searchOptions(this.disabledSources, this.failingSources),
+      input, sessions, this.apps.searchOptions(this.disabledSources, this.failingSources),
     )
   }
 
@@ -247,23 +274,16 @@ export class FakeBackend implements ChatBackend {
 
   private createUserMessage(sessionID: string, input: PromptInput): Message {
     return {
-      id: input.id ?? this.events.nextID("msg"),
-      sessionID,
-      role: "user",
+      id: input.id ?? this.events.nextID("msg"), sessionID, role: "user",
       parts: [{ type: "text", id: this.events.nextID("part"), text: input.text }],
-      created: this.clock(),
-      status: "complete",
+      created: this.clock(), status: "complete",
     }
   }
 
   private createAssistantMessage(sessionID: string): Message {
     return {
-      id: this.events.nextID("msg"),
-      sessionID,
-      role: "assistant",
-      parts: [],
-      created: this.clock(),
-      status: "streaming",
+      id: this.events.nextID("msg"), sessionID, role: "assistant", parts: [],
+      created: this.clock(), status: "streaming",
     }
   }
 
@@ -273,8 +293,7 @@ export class FakeBackend implements ChatBackend {
     const run: RunState = { sessionID, messageID, cancelled: false }
     this.runs.set(sessionID, run)
     void this.run(run, scenario, delay).catch(() => {
-      // A scripting failure must not become an unhandled rejection; the run
-      // already reports failures through events.
+      // The run already reports failures through events.
       this.runs.delete(sessionID)
       this.startNext(sessionID)
     })
@@ -284,10 +303,7 @@ export class FakeBackend implements ChatBackend {
   private startNext(sessionID: string): void {
     const queue = this.queues.get(sessionID)
     const next = queue?.shift()
-    if (!queue || !next) {
-      this.queues.delete(sessionID)
-      return
-    }
+    if (!queue || !next) { this.queues.delete(sessionID); return }
     if (queue.length === 0) this.queues.delete(sessionID)
     const assistantMessage = this.createAssistantMessage(sessionID)
     this.requireSession(sessionID).messages.push(assistantMessage)
@@ -300,10 +316,7 @@ export class FakeBackend implements ChatBackend {
     return message
   }
 
-  /**
-   * Waits for one scripted step. Returns false when the run was interrupted,
-   * either before the wait or while it was sleeping.
-   */
+  /** One scripted step; false means interrupted before or during the wait. */
   private pause(run: RunState, delayMs: number): Promise<boolean> {
     if (run.cancelled) return Promise.resolve(false)
     return new Promise((resolve) => {
@@ -323,8 +336,7 @@ export class FakeBackend implements ChatBackend {
     let outcome: ScenarioOutcome = "completed"
 
     this.events.emit(EVENT.executionStarted, run.sessionID, {
-      sessionID: run.sessionID,
-      messageID: message.id,
+      sessionID: run.sessionID, messageID: message.id,
     }, true)
 
     try {
@@ -339,25 +351,21 @@ export class FakeBackend implements ChatBackend {
       message.status = "complete"
       this.completeMessage(run, message)
       this.events.emit(EVENT.executionSucceeded, run.sessionID, {
-        sessionID: run.sessionID,
-        messageID: message.id,
+        sessionID: run.sessionID, messageID: message.id,
       }, true)
     } else if (outcome === "interrupted") {
       message.status = "stopped"
       this.events.emit(EVENT.interrupted, run.sessionID, {
-        sessionID: run.sessionID,
-        messageID: message.id,
+        sessionID: run.sessionID, messageID: message.id,
       }, true)
       this.completeMessage(run, message)
     } else {
       message.status = "error"
       this.completeMessage(run, message)
       this.events.emit(EVENT.executionFailed, run.sessionID, {
-        sessionID: run.sessionID,
-        messageID: message.id,
+        sessionID: run.sessionID, messageID: message.id,
         message: errorText(message) ?? "The fake backend failed",
-        code: "fake_error",
-        retryable: false,
+        code: "fake_error", retryable: false,
       }, true)
     }
 
@@ -366,22 +374,18 @@ export class FakeBackend implements ChatBackend {
   }
 
   private performScenario(
-    run: RunState,
-    message: Message,
-    scenario: FakeScenario,
-    delayMs: number,
+    run: RunState, message: Message, scenario: FakeScenario, delayMs: number,
   ): Promise<ScenarioOutcome> {
+    const sid = run.sessionID
     return runScenario({
       pause: () => this.pause(run, delayMs),
       addTextPart: () => this.parts.addText(message),
       addReasoningPart: () => this.parts.addReasoning(message),
       addToolPart: (name, input) => this.parts.addTool(message, name, input),
-      streamText: (partID, delta) => this.parts.streamText(run.sessionID, message, partID, delta),
-      streamReasoning: (partID, delta) =>
-        this.parts.streamReasoning(run.sessionID, message, partID, delta),
-      emitTool: (part, patch) => this.parts.emitTool(run.sessionID, message, part, patch),
-      addErrorPart: (text, code, retryable) =>
-        this.parts.addError(run.sessionID, message, text, code, retryable),
+      streamText: (partID, delta) => this.parts.streamText(sid, message, partID, delta),
+      streamReasoning: (partID, delta) => this.parts.streamReasoning(sid, message, partID, delta),
+      emitTool: (part, patch) => this.parts.emitTool(sid, message, part, patch),
+      addErrorPart: (text, code, retryable) => this.parts.addError(sid, message, text, code, retryable),
     }, scenario)
   }
 
@@ -389,9 +393,7 @@ export class FakeBackend implements ChatBackend {
     const session = this.requireSession(run.sessionID)
     session.info.updated = this.clock()
     this.events.emit(EVENT.messageCompleted, run.sessionID, {
-      sessionID: run.sessionID,
-      messageID: message.id,
-      message: clone(message),
+      sessionID: run.sessionID, messageID: message.id, message: clone(message),
     }, true)
   }
 }

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react"
-import { Outlet } from "react-router-dom"
+import { Link, Outlet } from "react-router-dom"
 import { AppBarMenu } from "../components/AppBarMenu"
 import { SidebarToggle } from "../components/controls"
 import { HostStatusBanner } from "../components/HostStatusBanner"
+import { SettingsIcon } from "../components/icons"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
 import { SessionSidebar } from "../chat/SessionSidebar"
@@ -142,6 +143,15 @@ export function AppShell() {
             <span className="min-w-0 flex-1 truncate px-1 text-sm font-semibold lg:hidden">
               {t("app.name")}
             </span>
+            <Link
+              to="/settings"
+              data-testid="app-settings"
+              aria-label={t("nav.settings")}
+              title={t("nav.settings")}
+              className="btn btn-ghost btn-sm btn-square"
+            >
+              <SettingsIcon className="size-5" />
+            </Link>
             <AppBarMenu />
           </div>
         )}

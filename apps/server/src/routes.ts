@@ -4,15 +4,19 @@ import { FakeHostSwitch, SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/openco
 import {
   createSessionRequestSchema,
   loginRequestSchema,
+  permissionReplyRequestSchema,
   promptRequestSchema,
 } from "@openchat/contracts"
 import type {
+  AgentInfo,
   AppsSurfaceInfo,
   CodeSurfaceInfo,
   DictationInfo,
   InfoResponse,
   InboxResponse,
   LoginResponse,
+  ModelInfo,
+  PermissionsResponse,
   PromptResponse,
   SessionInfo,
 } from "@openchat/contracts"
@@ -42,6 +46,7 @@ import { registerChatFilesRoutes } from "./chat-files"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
+import { registerFakeControlsRoutes } from "./fake-controls"
 import { registerFakeHostRoute } from "./fake-host-route"
 import type { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { SSE_RETRY_FRAME } from "./sse"
@@ -198,6 +203,12 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
   })
 }
 
+/** The model and agent catalogues the browser pickers render. */
+function registerCatalogRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
+  app.get("/api/models", async (c) => c.json(await deps.backend.listModels() satisfies ModelInfo[]))
+  app.get("/api/agents", async (c) => c.json(await deps.backend.listAgents() satisfies AgentInfo[]))
+}
+
 function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   const { config, backend, promptThrottle } = deps
 
@@ -252,6 +263,8 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     const result = await backend.prompt(c.req.param("id"), {
       text: parsed.data.text,
       delivery: parsed.data.delivery ?? "queue",
+      model: parsed.data.model,
+      agent: parsed.data.agent,
     })
     const response: PromptResponse = { ok: true, messageID: result.messageID }
     if (result.queued) response.queued = true
@@ -267,6 +280,29 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   // clients send `Content-Type: application/json` even though the body is empty.
   app.delete("/api/sessions/:id/inbox/:messageID", async (c) => {
     await backend.cancelQueued(c.req.param("id"), c.req.param("messageID"))
+    return c.json({ ok: true })
+  })
+
+  app.get("/api/sessions/:id/permissions", async (c) => {
+    const requests = await backend.listPermissions(c.req.param("id"))
+    return c.json({ requests } satisfies PermissionsResponse)
+  })
+
+  app.post("/api/sessions/:id/permissions/:requestID", async (c) => {
+    const body = await readJson(c)
+    if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
+    if (body === INVALID_JSON) {
+      return jsonError(c, 400, "invalid_request", "Invalid JSON body")
+    }
+    const parsed = permissionReplyRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return jsonError(c, 400, "invalid_request", invalidMessage(parsed.error))
+    }
+    await backend.replyPermission(
+      c.req.param("id"),
+      c.req.param("requestID"),
+      parsed.data.decision,
+    )
     return c.json({ ok: true })
   })
 
@@ -351,6 +387,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
 
   registerAuthRoutes(app, deps)
   registerInfoRoutes(app, deps, appsCache)
+  registerCatalogRoutes(app, deps)
   registerSessionRoutes(app, deps)
   registerCodeRoutes(app, {
     config: deps.config,
@@ -379,7 +416,8 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerTranscribeRoute(app, deps)
   registerEventRoute(app, deps)
   // Fake mode only; the live adapter has no outage switch to expose.
-  if (deps.config.BACKEND_MODE === "fake" && deps.backend instanceof FakeHostSwitch) {
-    registerFakeHostRoute(app, deps.backend)
+  if (deps.config.BACKEND_MODE === "fake") {
+    if (deps.backend instanceof FakeHostSwitch) registerFakeHostRoute(app, deps.backend)
+    registerFakeControlsRoutes(app, deps.backend)
   }
 }

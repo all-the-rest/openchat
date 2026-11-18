@@ -138,7 +138,7 @@ describe("app bar menu behaviour", () => {
     const menu = await openMenu(user)
     expect(button).toHaveAttribute("aria-expanded", "true")
     expect(button).toHaveAttribute("aria-controls", menu.id)
-    expect(within(menu).getAllByRole("menuitem")).toHaveLength(3)
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(4)
     expect(within(menu).getByRole("group", { name: "Surface" })).toBeInTheDocument()
     // The menu carries navigation, never the session list.
     expect(within(menu).queryByTestId("session-item")).toBeNull()
@@ -200,6 +200,7 @@ describe("app bar menu behaviour", () => {
     const items = [
       screen.getByTestId("menu-search"),
       screen.getByTestId("menu-apps"),
+      screen.getByTestId("menu-settings"),
       screen.getByTestId("menu-new-chat"),
     ]
     expect(items[0]).toHaveFocus()
@@ -209,15 +210,17 @@ describe("app bar menu behaviour", () => {
     fireEvent.keyDown(items[1]!, { key: "ArrowDown" })
     expect(items[2]).toHaveFocus()
     fireEvent.keyDown(items[2]!, { key: "ArrowDown" })
+    expect(items[3]).toHaveFocus()
+    fireEvent.keyDown(items[3]!, { key: "ArrowDown" })
     expect(items[0]).toHaveFocus()
 
     fireEvent.keyDown(items[0]!, { key: "ArrowUp" })
-    expect(items[2]).toHaveFocus()
+    expect(items[3]).toHaveFocus()
 
-    fireEvent.keyDown(items[2]!, { key: "Home" })
+    fireEvent.keyDown(items[3]!, { key: "Home" })
     expect(items[0]).toHaveFocus()
     fireEvent.keyDown(items[0]!, { key: "End" })
-    expect(items[2]).toHaveFocus()
+    expect(items[3]).toHaveFocus()
   })
 })
 

@@ -6,6 +6,8 @@ import type {
   InboxEntry,
   Message,
   ModelInfo,
+  PermissionDecision,
+  PermissionRequest,
   SearchHit,
   SearchSource,
   ServerInfo,
@@ -24,6 +26,10 @@ export interface PromptInput {
    * active run finishes. Without it a second prompt is rejected as `conflict`.
    */
   delivery?: "queue"
+  /** Persisted model id; the live adapter applies it before the prompt. */
+  model?: string
+  /** Persisted agent id; the live adapter applies it before the prompt. */
+  agent?: string
 }
 
 export interface CreateSessionInput {
@@ -84,6 +90,14 @@ export interface ChatBackend {
   interrupt(sessionID: string): Promise<void>
   listModels(): Promise<ModelInfo[]>
   listAgents(): Promise<AgentInfo[]>
+  /** Outstanding permission requests of a session, oldest first. */
+  listPermissions(sessionID: string): Promise<PermissionRequest[]>
+  /** Answers one request. Throws `not_found` for an unknown request id. */
+  replyPermission(
+    sessionID: string,
+    requestID: string,
+    decision: PermissionDecision,
+  ): Promise<void>
   /**
    * MCP servers and skills of the workspace. Throws a `BackendError` when the
    * host cannot answer the capability probe; one failing list must not hide
@@ -100,7 +114,7 @@ export interface ChatBackend {
 
 export { isFakeScenario, resolveScenario } from "./scenarios"
 export { FakeBackend } from "./fake"
-export type { FakeBackendOptions } from "./fake"
+export type { FakeBackendOptions, RecordedPrompt } from "./fake"
 export { FakeHostSwitch } from "./fake-host"
 export { LiveBackend } from "./live"
 export type { LiveBackendOptions } from "./live"

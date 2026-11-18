@@ -64,4 +64,20 @@ export const chat = {
   "composer.send": msg({ id: "composer.send", message: "Send" }),
   "composer.stop": msg({ id: "composer.stop", message: "Stop response" }),
   "composer.hint": msg({ id: "composer.hint", message: "Enter sends, Shift+Enter adds a line" }),
+
+  "chat.modelLabel": msg({ id: "chat.modelLabel", message: "Model" }),
+  "chat.agentLabel": msg({ id: "chat.agentLabel", message: "Agent" }),
+  "chat.defaultChoice": msg({ id: "chat.defaultChoice", message: "Default" }),
+  "chat.activeChoice": msg({ id: "chat.activeChoice", message: "Model: {model} · Agent: {agent}" }),
+
+  "chat.permissionTitle": msg({ id: "chat.permissionTitle", message: "Permission required" }),
+  "chat.permissionTool": msg({ id: "chat.permissionTool", message: "{tool} requests:" }),
+  "chat.permissionResources": msg({ id: "chat.permissionResources", message: "Resources: {resources}" }),
+  "chat.permissionAllowOnce": msg({ id: "chat.permissionAllowOnce", message: "Allow once" }),
+  "chat.permissionAllowAlways": msg({ id: "chat.permissionAllowAlways", message: "Allow always" }),
+  "chat.permissionDeny": msg({ id: "chat.permissionDeny", message: "Deny" }),
+  "chat.permissionDenied": msg({ id: "chat.permissionDenied", message: "Denied {tool}" }),
+  "chat.permissionDeniedGeneric": msg({ id: "chat.permissionDeniedGeneric", message: "A tool request was denied" }),
+  "chat.permissionHint": msg({ id: "chat.permissionHint", message: "Answer this request before sending another message." }),
+  "chat.permissionFailed": msg({ id: "chat.permissionFailed", message: "The reply could not be sent. Try again." }),
 } as const

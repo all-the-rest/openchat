@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom"
 import { lazy, Suspense, type ReactNode } from "react"
 import { AuthProvider, useAuth } from "./auth/provider"
+import { CompletionProvider } from "./chat/completion"
 import { AppShell } from "./components/AppShell"
 import { EventStreamProvider } from "./api/events"
 import { SessionsProvider } from "./chat/sessions"
@@ -28,6 +29,9 @@ const ArtifactsPage = lazy(() =>
 const ArtifactViewer = lazy(() =>
   import("./artifacts/ArtifactViewer").then((m) => ({ default: m.ArtifactViewer })),
 )
+const SettingsPage = lazy(() =>
+  import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+)
 
 /**
  * Suspense boundary for one lazily imported route. It sits inside the shell
@@ -50,7 +54,9 @@ function ProtectedShell() {
     <SurfaceProvider>
       <SessionsProvider>
         <EventStreamProvider>
-          <AppShell />
+          <CompletionProvider>
+            <AppShell />
+          </CompletionProvider>
         </EventStreamProvider>
       </SessionsProvider>
     </SurfaceProvider>
@@ -211,6 +217,14 @@ function AppRoutes() {
           element={
             <LazyRoute>
               <CodeRoute />
+            </LazyRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <LazyRoute>
+              <SettingsPage />
             </LazyRoute>
           }
         />

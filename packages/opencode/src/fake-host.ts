@@ -1,4 +1,4 @@
-import type { EventEnvelope } from "@openchat/contracts"
+import type { EventEnvelope, PermissionDecision } from "@openchat/contracts"
 import { BackendError } from "./errors"
 import type {
   AppsSnapshot,
@@ -27,6 +27,11 @@ export class FakeHostSwitch implements ChatBackend {
 
   get down(): boolean {
     return this.hostDown
+  }
+
+  /** The wrapped backend, so the fake-mode probe can reach its test hooks. */
+  get inner(): ChatBackend {
+    return this.backend
   }
 
   setHostDown(down: boolean): void {
@@ -93,6 +98,20 @@ export class FakeHostSwitch implements ChatBackend {
   async listAgents(): ReturnType<ChatBackend["listAgents"]> {
     this.guard()
     return this.backend.listAgents()
+  }
+
+  async listPermissions(sessionID: string) {
+    this.guard()
+    return this.backend.listPermissions(sessionID)
+  }
+
+  async replyPermission(
+    sessionID: string,
+    requestID: string,
+    decision: PermissionDecision,
+  ): Promise<void> {
+    this.guard()
+    return this.backend.replyPermission(sessionID, requestID, decision)
   }
 
   async listApps(): Promise<AppsSnapshot> {
