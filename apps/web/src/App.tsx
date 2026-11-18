@@ -1,20 +1,42 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom"
-import type { ReactNode } from "react"
-import { AppsPage } from "./apps/AppsPage"
-import { ArtifactsPage } from "./artifacts/ArtifactsPage"
-import { ArtifactViewer } from "./artifacts/ArtifactViewer"
+import { lazy, Suspense, type ReactNode } from "react"
 import { AuthProvider, useAuth } from "./auth/provider"
 import { AppShell } from "./components/AppShell"
 import { EventStreamProvider } from "./api/events"
 import { SessionsProvider } from "./chat/sessions"
-import { CodePage } from "./code/CodePage"
 import { SurfaceHome, SurfaceProvider, useSurface } from "./code/SurfaceProvider"
 import { I18nProvider, useT } from "./i18n/provider"
-import { ChatPage } from "./pages/ChatPage"
 import { LandingPage } from "./pages/LandingPage"
 import { LoginPage } from "./pages/LoginPage"
-import { SearchPage } from "./search/SearchPage"
 import { ThemeProvider } from "./theme/provider"
+
+/**
+ * Route-level split (issue #26). Login and the landing page stay in the entry
+ * chunk: they are the first paint. Everything else — above all chat with its
+ * markdown/Katex/highlight renderer — loads on navigation, so an anonymous
+ * visit never downloads transcript code and the chat never blocks boot.
+ */
+const ChatPage = lazy(() => import("./pages/ChatPage").then((m) => ({ default: m.ChatPage })))
+const SearchPage = lazy(() =>
+  import("./search/SearchPage").then((m) => ({ default: m.SearchPage })),
+)
+const CodePage = lazy(() => import("./code/CodePage").then((m) => ({ default: m.CodePage })))
+const AppsPage = lazy(() => import("./apps/AppsPage").then((m) => ({ default: m.AppsPage })))
+const ArtifactsPage = lazy(() =>
+  import("./artifacts/ArtifactsPage").then((m) => ({ default: m.ArtifactsPage })),
+)
+const ArtifactViewer = lazy(() =>
+  import("./artifacts/ArtifactViewer").then((m) => ({ default: m.ArtifactViewer })),
+)
+
+/**
+ * Suspense boundary for one lazily imported route. It sits inside the shell
+ * (the route element is the `Outlet` content), so navigating to a lazy route
+ * keeps the sidebar and app bar mounted and only the content area waits.
+ */
+function LazyRoute({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+}
 
 function ProtectedShell() {
   const auth = useAuth()
@@ -120,6 +142,15 @@ function BootError({ onRetry }: { onRetry(): Promise<void> }) {
   )
 }
 
+/** Placeholder while a lazily imported route chunk is in flight. */
+function RouteFallback() {
+  return (
+    <div data-testid="route-loading" className="flex min-h-0 flex-1 items-center justify-center">
+      <span className="loading loading-spinner loading-md" aria-hidden="true" />
+    </div>
+  )
+}
+
 function AppRoutes() {
   const auth = useAuth()
 
@@ -143,17 +174,61 @@ function AppRoutes() {
             </SurfaceHome>
           }
         />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/c/:sessionId" element={<ChatPage />} />
-        <Route path="/c/:sessionId/:messageId" element={<ChatPage />} />
-        <Route path="/code" element={<CodeRoute />} />
-        <Route path="/code/*" element={<CodeRoute />} />
-        <Route path="/apps" element={<AppsRoute />} />
+        <Route
+          path="/search"
+          element={
+            <LazyRoute>
+              <SearchPage />
+            </LazyRoute>
+          }
+        />
+        <Route
+          path="/c/:sessionId"
+          element={
+            <LazyRoute>
+              <ChatPage />
+            </LazyRoute>
+          }
+        />
+        <Route
+          path="/c/:sessionId/:messageId"
+          element={
+            <LazyRoute>
+              <ChatPage />
+            </LazyRoute>
+          }
+        />
+        <Route
+          path="/code"
+          element={
+            <LazyRoute>
+              <CodeRoute />
+            </LazyRoute>
+          }
+        />
+        <Route
+          path="/code/*"
+          element={
+            <LazyRoute>
+              <CodeRoute />
+            </LazyRoute>
+          }
+        />
+        <Route
+          path="/apps"
+          element={
+            <LazyRoute>
+              <AppsRoute />
+            </LazyRoute>
+          }
+        />
         <Route
           path="/artifacts"
           element={
             <ArtifactsRoute>
-              <ArtifactsPage />
+              <LazyRoute>
+                <ArtifactsPage />
+              </LazyRoute>
             </ArtifactsRoute>
           }
         />
@@ -161,7 +236,9 @@ function AppRoutes() {
           path="/artifacts/:id"
           element={
             <ArtifactsRoute>
-              <ArtifactViewer />
+              <LazyRoute>
+                <ArtifactViewer />
+              </LazyRoute>
             </ArtifactsRoute>
           }
         />

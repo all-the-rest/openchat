@@ -41,6 +41,9 @@ COPY tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/server ./apps/server
 COPY apps/web ./apps/web
+# The web build's bundle gate lives at the repository root; the image build
+# runs it too, so no image can ship a violating bundle.
+COPY scripts/check-bundle.ts ./scripts/check-bundle.ts
 
 RUN pnpm --filter @openchat/web run build \
  && pnpm --filter @openchat/server run build:image
