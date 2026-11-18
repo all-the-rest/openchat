@@ -10,6 +10,7 @@ import type { DictationInfo } from "@openchat/contracts"
 import { useI18n, useT } from "../i18n/provider"
 import { SendIcon, StopIcon } from "../components/icons"
 import { HOST_BANNER_ID } from "../components/HostStatusBanner"
+import { OFFLINE_BANNER_ID } from "../components/OfflineBanner"
 import { useSurfaceOrNull } from "../code/SurfaceProvider"
 import { DictationButton } from "../dictation/DictationButton"
 import { DictationFeedback } from "../dictation/DictationFeedback"
@@ -17,6 +18,7 @@ import { RecordingPill } from "../dictation/RecordingPill"
 import { useDictation } from "../dictation/useDictation"
 import { useDictationConfig } from "../dictation/useDictationConfig"
 import { useMediaQuery } from "../lib/useMediaQuery"
+import { useOffline } from "../pwa/offline"
 import { readDraft, writeDraft } from "./drafts"
 
 export interface ComposerProps {
@@ -50,6 +52,8 @@ export function Composer({
   // The shell's banner explains the outage; here it only disables the send
   // path. Keep the textarea usable so the draft is not lost.
   const hostUnreachable = useSurfaceOrNull()?.hostReachable === false
+  // Offline has no queue in v1: the whole composer is inert and explains why.
+  const offline = useOffline()
   const [value, setValue] = useState(() => (draftKey ? readDraft(draftKey) : ""))
   const [sending, setSending] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -125,7 +129,7 @@ export function Composer({
   }, [value])
 
   const submit = useCallback(async () => {
-    if (hostUnreachable) return
+    if (hostUnreachable || offline) return
     const text = value.trim()
     if (!text || sending) return
     setSending(true)
@@ -138,7 +142,7 @@ export function Composer({
     } finally {
       setSending(false)
     }
-  }, [hostUnreachable, value, sending, onSend, updateValue])
+  }, [hostUnreachable, offline, value, sending, onSend, updateValue])
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     updateValue(event.target.value)
@@ -148,8 +152,8 @@ export function Composer({
     if (event.key !== "Enter" || event.shiftKey) return
     if (event.nativeEvent.isComposing) return
     // While the host is down Enter edits the draft (a newline) instead of
-    // firing a request that cannot succeed.
-    if (hostUnreachable) return
+    // firing a request that cannot succeed. Offline disables the field itself.
+    if (hostUnreachable || offline) return
     event.preventDefault()
     void submit()
   }
@@ -176,7 +180,7 @@ export function Composer({
           onKeyDown={handleKeyDown}
           rows={1}
           autoFocus={autoFocus}
-          disabled={disabled}
+          disabled={disabled || offline}
           aria-label={t("composer.label")}
           placeholder={t("composer.placeholder")}
           className="max-h-48 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 text-base-content outline-none placeholder:text-muted"
@@ -199,10 +203,22 @@ export function Composer({
             type="button"
             data-testid="send"
             onClick={() => void submit()}
-            disabled={disabled || hostUnreachable || value.trim().length === 0}
-            aria-describedby={hostUnreachable ? HOST_BANNER_ID : undefined}
+            disabled={disabled || offline || hostUnreachable || value.trim().length === 0}
+            aria-describedby={
+              offline
+                ? `${OFFLINE_BANNER_ID} offline-composer-hint`
+                : hostUnreachable
+                  ? HOST_BANNER_ID
+                  : undefined
+            }
             aria-label={t("composer.send")}
-            title={hostUnreachable ? t("host.unreachable") : t("composer.send")}
+            title={
+              offline
+                ? t("offline.title")
+                : hostUnreachable
+                  ? t("host.unreachable")
+                  : t("composer.send")
+            }
             className="btn btn-primary btn-circle"
           >
             {sending ? (
@@ -213,6 +229,11 @@ export function Composer({
           </button>
         </div>
       </div>
+      {offline ? (
+        <p id="offline-composer-hint" className="px-2 pt-1.5 text-xs text-error">
+          {t("offline.composerHint")}
+        </p>
+      ) : null}
       {dictation.enabled ? <DictationFeedback dictation={dictation} /> : null}
       {coarsePointer ? null : (
         <p className="px-2 pt-1.5 text-xs text-muted">{t("composer.hint")}</p>

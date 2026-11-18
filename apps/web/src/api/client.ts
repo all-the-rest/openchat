@@ -1,3 +1,4 @@
+import { reportNetworkFailure, reportNetworkSuccess } from "../pwa/offline"
 import type {
   AppsResponse,
   ArtifactResponse,
@@ -71,11 +72,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   headers.set("accept", "application/json")
 
-  const response = await fetch(path, {
-    ...init,
-    headers,
-    credentials: "same-origin",
-  })
+  let response: Response
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers,
+      credentials: "same-origin",
+    })
+  } catch (error) {
+    reportNetworkFailure()
+    throw error
+  }
+  reportNetworkSuccess()
+  if (response.headers.get("x-openchat-offline") === "1") reportNetworkFailure()
 
   if (!response.ok) throw await parseError(response)
   if (response.status === 204) return undefined as T
@@ -110,10 +119,18 @@ const artifactPath = (id: string) => `/api/artifacts/${encodeURIComponent(id)}`
  * artifact host, so no short-lived URL reaches the browser's download history.
  */
 async function requestBlob(path: string): Promise<Blob> {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: { accept: "text/html" },
-  })
+  let response: Response
+  try {
+    response = await fetch(path, {
+      credentials: "same-origin",
+      headers: { accept: "text/html" },
+    })
+  } catch (error) {
+    reportNetworkFailure()
+    throw error
+  }
+  reportNetworkSuccess()
+  if (response.headers.get("x-openchat-offline") === "1") reportNetworkFailure()
   if (!response.ok) throw await parseError(response)
   return response.blob()
 }

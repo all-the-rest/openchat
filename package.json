@@ -14,11 +14,16 @@
     "release:bump": "node scripts/release.ts bump",
     "release:changelog": "node scripts/release.ts changelog",
     "release:check": "node scripts/release.ts check",
+    "icons": "node scripts/icons.ts",
     "gates:fast": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && ratchet check --tier fast",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "engines": {
     "node": ">=24",
     "pnpm": ">=11"
+  },
+  "devDependencies": {
+    "@lingui/core": "^6.12.0",
+    "sharp": "^0.34.5"
   }
 }
