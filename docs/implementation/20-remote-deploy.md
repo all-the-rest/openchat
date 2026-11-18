@@ -21,6 +21,7 @@ routing probes against `caddy:2-alpine`.
 | Piece | Path | What it is |
 | --- | --- | --- |
 | OpenCode image | `deploy/Dockerfile.opencode` | official `opencode:2.3.2` + git, ripgrep, Docker CLI, Node, artifact tool |
+| Documents image | `deploy/Dockerfile.documents` | Debian + LibreOffice; built and published like the other five, internal only (issue #46) |
 | Remote overlay | `deploy/remote/compose.yaml` | `webnet` edge network, memory caps, loopback disks |
 | Edge fragment | `deploy/remote/Caddyfile.openchat` | three site blocks, imported by the host Caddy; `/internal/*` refused |
 | Driver | `deploy/remote/deploy.sh` | sync, disks, `.env`, build, swap, Caddy; `--dry-run` |
@@ -28,7 +29,7 @@ routing probes against `caddy:2-alpine`.
 | Disks | `deploy/remote/mount-disks.sh` | create/mount/unmount the three ext4 images, chown, marker |
 | Env bootstrap | `deploy/remote/env-bootstrap.sh` | writes `.env` once, escaped, `0600`, never printed |
 | Escape filter | `deploy/remote/env-value.sh` | doubles `$` for Compose, idempotent |
-| MCP seed | `deploy/remote/seed-config.sh` | two `local` entries (artifact, Python) in `opencode.json`, `0600`, once |
+| MCP seed | `deploy/remote/seed-config.sh` | two `local` entries (artifact, Python) in `opencode.json`, `0600`, once; the Python entry also carries `WORKSPACE_DIR`, `DOCUMENTS_URL` and `DOCUMENTS_TOKEN` |
 | Caddy install | `deploy/remote/caddy.sh` | staged validate, import line, reload, backup, remove |
 | Boot unit | `deploy/remote/openchat-disks.service` | mounts the images before Docker |
 | Boot guard | `deploy/remote/openchat-guard.sh` + `.service` | stops only this stack if a mount failed |

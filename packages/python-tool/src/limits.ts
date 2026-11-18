@@ -36,3 +36,11 @@ export const MAX_CELL_CHARS = 2_000
 /** The artifact store's own limits, repeated here so a wrapper is rejected early. */
 export const ARTIFACT_MAX_BYTES = 1_048_576
 export const ARTIFACT_TITLE_MAX = 120
+
+/** Documents service (issue #46): template read guard and wire caps. */
+export const MAX_TEMPLATE_BYTES = 8 * 1024 * 1024
+export const MAX_TEMPLATE_PATH_CHARS = 300
+export const DOCUMENTS_TIMEOUT_MS = 40_000
+export const MAX_DOCUMENTS_RESPONSE_BYTES = 24 * 1024 * 1024
+/** Outputs written beside the template keep the same per-file ceiling. */
+export const MAX_CHAT_OUTPUT_BYTES = 32 * 1024 * 1024

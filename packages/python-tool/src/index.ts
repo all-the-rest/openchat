@@ -1,4 +1,5 @@
-import { loadToolEnv } from "./env"
+import { createDocumentsClient } from "./documents-client"
+import { loadDocumentsToolEnv } from "./env"
 import { serveStdio } from "./mcp"
 import type { ToolCallResult } from "./mcp"
 import { createRunner } from "./runner"
@@ -15,7 +16,9 @@ import type { ToolDeps, ToolSuccess } from "./tool"
 function formatSuccess(value: ToolSuccess, read: boolean): string {
   const verb = read ? "Read" : "Wrote"
   const head = `${verb} "${value.filename}" (artifact ${value.artifactID}, ${value.fileBytes} bytes).`
-  return value.preview === undefined ? head : `${head}\n\n${value.preview}`
+  const files = value.files === undefined ? "" : `\nChat files: ${value.files.join(", ")}.`
+  const preview = value.preview === undefined ? "" : `\n\n${value.preview}`
+  return `${head}${files}${preview}`
 }
 
 function call(deps: ToolDeps) {
@@ -32,12 +35,19 @@ function call(deps: ToolDeps) {
 }
 
 export async function main(): Promise<void> {
-  const env = loadToolEnv()
+  const env = loadDocumentsToolEnv()
   const runner = createRunner({ python: env.python })
+  const documents = createDocumentsClient({ url: env.documentsUrl, token: env.documentsToken })
   await serveStdio({
     input: process.stdin,
     output: process.stdout,
-    call: call({ bffUrl: env.bffUrl, token: env.token, runner }),
+    call: call({
+      bffUrl: env.bffUrl,
+      token: env.token,
+      runner,
+      workspaceDir: env.workspaceDir,
+      documents,
+    }),
   })
 }
 

@@ -10,6 +10,8 @@ import {
   MAX_VALUE_CHARS,
   MAX_VALUES,
 } from "./limits"
+import type { DocumentsConvertInput, DocumentsFillInput } from "./validate-documents"
+import { validateDocumentsConvert, validateDocumentsFill } from "./validate-documents"
 
 /**
  * Argument validation for the four document tools. Every rejection is one
@@ -23,6 +25,8 @@ export const TOOL_NAMES = [
   "xlsx_write",
   "pdf_from_markdown",
   "read_document",
+  "documents_fill",
+  "documents_convert",
 ] as const
 
 export type ToolName = (typeof TOOL_NAMES)[number]
@@ -60,6 +64,8 @@ export type ValidatedCall =
   | { name: "xlsx_write"; value: XlsxWriteInput }
   | { name: "pdf_from_markdown"; value: PdfFromMarkdownInput }
   | { name: "read_document"; value: ReadDocumentInput }
+  | { name: "documents_fill"; value: DocumentsFillInput }
+  | { name: "documents_convert"; value: DocumentsConvertInput }
 
 export type ValidationResult =
   | { ok: true; value: ValidatedCall }
@@ -370,6 +376,10 @@ export function validateTool(name: string, input: unknown): ValidationResult {
       return validatePdf(input)
     case "read_document":
       return validateRead(input)
+    case "documents_fill":
+      return validateDocumentsFill(input)
+    case "documents_convert":
+      return validateDocumentsConvert(input)
     default:
       return bad("input: unknown tool")
   }

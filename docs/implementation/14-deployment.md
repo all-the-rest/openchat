@@ -18,8 +18,9 @@ esbuild command the Dockerfiles use, and by running the bundles directly with
 | BFF image | `deploy/Dockerfile.bff` | BFF + built SPA on one origin; the only application port |
 | Code host image | `deploy/Dockerfile.code-host` | OpenCode UI proxy on `code.<domain>` |
 | Artifact host image | `deploy/Dockerfile.artifact-host` | read-only byte server on `artifacts.<domain>` |
+| Documents image | `deploy/Dockerfile.documents` | Debian + LibreOffice for `.dotx` → DOCX/PDF; internal only, no published port (issue #46) |
 | Tool runtime | `deploy/code-host/tools.Dockerfile` | git, gh, ripgrep, node/pnpm, Docker CLI for agent work |
-| Stack | `compose.yaml` | one project, six services, profiles for the optional three |
+| Stack | `compose.yaml` | one project, seven services, profiles for the optional three |
 | Swap | `deploy/swap.sh` | candidate validation, link swap, rollback, `--dry-run` |
 | Env template | `deploy/env.example` | host-only `.env` skeleton, every secret empty |
 | Host guards | `deploy/host/` | RAM watchdog, dind image GC, artifact-disk alert; systemd units + installer |
@@ -35,6 +36,7 @@ internet ──TLS──▶ edge proxy (owner's Caddy, not in this file)
                           artifacts volume (ro)
 bff ──backend──▶ opencode:4096              never published, Basic auth
 bff/code-host/toolbox ──backend──▶ …
+agent (opencode) ──backend──▶ documents:8099 never published, bearer token
 toolbox ──dind──▶ rootless dockerd:2375     profile only, internal network
 ```
 

@@ -76,6 +76,7 @@ describe("compose stack boundaries", () => {
       "bff",
       "code-host",
       "dind",
+      "documents",
       "opencode",
       "toolbox",
     ])
@@ -178,6 +179,7 @@ describe("compose stack boundaries", () => {
       "CODE_TICKET_SECRET",
       "ARTIFACT_SIGNING_KEY",
       "ARTIFACT_INTERNAL_TOKEN",
+      "DOCUMENTS_TOKEN",
     ]
     for (const key of secretKeys) {
       const assignments = [...COMPOSE.matchAll(new RegExp(`^\\s*${key}: (.*)$`, "gm"))]
@@ -205,7 +207,7 @@ describe("compose stack boundaries", () => {
   })
 
   it("keeps the env template secret-free", () => {
-    for (const key of ["OPENCHAT_PASSWORD", "OPENCHAT_PASSWORD_HASH", "SESSION_SECRET", "OPENCODE_PASSWORD", "CODE_TICKET_SECRET", "ARTIFACT_SIGNING_KEY", "ARTIFACT_INTERNAL_TOKEN", "STT_API_KEY"]) {
+    for (const key of ["OPENCHAT_PASSWORD", "OPENCHAT_PASSWORD_HASH", "SESSION_SECRET", "OPENCODE_PASSWORD", "CODE_TICKET_SECRET", "ARTIFACT_SIGNING_KEY", "ARTIFACT_INTERNAL_TOKEN", "DOCUMENTS_TOKEN", "STT_API_KEY"]) {
       expect(ENV_TEMPLATE, `${key} must stay empty in the template`).toMatch(
         new RegExp(`^${key}=$`, "m"),
       )

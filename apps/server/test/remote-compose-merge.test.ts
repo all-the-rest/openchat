@@ -26,6 +26,9 @@ interface Service {
   image?: string
   mem_limit?: string
   volumes?: Mount[]
+  networks?: Record<string, unknown>
+  ports?: unknown[]
+  environment?: Record<string, string>
 }
 
 const MERGED = JSON.parse(
@@ -95,6 +98,15 @@ describe("merged remote compose", () => {
       // The BFF is the writer; a `:ro` on this one target would fail at runtime.
       expect(mount?.read_only, `${name} writes chat files`).not.toBe(true)
     }
+  })
+
+  it("keeps the documents service internal, capped and token-authenticated", () => {
+    const documents = SERVICES.documents
+    expect(documents).toBeDefined()
+    expect(documents?.mem_limit).toBe("1024m")
+    expect(documents?.ports).toBeUndefined()
+    expect(Object.keys(documents?.networks ?? {})).toEqual(["backend"])
+    expect(documents?.environment?.DOCUMENTS_TOKEN).toMatch(/^\$\{DOCUMENTS_TOKEN:\?/)
   })
 
   it("builds every application image from this tree and only dind from upstream", () => {

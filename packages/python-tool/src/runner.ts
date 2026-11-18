@@ -58,12 +58,15 @@ export interface RunnerOptions {
   timeoutMs?: number
 }
 
+/** The two chat-file tools call the HTTP service, never a Python script. */
+export type PythonToolName = Exclude<ToolName, "documents_fill" | "documents_convert">
+
 export type PythonRunner = (
-  tool: ToolName,
+  tool: PythonToolName,
   input: Record<string, unknown>,
 ) => Promise<RunResult>
 
-const SCRIPTS: Record<ToolName, string> = {
+const SCRIPTS: Record<PythonToolName, string> = {
   docx_fill: fileURLToPath(new URL("../python/docx_fill.py", import.meta.url)),
   xlsx_write: fileURLToPath(new URL("../python/xlsx_write.py", import.meta.url)),
   pdf_from_markdown: fileURLToPath(new URL("../python/pdf_from_markdown.py", import.meta.url)),
@@ -79,7 +82,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   unsupported: "unsupported: this file type cannot be read",
 }
 
-const EXPECTED_EXTENSION: Record<ToolName, string> = {
+const EXPECTED_EXTENSION: Record<PythonToolName, string> = {
   docx_fill: ".docx",
   xlsx_write: ".xlsx",
   pdf_from_markdown: ".pdf",
@@ -116,7 +119,7 @@ function readErrorCode(stdout: string): string | null {
 
 function readSuccess(
   stdout: string,
-  tool: ToolName,
+  tool: PythonToolName,
 ): { ok: true; value: PythonFile } | { ok: false; error: string } {
   let parsed: unknown
   try {
@@ -153,7 +156,7 @@ function readSuccess(
   return { ok: true, value: { filename, mediaType, data: bytes } }
 }
 
-function mapResult(result: ProcessResult, tool: ToolName): RunResult {
+function mapResult(result: ProcessResult, tool: PythonToolName): RunResult {
   if (result.failure === "output") {
     return { ok: false, error: "internal: the document tool produced too much output" }
   }

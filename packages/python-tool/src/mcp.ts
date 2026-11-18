@@ -127,7 +127,57 @@ export const READ_TOOL = {
   },
 } as const
 
-export const TOOLS = [DOCX_TOOL, XLSX_TOOL, PDF_TOOL, READ_TOOL] as const
+export const DOCUMENTS_FILL_TOOL = {
+  name: "documents_fill",
+  title: "Fill an uploaded Word template and export a PDF",
+  description: [
+    "Fill a .docx/.dotx template that was uploaded into a chat, then write the filled DOCX and",
+    "its LibreOffice PDF back into the same chat's files folder. `templatePath` is relative:",
+    "`<sessionID>/files/<name>.docx|.dotx` under WORKSPACE_DIR/chats. Never pass an absolute path.",
+    "`values` may hold scalars and lists/maps for `{% for %}` loops. Macro-enabled files are rejected.",
+    "Both file names are returned; each file is also stored as a downloadable artifact card.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      templatePath: { type: "string", description: "Relative path <sessionID>/files/<name>.docx|.dotx" },
+      values: { type: "object", description: "Placeholder values; at most 64 keys." },
+      name: { type: "string", description: "Optional base name for the two outputs." },
+    },
+    required: ["templatePath", "values"],
+    additionalProperties: false,
+  },
+} as const
+
+export const DOCUMENTS_CONVERT_TOOL = {
+  name: "documents_convert",
+  title: "Export a chat DOCX as PDF",
+  description: [
+    "Convert a .docx in a chat's files folder to PDF with LibreOffice and write the PDF back",
+    "into that folder. `templatePath` is `<sessionID>/files/<name>.docx` relative to WORKSPACE_DIR/chats.",
+    "Never pass an absolute path. The PDF name is returned and stored as a downloadable card.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      templatePath: { type: "string", description: "Relative path <sessionID>/files/<name>.docx" },
+      name: { type: "string", description: "Optional base name for the PDF." },
+    },
+    required: ["templatePath"],
+    additionalProperties: false,
+  },
+} as const
+
+export const TOOLS = [
+  DOCX_TOOL,
+  XLSX_TOOL,
+  PDF_TOOL,
+  READ_TOOL,
+  DOCUMENTS_FILL_TOOL,
+  DOCUMENTS_CONVERT_TOOL,
+] as const
 
 export interface ToolCallResult {
   text: string

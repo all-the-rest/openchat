@@ -35,6 +35,8 @@ TOOL_ENTRY=/opt/artifact-tool/packages/artifact-tool/src/index.ts
 PYTHON_TOOL_ENTRY=/opt/artifact-tool/packages/python-tool/src/index.ts
 PYTHON_BIN=/usr/bin/python3
 BFF_URL=http://bff:8787
+DOCUMENTS_URL=http://documents:8099
+WORKSPACE=/workspace
 
 usage() {
   cat <<'EOF'
@@ -102,9 +104,11 @@ main() {
   fi
 
   [ -r "$STACK_DIR/.env" ] || die "missing $STACK_DIR/.env; run env-bootstrap.sh first"
-  local token
+  local token documents_token
   token=$(env_value ARTIFACT_INTERNAL_TOKEN)
   [ -n "$token" ] || die "$STACK_DIR/.env has no ARTIFACT_INTERNAL_TOKEN"
+  documents_token=$(env_value DOCUMENTS_TOKEN)
+  [ -n "$documents_token" ] || die "$STACK_DIR/.env has no DOCUMENTS_TOKEN"
 
   if [ "$DRY_RUN" -eq 1 ]; then
     note "would: write $file (0600) with local MCP entries for $BFF_URL"
@@ -133,7 +137,10 @@ main() {
       "environment": {
         "OPENCHAT_BFF_URL": "$BFF_URL",
         "ARTIFACT_INTERNAL_TOKEN": "$token",
-        "OPENCHAT_PYTHON": "$PYTHON_BIN"
+        "OPENCHAT_PYTHON": "$PYTHON_BIN",
+        "WORKSPACE_DIR": "$WORKSPACE",
+        "DOCUMENTS_URL": "$DOCUMENTS_URL",
+        "DOCUMENTS_TOKEN": "$documents_token"
       }
     }
   }

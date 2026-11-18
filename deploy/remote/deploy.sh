@@ -5,7 +5,7 @@
 # The driver; only the helper scripts under deploy/remote/ and deploy/swap.sh
 # run on the target, from the synced release source tree. One run: sync, install
 # the boot unit and mount the size-capped ext4 images (2/4/4 GiB), bootstrap .env
-# once, seed the MCP entry once, build five images, render the release
+# once, seed the MCP entry once, build six images, render the release
 # (`config --no-interpolate`, no secret in a file), validate and swap, and
 # install the Caddy fragment last: a failed deploy never takes the existing
 # sites down and no certificate is requested for a dead upstream.
@@ -43,7 +43,7 @@ DIND_MIN_AVAILABLE_MIB=5120
 
 REQUIRED_FILES=(
   compose.yaml deploy/swap.sh
-  deploy/Dockerfile.opencode deploy/remote/compose.yaml
+  deploy/Dockerfile.opencode deploy/Dockerfile.documents deploy/remote/compose.yaml
   deploy/remote/Caddyfile.openchat deploy/remote/mount-disks.sh
   deploy/remote/env-bootstrap.sh deploy/remote/env-value.sh
   deploy/remote/seed-config.sh deploy/remote/caddy.sh
@@ -304,7 +304,7 @@ check_dind_headroom() {
 build_images() {
   step "build images on the host"
   # `toolbox` (663 MB) is the dind tool runtime; no profile, no build.
-  local services="bff code-host artifact-host opencode"
+  local services="bff code-host artifact-host documents opencode"
   [ "$WITH_DIND" -eq 1 ] && services="$services toolbox"
   remote_compose build $services
 }

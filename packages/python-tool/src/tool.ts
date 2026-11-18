@@ -1,10 +1,16 @@
 import type { BffOptions } from "@openchat/artifact-tool/bff"
 import { getDocument, postDocument } from "@openchat/artifact-tool/bff"
 import type { ArtifactInternalCreateRequest } from "@openchat/contracts"
+import { writeChatOutputs } from "./chat-output"
+import type { DocumentsClient } from "./documents-client"
 import { ARTIFACT_MAX_BYTES, MAX_FILE_BYTES, MAX_TITLE, READ_PREVIEW_BYTES } from "./limits"
 import { buildFileArtifact, parseFileArtifact } from "./render"
 import type { PythonRunner } from "./runner"
+import { readTemplate } from "./template"
 import { validateTool } from "./validate"
+
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+const PDF_MIME = "application/pdf"
 
 /**
  * `runDocumentTool`: validate, run one fixed Python script, wrap its file in
@@ -15,6 +21,10 @@ import { validateTool } from "./validate"
 
 export interface ToolDeps extends BffOptions {
   runner: PythonRunner
+  /** Root of `WORKSPACE_DIR/chats`; required by the two chat-file tools. */
+  workspaceDir?: string
+  /** Client of the headless LibreOffice service. */
+  documents?: DocumentsClient
 }
 
 export interface ToolSuccess {
@@ -30,6 +40,8 @@ export interface ToolSuccess {
   fileBytes: number
   /** `read_document` only: the beginning of the extracted Markdown. */
   preview?: string
+  /** Chat-file tools only: names written beside the uploaded template. */
+  files?: string[]
 }
 
 export type ToolResult =
@@ -169,6 +181,65 @@ export async function runDocumentTool(
         run.value.data,
         previewOf(run.value.data),
       )
+    }
+
+    case "documents_fill": {
+      const input = call.value
+      const service = deps.documents
+      const workspaceDir = deps.workspaceDir
+      if (!service) {
+        return { ok: false, error: "service: the documents service is unreachable; check DOCUMENTS_URL" }
+      }
+      if (!workspaceDir) return { ok: false, error: "templatePath: WORKSPACE_DIR is not configured" }
+      const template = await readTemplate(workspaceDir, input.templatePath)
+      if (!template.ok) return { ok: false, error: template.error }
+      const filled = await service.fill({
+        template: Buffer.from(template.bytes).toString("base64"),
+        values: input.values,
+        name: input.name ?? "document",
+      })
+      if (!filled.ok) return filled
+      const written = await writeChatOutputs(workspaceDir, input.templatePath, input.name, [
+        { name: filled.value.docxName, bytes: filled.value.docx },
+        { name: filled.value.pdfName, bytes: filled.value.pdf },
+      ])
+      if (!written.ok) return { ok: false, error: written.error }
+      const title = input.name ?? "Filled template"
+      const docx = await storeFile(deps, title, filled.value.docxName, DOCX_MIME, Buffer.from(filled.value.docx))
+      if (!docx.ok) return docx
+      const pdf = await storeFile(deps, title, filled.value.pdfName, PDF_MIME, Buffer.from(filled.value.pdf))
+      if (!pdf.ok) return pdf
+      return { ok: true, value: { ...docx.value, files: written.names } }
+    }
+
+    case "documents_convert": {
+      const input = call.value
+      const service = deps.documents
+      const workspaceDir = deps.workspaceDir
+      if (!service) {
+        return { ok: false, error: "service: the documents service is unreachable; check DOCUMENTS_URL" }
+      }
+      if (!workspaceDir) return { ok: false, error: "templatePath: WORKSPACE_DIR is not configured" }
+      const template = await readTemplate(workspaceDir, input.templatePath)
+      if (!template.ok) return { ok: false, error: template.error }
+      const converted = await service.convert({
+        document: Buffer.from(template.bytes).toString("base64"),
+        name: input.name ?? "document",
+      })
+      if (!converted.ok) return converted
+      const written = await writeChatOutputs(workspaceDir, input.templatePath, input.name, [
+        { name: converted.value.pdfName, bytes: converted.value.pdf },
+      ])
+      if (!written.ok) return { ok: false, error: written.error }
+      const stored = await storeFile(
+        deps,
+        input.name ?? "Converted document",
+        converted.value.pdfName,
+        PDF_MIME,
+        Buffer.from(converted.value.pdf),
+      )
+      if (!stored.ok) return stored
+      return { ok: true, value: { ...stored.value, files: written.names } }
     }
 
     default:

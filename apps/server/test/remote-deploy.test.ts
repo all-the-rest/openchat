@@ -282,6 +282,7 @@ describe("env bootstrap", { timeout: 60_000 }, () => {
     expect(text).toContain("OPENCHAT_USER=owner")
     expect(text).toContain(`OPENCHAT_PASSWORD_HASH=${escapeValue(DIGEST)}`)
     expect(text).toMatch(/^ARTIFACT_INTERNAL_TOKEN=[0-9a-f]{64}$/m)
+    expect(text).toMatch(/^DOCUMENTS_TOKEN=[0-9a-f]{64}$/m)
     expect(text).toMatch(/^OPENCODE_PASSWORD=.{16,}$/m)
 
     // No value leaves the script through stdout or stderr.
@@ -300,7 +301,8 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
   it("seeds one local entry once, without printing the token", () => {
     const stack = temp("openchat-seed-")
     const token = "0123456789abcdef0123456789abcdef"
-    writeFileSync(join(stack, ".env"), `ARTIFACT_INTERNAL_TOKEN=${token}\n`)
+    const documentsToken = "fedcba9876543210fedcba9876543210"
+    writeFileSync(join(stack, ".env"), `ARTIFACT_INTERNAL_TOKEN=${token}\nDOCUMENTS_TOKEN=${documentsToken}\n`)
 
     const result = bash([SEED, "--stack-dir", stack])
     expect(result.status, result.stderr).toBe(0)
@@ -318,6 +320,8 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
     expect(text).toContain('"openchat-python"')
     expect(text).toContain("/opt/artifact-tool/packages/python-tool/src/index.ts")
     expect(text).toContain('"OPENCHAT_PYTHON": "/usr/bin/python3"')
+    expect(text).toContain('"DOCUMENTS_URL": "http://documents:8099"')
+    expect(text).toContain(documentsToken)
 
     writeFileSync(file, `${text}\n`)
     const stamp = statSync(file).mtimeMs
