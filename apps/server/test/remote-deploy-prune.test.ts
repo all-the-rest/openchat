@@ -205,6 +205,27 @@ describe("release retention", { timeout: 30_000 }, () => {
     expect(existsSync(join(stack, "releases", OLD))).toBe(false)
   })
 
+  it("rejects a --stack-dir with a parent segment or a control character", () => {
+    const root = temp("openchat-prune-")
+    const bin = join(root, "bin")
+    mkdirSync(bin)
+    const log = join(root, "docker.log")
+    writeFileSync(log, "")
+
+    for (const [dir, reason] of [
+      [`${root}/../escape`, "must not contain a '..' segment"],
+      [`${root}/bad\tname`, "must not contain control characters"],
+    ] as const) {
+      const result = run(PRUNE, ["--stack-dir", dir], {
+        PATH: `${bin}:${process.env.PATH ?? ""}`,
+        DOCKER_LOG: log,
+      })
+      expect(result.status, result.stderr).toBe(2)
+      expect(result.stderr).toContain(reason)
+    }
+    expect(readFileSync(log, "utf8"), "no docker call for a rejected path").toBe("")
+  })
+
   it("is wired after the swap and Caddy, and records the tag per release", () => {
     const test = fixture()
     const dry = run(DEPLOY, ["--dry-run", "--tag", "abc1234"], test.env)

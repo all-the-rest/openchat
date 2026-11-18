@@ -98,6 +98,12 @@ parse_args() {
     /*) ;;
     *) usage_error "--stack-dir must be an absolute path: $STACK_DIR" ;;
   esac
+  case "$STACK_DIR" in
+    *[[:cntrl:]]*) usage_error "--stack-dir must not contain control characters" ;;
+  esac
+  case "/$STACK_DIR/" in
+    */../*) usage_error "--stack-dir must not contain a '..' segment: $STACK_DIR" ;;
+  esac
   case "$KEEP" in
     ""|*[!0-9]*) usage_error "--keep must be a positive integer: $KEEP" ;;
   esac
