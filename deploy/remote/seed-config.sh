@@ -10,7 +10,9 @@
 #
 # `/opt/stacks/openchat/opencode-config/opencode.json` is created only when it
 # does not exist. An existing file is left byte-for-byte alone: the agent may
-# have added providers or models, and a deploy must not overwrite them.
+# have added providers or models, and a deploy must not overwrite them. Its mode
+# is repaired to 0600 on every run, because an earlier release could have left a
+# world-readable file in place and that would expose the bearer token forever.
 #
 # The file is mode 0600. It is bind-mounted into one container that runs as root
 # (the official image sets no user), so the container can read it while host
@@ -72,12 +74,24 @@ env_value() {
   sed -n "s/^$1=//p" "$STACK_DIR/.env" | tail -n 1 | tr -d "'\""
 }
 
+# GNU stat first (the deploy target), BSD stat as the fallback for a local run.
+file_mode() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null || true
+}
+
 main() {
   parse_args "$@"
   CONFIG_DIR=${CONFIG_DIR:-$STACK_DIR/opencode-config}
   local file="$CONFIG_DIR/opencode.json"
 
   if [ -f "$file" ]; then
+    local mode
+    mode=$(file_mode "$file")
+    if [ "$DRY_RUN" -eq 0 ] && [ "$mode" != "600" ]; then
+      chmod 600 "$file"
+      note "config: repaired mode of $file (${mode:-unknown} -> 0600); content unchanged"
+    fi
+
     # Only the entry count, never the content.
     local entries
     entries=$(grep -c '"openchat"' "$file" 2>/dev/null || true)

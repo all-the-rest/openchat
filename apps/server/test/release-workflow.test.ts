@@ -64,6 +64,19 @@ function permissionsBlock(text: string): string[] {
   return block
 }
 
+/** One job's YAML block, from its 2-space key to the next job. */
+function jobBlock(text: string, job: string): string {
+  const lines = text.split("\n")
+  const start = lines.findIndex((line) => line === `  ${job}:`)
+  expect(start, `${job} job`).toBeGreaterThan(-1)
+  const block: string[] = []
+  for (const line of lines.slice(start + 1)) {
+    if (/^ {2}[a-z][a-z-]*:$/.test(line)) break
+    block.push(line)
+  }
+  return block.join("\n")
+}
+
 describe("release workflow", () => {
   it("runs on v tags and on a dry-run dispatch only", () => {
     const text = workflow()
@@ -74,12 +87,20 @@ describe("release workflow", () => {
     expect(text).not.toContain("pull_request")
   })
 
-  it("requests the minimal permissions and only GITHUB_TOKEN", () => {
+  it("keeps the workflow read-only and scopes the writes to their jobs", () => {
     const text = workflow()
-    expect(permissionsBlock(text)).toEqual(["contents: write", "packages: write"])
+    expect(permissionsBlock(text)).toEqual(["contents: read"])
     const secrets = [...text.matchAll(/secrets\.([A-Za-z_]+)/g)].map((match) => match[1])
     expect(new Set(secrets)).toEqual(new Set(["GITHUB_TOKEN"]))
     expect(text).not.toContain("id-token")
+
+    // `contents: write` appears once, in the job that creates the release.
+    expect(text.match(/contents: write/g)).toHaveLength(1)
+    expect(jobBlock(text, "github-release")).toContain("contents: write")
+    expect(jobBlock(text, "images")).toContain("packages: write")
+    for (const job of ["version", "gates"]) {
+      expect(jobBlock(text, job)).not.toContain("write")
+    }
   })
 
   it("runs the fast gates before any image is built", () => {

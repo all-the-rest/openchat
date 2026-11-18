@@ -1,7 +1,15 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto"
 import { compare } from "bcryptjs"
 
+/**
+ * The app session cookie. With `Secure` the name carries the `__Host-` prefix:
+ * a browser then refuses any cookie with that name that also carries a `Domain`
+ * attribute, so a sibling subdomain cannot shadow or toss it. Development keeps
+ * the plain name so a cookie set over plain HTTP still works. Only the name that
+ * matches the current configuration is read, never both.
+ */
 export const SESSION_COOKIE = "oc_session"
+export const SECURE_SESSION_COOKIE = "__Host-oc_session"
 
 export interface AuthSettings {
   mode: "session" | "basic"
@@ -55,6 +63,13 @@ export function readSessionValue(
   return user
 }
 
+/** The only cookie name the current configuration accepts. */
+export function sessionCookieName(
+  settings: Pick<AuthSettings, "secureCookie">,
+): string {
+  return settings.secureCookie ? SECURE_SESSION_COOKIE : SESSION_COOKIE
+}
+
 function cookieAttributes(settings: AuthSettings, maxAge: number): string {
   const attributes = [`Path=/`, "HttpOnly", "SameSite=Lax", `Max-Age=${maxAge}`]
   if (settings.secureCookie) attributes.push("Secure")
@@ -62,11 +77,12 @@ function cookieAttributes(settings: AuthSettings, maxAge: number): string {
 }
 
 export function sessionCookie(settings: AuthSettings, now = Date.now()): string {
-  return `${SESSION_COOKIE}=${createSessionValue(settings, now)}; ${cookieAttributes(settings, settings.ttlSeconds)}`
+  const name = sessionCookieName(settings)
+  return `${name}=${createSessionValue(settings, now)}; ${cookieAttributes(settings, settings.ttlSeconds)}`
 }
 
 export function clearSessionCookie(settings: AuthSettings): string {
-  return `${SESSION_COOKIE}=; ${cookieAttributes(settings, 0)}`
+  return `${sessionCookieName(settings)}=; ${cookieAttributes(settings, 0)}`
 }
 
 export function parseCookies(header: string | null): Record<string, string> {
@@ -102,6 +118,13 @@ export async function verifyCredentials(
     : constantTimeEqual(password, settings.password)
   return userMatches && passwordMatches ? settings.user : null
 }
+
+/** Injectable seam so tests can hold a verification open. */
+export type CredentialVerifier = (
+  user: string,
+  password: string,
+  settings: AuthSettings,
+) => Promise<string | null>
 
 /** `compare` throws on a malformed hash; a malformed hash must deny. */
 async function compareHash(password: string, hash: string): Promise<boolean> {
@@ -147,7 +170,9 @@ export function authenticate(
     return verifyBasic(request.headers.get("authorization"), settings)
   }
   const cookies = parseCookies(request.headers.get("cookie"))
-  const value = cookies[SESSION_COOKIE]
+  // Only the active name authenticates: when Secure is on, a `oc_session`
+  // cookie planted by an older release or a sibling subdomain is ignored.
+  const value = cookies[sessionCookieName(settings)]
   if (!value) return null
   return readSessionValue(value, settings, now)
 }

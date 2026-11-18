@@ -54,6 +54,21 @@ describe("verifyCredentials", () => {
     expect(compare).toHaveBeenCalledTimes(1)
   })
 
+  it("denies instead of throwing on a malformed hash", async () => {
+    compare.mockClear()
+    compare.mockRejectedValueOnce(new Error("Invalid salt version"))
+    // Configuration rejects this shape at boot; the verifier still has to deny
+    // if a hash reaches it, because a throw would be a different answer.
+    const result = await verifyCredentials(
+      "owner",
+      "secret-password",
+      settings({ passwordHash: "not-a-bcrypt-hash" }),
+    )
+
+    expect(result).toBeNull()
+    expect(compare).toHaveBeenCalledTimes(1)
+  })
+
   it("does not hash when the deployment carries a plaintext credential", async () => {
     compare.mockClear()
     const result = await verifyCredentials(

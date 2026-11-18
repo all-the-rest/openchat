@@ -30,6 +30,7 @@ interface Bucket {
 const DEFAULT_LIMIT = 10
 const DEFAULT_WINDOW_MS = 60_000
 const MAX_TRACKED_ADDRESSES = 1024
+const DEFAULT_VERIFICATION_PERMITS = 2
 
 export class FixedWindowThrottle {
   private readonly buckets = new Map<string, Bucket>()
@@ -86,5 +87,44 @@ export class FixedWindowThrottle {
     for (const [address, bucket] of this.buckets) {
       if (now >= bucket.resetAt) this.buckets.delete(address)
     }
+  }
+}
+
+/**
+ * Caps concurrent password verifications. bcryptjs runs in this process, so a
+ * burst from many addresses can occupy the only BFF even when every address
+ * stays inside its own budget. The permit is a plain counter because the check
+ * and the acquisition happen in the same synchronous step; callers release it
+ * in a `finally` so a wrong password, a malformed hash that throws, or a failed
+ * verification cannot leak capacity.
+ *
+ * Two permits are enough to let a login and a retry overlap without queueing
+ * inside bcrypt; everything beyond answers 429 instead of waiting.
+ */
+export class VerificationGate {
+  private active = 0
+  private readonly permits: number
+
+  constructor(permits = DEFAULT_VERIFICATION_PERMITS) {
+    if (!Number.isInteger(permits) || permits < 1) {
+      throw new Error("VerificationGate needs at least one permit")
+    }
+    this.permits = permits
+  }
+
+  /** Takes one permit; `false` means the caller must answer 429. */
+  tryAcquire(): boolean {
+    if (this.active >= this.permits) return false
+    this.active += 1
+    return true
+  }
+
+  release(): void {
+    if (this.active > 0) this.active -= 1
+  }
+
+  /** In-flight verifications; exposed for tests. */
+  get inFlight(): number {
+    return this.active
   }
 }

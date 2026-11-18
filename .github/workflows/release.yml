@@ -13,9 +13,9 @@ on:
         type: boolean
         default: true
 
+# Read-only by default. The two jobs that publish add exactly what they need.
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -66,6 +66,9 @@ jobs:
   images:
     name: image ${{ matrix.image }}
     needs: [version, gates]
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -117,6 +120,9 @@ jobs:
     name: GitHub release
     needs: [version, images]
     if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true
+    # The only job that writes to the repository.
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

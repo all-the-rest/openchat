@@ -14,13 +14,17 @@
 # init; wrapping the entrypoint would replace the contract this image inherits.
 #
 # The tag is versioned, never `latest`, and must match the `@opencode/client`
-# range the app pins (2.3.x, lockfile 2.3.2). A tag that does not exist fails
-# the pull instead of drifting. Upgrade path: issue #38.
+# range the app pins (2.3.x, lockfile 2.3.2). The digest is the multi-arch
+# **index** digest, resolved with
+# `docker buildx imagetools inspect ghcr.io/anomalyco/opencode:2.3.2`, so the
+# tag is readable and the bytes are fixed for both release architectures. A
+# moved or retagged upstream fails the pull instead of drifting. Upgrade path:
+# issue #38.
 #
 # Build from the repository root:
 #   docker build -f deploy/Dockerfile.opencode -t openchat-opencode .
 
-ARG OPENCODE_BASE=ghcr.io/anomalyco/opencode:2.3.2
+ARG OPENCODE_BASE=ghcr.io/anomalyco/opencode:2.3.2@sha256:be07cc4afd6d668d91b77accf1bc4338c87b39fbacc0a61666eb003781015f5a
 
 # The tool is *not* a single-file bundle: `src/compile.ts` resolves `preact` and
 # `preact/hooks` from the tool's own `node_modules` and inlines that runtime

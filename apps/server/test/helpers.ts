@@ -3,11 +3,12 @@ import type { EventEnvelope, FakeScenario, SearchSource } from "@openchat/contra
 import { FakeBackend } from "@openchat/opencode"
 import { createApp } from "../src/app"
 import type { AppEnv } from "../src/app"
+import type { CredentialVerifier } from "../src/auth"
 import type { CodeProbe } from "../src/code"
 import type { AppsCache, AppsProbe } from "../src/apps-cache"
 import { loadEnv } from "../src/env"
 import type { EnvConfig } from "../src/env"
-import type { FixedWindowThrottle } from "../src/throttle"
+import type { FixedWindowThrottle, VerificationGate } from "../src/throttle"
 
 export interface TestServer {
   app: Hono<AppEnv>
@@ -43,6 +44,10 @@ export interface TestServerOptions {
   /** Artifact creation throttle; tests inject a clock-bound instance. */
   artifactsThrottle?: FixedWindowThrottle
   artifactsNow?: () => number
+  /** Credential verifier; tests inject one they can hold open. */
+  verify?: CredentialVerifier
+  /** Login concurrency gate; tests shrink it to one permit. */
+  verificationGate?: VerificationGate
 }
 
 export function makeConfig(overrides: Record<string, string | undefined> = {}): EnvConfig {
@@ -90,6 +95,8 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
       appsActionThrottle: options.appsActionThrottle,
       artifactsThrottle: options.artifactsThrottle,
       artifactsNow: options.artifactsNow,
+      verify: options.verify,
+      verificationGate: options.verificationGate,
     }),
     backend,
     config,
