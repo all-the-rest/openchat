@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
+import { messageText } from "@openchat/contracts"
 import { ChatFiles } from "../chat/ChatFiles"
+import { ChatMenu } from "../chat/ChatMenu"
 import { CompletionPickers } from "../chat/CompletionPicker"
 import { Composer } from "../chat/Composer"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
 import { PermissionCard } from "../chat/PermissionCard"
 import { usePermissions } from "../chat/permissions"
 import { QueuedTurns } from "../chat/QueuedTurns"
+import { UsagePanel } from "../chat/UsagePanel"
 import { useSessions } from "../chat/sessions"
 import { Transcript } from "../chat/Transcript"
 import { useChatSession } from "../chat/useChatSession"
@@ -14,6 +17,7 @@ import { ErrorBanner } from "../components/ErrorBanner"
 import { ChevronDownIcon } from "../components/icons"
 import type { MessageKey } from "../i18n"
 import { useT } from "../i18n/provider"
+import { useReportPaletteChat } from "../palette/current-chat"
 
 interface ChatLocationState {
   pendingPrompt?: unknown
@@ -36,6 +40,22 @@ export function ChatPage() {
   const parent = session?.parentID
     ? sessions.find((entry) => entry.id === session.parentID)
     : undefined
+
+  // The palette's copy action needs the newest answer without owning the
+  // transcript. Reporting a plain-text value keeps raw parts inside the route.
+  const lastAnswer = useMemo(() => {
+    for (let index = chat.messages.length - 1; index >= 0; index -= 1) {
+      const message = chat.messages[index]
+      if (message?.role !== "assistant") continue
+      const text = messageText(message).trim()
+      return text.length > 0 ? text : null
+    }
+    return null
+  }, [chat.messages])
+
+  useReportPaletteChat({ sessionID: sessionId, title, lastAnswer })
+
+  const usage = chat.usage ?? session?.usage ?? null
 
   const pendingPrompt = (location.state as ChatLocationState | null)?.pendingPrompt
 
@@ -95,7 +115,9 @@ export function ChatPage() {
           ) : null}
           <h1 className="truncate text-lg font-semibold">{title}</h1>
         </div>
+        <UsagePanel report={usage} />
         <CompletionPickers />
+        <ChatMenu title={title} created={session?.created} messages={chat.messages} />
       </header>
 
       <ChatFiles sessionID={sessionId} version={filesVersion} />

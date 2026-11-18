@@ -1,4 +1,4 @@
-import type { InboxEntry, Message, MessageStatus } from "@openchat/contracts"
+import type { InboxEntry, Message, MessageStatus, UsageReport } from "@openchat/contracts"
 import { EVENT, messageText } from "@openchat/contracts"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { api } from "../api/client"
@@ -11,6 +11,7 @@ import { setStreamActive } from "../pwa/stream-guard"
 import { applyEvent, isTerminalEvent } from "../state/fold"
 import { completeModelValue, useCompletionOrNull } from "./completion"
 import { applyInboxEvent } from "./inbox"
+import { usageFromEvent } from "./usage"
 
 export type ChatError = "load" | "send" | "stop" | "cancel" | null
 
@@ -26,6 +27,8 @@ export interface ChatSessionValue {
   queued: boolean
   /** Pending turns restored from the inbox or announced by the event stream. */
   inbox: InboxEntry[]
+  /** Token usage the host reported for this run; `null` means none yet. */
+  usage: UsageReport | null
   lastAssistantStatus: MessageStatus | null
   canRetry: boolean
   send: (text: string) => Promise<void>
@@ -48,6 +51,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
   const [stopped, setStopped] = useState(false)
   const [queued, setQueued] = useState(false)
   const [inbox, setInbox] = useState<InboxEntry[]>([])
+  const [usage, setUsage] = useState<UsageReport | null>(null)
   const { subscribe, reconnect } = useEventStream()
   const hostReachable = useSurfaceOrNull()?.hostReachable ?? null
   const completion = useCompletionOrNull()
@@ -99,6 +103,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     setStopped(false)
     setQueued(false)
     setInbox([])
+    setUsage(null)
     setError(null)
     void reload()
   }, [reload])
@@ -128,6 +133,8 @@ export function useChatSession(sessionID: string): ChatSessionValue {
       if (typeof eventSession === "string" && eventSession !== activeSession.current) return
       setMessages((current) => applyEvent(current, event))
       setInbox((current) => applyInboxEvent(current, event))
+      const reported = usageFromEvent(event)
+      if (reported) setUsage(reported)
       if (event.type === EVENT.executionStarted) {
         setStopped(false)
         setQueued(false)
@@ -308,6 +315,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     // A restored pending turn counts as queued even before any prompt response.
     queued: queued || inbox.length > 0,
     inbox,
+    usage,
     lastAssistantStatus,
     canRetry,
     send,

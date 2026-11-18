@@ -36,6 +36,7 @@ export function SessionSidebar({
   const auth = useAuth()
   const navigate = useNavigate()
   const { sessions, loading, failed, create } = useSessions()
+  const [filter, setFilter] = useState("")
   const [creating, setCreating] = useState(false)
   const [createFailed, setCreateFailed] = useState(false)
   const groups = useMemo(() => groupSessions(sessions), [sessions])
@@ -50,6 +51,17 @@ export function SessionSidebar({
       return next
     })
   }
+
+  // The sidebar stays the title surface: the palette is the global entry, this
+  // filters the already loaded list locally and never queries the host. A
+  // group stays visible when the parent or one of its children matches, so a
+  // matching subagent chat is reachable through its parent.
+  const needle = filter.trim().toLowerCase()
+  const matchesTitle = (session: { title: string }) =>
+    (session.title || t("session.untitled")).toLowerCase().includes(needle)
+  const visibleGroups = groups.filter(
+    (group) => matchesTitle(group.session) || group.children.some(matchesTitle),
+  )
 
   const startNewChat = async () => {
     if (creating) return
@@ -165,6 +177,21 @@ export function SessionSidebar({
         <h2 className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted">
           {t("nav.chats")}
         </h2>
+        <div className="px-2 pb-2">
+          <label htmlFor="session-filter" className="sr-only">
+            {t("session.filterLabel")}
+          </label>
+          <input
+            id="session-filter"
+            type="search"
+            data-testid="session-filter"
+            maxLength={100}
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            placeholder={t("session.filterPlaceholder")}
+            className="w-full rounded-row border border-subtle bg-surface px-2 py-1 text-sm placeholder:text-muted"
+          />
+        </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
           {loading ? (
             <p className="px-2 py-1 text-xs text-muted">{t("session.loading")}</p>
@@ -172,9 +199,11 @@ export function SessionSidebar({
             <p className="px-2 py-1 text-xs text-error">{t("session.loadFailed")}</p>
           ) : sessions.length === 0 ? (
             <p className="px-2 py-1 text-xs text-muted">{t("session.empty")}</p>
+          ) : visibleGroups.length === 0 ? (
+            <p className="px-2 py-1 text-xs text-muted">{t("session.noMatch")}</p>
           ) : (
             <ul aria-label={t("session.listLabel")} className="flex flex-col gap-0.5">
-              {groups.map(({ session, children, orphan }) => {
+              {visibleGroups.map(({ session, children, orphan }) => {
                 const isExpanded = expanded.has(session.id)
                 const listID = `session-children-${session.id}`
                 const title = session.title || t("session.untitled")

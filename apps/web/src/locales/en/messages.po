@@ -58,6 +58,11 @@ msgid "files.quota"
 msgstr "{used} of {total} used ({percent}%)"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.hint"
+msgstr "↑↓ to move · Enter to open · Esc to close"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "update.title"
 msgstr "A new version is available"
@@ -76,6 +81,11 @@ msgstr "A tool request was denied"
 #: src/i18n/messages/shell.ts
 msgid "app.tagline"
 msgstr "A workspace for your agent."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.actions"
+msgstr "Actions"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -128,6 +138,11 @@ msgid "chat.answerComplete"
 msgstr "Answer complete"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.copied"
+msgstr "Answer copied to clipboard."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.permissionHint"
 msgstr "Answer this request before sending another message."
@@ -170,6 +185,11 @@ msgstr "Apps could not be loaded."
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.viewerTitle"
+msgstr "Artifact"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.artifact"
 msgstr "Artifact"
 
 #. js-lingui-explicit-id
@@ -259,6 +279,11 @@ msgstr "Background jobs"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "usage.cached"
+msgstr "Cached tokens"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.inboxCancel"
 msgstr "Cancel"
 
@@ -293,6 +318,21 @@ msgid "surface.chat"
 msgstr "Chat"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.menuTrigger"
+msgstr "Chat actions"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.menuLabel"
+msgstr "Chat actions"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.downloadDone"
+msgstr "Chat exported."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.quotaLabel"
 msgstr "Chat file storage"
@@ -308,6 +348,11 @@ msgid "files.listLabel"
 msgstr "Chat files"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.searchFailed"
+msgstr "Chat search failed."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "session.listLabel"
 msgstr "Chat sessions"
@@ -321,6 +366,11 @@ msgstr "Chat sessions"
 #: src/i18n/messages/chat.ts
 msgid "chat.transcript"
 msgstr "Chat transcript"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.chats"
+msgstr "Chats"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -341,6 +391,11 @@ msgstr "Chats could not be loaded."
 #: src/i18n/messages/shell.ts
 msgid "nav.closeSidebar"
 msgstr "Close chat list"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.close"
+msgstr "Close command palette"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -371,6 +426,11 @@ msgstr "Code surface controls"
 #: src/i18n/messages/render.ts
 msgid "render.errorCode"
 msgstr "Code: {code}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.label"
+msgstr "Command palette"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -412,6 +472,14 @@ msgstr "Connection lost — reconnecting…"
 msgid "chat.contextWindow"
 msgstr "Context window: {tokens} tokens"
 
+msgid "usage.contextLimit"
+msgstr "Context limit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.fill"
+msgstr "Context window fill"
+
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.continue"
@@ -443,6 +511,11 @@ msgid "render.copyCode"
 msgstr "Copy code"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.copyAnswer"
+msgstr "Copy current answer"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.copyMessage"
 msgstr "Copy message"
@@ -466,6 +539,11 @@ msgstr "Create schedule"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftData"
 msgstr "Data"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.date"
+msgstr "Date"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -628,6 +706,11 @@ msgid "files.downloadLabel"
 msgstr "Download {name}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.download"
+msgstr "Download chat"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.download.title"
 msgstr "Download the speech model?"
@@ -723,6 +806,16 @@ msgid "files.title"
 msgstr "Files"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.filterPlaceholder"
+msgstr "Filter chats"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.filterLabel"
+msgstr "Filter chats by title"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.jobs.finished"
 msgstr "Finished: {when}"
@@ -731,6 +824,31 @@ msgstr "Finished: {when}"
 #: src/i18n/messages/code.ts
 msgid "code.focusFrame"
 msgstr "Focus Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.apps"
+msgstr "Go to apps"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.artifacts"
+msgstr "Go to artifacts"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.chat"
+msgstr "Go to chat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.code"
+msgstr "Go to code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.settings"
+msgstr "Go to settings"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
@@ -778,6 +896,11 @@ msgid "dictation.level"
 msgstr "Input level"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.input"
+msgstr "Input tokens"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "install.install"
 msgstr "Install"
@@ -796,6 +919,11 @@ msgstr "Interface language"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.missingBody"
 msgstr "It may have been deleted. The list shows what is still stored."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.artifactNote"
+msgstr "Its files are stored in this chat."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -908,6 +1036,11 @@ msgid "search.status.needsAuth"
 msgstr "Needs auth"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.newChat"
+msgstr "New chat"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "nav.newChat"
 msgstr "New chat"
@@ -933,6 +1066,11 @@ msgid "tasks.schedules.nextRun"
 msgstr "Next run: {when}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.copyUnavailable"
+msgstr "No answer to copy yet"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.emptyTitle"
 msgstr "No artifacts yet"
@@ -941,6 +1079,16 @@ msgstr "No artifacts yet"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.jobs.empty"
 msgstr "No background jobs right now."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.noResults"
+msgstr "No chats match “{query}”."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.noMatch"
+msgstr "No chats match this filter."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1013,6 +1161,11 @@ msgid "code.state.down"
 msgstr "Not reachable"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.notReportedShort"
+msgstr "Not reported"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.offline"
 msgstr "Offline"
@@ -1036,6 +1189,11 @@ msgstr "Open chat list"
 #: src/i18n/messages/code.ts
 msgid "code.openNewTab"
 msgstr "Open Code in a new tab"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.open"
+msgstr "Open command palette"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -1086,6 +1244,11 @@ msgstr "opens in a new tab"
 #: src/i18n/messages/render.ts
 msgid "render.toolOutput"
 msgstr "Output"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.output"
+msgstr "Output tokens"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1186,6 +1349,11 @@ msgstr "Reasoning"
 #: src/i18n/messages/render.ts
 msgid "render.reasoningStreaming"
 msgstr "Reasoning in progress"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.recent"
+msgstr "Recent chats"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1373,6 +1541,11 @@ msgid "nav.search"
 msgstr "Search"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.placeholder"
+msgstr "Search chats or run a command"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.placeholder"
 msgstr "Search chats, files, web and apps"
@@ -1391,6 +1564,11 @@ msgstr "Search models or providers"
 #: src/i18n/messages/search.ts
 msgid "search.label"
 msgstr "Search term"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.searching"
+msgstr "Searching chats…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1578,6 +1756,11 @@ msgid "surface.label"
 msgstr "Surface"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.language"
+msgstr "Switch language to {language}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
 msgid "theme.toggleToDark"
 msgstr "Switch to dark theme"
@@ -1586,6 +1769,11 @@ msgstr "Switch to dark theme"
 #: src/i18n/messages/settings.ts
 msgid "theme.toggleToLight"
 msgstr "Switch to light theme"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.system"
+msgstr "System note"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -1616,6 +1804,11 @@ msgstr "The action failed."
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.failed"
 msgstr "The action failed. The schedule did not change."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.copyFailed"
+msgstr "The answer could not be copied."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1651,6 +1844,11 @@ msgstr "The artifact host refused the link. Reload to request a fresh one."
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.refreshFailed"
 msgstr "The artifact link could not be refreshed. Reload to get a fresh one."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.downloadFailed"
+msgstr "The chat could not be exported."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1838,6 +2036,16 @@ msgid "render.wrap"
 msgstr "Toggle line wrapping"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.label"
+msgstr "Token usage"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.notReported"
+msgstr "Token usage has not been reported for this chat."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.throttledAfter"
 msgstr "Too many attempts. Try again in {seconds} s."
@@ -1846,6 +2054,11 @@ msgstr "Too many attempts. Try again in {seconds} s."
 #: src/i18n/messages/apps.ts
 msgid "apps.error.throttled"
 msgstr "Too many attempts. Try again shortly."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.tool"
+msgstr "Tool"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1896,6 +2109,11 @@ msgstr "Uploaded"
 #: src/i18n/messages/chat.ts
 msgid "composer.attachmentUploading"
 msgstr "Uploading…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.trigger"
+msgstr "Usage"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts

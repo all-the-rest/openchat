@@ -14,6 +14,17 @@ export * from "./transcript"
 export * from "./tasks"
 export * from "./turn-policy"
 
+/**
+ * Token counts the host reported for one chat. Only fields the host actually
+ * sent are present; the UI must show "not reported" rather than a zero it
+ * invented. `cached` is the provider's cache read, which some hosts omit.
+ */
+export interface UsageReport {
+  input: number
+  output: number
+  cached?: number
+}
+
 export interface SessionInfo {
   id: string
   title: string
@@ -22,6 +33,8 @@ export interface SessionInfo {
   updated: number
   /** Parent chat of a subagent session; absent for a normal chat. */
   parentID?: string
+  /** Absent until the host reports a run; zero-token reports are omitted. */
+  usage?: UsageReport
 }
 
 /** Lifecycle of a model as reported by the OpenCode host. */

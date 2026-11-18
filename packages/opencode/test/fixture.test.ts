@@ -41,6 +41,21 @@ describe("contract fixture", () => {
     expect("parentID" in plain).toBe(false)
   })
 
+  it("maps reported tokens and omits an empty report", () => {
+    const base = fixture.session as unknown as OpenCodeSessionInfo
+    const reported = normalizeSession({
+      ...base,
+      tokens: { input: 10, output: 5, reasoning: 2, cache: { read: 7, write: 0 } },
+    })
+    expect(reported.usage).toEqual({ input: 10, output: 5, cached: 7 })
+
+    const empty = normalizeSession({
+      ...base,
+      tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+    })
+    expect(empty.usage).toBeUndefined()
+  })
+
   it("decodes messages and validates them against the contract", () => {
     const messages = (fixture.messages as unknown as SessionMessageInfo[])
       .map((entry) => normalizeMessage(entry))

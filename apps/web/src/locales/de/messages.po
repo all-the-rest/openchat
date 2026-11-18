@@ -58,6 +58,11 @@ msgid "files.quota"
 msgstr "{used} von {total} belegt ({percent} %)"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.hint"
+msgstr "↑↓ bewegen · Enter öffnen · Esc schließen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "update.title"
 msgstr "Eine neue Version ist verfügbar"
@@ -76,6 +81,11 @@ msgstr "Eine Werkzeuganfrage wurde abgelehnt"
 #: src/i18n/messages/shell.ts
 msgid "app.tagline"
 msgstr "Ein Arbeitsplatz für deinen Agenten."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.actions"
+msgstr "Aktionen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -128,6 +138,11 @@ msgid "chat.answerComplete"
 msgstr "Antwort vollständig"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.copied"
+msgstr "Antwort in die Zwischenablage kopiert."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.permissionHint"
 msgstr "Beantworte diese Anfrage, bevor du eine weitere Nachricht sendest."
@@ -170,6 +185,11 @@ msgstr "Apps konnten nicht geladen werden."
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.viewerTitle"
+msgstr "Artefakt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.artifact"
 msgstr "Artefakt"
 
 #. js-lingui-explicit-id
@@ -259,6 +279,11 @@ msgstr "Hintergrundjobs"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "usage.cached"
+msgstr "Cache-Token"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.inboxCancel"
 msgstr "Abbrechen"
 
@@ -293,6 +318,21 @@ msgid "surface.chat"
 msgstr "Chat"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.menuTrigger"
+msgstr "Chat-Aktionen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.menuLabel"
+msgstr "Chat-Aktionen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.downloadDone"
+msgstr "Chat exportiert."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.quotaLabel"
 msgstr "Speicherplatz für Chat-Dateien"
@@ -308,6 +348,11 @@ msgid "files.listLabel"
 msgstr "Dateien im Chat"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.searchFailed"
+msgstr "Die Chat-Suche ist fehlgeschlagen."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "session.listLabel"
 msgstr "Chat-Sitzungen"
@@ -321,6 +366,11 @@ msgstr "Chat-Sitzungen"
 #: src/i18n/messages/chat.ts
 msgid "chat.transcript"
 msgstr "Chat-Verlauf"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.chats"
+msgstr "Chats"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -341,6 +391,11 @@ msgstr "Chats konnten nicht geladen werden."
 #: src/i18n/messages/shell.ts
 msgid "nav.closeSidebar"
 msgstr "Chatliste schließen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.close"
+msgstr "Befehlspalette schließen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -371,6 +426,11 @@ msgstr "Steuerung der Code-Oberfläche"
 #: src/i18n/messages/render.ts
 msgid "render.errorCode"
 msgstr "Code: {code}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.label"
+msgstr "Befehlspalette"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -412,6 +472,14 @@ msgstr "Verbindung unterbrochen – neuer Versuch läuft…"
 msgid "chat.contextWindow"
 msgstr "Kontextfenster: {tokens} Token"
 
+msgid "usage.contextLimit"
+msgstr "Kontextfenster"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.fill"
+msgstr "Füllstand des Kontextfensters"
+
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.continue"
@@ -443,6 +511,11 @@ msgid "render.copyCode"
 msgstr "Code kopieren"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.copyAnswer"
+msgstr "Aktuelle Antwort kopieren"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.copyMessage"
 msgstr "Nachricht kopieren"
@@ -466,6 +539,11 @@ msgstr "Zeitplan anlegen"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftData"
 msgstr "Daten"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.date"
+msgstr "Datum"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -628,6 +706,11 @@ msgid "files.downloadLabel"
 msgstr "{name} herunterladen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.download"
+msgstr "Chat herunterladen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.download.title"
 msgstr "Sprachmodell herunterladen?"
@@ -723,6 +806,16 @@ msgid "files.title"
 msgstr "Dateien"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.filterPlaceholder"
+msgstr "Chats filtern"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.filterLabel"
+msgstr "Chats nach Titel filtern"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.jobs.finished"
 msgstr "Beendet: {when}"
@@ -731,6 +824,31 @@ msgstr "Beendet: {when}"
 #: src/i18n/messages/code.ts
 msgid "code.focusFrame"
 msgstr "Fokus auf Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.apps"
+msgstr "Zu den Apps"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.artifacts"
+msgstr "Zu den Artefakten"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.chat"
+msgstr "Zum Chat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.code"
+msgstr "Zum Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.settings"
+msgstr "Zu den Einstellungen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
@@ -778,6 +896,11 @@ msgid "dictation.level"
 msgstr "Eingangspegel"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.input"
+msgstr "Eingabe-Token"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "install.install"
 msgstr "Installieren"
@@ -796,6 +919,11 @@ msgstr "Sprache der Oberfläche"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.missingBody"
 msgstr "Es wurde möglicherweise gelöscht. Die Liste zeigt, was noch gespeichert ist."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.artifactNote"
+msgstr "Die Dateien liegen in diesem Chat."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -908,6 +1036,11 @@ msgid "search.status.needsAuth"
 msgstr "Anmeldung nötig"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.newChat"
+msgstr "Neuer Chat"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "nav.newChat"
 msgstr "Neuer Chat"
@@ -933,6 +1066,11 @@ msgid "tasks.schedules.nextRun"
 msgstr "Nächster Lauf: {when}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.copyUnavailable"
+msgstr "Noch keine Antwort zum Kopieren"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.emptyTitle"
 msgstr "Noch keine Artefakte"
@@ -941,6 +1079,16 @@ msgstr "Noch keine Artefakte"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.jobs.empty"
 msgstr "Gerade keine Hintergrundjobs."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.noResults"
+msgstr "Keine Chats passen zu „{query}“."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.noMatch"
+msgstr "Kein Chat passt zu diesem Filter."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1013,6 +1161,11 @@ msgid "code.state.down"
 msgstr "Nicht erreichbar"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.notReportedShort"
+msgstr "Nicht gemeldet"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.offline"
 msgstr "Offline"
@@ -1036,6 +1189,11 @@ msgstr "Chatliste öffnen"
 #: src/i18n/messages/code.ts
 msgid "code.openNewTab"
 msgstr "Code in einem neuen Tab öffnen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.open"
+msgstr "Befehlspalette öffnen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -1086,6 +1244,11 @@ msgstr "öffnet in einem neuen Tab"
 #: src/i18n/messages/render.ts
 msgid "render.toolOutput"
 msgstr "Ausgabe"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.output"
+msgstr "Ausgabe-Token"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1186,6 +1349,11 @@ msgstr "Überlegung"
 #: src/i18n/messages/render.ts
 msgid "render.reasoningStreaming"
 msgstr "Überlegung läuft"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.recent"
+msgstr "Letzte Chats"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1373,6 +1541,11 @@ msgid "nav.search"
 msgstr "Suche"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.placeholder"
+msgstr "Chats durchsuchen oder einen Befehl ausführen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.placeholder"
 msgstr "Chats, Dateien, Web und Apps durchsuchen"
@@ -1391,6 +1564,11 @@ msgstr "Modelle oder Anbieter suchen"
 #: src/i18n/messages/search.ts
 msgid "search.label"
 msgstr "Suchbegriff"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.searching"
+msgstr "Chats werden durchsucht…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1578,6 +1756,11 @@ msgid "surface.label"
 msgstr "Oberfläche"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.action.language"
+msgstr "Sprache wechseln zu {language}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
 msgid "theme.toggleToDark"
 msgstr "Zum dunklen Design wechseln"
@@ -1586,6 +1769,11 @@ msgstr "Zum dunklen Design wechseln"
 #: src/i18n/messages/settings.ts
 msgid "theme.toggleToLight"
 msgstr "Zum hellen Design wechseln"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.system"
+msgstr "Systemhinweis"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -1616,6 +1804,11 @@ msgstr "Die Aktion ist fehlgeschlagen."
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.failed"
 msgstr "Die Aktion ist fehlgeschlagen. Der Zeitplan wurde nicht geändert."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/palette.ts
+msgid "palette.copyFailed"
+msgstr "Die Antwort konnte nicht kopiert werden."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1651,6 +1844,11 @@ msgstr "Der Artefakt-Host hat den Link abgelehnt. Lade neu, um einen frischen an
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.refreshFailed"
 msgstr "Der Artefakt-Link konnte nicht erneuert werden. Lade neu, um einen frischen zu bekommen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.downloadFailed"
+msgstr "Der Chat konnte nicht exportiert werden."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1838,6 +2036,16 @@ msgid "render.wrap"
 msgstr "Zeilenumbruch umschalten"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.label"
+msgstr "Token-Nutzung"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.notReported"
+msgstr "Für diesen Chat wurde keine Token-Nutzung gemeldet."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.throttledAfter"
 msgstr "Zu viele Versuche. Versuch es in {seconds} s noch einmal."
@@ -1846,6 +2054,11 @@ msgstr "Zu viele Versuche. Versuch es in {seconds} s noch einmal."
 #: src/i18n/messages/apps.ts
 msgid "apps.error.throttled"
 msgstr "Zu viele Versuche. Versuch es gleich noch einmal."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.tool"
+msgstr "Werkzeug"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1896,6 +2109,11 @@ msgstr "Hochgeladen"
 #: src/i18n/messages/chat.ts
 msgid "composer.attachmentUploading"
 msgstr "Wird hochgeladen…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.trigger"
+msgstr "Token"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts

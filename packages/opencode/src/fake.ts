@@ -1,7 +1,6 @@
 import { EVENT } from "@openchat/contracts"
 import type {
   AgentInfo,
-  BackgroundJob,
   EventEnvelope,
   FakeScenario,
   InboxEntry,
@@ -32,10 +31,19 @@ import { fakeSearch } from "./fake-search"
 import { clone, errorText, PartWriter } from "./fake-parts"
 import { resolveScenario, runScenario } from "./scenarios"
 import type { ScenarioOutcome } from "./scenarios"
-import type { FakeBackendOptions, QueuedPrompt, RecordedPrompt, RunState, SessionState } from "./fake-state"
+import type {
+  FakeBackendOptions,
+  QueuedPrompt,
+  RecordedPrompt,
+  RunState,
+  SessionState,
+} from "./fake-state"
 import { subagentSeedSessions } from "./fake-seed"
 
 export type { FakeBackendOptions, RecordedPrompt } from "./fake-state"
+
+/** Deterministic token report per completed fake run; no provider is called. */
+const RUN_USAGE = { input: 1200, output: 340, cached: 512 } as const
 
 /** Deterministic in-memory backend; task methods come from `FakeTaskStore`. */
 export class FakeBackend extends FakeTaskStore implements ChatBackend {
@@ -354,6 +362,19 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private completeMessage(run: RunState, message: Message): void {
     const session = this.requireSession(run.sessionID)
     session.info.updated = this.clock()
+    // Account the run before the completion event: a reload then reads the
+    // same numbers the live update announced, and the fake never invents a
+    // report for a session that has not run.
+    const previous = session.info.usage
+    const usage = {
+      input: (previous?.input ?? 0) + RUN_USAGE.input,
+      output: (previous?.output ?? 0) + RUN_USAGE.output,
+      cached: (previous?.cached ?? 0) + RUN_USAGE.cached,
+    }
+    session.info.usage = usage
+    this.events.emit(EVENT.usageUpdated, run.sessionID, {
+      sessionID: run.sessionID, usage,
+    }, true)
     this.events.emit(EVENT.messageCompleted, run.sessionID, {
       sessionID: run.sessionID, messageID: message.id, message: clone(message),
     }, true)

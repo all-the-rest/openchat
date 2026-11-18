@@ -6,6 +6,7 @@ import type {
   SessionInfo,
 } from "@openchat/contracts"
 
+/** State of one active fake run; `wake` ends an interruptible pause. */
 export interface RunState {
   sessionID: string
   messageID: string
