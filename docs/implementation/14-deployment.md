@@ -46,7 +46,10 @@ development Vite does. A single-origin deployment needs one process for both, so
 - `WEB_DIST_DIR` names the build directory. Unset (development, tests) the
   module is inert and the request goes straight to the API app.
 - `GET`/`HEAD` only. `/api/*` and `/healthz` are never resolved against the
-  filesystem, so a file cannot shadow a route.
+  filesystem, so a file cannot shadow a route. The reserved check reads the
+  first path segment case-insensitively and ignores repeated leading slashes
+  (`/API/info`, `//api/info`, `/healthz/`); the filesystem lookup below still
+  uses the exact decoded path.
 - `/assets/*` is cached `public, max-age=31536000, immutable` (content-hashed
   names); the shell is `no-store`, so a deploy is visible on the next load.
 - A missing path with an extension is a 404, not the shell: an absent
@@ -114,6 +117,12 @@ writable path.
   header, no redirect and no write path, and carries its own CSP with
   `frame-ancestors <chat origin>`. Making it credential-bearing would break the
   design; making it unreachable would remove artifacts.
+- **`TRUST_PROXY` is off by default.** The BFF's published port is on host
+  loopback, where any local process can send its own `X-Forwarded-For`; trusting
+  that header would let it rotate its throttle bucket on every request
+  ([`11-proxy-addressing.md`](11-proxy-addressing.md)). When the edge proxy is
+  the only path to the port and appends (or overwrites) the header, set
+  `TRUST_PROXY=1` in `.env`; `deploy/env.example` ships `0`.
 - **OpenCode has no `ports:` entry and no `edge` membership.** The BFF and the
   Code host reach `opencode:4096` on `backend` with the Basic credential.
 - **`OPENCODE_URL` is never published.** The compose default is
@@ -351,9 +360,9 @@ volumes.
 
 | File | Covers |
 | --- | --- |
-| `apps/server/test/deployment.test.ts` | compose service set; no `privileged: true`; only bff + artifact-host publish, loopback only, never 4096/8090; artifact volume `:ro` in the host and read-write only in the BFF; `read_only` + tmpfs for the three app services; `mem_limit`/`cpus`/`pids_limit`/log rotation/`restart` per service; a healthcheck per service; profiles on the optional three; artifact origin off `backend`; every secret an interpolation; empty secrets in the template; digest-pinned multi-stage images; frozen-lockfile installs; non-root `USER node` + tini + healthcheck; no install in the runtime stage; tool image toolchain and CLI; no `.env` copied; swap-script shape |
-| `apps/server/test/swap.test.ts` | dry run mutates nothing and calls no docker; successful swap writes `current`; `previous` records the prior release; rerun is a no-op; rollback on an unhealthy candidate and on a failing `up`; version mismatch; degraded host accepted; usage errors exit 2; missing `.env` and an out-of-tree release are refused; no secret on a compose command line |
-| `apps/server/test/static.test.ts` | `WEB_DIST_DIR` parsing; shell/no-store; SPA fallback; immutable assets; missing asset is not the shell; `/api`/`/healthz`/non-GET untouched; HEAD without body; traversal and malformed-escape refusal |
+| `apps/server/test/deployment.test.ts` | compose service set; no `privileged: true`; only bff + artifact-host publish, loopback only, never 4096/8090; `TRUST_PROXY` off by default in compose and the env template; artifact volume `:ro` in the host and read-write only in the BFF; `read_only` + tmpfs for the three app services; `mem_limit`/`cpus`/`pids_limit`/log rotation/`restart` per service; a healthcheck per service; profiles on the optional three; artifact origin off `backend`; every secret an interpolation; empty secrets in the template; digest-pinned multi-stage images; frozen-lockfile installs; non-root `USER node` + tini + healthcheck; no install in the runtime stage; tool image toolchain and CLI; the docker CLI tarball verified against its release checksum before unpacking; no `.env` copied; swap-script shape |
+| `apps/server/test/swap.test.ts` | dry run mutates nothing and calls no docker; successful swap writes `current`; `previous` records the prior release; rerun is a no-op; rollback on an unhealthy candidate and on a failing `up`; version mismatch; version accepted in a spaced JSON body; degraded host accepted; usage errors exit 2; missing `.env` and an out-of-tree release are refused; no secret on a compose command line |
+| `apps/server/test/static.test.ts` | `WEB_DIST_DIR` parsing; shell/no-store; SPA fallback; immutable assets; missing asset is not the shell; reserved routes case- and slash-insensitive (`/API/info`, `//api/info`, `/healthz/`) and a build file named `api` unserved; assets and client routes still served; `/api`/`/healthz`/non-GET untouched; HEAD without body; traversal and malformed-escape refusal |
 
 ## Manual acceptance (not run here)
 

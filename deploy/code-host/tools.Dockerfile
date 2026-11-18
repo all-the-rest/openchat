@@ -40,12 +40,25 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # Docker CLI only, from the static release tarball: the Debian `docker.io`
-# package would drag in a daemon and containerd into the tool image.
-ARG DOCKER_CLI_VERSION=27.5.1
+# package would drag in a daemon and containerd into the tool image. The static
+# download host publishes a per-release `<tarball>.sha256` sidecar next to the
+# tarball; it is fetched from the same base URL and verified before unpacking,
+# so a swapped or truncated download fails the build.
+#
+# 29.10.0 is the current stable release and the one that publishes that sidecar;
+# bump the version and the checksum source together.
+ARG DOCKER_CLI_VERSION=29.10.0
 ARG DOCKER_CLI_ARCH=x86_64
-RUN curl -fsSL "https://download.docker.com/linux/static/stable/${DOCKER_CLI_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" \
-      | tar -xz --strip-components=1 -C /usr/local/bin docker/docker \
- && docker --version
+RUN set -eu; \
+    base="https://download.docker.com/linux/static/stable/${DOCKER_CLI_ARCH}"; \
+    tarball="docker-${DOCKER_CLI_VERSION}.tgz"; \
+    work=$(mktemp -d); \
+    curl -fsSLo "$work/${tarball}" "$base/${tarball}"; \
+    curl -fsSLo "$work/${tarball}.sha256" "$base/${tarball}.sha256"; \
+    ( cd "$work" && sha256sum -c "${tarball}.sha256" ); \
+    tar -xz --strip-components=1 -C /usr/local/bin docker/docker < "$work/${tarball}"; \
+    rm -rf "$work"; \
+    docker --version
 
 RUN npm install --global pnpm@11.23.0 \
  && pnpm --version \

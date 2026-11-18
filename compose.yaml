@@ -48,7 +48,10 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: "8787"
-      TRUST_PROXY: ${TRUST_PROXY:-1}
+      # Off by default: the port is published on host loopback, where any local
+      # process can send its own X-Forwarded-For and rotate its throttle bucket.
+      # The edge-proxy deployment sets TRUST_PROXY=1 in .env instead.
+      TRUST_PROXY: ${TRUST_PROXY:-0}
       AUTH_MODE: ${AUTH_MODE:-session}
       OPENCHAT_USER: ${OPENCHAT_USER:-owner}
       OPENCHAT_PASSWORD: ${OPENCHAT_PASSWORD:?set a non-default password in .env}
@@ -123,7 +126,7 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: "8090"
-      TRUST_PROXY: ${TRUST_PROXY:-1}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
       OPENCODE_URL: ${OPENCODE_URL:-http://opencode:4096}
       OPENCODE_USERNAME: ${OPENCODE_USERNAME:-opencode}
       OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?set the OpenCode Basic password in .env}
