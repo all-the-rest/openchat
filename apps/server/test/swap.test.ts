@@ -31,27 +31,39 @@ exit "\${STUB_DOCKER_EXIT:-0}"
 `
 
 const CURL_STUB = `#!/usr/bin/env bash
+printf 'argv:%s\\n' "$*" >> "\${CURL_LOG:-/dev/null}"
+url=""
 out=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --output) out=$2; shift 2 ;;
     --write-out|--max-time) shift 2 ;;
+    http*) url=$1; shift ;;
     *) shift ;;
   esac
 done
+printf 'url:%s\\n' "$url" >> "\${CURL_LOG:-/dev/null}"
 count=0
 if [ -n "\${CURL_COUNTER:-}" ]; then
   count=$(cat "$CURL_COUNTER" 2>/dev/null || echo 0)
   count=$((count + 1))
   echo "$count" > "$CURL_COUNTER"
 fi
+body="\${STUB_BODY:-{\\"ok\\":true,\\"version\\":\\"9.9.9\\",\\"reachable\\":true}}"
+status="\${STUB_STATUS:-200}"
+case "$url" in
+  */api/info)
+    status="\${STUB_INFO_STATUS:-$status}"
+    body="\${STUB_INFO_BODY:-$body}"
+    ;;
+esac
 if [ -n "\${STUB_FAIL_CALLS:-}" ] && [ "$count" -le "$STUB_FAIL_CALLS" ]; then
   printf '{"ok":false}' > "$out"
   printf '503'
   exit 0
 fi
-printf '%s' "\${STUB_BODY:-{\\"ok\\":true,\\"version\\":\\"9.9.9\\",\\"reachable\\":true}}" > "$out"
-printf '%s' "\${STUB_STATUS:-200}"
+printf '%s' "$body" > "$out"
+printf '%s' "$status"
 `
 
 interface Fixture {
@@ -206,6 +218,45 @@ describe.skipIf(IS_WINDOWS)("deploy/swap.sh", () => {
     ])
     expect(mismatch.status).toBe(1)
     expect(readlinkSync(join(test.stack, "current"))).toBe("releases/r1")
+  })
+
+  it("accepts an auth-gated /api/info (401) as proof the app is up", () => {
+    const test = fixture()
+    const log = join(test.root, "curl.log")
+    const result = test.run(["--release", test.release("r1")], {
+      STUB_INFO_STATUS: "401",
+      CURL_LOG: log,
+    })
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain("auth enforced")
+    expect(readlinkSync(join(test.stack, "current"))).toBe("releases/r1")
+  })
+
+  it("fails a candidate whose /api/info answers 5xx", () => {
+    for (const status of ["500", "503"]) {
+      const test = fixture()
+      const result = test.run(["--release", test.release("r2")], {
+        STUB_INFO_STATUS: status,
+      })
+      expect(result.status, `status ${status} must fail`).toBe(1)
+      expect(result.stderr).toContain(`/api/info answered ${status}`)
+    }
+  })
+
+  it("probes without a credential", () => {
+    const test = fixture()
+    const log = join(test.root, "curl.log")
+    expect(test.run(["--release", test.release("r1")], { CURL_LOG: log }).status).toBe(0)
+
+    const calls = readFileSync(log, "utf8")
+      .split("\n")
+      .filter((line) => line.startsWith("argv:"))
+    expect(calls.length).toBeGreaterThan(0)
+    for (const call of calls) {
+      expect(call).not.toMatch(/(?:^|\s)(?:-u|--user|-H|--header|--cookie|-b)(?:\s|$)/)
+      expect(call).not.toMatch(/authorization|cookie/i)
+    }
   })
 
   it("accepts a healthz report with spaces around the JSON separators", () => {

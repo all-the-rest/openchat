@@ -78,6 +78,13 @@ jobs:
             dockerfile: deploy/Dockerfile.code-host
           - image: artifact-host
             dockerfile: deploy/Dockerfile.artifact-host
+          # The derived OpenCode image: official 2.3.2 base plus git, ripgrep,
+          # the Docker CLI and the artifact tool. Not a republish of upstream.
+          - image: opencode
+            dockerfile: deploy/Dockerfile.opencode
+          # The agent tool runtime used by `--with-dind`.
+          - image: tools
+            dockerfile: deploy/code-host/tools.Dockerfile
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3

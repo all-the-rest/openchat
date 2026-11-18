@@ -192,7 +192,11 @@ body_has() {
 
 # Waits for `/healthz`, then checks `/api/info`. A degraded host (OpenCode
 # unreachable) still answers 200 with `host.reachable: false` and is allowed: the
-# app being up is what a swap validates, not the upstream.
+# app being up is what a swap validates, not the upstream. `/api/info` sits
+# behind the app's auth gate, so an unauthenticated probe accepts `200` and
+# `401`: 401 proves the route exists and the guard runs, which is exactly what
+# a deploy needs to know without holding a credential (the probe never sends
+# one). Anything else — 5xx, 404, a dead socket — fails the candidate.
 check_release() {
   local deadline=$((SECONDS + TIMEOUT))
   local version_hit=0
@@ -215,21 +219,30 @@ check_release() {
   fi
 
   probe "$PROBE_URL/api/info"
-  if [ "$PROBE_CODE" != "200" ]; then
-    printf '%s: /api/info answered %s\n' "$PROG" "$PROBE_CODE" >&2
-    return 1
-  fi
+  case "$PROBE_CODE" in
+    200)
+      if body_has '"reachable":true'; then
+        note "validation: app up, host reachable"
+      else
+        note "validation: app up, host unreachable (degraded, allowed)"
+      fi
+      ;;
+    401)
+      # The session guard runs before the route body; no credential is sent by
+      # the probe, so 401 is the expected answer on a real deployment.
+      note "validation: app up, auth enforced, host unknown"
+      ;;
+    *)
+      printf '%s: /api/info answered %s\n' "$PROG" "$PROBE_CODE" >&2
+      return 1
+      ;;
+  esac
 
   if [ -n "$EXPECT_VERSION" ] && [ "$version_hit" -ne 1 ]; then
     printf '%s: /healthz does not report version %s\n' "$PROG" "$EXPECT_VERSION" >&2
     return 1
   fi
 
-  if body_has '"reachable":true'; then
-    note "validation: app up, host reachable"
-  else
-    note "validation: app up, host unreachable (degraded, allowed)"
-  fi
   return 0
 }
 

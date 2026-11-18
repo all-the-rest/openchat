@@ -1,0 +1,28 @@
+[Unit]
+# The OpenChat stack mounts three loopback ext4 images. Docker starts containers
+# whose bind sources must already be mounted: if the stack came up first, the
+# bind mounts would land on the empty host directories and the containers would
+# silently run without the size caps (and without the workspace data).
+#
+# This unit is installed by deploy/remote/deploy.sh and enabled at boot. It does
+# not use /etc/fstab: the images are deployment state, and an fstab entry is a
+# host-wide change the stack has no business making implicitly.
+Description=Mount the size-capped ext4 images of the OpenChat stack
+Documentation=file:/opt/stacks/openchat/current/compose.yaml
+DefaultDependencies=no
+After=local-fs.target
+Before=docker.service
+RequiresMountsFor=/opt/stacks/openchat
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# The script reads disks/layout (written by the deploy) for the sizes and is
+# idempotent: an already mounted image is a no-op.
+ExecStart=/opt/stacks/openchat/bin/mount-disks.sh --stack-dir /opt/stacks/openchat
+ExecStop=/opt/stacks/openchat/bin/mount-disks.sh --stack-dir /opt/stacks/openchat --umount
+TimeoutStartSec=120
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

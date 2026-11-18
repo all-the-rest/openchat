@@ -48,9 +48,16 @@ RUN apt-get update \
 # 29.10.0 is the current stable release and the one that publishes that sidecar;
 # bump the version and the checksum source together.
 ARG DOCKER_CLI_VERSION=29.10.0
-ARG DOCKER_CLI_ARCH=x86_64
+# Release builds target amd64 and arm64; buildx exposes the target as
+# TARGETARCH and the static tarball uses its own arch names.
+ARG TARGETARCH=amd64
 RUN set -eu; \
-    base="https://download.docker.com/linux/static/stable/${DOCKER_CLI_ARCH}"; \
+    case "${TARGETARCH}" in \
+      amd64) arch=x86_64 ;; \
+      arm64) arch=aarch64 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    base="https://download.docker.com/linux/static/stable/${arch}"; \
     tarball="docker-${DOCKER_CLI_VERSION}.tgz"; \
     work=$(mktemp -d); \
     curl -fsSLo "$work/${tarball}" "$base/${tarball}"; \

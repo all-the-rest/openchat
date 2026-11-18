@@ -54,8 +54,9 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-0}
       AUTH_MODE: ${AUTH_MODE:-session}
       OPENCHAT_USER: ${OPENCHAT_USER:-owner}
-      # Exactly one credential: the BFF refuses both or neither at boot, so an
-      # unfilled .env still fails loudly.
+      # One credential in exactly one shape: a plaintext password, or a bcrypt
+      # digest carried over from a predecessor. Both set, or neither, fails the
+      # boot, so an unfilled .env never starts.
       OPENCHAT_PASSWORD: ${OPENCHAT_PASSWORD:-}
       OPENCHAT_PASSWORD_HASH: ${OPENCHAT_PASSWORD_HASH:-}
       SESSION_SECRET: ${SESSION_SECRET:?set 32+ random bytes in .env}
@@ -70,6 +71,9 @@ services:
       ARTIFACTS_DIR: /artifacts
       ARTIFACT_HOST_URL: ${ARTIFACT_HOST_URL:?set https://artifacts.example.com in .env}
       ARTIFACT_SIGNING_KEY: ${ARTIFACT_SIGNING_KEY:?set 32+ random bytes in .env}
+      # Shared with the artifact tool inside the OpenCode container; without it
+      # the BFF generates an ephemeral token the tool can never match.
+      ARTIFACT_INTERNAL_TOKEN: ${ARTIFACT_INTERNAL_TOKEN:?set 32+ random characters in .env}
       CODE_HOST_ORIGIN: ${CODE_HOST_ORIGIN:-https://code.example.com}
       CODE_TICKET_SECRET: ${CODE_TICKET_SECRET:?set 32+ random bytes in .env}
       CODE_TICKET_TTL_SECONDS: ${CODE_TICKET_TTL_SECONDS:-60}
@@ -215,10 +219,15 @@ services:
 
   # Optional local OpenCode service. Off by default: OPENCODE_URL usually points
   # at an existing service (remote host or tunnel, docs/implementation/04).
+  # The default is the official versioned image. `opencode:latest` is the stale
+  # 1.x line — never use it — and the tag must match the `@opencode/client`
+  # range the app pins. The remote overlay swaps in the derived image
+  # (`openchat-opencode`, deploy/Dockerfile.opencode) that also carries git,
+  # ripgrep, the Docker CLI and the artifact MCP tool.
   opencode:
     profiles:
       - opencode
-    image: ${OPENCODE_IMAGE:-opencode:2.3.0}
+    image: ${OPENCODE_IMAGE:-ghcr.io/anomalyco/opencode:2.3.2}
     restart: unless-stopped
     mem_limit: 4g
     mem_reservation: 1g
@@ -226,18 +235,28 @@ services:
     pids_limit: 2048
     security_opt:
       - no-new-privileges:true
+    # The official image's entrypoint is `opencode`; the command is its argv.
     command:
-      - opencode
       - serve
       - --hostname
       - 0.0.0.0
       - --port
       - "4096"
+    working_dir: /workspace
     environment:
+      # Forwarded by the BFF and the Code host as Basic, but OpenCode 2.3.2
+      # ignores it: the upstream 2.x server has no HTTP auth. The API is
+      # protected by network isolation (`backend`, never published); the value
+      # stays so a future version that restores auth works unchanged (#38).
       OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?set the OpenCode Basic password in .env}
+      # The artifact MCP tool runs inside this container and writes through the
+      # BFF's `/internal/artifacts` route with the shared bearer token.
+      OPENCHAT_BFF_URL: ${OPENCHAT_BFF_URL:-http://bff:8787}
+      ARTIFACT_INTERNAL_TOKEN: ${ARTIFACT_INTERNAL_TOKEN:?set 32+ random characters in .env}
     volumes:
-      # Paths from the architecture sketch; verify them against the pinned
-      # image before the first start.
+      # Small state (sessions, config; expect well under 1 GiB); the workspace is
+      # the large one and is mounted from the host's disk image in the remote
+      # overlay. The official image runs as root with `HOME=/root`.
       - opencode-data:/root/.local/share/opencode
       - opencode-config:/root/.config/opencode
       - workspace:/workspace

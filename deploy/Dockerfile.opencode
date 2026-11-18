@@ -1,0 +1,109 @@
+# syntax=docker/dockerfile:1.7
+#
+# OpenCode server for the Code surface: the official, versioned upstream image
+# plus the four things this stack needs and upstream does not ship.
+#
+#   base   ghcr.io/anomalyco/opencode:2.3.2   Alpine, root, entrypoint `opencode`
+#   added  git, ripgrep, curl/ca-certificates, Docker CLI (static, verified),
+#          Node.js (the artifact MCP tool runs through `tsx`), the tool tree
+#
+# The entrypoint (`opencode`), the user (root) and the working directory are the
+# upstream contract and stay untouched. Compose passes `serve --hostname …
+# --port 4096` as arguments, which is exactly what the entrypoint expects.
+# There is no tini: the official image is a single process and does not ship an
+# init; wrapping the entrypoint would replace the contract this image inherits.
+#
+# The tag is versioned, never `latest`, and must match the `@opencode/client`
+# range the app pins (2.3.x, lockfile 2.3.2). A tag that does not exist fails
+# the pull instead of drifting. Upgrade path: issue #38.
+#
+# Build from the repository root:
+#   docker build -f deploy/Dockerfile.opencode -t openchat-opencode .
+
+ARG OPENCODE_BASE=ghcr.io/anomalyco/opencode:2.3.2
+
+# The tool is *not* a single-file bundle: `src/compile.ts` resolves `preact` and
+# `preact/hooks` from the tool's own `node_modules` and inlines that runtime
+# into every artifact document. Keep the package tree and pnpm's relative links
+# intact, and build it on Alpine so the tree matches the runtime's libc.
+ARG NODE_IMAGE=node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
+
+FROM ${NODE_IMAGE} AS tool
+WORKDIR /repo
+ENV CI=true
+# The version matches `packageManager` in package.json; corepack is deprecated
+# in Node 24 and its download is not reproducible inside a build.
+RUN npm install --global pnpm@11.23.0
+
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/code-host/package.json ./apps/code-host/package.json
+COPY apps/artifact-host/package.json ./apps/artifact-host/package.json
+COPY packages/code-ticket/package.json ./packages/code-ticket/package.json
+COPY packages/contracts/package.json ./packages/contracts/package.json
+COPY packages/opencode/package.json ./packages/opencode/package.json
+COPY packages/artifact-tool/package.json ./packages/artifact-tool/package.json
+
+# The tool, its workspace dependencies and its dev dependency `tsx` (the
+# runtime command); `--frozen-lockfile` turns manifest drift into a build
+# failure.
+RUN pnpm install --frozen-lockfile --filter @openchat/artifact-tool...
+
+COPY tsconfig.base.json ./
+COPY packages/artifact-tool ./packages/artifact-tool
+COPY apps/artifact-host ./apps/artifact-host
+COPY packages/contracts ./packages/contracts
+
+FROM ${OPENCODE_BASE} AS runtime
+
+# Alpine: `nodejs` is what the tool's `tsx` shebang needs. git and ripgrep are
+# what OpenCode's own tools shell out to; curl is used by agent workflows and by
+# the Docker CLI download below. ripgrep is already in the upstream image.
+RUN apk add --no-cache ca-certificates curl git nodejs
+
+# Docker CLI only, from the static release tarball, exactly as the tool image
+# does it: a CLI, never a daemon. The sidecar `<tarball>.sha256` is fetched from
+# the same base URL and verified before unpacking, so a swapped or truncated
+# download fails the build.
+ARG DOCKER_CLI_VERSION=29.10.0
+# The release workflow builds amd64 and arm64; buildx exposes the target as
+# TARGETARCH, and the static tarball uses its own arch names.
+ARG TARGETARCH=amd64
+RUN set -eu; \
+    case "${TARGETARCH}" in \
+      amd64) arch=x86_64 ;; \
+      arm64) arch=aarch64 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    base="https://download.docker.com/linux/static/stable/${arch}"; \
+    tarball="docker-${DOCKER_CLI_VERSION}.tgz"; \
+    work=$(mktemp -d); \
+    curl -fsSLo "$work/${tarball}" "$base/${tarball}"; \
+    curl -fsSLo "$work/${tarball}.sha256" "$base/${tarball}.sha256"; \
+    ( cd "$work" && sha256sum -c "${tarball}.sha256" ); \
+    tar -xz --strip-components=1 -C /usr/local/bin docker/docker < "$work/${tarball}"; \
+    rm -rf "$work"; \
+    docker --version
+
+# Deliberately outside `$HOME`: the config volume is writable by the agent and
+# must not be able to shadow the tool's source or its `node_modules`.
+COPY --from=tool /repo /opt/artifact-tool
+
+# Stable command path. pnpm installs `tsx` next to the package that depends on
+# it, not at the workspace root; the MCP config names one path, so pin it here.
+RUN mkdir -p /opt/artifact-tool/node_modules/.bin \
+  && ln -sf ../../packages/artifact-tool/node_modules/.bin/tsx \
+    /opt/artifact-tool/node_modules/.bin/tsx
+
+RUN node --version \
+  && git --version \
+  && rg --version | head -1 \
+  && test -x /opt/artifact-tool/node_modules/.bin/tsx \
+  && /opt/artifact-tool/node_modules/.bin/tsx --version
+
+# No ENTRYPOINT, CMD or USER: all three are the official image's. Compose
+# supplies the `serve` arguments; `working_dir: /workspace` comes from compose.
+
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+  CMD ["opencode", "--version"]

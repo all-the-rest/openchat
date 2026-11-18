@@ -1,0 +1,76 @@
+# OpenChat's three origins, imported by the host's existing Caddyfile:
+#
+#   chat.__OPENCHAT_DOMAIN__        BFF + SPA + /api/*          session cookie
+#   code.__OPENCHAT_DOMAIN__        OpenCode UI proxy           own __Host- cookie
+#   artifacts.__OPENCHAT_DOMAIN__   signed document bytes       no cookie at all
+#
+# Authentication is the application's own login screen (user + password). There
+# is deliberately no `basic_auth` and no `forward_auth` in this file:
+#   * the BFF verifies the credential and mints a host-only session cookie;
+#   * the Code host mints its own cookie from a single-use ticket the BFF
+#     issues, so the app session never travels to a sibling subdomain;
+#   * the artifact origin authorizes every request by the signature in the URL.
+# An edge credential would be a second, separately rotatable secret with a
+# second failure mode, not a security gain over the app's own gate.
+#
+# `openchat-bff`, `openchat-code-host` and `openchat-artifact-host` are the
+# network aliases deploy/remote/compose.yaml sets on the external `webnet`
+# network; Docker's DNS resolves them and Caddy needs no host port.
+#
+# The deploy script substitutes __OPENCHAT_DOMAIN__ and installs this file as
+# /etc/caddy/openchat.caddy inside the `caddy` container, adds
+# `import openchat.caddy` to the existing Caddyfile once, validates and reloads.
+
+(openchat_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), geolocation=(), microphone=(self)"
+	}
+}
+
+chat.__OPENCHAT_DOMAIN__ {
+	import openchat_headers
+	# The app origin is never framed; the Code surface and the artifacts are.
+	header {
+		X-Frame-Options "DENY"
+		Cross-Origin-Opener-Policy "same-origin"
+	}
+	# Event streams must not wait for a compression block: encode everything
+	# else by name-matching the Content-Type. (`encode { match { not … } }` is
+	# not valid syntax; Caddy rejects `not` as a response matcher there.)
+	@compressible not header Content-Type text/event-stream*
+	encode @compressible zstd gzip
+	reverse_proxy openchat-bff:8787 {
+		# -1 flushes after every write, so an SSE token reaches the browser
+		# before the response ends.
+		flush_interval -1
+		# Overwrite, never append: the BFF runs TRUST_PROXY=1 and reads the last
+		# entry, so a client-supplied X-Forwarded-For must not survive the hop.
+		header_up X-Forwarded-For {remote_host}
+	}
+}
+
+code.__OPENCHAT_DOMAIN__ {
+	import openchat_headers
+	# No X-Frame-Options here: the chat origin embeds this UI. The Code host
+	# sets `Content-Security-Policy: frame-ancestors <chat origin>` itself, and
+	# an edge XFO would contradict it and break the frame.
+	@compressible not header Content-Type text/event-stream*
+	encode @compressible zstd gzip
+	reverse_proxy openchat-code-host:8090 {
+		flush_interval -1
+		header_up X-Forwarded-For {remote_host}
+	}
+}
+
+artifacts.__OPENCHAT_DOMAIN__ {
+	import openchat_headers
+	# No `encode` and no cache header. These are signed, byte-identical documents
+	# and the upstream already answers `Cache-Control: no-store` with its own
+	# CSP; adding `immutable` at the edge would let a browser keep bytes past
+	# the signature's expiry. The host also sets `frame-ancestors` for the chat
+	# origin, so no XFO may be added here either.
+	reverse_proxy openchat-artifact-host:4100
+}
