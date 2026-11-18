@@ -56,7 +56,7 @@ test("lists the seeded artifact, opens it sandboxed and downloads its bytes", as
   expect(external).toEqual([])
 })
 
-test("presents the artifact, leaves with Escape and re-mints on reload", async ({ page }) => {
+test("presents the artifact, leaves with Escape and resets in place", async ({ page }) => {
   const external = guardExternalRequests(page)
   await page.goto("/")
   await login(page)
@@ -76,20 +76,19 @@ test("presents the artifact, leaves with Escape and re-mints on reload", async (
   await expect(page.getByTestId("artifact-present-layer")).toHaveCount(0)
   await expect(page.getByTestId("artifact-present")).toBeFocused()
 
-  // The signature has a second resolution: wait past a second so the fresh
-  // read is observably a different URL, not the same mint within one second.
-  await page.waitForTimeout(1100)
-  const reloaded = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname === `/api/artifacts/${E2E_ARTIFACT_ID}` &&
-      response.request().method() === "GET",
-  )
+  // Reset restarts the app with the same signed URL: no metadata read, no new
+  // signature, no navigation away from the artifact origin.
+  let reads = 0
+  page.on("request", (request) => {
+    const url = new URL(request.url())
+    if (url.pathname === `/api/artifacts/${E2E_ARTIFACT_ID}`) reads += 1
+  })
   await page.getByTestId("artifact-reload").click()
-  await reloaded
-  await expect
-    .poll(async () => page.getByTestId("artifact-frame").getAttribute("src"))
-    .not.toBe(firstSrc)
+  await expect(page.getByTestId("artifact-frame")).toHaveAttribute("src", firstSrc ?? "")
   await expect(page.getByTestId("artifact-frame")).toHaveAttribute("src", SIGNED_URL)
+  const artifact = page.frameLocator('[data-testid="artifact-frame"]')
+  await expect(artifact.getByRole("heading", { name: E2E_ARTIFACT_TITLE })).toBeVisible()
+  expect(reads).toBe(0)
 
   expect(external).toEqual([])
 })

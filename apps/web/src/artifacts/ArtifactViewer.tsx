@@ -4,6 +4,9 @@ import { Link, useParams } from "react-router-dom"
 import { ApiError, api } from "../api/client"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useI18n, useT } from "../i18n/provider"
+import { useTheme } from "../theme/provider"
+import { useArtifactBridge } from "./bridge"
+import type { ArtifactResult } from "./bridge"
 import {
   ARTIFACT_REFRESH_MARGIN_MS,
   artifactFilename,
@@ -24,19 +27,28 @@ function isNotFound(error: unknown): boolean {
  * `/artifacts/:id` — one document in the sandboxed frame. The URL always comes
  * from `GET /api/artifacts/:id`; it is never assembled here. Every read mints a
  * fresh URL, so reload and the pre-expiry refresh both re-read the metadata.
+ *
+ * Reset is the exception: it restarts the app in the current frame with the
+ * same signed URL, so it neither mints nor loses the viewer's present mode.
+ * A result from the artifact's bridge is handed to `onArtifactResult`; this
+ * route has no composer, so the caller owns the draft.
  */
 export function ArtifactViewer({
   loadTimeoutMs = ARTIFACT_LOAD_TIMEOUT_MS,
+  onArtifactResult,
 }: {
   loadTimeoutMs?: number
+  onArtifactResult?: (result: ArtifactResult) => void
 }) {
   const t = useT()
   const { locale } = useI18n()
+  const { theme } = useTheme()
   const { id = "" } = useParams<{ id: string }>()
 
   const [phase, setPhase] = useState<Phase>("loading")
   const [meta, setMeta] = useState<ArtifactResponse | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const [epoch, setEpoch] = useState(0)
   const [frameFailed, setFrameFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [refreshFailed, setRefreshFailed] = useState(false)
@@ -52,6 +64,15 @@ export function ArtifactViewer({
   const recovered = useRef(0)
   const recovering = useRef(false)
   const refreshedURLs = useRef(new Set<string>())
+
+  const bridge = useArtifactBridge({
+    frameRef,
+    artifactId: id,
+    theme,
+    locale,
+    epoch,
+    onResult: onArtifactResult,
+  })
 
   useEffect(() => {
     alive.current = true
@@ -181,6 +202,16 @@ export function ArtifactViewer({
 
   const reload = () => setAttempt((value) => value + 1)
 
+  // Reset restarts the app in place. A ready artifact is asked over the
+  // bridge (`artifact:reset`, same nonce, same URL); a document without the
+  // shim is remounted with the same URL. Neither mints a new signature.
+  const reset = () => {
+    if (bridge.reset()) return
+    setLoaded(false)
+    setFrameFailed(false)
+    setEpoch((value) => value + 1)
+  }
+
   const download = async () => {
     if (!meta || downloading) return
     setDownloading(true)
@@ -244,9 +275,14 @@ export function ArtifactViewer({
       </Panel>
     ) : (
       <ArtifactFrame
+        key={epoch}
         meta={meta}
         frameRef={frameRef}
-        onLoad={() => setLoaded(true)}
+        height={bridge.height}
+        onLoad={() => {
+          setLoaded(true)
+          bridge.onLoad()
+        }}
         onError={() => void recover()}
       />
     )
@@ -309,7 +345,7 @@ export function ArtifactViewer({
             <button
               type="button"
               data-testid="artifact-reload"
-              onClick={reload}
+              onClick={reset}
               disabled={phase === "loading"}
               className="btn btn-outline btn-sm"
             >
@@ -349,7 +385,10 @@ export function ArtifactViewer({
           </div>
         ) : null}
 
-        <div data-testid="artifact-frame-area" className="relative flex min-h-0 flex-1">
+        <div
+          data-testid="artifact-frame-area"
+          className="relative flex min-h-0 flex-1 overflow-y-auto"
+        >
           {content}
         </div>
       </div>

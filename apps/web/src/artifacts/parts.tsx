@@ -39,11 +39,14 @@ export function Panel({
 export function ArtifactFrame({
   meta,
   frameRef,
+  height = null,
   onLoad,
   onError,
 }: {
   meta: ArtifactResponse
   frameRef: RefObject<HTMLIFrameElement | null>
+  /** Last `artifact:resize` height; `null` keeps the frame filled. */
+  height?: number | null
   onLoad(): void
   onError(): void
 }) {
@@ -58,7 +61,10 @@ export function ArtifactFrame({
       data-testid="artifact-frame"
       onLoad={onLoad}
       onError={onError}
-      className="h-full w-full border-0 bg-surface"
+      style={height === null ? undefined : { height }}
+      className={
+        height === null ? "h-full w-full border-0 bg-surface" : "w-full border-0 bg-surface"
+      }
     />
   )
 }
