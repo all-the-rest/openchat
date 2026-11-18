@@ -84,6 +84,12 @@ test("the usage panel shows the fake backend's reported numbers", async ({ page 
   await login(page)
   await startChat(page)
 
+  // The panel claims a window only for a model the owner chose; the host
+  // default is not part of the catalogue, so pick one deliberately.
+  await page.getByTestId("model-select").click()
+  await page.getByRole("menuitem", { name: /Fake Echo: Default/ }).click()
+  await expect(page.getByTestId("model-select")).toContainText("Fake Echo")
+
   await page.getByTestId("composer").fill("Usage check")
   await page.getByTestId("send").click()
   await expect(page.getByTestId("message-assistant").last()).toBeVisible()
