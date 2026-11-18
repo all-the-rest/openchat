@@ -45,7 +45,7 @@ beforeEach(() => {
   // The tests below that do not use an injected store share `sessionStorage`.
   window.sessionStorage.clear()
   mocks.create.mockClear()
-  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2.3.0" } })
+  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2" } })
   mocks.create.mockResolvedValue({
     id: "ses_new",
     title: "",

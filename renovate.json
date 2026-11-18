@@ -1,0 +1,69 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["npm", "github-actions"],
+  "dependencyDashboard": true,
+  "packageRules": [
+    {
+      "description": "pnpm workspace dependencies (minor and patch): one PR, merged after the required checks",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "pnpm dependencies",
+      "groupSlug": "pnpm-dependencies",
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "GitHub Actions (minor and patch): one PR, merged after the required checks",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "github-actions",
+      "groupSlug": "github-actions",
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "@opencode/client (minor and patch): its own PR, merged after the required checks",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["@opencode/client"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "@opencode/client",
+      "groupSlug": "opencode-client",
+      "separateMajorMinor": true,
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "pnpm workspace dependencies (major): one PR, review required",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "pnpm dependencies (major)",
+      "groupSlug": "pnpm-dependencies-major",
+      "addLabels": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "GitHub Actions (major): one PR, review required",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "github-actions (major)",
+      "groupSlug": "github-actions-major",
+      "addLabels": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "@opencode/client (major): one PR, review required",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["@opencode/client"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "@opencode/client (major)",
+      "groupSlug": "opencode-client-major",
+      "separateMajorMinor": true,
+      "addLabels": ["major"],
+      "automerge": false
+    }
+  ]
+}

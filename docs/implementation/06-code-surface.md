@@ -331,21 +331,24 @@ host re-validates (including its percent-decoding check) and is authoritative.
 
 ### `GET /api/code/status`
 
-Probes the Code host's `/__health` server-side and compares its version with
-`PINNED_OPENCODE_VERSION` from `@opencode/client` (exported by
-`packages/opencode`).
+Probes the Code host's `/__health` server-side and compares the major of its
+version with `SUPPORTED_OPENCODE_MAJOR` from `@opencode/client` (exported by
+`packages/opencode`). The dependency range is `^2.3.0`: minor and patch
+releases are adopted through CI, while the major stays pinned
+([12 — dependency updates](./12-dependency-updates.md)).
 
 ```json
-{ "configured": true, "reachable": true, "version": "2.3.0",
-  "expectedVersion": "2.3.0", "matches": true }
+{ "configured": true, "reachable": true, "version": "2.4.0",
+  "expectedVersion": "2", "matches": true }
 ```
 
 - Unconfigured: `200 {configured:false, reachable:false,
   expectedVersion, matches:false}` without any probe.
 - Reachable with `{ok:true, version}`: `reachable:true`, `version` set and
-  `matches: version === expectedVersion`. The version is capped at 64 printable
-  characters before it is compared or returned. A mismatch is reported in the
-  response; the non-blocking warning is client-side (07). The BFF never blocks.
+  `matches: matchesSupportedMajor(version)`. The version is capped at 64
+  printable characters before it is compared or returned. A `2.4.0` host is
+  healthy next to the `2.3.0` client; a `3.0.0` host warns. A mismatch is
+  reported in the response and warns client-side (07); it never blocks.
 - Any failure — transport error, non-2xx, redirect, timeout, malformed body,
   body over 4 KiB — is `reachable:false`, `matches:false`, `version` omitted.
   The probe sends `redirect: "error"`, so another origin cannot answer it. The
@@ -355,7 +358,8 @@ Probes the Code host's `/__health` server-side and compares its version with
 
 ### `InfoResponse.code`
 
-`/api/info` now carries `code: { configured, expectedVersion }`. The UI reads it
+`/api/info` now carries `code: { configured, expectedVersion }`, where
+`expectedVersion` is the supported major as a string (`"2"`). The UI reads it
 from the single info response and hides the Chat | Code switch when
 `configured` is false, without an extra request.
 
@@ -375,9 +379,9 @@ Warnings and refusals name the variable only, never a value.
 | File | Covers |
 | --- | --- |
 | `apps/server/test/pump.test.ts` | the BFF response pump settles and cancels the reader when a client disconnects during backpressure, resumes after `drain`, and abandons a reader whose `cancel` never settles. |
-| `apps/server/test/code.test.ts` | auth on both routes, unconfigured ticket/status/info, absolute URL and encoded `next`, `readTicket` claims (`sub`, `codeHost`, `exp` within TTL), `next` sanitisation table (including `//` and scheme-shaped input), redirects disabled on the probe, bounded body and 64-char version, fresh `jti` per mint, no ticket in status or logs, 21st mint `429` and window reset, matching/mismatching/unreachable/malformed/timeout status, 10 s probe cache and `/api/info` reporting. |
+| `apps/server/test/code.test.ts` | auth on both routes, unconfigured ticket/status/info, absolute URL and encoded `next`, `readTicket` claims (`sub`, `codeHost`, `exp` within TTL), `next` sanitisation table (including `//` and scheme-shaped input), redirects disabled on the probe, bounded body and 64-char version, fresh `jti` per mint, no ticket in status or logs, 21st mint `429` and window reset, same-major/minor-skew/major-skew/unreachable/malformed/timeout status, 10 s probe cache and `/api/info` reporting. |
 | `apps/server/test/env.test.ts`, `env-bounds.test.ts` | origin validation, development secret generation, production refusal without a secret, https requirement, TTL clamp and refusal, `PORT` `1..65535`, status-timeout `100..10000` ms clamp, timeout parsing. |
-| `packages/opencode/test/pinned-version.test.ts` | `PINNED_OPENCODE_VERSION` against the package manifest and the installed `@opencode/client`. |
+| `packages/opencode/test/supported-major.test.ts` | `OPENCODE_CLIENT_RANGE` against the package manifest, `SUPPORTED_OPENCODE_MAJOR` derived from the range, the installed `@opencode/client` satisfying the range, and the major comparison for same-major, minor skew, major skew and malformed versions. |
 
 No test calls a real network host; the probe is injected.
 
