@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { SurfaceProvider } from "../src/code/SurfaceProvider"
 import { AppShell } from "../src/components/AppShell"
 import { I18nProvider } from "../src/i18n/provider"
@@ -67,7 +67,26 @@ function renderShell(entry: string) {
   )
 }
 
+/**
+ * The app bar shows the surface switch only on wide viewports; below `lg` it
+ * lives in the overflow menu. The switch is the test's settle signal, so ask
+ * for the wide layout explicitly.
+ */
+function stubWideViewport() {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query.includes("min-width: 1024px"),
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }))
+}
+
 beforeEach(() => {
+  stubWideViewport()
   mocks.info.mockReset()
   mocks.create.mockReset()
   mocks.create.mockResolvedValue({
@@ -77,6 +96,10 @@ beforeEach(() => {
     created: 0,
     updated: 0,
   })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe("host unreachable banner", () => {
