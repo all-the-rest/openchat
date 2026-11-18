@@ -1,8 +1,116 @@
 import type { ReactNode, RefObject } from "react"
 import type { ArtifactResponse } from "@openchat/contracts"
+import { Link } from "react-router-dom"
+import { useT } from "../i18n/provider"
 
 /** A frame that never fires `load` is treated as a refused URL. */
 export const ARTIFACT_LOAD_TIMEOUT_MS = 10_000
+
+/**
+ * The chrome's minimal counterpart in present mode: the title and the way out,
+ * nothing that competes with the document for space.
+ */
+export function PresentBar({
+  title,
+  exitRef,
+  onExit,
+}: {
+  title?: string
+  exitRef: RefObject<HTMLButtonElement | null>
+  onExit(): void
+}) {
+  const t = useT()
+  return (
+    <div
+      role="region"
+      aria-label={t("artifacts.presentRegion")}
+      data-testid="artifact-present-bar"
+      className="flex min-h-12 shrink-0 items-center gap-2 border-b border-subtle px-3 py-1"
+    >
+      <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</h1>
+      <button
+        ref={exitRef}
+        type="button"
+        data-testid="artifact-exit-present"
+        onClick={onExit}
+        className="btn btn-outline btn-sm"
+      >
+        {t("artifacts.exitPresent")}
+      </button>
+    </div>
+  )
+}
+
+/** The viewer's header: back, title with metadata, download, reset, present. */
+export function ViewerChrome({
+  title,
+  metaLine,
+  hasMeta,
+  loading,
+  downloading,
+  canPresent,
+  presentRef,
+  onDownload,
+  onReset,
+  onPresent,
+}: {
+  /** Artifact title, or `null` before the metadata arrives. */
+  title: string | null
+  metaLine: string | null
+  hasMeta: boolean
+  loading: boolean
+  downloading: boolean
+  canPresent: boolean
+  presentRef: RefObject<HTMLButtonElement | null>
+  onDownload(): void
+  onReset(): void
+  onPresent(): void
+}) {
+  const t = useT()
+  return (
+    <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-subtle px-3 py-2">
+      <Link to="/artifacts" data-testid="artifact-back" className="btn btn-ghost btn-sm">
+        {t("artifacts.back")}
+      </Link>
+      <div className="min-w-0 flex-1">
+        <h1 className="truncate text-sm font-semibold">{title ?? t("artifacts.viewerTitle")}</h1>
+        {metaLine ? (
+          <p data-testid="artifact-viewer-meta" className="text-xs text-muted">
+            {metaLine}
+          </p>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        data-testid="artifact-download"
+        onClick={onDownload}
+        disabled={!hasMeta || downloading}
+        className="btn btn-outline btn-sm"
+      >
+        {downloading ? t("artifacts.downloading") : t("artifacts.download")}
+      </button>
+      <button
+        type="button"
+        data-testid="artifact-reset"
+        onClick={onReset}
+        disabled={loading}
+        className="btn btn-outline btn-sm"
+      >
+        {t("artifacts.reset")}
+      </button>
+      <button
+        ref={presentRef}
+        type="button"
+        data-testid="artifact-present"
+        onClick={onPresent}
+        disabled={!canPresent}
+        className="btn btn-outline btn-sm"
+      >
+        {t("artifacts.present")}
+      </button>
+    </header>
+  )
+}
 
 export function Panel({
   title,

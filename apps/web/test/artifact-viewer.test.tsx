@@ -1,5 +1,5 @@
 import type { ArtifactResponse } from "@openchat/contracts"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
@@ -101,6 +101,34 @@ describe("artifact viewer", () => {
     expect(frame).toHaveAttribute("title", "Interest calculator")
     expect(frame).toHaveAttribute("referrerpolicy", "no-referrer")
     expect(screen.getByTestId("artifact-viewer-meta")).toHaveTextContent("Nov")
+    // The draft panel belongs to a result; nothing arrives on a plain load.
+    expect(screen.queryByTestId("artifact-draft")).toBeNull()
+  })
+
+  it("shows the result panel even when the route passes no callback", async () => {
+    renderViewer()
+    const frame = (await screen.findByTestId("artifact-frame")) as HTMLIFrameElement
+    const posted: unknown[][] = []
+    const source = {
+      postMessage: vi.fn((message: unknown) => {
+        posted.push([message])
+      }),
+    }
+    Object.defineProperty(frame, "contentWindow", { configurable: true, value: source })
+    fireEvent.load(frame)
+
+    const init = posted[0]?.[0] as Record<string, unknown>
+    const event = new MessageEvent("message", {
+      data: { type: "artifact:result", nonce: init.nonce, text: "local draft" },
+    })
+    Object.defineProperty(event, "source", { configurable: true, value: source })
+    await act(async () => {
+      window.dispatchEvent(event)
+    })
+
+    expect(screen.getByRole("region", { name: "Artifact result" })).toBeInTheDocument()
+    expect(screen.getByLabelText("Text")).toHaveValue("local draft")
+    expect(screen.getByTestId("artifact-frame")).toBe(frame)
   })
 
   it("shows the loading state before the metadata arrives", async () => {

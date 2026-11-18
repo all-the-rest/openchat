@@ -595,7 +595,7 @@ host path is introduced.
 | Entry | `apps/web/src/chat/SessionSidebar.tsx` | `/artifacts` link, rendered only when the surface is available. Hidden and inert otherwise; the app-bar menu is unchanged. |
 | Routes | `apps/web/src/App.tsx` | `/artifacts` and `/artifacts/:id`; both redirect home when the surface is unavailable, exactly like `/apps`. |
 | List | `apps/web/src/artifacts/ArtifactsPage.tsx` | `GET /api/artifacts`, newest first, title plus size and write time. |
-| Viewer | `apps/web/src/artifacts/ArtifactViewer.tsx` | `GET /api/artifacts/:id` on mount and retry; one iframe; reset in place; present mode; download. |
+| Viewer | `apps/web/src/artifacts/ArtifactViewer.tsx` | `GET /api/artifacts/:id` on mount and retry; one iframe; reset in place; present mode; download; the bridge's result as an editable draft below the frame (`DraftPanel.tsx`, slice 4). |
 | Download route | `apps/server/src/artifacts.ts` | `GET /api/artifacts/:id/download`, the exact stored bytes through the app origin. |
 | Store read | `apps/server/src/artifacts-store.ts` | `read(id)` returns the bytes only when the metadata is readable too. |
 | Names/formatting | `apps/web/src/artifacts/files.ts` | download filename, byte/date formatting, refresh margin. |
@@ -636,6 +636,7 @@ lives in [`18-artifact-bridge.md`](18-artifact-bridge.md).
 | Download failure | download route rejected | error banner; the frame stays |
 | Refresh failure | pre-expiry re-read rejected | error banner; the last working URL stays until it expires |
 | Present | Present button | the artifact fills the content area, page chrome hides, Escape leaves and returns focus to the trigger |
+| Result | the artifact posts `artifact:result` through the bridge | an editable draft appears below the frame with Copy and Dismiss; the overwrite rule and the message contract are in [`18-artifact-bridge.md`](18-artifact-bridge.md) |
 
 **Freshness.** `GET /api/artifacts/:id` mints a URL for 15 minutes. A URL that
 arrives within one minute of expiry is replaced by a second read before the

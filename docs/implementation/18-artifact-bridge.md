@@ -17,7 +17,8 @@ sandbox section demands (no top navigation, no egress).
 | Piece | Where | What it does |
 | --- | --- | --- |
 | Viewer bridge | `apps/web/src/artifacts/bridge.ts` | `useArtifactBridge`: nonce, init handshake, source check, resize clamp, result shape/size/rate, reset. |
-| Viewer wiring | `apps/web/src/artifacts/ArtifactViewer.tsx` | Sends `artifact:init` on `load`, applies the reported height, resets in place, forwards results to `onArtifactResult`. |
+| Viewer wiring | `apps/web/src/artifacts/ArtifactViewer.tsx` | Sends `artifact:init` on `load`, applies the reported height, resets in place, holds the last result locally and forwards it to `onArtifactResult`. |
+| Draft panel | `apps/web/src/artifacts/DraftPanel.tsx` | The editable draft under the frame: title, text, optional JSON `data`, Copy and Dismiss. |
 | Frame | `apps/web/src/artifacts/parts.tsx` | Optional content height; the sandbox attribute is unchanged. |
 | Artifact shim | `apps/artifact-host/src/bridge.ts` | `BRIDGE_SCRIPT`, the inlined `window.openchat` implementation. |
 | Export | `apps/artifact-host/package.json` | `@openchat/artifact-host/bridge` for the tool shell (slice 3). |
@@ -73,17 +74,41 @@ load timeout.
 | Target origin | `"*"` | both ends; safe because the frame is the only recipient and carries no credential |
 
 A result is an editable draft, never HTML: the viewer validates the shape,
-drops unknown fields, and hands `{ title?, text?, data? }` to a callback.
-Nothing in the payload is inserted into the DOM.
+drops unknown fields, and keeps `{ title?, text?, data? }` as a draft. Nothing
+in the payload is parsed as markup: the title and text are `<input>` and
+`<textarea>` values, and `data` is a `<pre>` of pretty-printed JSON. A test
+feeds `<img src=x onerror=alert(1)>` in both fields and asserts that it stays
+literal text and creates no element.
 
-## Result → composer draft
+## Result → editable draft in the viewer
 
-The `/artifacts/:id` route has no composer and no session, so there is nothing
-honest to insert into yet. `ArtifactViewer` therefore takes an optional
-`onArtifactResult(result)` callback and the route passes nothing. The inline
-artifact card (the surface that will live in a message) passes the composer's
-insert function; that is the smallest integration that does not invent a second
-draft store. Until then a result is validated and dropped, not rendered.
+The `/artifacts/:id` route has no session and no composer, so the draft is
+local to the viewer: `ArtifactViewer` keeps the accepted result in its own
+state and renders `DraftPanel` below the frame until the user dismisses it.
+The panel offers **Copy** (title, text and JSON `data` as one plain-text
+payload, with a short "Copied" acknowledgement that resets) and **Dismiss**.
+There is no send button, because there is no session to send to; inventing one
+would imply a conversation this route does not have.
+
+`onArtifactResult` remains the seam for the one surface that will have a
+composer: the inline artifact card in a message. The viewer calls it from the
+same handler that stores the draft, so a caller sees exactly the result the
+panel shows — one result path, not two.
+
+**The overwrite rule.** A result never silently replaces text the user typed:
+
+- The first result (or the first after Dismiss) starts a fresh draft.
+- While the draft is untouched, a newer result replaces it in place — a
+  calculator that re-posts on every input keeps its panel current.
+- Once the user edited the title or the text, a different result only raises
+  the "New result available" affordance; clicking it replaces the draft and
+  clears the edited flag. An identical result is ignored either way, so a
+  repeated payload causes no churn.
+
+Dismiss clears the panel; a later result starts a fresh draft, even when it is
+identical to the dismissed one. The panel is a labelled `region`, and it never
+takes focus when it appears: keyboard focus stays on whatever control the user
+was using.
 
 ## Reset semantics
 
@@ -190,14 +215,17 @@ renders `<div id="root"></div>`) and sets `data-theme` and `color-scheme` on
 | File | Pins |
 | --- | --- |
 | `apps/artifact-host/test/bridge.test.ts` | API shape; no send before init; init only from `window.parent`; queued/immediate `onInit`; result shape, nonce and 64 KiB refusal; `ResizeObserver` height plus `setHeight` clamping; reset nonce; no `fetch`/storage/`eval`/`window.open`/`</script` in the script text; sandbox policy; document policy; the `cdn` fixture and the validator oracle; the four fixtures. |
-| `apps/web/test/artifact-bridge.test.tsx` | init payload/target/nonce on load; exactly two reposts with the same nonce; ready stops reposts; resize clamp and frame height; foreign source and wrong nonce dropped; 65 KiB dropped; 10 Hz stream rate-limited; draft callback and no HTML injection; bridge reset with a ready frame; remount reset with the same URL and a fresh nonce; sandbox attribute; unknown type dropped. |
-| `apps/web/test/artifact-viewer.test.tsx` | (slice 2, updated) reset reuses the signed URL and performs no metadata read; present/Escape unchanged. |
+| `apps/web/test/artifact-bridge.test.tsx` | init payload/target/nonce on load; exactly two reposts with the same nonce; ready stops reposts; resize clamp and frame height; foreign source and wrong nonce dropped; 65 KiB dropped; 10 Hz stream rate-limited; the callback and the panel's field value come from one result, no HTML injection; bridge reset with a ready frame; remount reset with the same URL and a fresh nonce; sandbox attribute; unknown type dropped. |
+| `apps/web/test/artifact-viewer.test.tsx` | (slice 2, updated) reset reuses the signed URL and performs no metadata read; present/Escape unchanged; a result renders locally with no callback; no panel before the first result. |
+| `apps/web/test/artifact-draft.test.tsx` | no panel before the first result; title/text/JSON `data` prefilled; generic title fallback; an untouched draft follows the artifact; an edited draft keeps its text and only offers a labelled "New result available" that replaces on click; Copy writes the draft to the clipboard and resets its acknowledgement; Dismiss clears and the next result shows again; `<img src=x onerror=…>` stays literal text; focus is not stolen; the callback and the panel come from one result path. |
 | `apps/web/e2e/artifacts.spec.ts` | (slice 2, updated) reset keeps the same signed URL and issues no `/api/artifacts/:id` read. |
 
 ## Deliberately not in this slice
 
 - **No `artifact:error`.** Not documented; inventing one would add a channel the
   shell cannot send yet.
-- **No composer insertion.** The callback is the seam; the route has no composer.
+- **No send / composer insertion from the viewer.** The panel drafts, copies and
+  dismisses; `onArtifactResult` is the seam an inline chat card can use to insert
+  into a composer later.
 - **No per-artifact result quota beyond 500 ms.** The 64 KiB cap and the rate
   limit are the documented bounds; a daily quota has no product requirement.
