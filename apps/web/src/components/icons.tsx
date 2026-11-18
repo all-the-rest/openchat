@@ -124,6 +124,17 @@ export function AppsIcon(props: IconProps) {
   )
 }
 
+/** A framed document with a play mark: the sandboxed artifact viewer. */
+export function ArtifactsIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M3 9h18" />
+      <path d="m10 12.5 4 2.5-4 2.5z" />
+    </Icon>
+  )
+}
+
 export function SunIcon(props: IconProps) {
   return (
     <Icon {...props}>

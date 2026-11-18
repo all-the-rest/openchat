@@ -1,13 +1,38 @@
-import { mkdtempSync } from "node:fs"
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "@playwright/test"
+import {
+  E2E_ARTIFACT_CREATED_AT,
+  E2E_ARTIFACT_FRAME_ANCESTORS,
+  E2E_ARTIFACT_HOST_URL,
+  E2E_ARTIFACT_HTML,
+  E2E_ARTIFACT_ID,
+  E2E_ARTIFACT_SIGNING_KEY,
+  E2E_ARTIFACT_TITLE,
+} from "./e2e/artifact-fixture"
 import { CODE_STUB_ORIGIN, CODE_STUB_SECRET } from "./e2e/code-stub"
 
 const WEB_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(WEB_DIR, "..", "..")
 const WORKSPACE_DIR = mkdtempSync(join(tmpdir(), "openchat-e2e-"))
+
+// Seed the artifact store before the BFF and host start. Content-addressed like
+// the real store, so `/api/artifacts` lists exactly one deterministic document
+// and the artifact host serves it over a signed URL without any network.
+const ARTIFACTS_DIR = mkdtempSync(join(tmpdir(), "openchat-e2e-artifacts-"))
+const SEEDED_ARTIFACT_DIR = join(ARTIFACTS_DIR, E2E_ARTIFACT_ID)
+mkdirSync(SEEDED_ARTIFACT_DIR, { recursive: true })
+writeFileSync(join(SEEDED_ARTIFACT_DIR, "index.html"), E2E_ARTIFACT_HTML)
+writeFileSync(
+  join(SEEDED_ARTIFACT_DIR, "meta.json"),
+  JSON.stringify({
+    title: E2E_ARTIFACT_TITLE,
+    bytes: Buffer.byteLength(E2E_ARTIFACT_HTML),
+    createdAt: E2E_ARTIFACT_CREATED_AT,
+  }),
+)
 const REUSE_EXISTING = !process.env.CI
 
 export default defineConfig({
@@ -57,6 +82,11 @@ export default defineConfig({
         // BFF's per-address ticket budget (20 mints/min) is per simulated user
         // instead of shared by the whole parallel suite. See e2e/code.spec.ts.
         TRUST_PROXY: "1",
+        // One seeded document; the same key and directory reach the real
+        // artifact host below.
+        ARTIFACT_HOST_URL: E2E_ARTIFACT_HOST_URL,
+        ARTIFACT_SIGNING_KEY: E2E_ARTIFACT_SIGNING_KEY,
+        ARTIFACTS_DIR,
       },
     },
     {
@@ -65,6 +95,23 @@ export default defineConfig({
       url: "http://localhost:5173",
       reuseExistingServer: REUSE_EXISTING,
       timeout: 60_000,
+    },
+    {
+      // The real host serves the seeded bytes with its CSP and the documented
+      // two-header sandbox. It shares only the key and the directory with the
+      // BFF, exactly like a deployment.
+      command: "pnpm --filter @openchat/artifact-host start",
+      cwd: REPO_ROOT,
+      url: `${E2E_ARTIFACT_HOST_URL}/healthz`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+      env: {
+        HOST: "127.0.0.1",
+        PORT: "4100",
+        ARTIFACT_SIGNING_KEY: E2E_ARTIFACT_SIGNING_KEY,
+        ARTIFACTS_DIR,
+        ARTIFACT_FRAME_ANCESTORS: E2E_ARTIFACT_FRAME_ANCESTORS,
+      },
     },
     {
       // Stub Code host: redeems the real tickets the BFF mints, so the switch,

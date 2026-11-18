@@ -69,6 +69,7 @@ describe("artifact route auth", () => {
     ["list", "/api/artifacts", "GET", {}],
     ["create", "/api/artifacts", "POST", { "content-type": "application/json" }],
     ["read", `/api/artifacts/${"a".repeat(64)}`, "GET", {}],
+    ["download", `/api/artifacts/${"a".repeat(64)}/download`, "GET", {}],
   ])("requires a session for %s", async (_label, path, method, headers) => {
     const server = makeServer({ env: env(await artifactDir()) })
     const response = await server.app.request(path, { method, headers })

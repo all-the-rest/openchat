@@ -163,6 +163,21 @@ export class ArtifactStore {
   }
 
   /**
+   * The exact stored bytes for the BFF's download route. Metadata has to be
+   * readable too, so a directory without `meta.json` (a crash during the first
+   * write) is indistinguishable from an unknown id.
+   */
+  async read(id: string): Promise<Buffer | null> {
+    const meta = await this.get(id)
+    if (!meta) return null
+    try {
+      return await readFile(join(this.dir, id, "index.html"))
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * Newest first by `createdAt`. ISO 8601 UTC strings of equal width sort
    * lexicographically, so no date parsing is needed; the id breaks a tie.
    */

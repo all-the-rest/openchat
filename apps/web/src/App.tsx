@@ -1,5 +1,8 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom"
+import type { ReactNode } from "react"
 import { AppsPage } from "./apps/AppsPage"
+import { ArtifactsPage } from "./artifacts/ArtifactsPage"
+import { ArtifactViewer } from "./artifacts/ArtifactViewer"
 import { AuthProvider, useAuth } from "./auth/provider"
 import { AppShell } from "./components/AppShell"
 import { EventStreamProvider } from "./api/events"
@@ -68,6 +71,25 @@ export function AppsRoute() {
   return <AppsPage />
 }
 
+/**
+ * `/artifacts` and `/artifacts/:id` exist only when `/api/info` reports the
+ * artifact surface. An unconfigured deployment has no entry and no route: a
+ * direct visit falls back to chat, exactly like `/apps`.
+ */
+export function ArtifactsRoute({ children }: { children: ReactNode }) {
+  const { artifactsAvailable } = useSurface()
+
+  if (artifactsAvailable === false) return <Navigate to="/" replace />
+  if (artifactsAvailable !== true) {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <span className="loading loading-spinner loading-md" aria-hidden="true" />
+      </div>
+    )
+  }
+  return <>{children}</>
+}
+
 function BootScreen() {
   const t = useT()
   return (
@@ -127,6 +149,22 @@ function AppRoutes() {
         <Route path="/code" element={<CodeRoute />} />
         <Route path="/code/*" element={<CodeRoute />} />
         <Route path="/apps" element={<AppsRoute />} />
+        <Route
+          path="/artifacts"
+          element={
+            <ArtifactsRoute>
+              <ArtifactsPage />
+            </ArtifactsRoute>
+          }
+        />
+        <Route
+          path="/artifacts/:id"
+          element={
+            <ArtifactsRoute>
+              <ArtifactViewer />
+            </ArtifactsRoute>
+          }
+        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

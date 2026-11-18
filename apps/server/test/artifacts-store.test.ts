@@ -165,6 +165,24 @@ describe("artifact store", () => {
     expect(await store.get("c".repeat(64))).toBeNull()
   })
 
+  it("reads the exact stored bytes for a download", async () => {
+    const { store, dir } = await tempStore()
+    const result = await store.create({ title: "Report", html: HTML })
+    if (!result.ok) throw new Error("create failed")
+
+    const bytes = await store.read(result.artifact.id)
+    expect(bytes).not.toBeNull()
+    expect(bytes?.toString("utf8")).toBe(HTML)
+
+    // Metadata has to be readable: a document without meta.json is not listed
+    // and must not be downloadable either.
+    await rm(join(dir, result.artifact.id, "meta.json"))
+    expect(await store.read(result.artifact.id)).toBeNull()
+    expect(await store.read("b".repeat(64))).toBeNull()
+    expect(await store.read("../".repeat(22))).toBeNull()
+    expect(await store.read("")).toBeNull()
+  })
+
   it("lists newest first and ignores noise", async () => {
     let now = Date.UTC(2026, 0, 1)
     const { store, dir } = await tempStore(() => now)

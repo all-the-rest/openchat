@@ -1,5 +1,6 @@
 import type {
   AppsResponse,
+  ArtifactResponse,
   CodeStatusResponse,
   CodeTicketResponse,
   CreateSessionRequest,
@@ -100,6 +101,21 @@ const sessionPath = (sessionID: string) => `/api/sessions/${encodeURIComponent(s
 /** Server names come from the host, so they are encoded like any path segment. */
 const appPath = (name: string) => `/api/apps/${encodeURIComponent(name)}`
 
+const artifactPath = (id: string) => `/api/artifacts/${encodeURIComponent(id)}`
+
+/**
+ * Raw bytes for a download. The app origin serves them, never the signed
+ * artifact host, so no short-lived URL reaches the browser's download history.
+ */
+async function requestBlob(path: string): Promise<Blob> {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    headers: { accept: "text/html" },
+  })
+  if (!response.ok) throw await parseError(response)
+  return response.blob()
+}
+
 export const api = {
   me(): Promise<LoginResponse> {
     return request<LoginResponse>("/api/auth/me")
@@ -152,6 +168,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify({}),
     })
+  },
+
+  /** Newest-first artifact metadata with a URL signed by the BFF at this read. */
+  async artifacts(): Promise<ArtifactResponse[]> {
+    const body = await request<unknown>("/api/artifacts")
+    return unwrapList<ArtifactResponse>(body, "artifacts")
+  },
+
+  /** One artifact plus a freshly minted signed URL; never built client-side. */
+  artifact(id: string): Promise<ArtifactResponse> {
+    return request<ArtifactResponse>(artifactPath(id))
+  },
+
+  /** The exact stored document, through the BFF rather than the host URL. */
+  artifactDownload(id: string): Promise<Blob> {
+    return requestBlob(`${artifactPath(id)}/download`)
   },
 
   async listSessions(): Promise<SessionInfo[]> {
