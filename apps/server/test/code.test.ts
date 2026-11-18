@@ -331,19 +331,20 @@ describe("Code host status", () => {
 
   it("probes with redirects disabled", async () => {
     let seen: RequestInit | undefined
+    const version = "2.3.0"
     const stub = (async (_input: string | URL | Request, init?: RequestInit) => {
       seen = init
-      return Response.json({ ok: true, version: PINNED_OPENCODE_VERSION })
+      return Response.json({ ok: true, version })
     }) as typeof fetch
 
     const result = await createCodeProbe(stub)(ORIGIN, 1_000)
-    expect(result).toEqual({ reachable: true, version: PINNED_OPENCODE_VERSION })
+    expect(result).toEqual({ reachable: true, version })
     // A redirect would let another origin answer the probe.
     expect(seen?.redirect).toBe("error")
   })
 
   it("bounds a hostile version before it reaches the client", async () => {
-    const version = `2.3.0-${"x".repeat(200)}`
+    const version = `3.0.0-${"x".repeat(200)}`
     const probe = createCodeProbe(
       (async () => Response.json({ ok: true, version })) as typeof fetch,
     )
@@ -354,7 +355,7 @@ describe("Code host status", () => {
     )
     expect(body.reachable).toBe(true)
     expect(body.version).toHaveLength(64)
-    expect(body.version?.startsWith("2.3.0-")).toBe(true)
+    expect(body.version?.startsWith("3.0.0-")).toBe(true)
     expect(body.matches).toBe(false)
   })
 
