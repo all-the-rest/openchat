@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
+import { ChatFiles } from "../chat/ChatFiles"
 import { Composer } from "../chat/Composer"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
 import { QueuedTurns } from "../chat/QueuedTurns"
@@ -66,6 +67,8 @@ export function ChatPage() {
       <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-subtle bg-app px-4">
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{title}</h1>
       </header>
+
+      <ChatFiles sessionID={sessionId} />
 
       <Transcript
         messages={chat.messages}

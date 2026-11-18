@@ -1,6 +1,7 @@
 import type {
   AppsResponse,
   ArtifactResponse,
+  ChatFilesResponse,
   CodeStatusResponse,
   CodeTicketResponse,
   CreateSessionRequest,
@@ -185,6 +186,27 @@ export const api = {
   /** The exact stored document, through the BFF rather than the host URL. */
   artifactDownload(id: string): Promise<Blob> {
     return requestBlob(`${artifactPath(id)}/download`)
+  },
+
+  /** One chat's working files plus the current quota fill levels. */
+  chatFiles(sessionID: string): Promise<ChatFilesResponse> {
+    return request<ChatFilesResponse>(`${sessionPath(sessionID)}/files`)
+  },
+
+  /**
+   * Same-origin URL for a chat file. The BFF answers with an attachment, so a
+   * plain link downloads the bytes without a script-built blob.
+   */
+  chatFileDownloadUrl(sessionID: string, name: string): string {
+    return `${sessionPath(sessionID)}/files/${encodeURIComponent(name)}`
+  },
+
+  deleteChatFile(sessionID: string, name: string): Promise<void> {
+    return request<void>(`${sessionPath(sessionID)}/files/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+      // The BFF requires a JSON content type on state-changing requests.
+      body: JSON.stringify({}),
+    })
   },
 
   async listSessions(): Promise<SessionInfo[]> {

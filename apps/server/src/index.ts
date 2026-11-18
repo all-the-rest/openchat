@@ -1,10 +1,13 @@
 import { createServer } from "node:http"
 import type { IncomingMessage, ServerResponse } from "node:http"
 import { Readable } from "node:stream"
+import { CHAT_FILE_BODY_CEILING_BYTES } from "@openchat/contracts"
 import { FakeBackend, FakeHostSwitch, LiveBackend } from "@openchat/opencode"
 import type { ChatBackend } from "@openchat/opencode"
 import { createApp } from "./app"
 import { INTERNAL_ARTIFACTS_PATH } from "./artifacts-internal"
+import { reportChatFileOrphans } from "./chat-files-audit"
+import { isChatFilesUploadPath } from "./chat-files-paths"
 import { loadEnv } from "./env"
 import { ARTIFACT_BODY_MAX_BYTES, MAX_BODY_BYTES } from "./limits"
 import { pumpResponseBody } from "./pump"
@@ -118,8 +121,11 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   } else {
     // The internal artifact route carries a compiled document, so its envelope
     // matches the public artifact route instead of the generic JSON cap.
-    const bodyCap =
-      url.pathname === INTERNAL_ARTIFACTS_PATH ? ARTIFACT_BODY_MAX_BYTES : MAX_BODY_BYTES
+    const bodyCap = isChatFilesUploadPath(url.pathname)
+      ? CHAT_FILE_BODY_CEILING_BYTES
+      : url.pathname === INTERNAL_ARTIFACTS_PATH
+        ? ARTIFACT_BODY_MAX_BYTES
+        : MAX_BODY_BYTES
     const declared = Number(request.headers["content-length"] ?? "")
     if (Number.isFinite(declared) && declared > bodyCap) {
       request.resume()
@@ -160,6 +166,19 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 
   await writeWebResponse(response, webResponse)
 }
+
+// Read-only boot audit: names chat directories without a session and files
+// without metadata. It never deletes, and a host that cannot list sessions
+// (offline at boot) must not block the listen.
+void backend
+  .listSessions()
+  .then((sessions) =>
+    reportChatFileOrphans({
+      workspaceDir: config.WORKSPACE_DIR,
+      sessionIDs: sessions.map((session) => session.id),
+    }),
+  )
+  .catch(() => undefined)
 
 const server = createServer((request, response) => {
   handleRequest(request, response).catch(() => {
