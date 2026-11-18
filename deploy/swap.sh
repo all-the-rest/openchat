@@ -260,7 +260,12 @@ main() {
   [ -f "$ENV_FILE" ] || die "missing .env in $STACK_DIR (host-only, mode 0600)"
 
   if [ -z "$PROBE_URL" ]; then
-    PROBE_URL="http://127.0.0.1:${BFF_PORT:-8787}"
+    # The compose file reads BFF_PORT from .env, so the probe must use the same
+    # value: a candidate bound to 8788 would otherwise be validated on 8787,
+    # i.e. against the old release.
+    local env_port=""
+    env_port=$(sed -n 's/^BFF_PORT=//p' "$ENV_FILE" | tail -n 1 | tr -d '"' | tr -d '[:space:]')
+    PROBE_URL="http://127.0.0.1:${env_port:-8787}"
   fi
 
   local current previous=""

@@ -3,6 +3,7 @@ import { join } from "node:path"
 import type { FakeScenario } from "@openchat/contracts"
 import { isFakeScenario } from "@openchat/opencode"
 import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
+import { webDistDir } from "./static"
 
 export type BackendMode = "fake" | "live"
 export type AuthMode = "session" | "basic"
@@ -19,6 +20,8 @@ export interface EnvConfig {
    */
   FAKE_APPS: boolean
   OPENCODE_URL: string
+  /** Built SPA directory served by the BFF; empty in development. */
+  WEB_DIST_DIR: string
   OPENCODE_USERNAME: string
   OPENCODE_PASSWORD: string
   OPENCHAT_PASSWORD: string
@@ -348,6 +351,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     FAKE_SCENARIO: isFakeScenario(scenarioValue) ? scenarioValue : "default",
     FAKE_APPS: fakeAppsValue !== "off",
     OPENCODE_URL: readOpencodeUrl(source),
+    WEB_DIST_DIR: webDistDir(source),
     OPENCODE_USERNAME: read(source, "OPENCODE_USERNAME") ?? "opencode",
     OPENCODE_PASSWORD: readSecret(source, "OPENCODE_PASSWORD") ?? "",
     OPENCHAT_PASSWORD: password,

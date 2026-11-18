@@ -251,6 +251,20 @@ describe("image invariants", () => {
     expect(IMAGES.artifactHost).toContain("--filter @openchat/artifact-host...")
   })
 
+  // A fresh named volume is seeded from the first image that mounts it, and the
+  // artifact host mounts `artifacts` before the BFF. Root-owned seed bytes would
+  // make every write from the BFF (uid 1000) fail with EACCES.
+  it("seeds the artifact volume with the writer's ownership", () => {
+    const runtime = IMAGES.artifactHost.slice(
+      IMAGES.artifactHost.lastIndexOf("FROM ${NODE_IMAGE} AS runtime"),
+    )
+    expect(runtime).toMatch(/mkdir -p \/artifacts/)
+    expect(runtime).toMatch(/chown node:node \/artifacts/)
+    expect(runtime.indexOf("chown node:node /artifacts")).toBeLessThan(
+      runtime.indexOf("USER node"),
+    )
+  })
+
   it("gives the tool runtime a shell toolchain and a non-privileged docker CLI", () => {
     expect(IMAGES.tools).toMatch(/^ARG NODE_IMAGE=node:24-bookworm-slim@sha256:[0-9a-f]{64}$/m)
     expect(IMAGES.tools).toMatch(/\bgit\b/)

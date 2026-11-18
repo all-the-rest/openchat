@@ -49,7 +49,7 @@ export function ArtifactViewer({
   const presentRef = useRef<HTMLButtonElement>(null)
   const exitRef = useRef<HTMLButtonElement>(null)
   const restoreFocus = useRef(false)
-  const recovered = useRef(new Set<string>())
+  const recovered = useRef(0)
   const recovering = useRef(false)
   const refreshedURLs = useRef(new Set<string>())
 
@@ -70,7 +70,7 @@ export function ArtifactViewer({
     setFrameFailed(false)
     setLoaded(false)
     setRefreshFailed(false)
-    recovered.current.clear()
+    recovered.current = 0
     refreshedURLs.current.clear()
     recovering.current = false
 
@@ -107,11 +107,13 @@ export function ArtifactViewer({
   // One recovery read, then the recoverable panel.
   const recover = useCallback(async () => {
     if (!meta || recovering.current) return
-    if (recovered.current.has(meta.url)) {
+    // Keyed on the attempt, not the URL: a recovery mints a fresh URL, so a
+    // URL-keyed guard would re-read forever against a host that keeps failing.
+    if (recovered.current >= 1) {
       setFrameFailed(true)
       return
     }
-    recovered.current.add(meta.url)
+    recovered.current += 1
     recovering.current = true
     try {
       const next = await api.artifact(id)

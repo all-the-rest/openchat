@@ -39,7 +39,11 @@ FROM ${NODE_IMAGE} AS runtime
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tini \
  && rm -rf /var/lib/apt/lists/* \
- && mkdir -p /artifacts
+ # A fresh named volume is seeded from the first image that mounts it, and this
+ # host mounts `artifacts` before the BFF. Without the chown the BFF (uid 1000)
+ # inherits root-owned bytes and every write fails with EACCES.
+ && mkdir -p /artifacts \
+ && chown node:node /artifacts
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \

@@ -93,6 +93,10 @@ describe("serveStatic", () => {
     expect(await get("/../openchat-static-sibling.txt")).toBeUndefined()
     expect(await get("/%2e%2e/openchat-static-sibling.txt")).toBeUndefined()
     expect(await get("/assets/../../openchat-static-sibling.txt")).toBeUndefined()
+    // Encoded separators: `new URL` leaves `%2f` alone, so only the decoded
+    // containment check can refuse these.
+    expect(await get("/%2e%2e%2fopenchat-static-sibling.txt")).toBeUndefined()
+    expect(await get("/assets%2f..%2f..%2fopenchat-static-sibling.txt")).toBeUndefined()
     expect(await get("/%00/secret.txt")).toBeUndefined()
     // Normalised back into the build directory: the shell, never a listing.
     const self = await get("/../openchat-static")

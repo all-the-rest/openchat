@@ -7,7 +7,7 @@ import { createApp } from "./app"
 import { loadEnv } from "./env"
 import { MAX_BODY_BYTES } from "./limits"
 import { pumpResponseBody } from "./pump"
-import { serveStatic, webDistDir } from "./static"
+import { serveStatic } from "./static"
 import { TRANSCRIBE_PATH } from "./transcribe"
 
 const config = loadEnv()
@@ -16,7 +16,7 @@ const config = loadEnv()
  * to `/app/web` in the image. Static files are answered before the API app so
  * a request never pays for the Hono dispatch or the JSON body reader.
  */
-const staticDir = webDistDir()
+const staticDir = config.WEB_DIST_DIR
 
 const backend: ChatBackend =
   config.BACKEND_MODE === "live"

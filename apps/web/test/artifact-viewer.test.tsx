@@ -172,7 +172,26 @@ describe("artifact viewer", () => {
     expect(await screen.findByText("This artifact link has expired")).toBeInTheDocument()
     expect(screen.queryByTestId("artifact-frame")).toBeNull()
     expect(screen.getByTestId("artifact-stale-retry")).toBeInTheDocument()
-    expect(mocks.artifact.mock.calls.length).toBeGreaterThanOrEqual(3)
+    // Exactly one recovery read, then the panel: the recovery mints a fresh
+    // URL, so anything keyed on the URL would keep re-reading.
+    expect(mocks.artifact).toHaveBeenCalledTimes(2)
+  })
+
+  it("ends in the stale panel when every re-read succeeds but the frame never loads", async () => {
+    // A host that answers the metadata but refuses to load the frame would mint
+    // a new URL on every recovery; keyed on the URL that guard never fires.
+    let reads = 0
+    mocks.artifact.mockImplementation(async () => {
+      reads += 1
+      return artifact({
+        url: `https://artifacts.example.test/a/${ID}?exp=4070909999&sig=${String(reads).padStart(43, "r")}`,
+      })
+    })
+    renderViewer({ loadTimeoutMs: 0 })
+
+    expect(await screen.findByText("This artifact link has expired")).toBeInTheDocument()
+    expect(screen.queryByTestId("artifact-frame")).toBeNull()
+    expect(reads).toBe(2)
   })
 
   it("re-mints the URL on reload", async () => {
