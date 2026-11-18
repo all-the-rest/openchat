@@ -8,13 +8,14 @@ import { msg } from "@lingui/core/macro"
 
 export const chat = {
   "auth.loginTitle": msg({ id: "auth.loginTitle", message: "Sign in" }),
-  "auth.loginDescription": msg({ id: "auth.loginDescription", message: "Enter your password to open the workspace." }),
+  "auth.loginDescription": msg({ id: "auth.loginDescription", message: "Enter your username and password to open the workspace." }),
+  "auth.userLabel": msg({ id: "auth.userLabel", message: "Username" }),
   "auth.passwordLabel": msg({ id: "auth.passwordLabel", message: "Password" }),
   "auth.passwordPlaceholder": msg({ id: "auth.passwordPlaceholder", message: "Password" }),
   "auth.signIn": msg({ id: "auth.signIn", message: "Sign in" }),
   "auth.signingIn": msg({ id: "auth.signingIn", message: "Signing in…" }),
   "auth.signOut": msg({ id: "auth.signOut", message: "Sign out" }),
-  "auth.invalidPassword": msg({ id: "auth.invalidPassword", message: "Wrong password. Try again." }),
+  "auth.invalidCredentials": msg({ id: "auth.invalidCredentials", message: "Wrong username or password. Try again." }),
   "auth.loginFailed": msg({ id: "auth.loginFailed", message: "Sign-in failed. Try again." }),
   "auth.bootFailed": msg({ id: "auth.bootFailed", message: "The app could not reach the server." }),
   "auth.retry": msg({ id: "auth.retry", message: "Retry" }),

@@ -17,6 +17,7 @@ import { dirname } from "node:path"
 import {
   uiReviewPassword,
   uiReviewSeedFilePath,
+  uiReviewUser,
   type UiReviewSeedFile,
   type UiReviewSeedRecord,
 } from "./ui-review.config"
@@ -29,7 +30,7 @@ async function loginCookie(): Promise<string> {
   const response = await fetch(`${ORIGIN}/api/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password: uiReviewPassword }),
+    body: JSON.stringify({ user: uiReviewUser, password: uiReviewPassword }),
   })
   if (!response.ok) throw new Error(`ui-review seed login failed: ${response.status}`)
   const cookie = response.headers

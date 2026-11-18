@@ -6,9 +6,9 @@
 // scroller selectors, variants) live in the manifest; the capture machinery
 // lives in `capture.ts` / `scroller.ts` and the page flow in `harness.ts`.
 //
-// Adapted for OpenChat: the login flow has one password field, and the
-// authenticated app keeps an SSE connection open, so settling waits for DOM +
-// key UI instead of `networkidle` (which would never be reached).
+// Adapted for OpenChat: the login flow asks for a username and a password, and
+// the authenticated app keeps an SSE connection open, so settling waits for DOM
+// + key UI instead of `networkidle` (which would never be reached).
 //
 // All tests are tagged `@screenshot`; the set is separate from the functional
 // E2E suite and runs in CI as the second slow step (same e2e job, after the

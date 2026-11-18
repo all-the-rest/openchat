@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest"
 import { loadEnv } from "../src/env"
 
+/** Every source needs one credential; the rules themselves live in env-auth. */
+const CREDENTIALS = { OPENCHAT_PASSWORD: "dev-password" }
+
 describe("loadEnv", () => {
-  it("applies development defaults and warns about them", () => {
+  it("applies development defaults and warns about the ones it derives", () => {
     const warnings: string[] = []
-    const config = loadEnv({ source: {}, warn: (message) => warnings.push(message) })
+    const config = loadEnv({
+      source: { OPENCHAT_PASSWORD: "dev-password" },
+      warn: (message) => warnings.push(message),
+    })
 
     expect(config.PORT).toBe(8787)
     expect(config.HOST).toBe("127.0.0.1")
@@ -16,7 +22,8 @@ describe("loadEnv", () => {
     expect(config.OPENCODE_URL).toBe("http://127.0.0.1:4096")
     expect(config.OPENCODE_USERNAME).toBe("opencode")
     expect(config.OPENCHAT_USER).toBe("owner")
-    expect(config.OPENCHAT_PASSWORD).toBe("openchat-dev")
+    expect(config.OPENCHAT_PASSWORD).toBe("dev-password")
+    expect(config.OPENCHAT_PASSWORD_HASH).toBe("")
     expect(config.AUTH_MODE).toBe("session")
     expect(config.SESSION_TTL_SECONDS).toBe(604_800)
     expect(config.COOKIE_SECURE).toBe(false)
@@ -26,8 +33,8 @@ describe("loadEnv", () => {
     expect(config.DICTATION_MAX_BYTES).toBe(26_214_400)
     expect(config.SESSION_SECRET.length).toBeGreaterThanOrEqual(32)
 
-    expect(warnings.some((entry) => entry.includes("OPENCHAT_PASSWORD"))).toBe(true)
     expect(warnings.some((entry) => entry.includes("SESSION_SECRET"))).toBe(true)
+    expect(warnings.some((entry) => entry.includes("OPENCHAT_PASSWORD"))).toBe(false)
   })
 
   it("reads explicit values", () => {
@@ -75,7 +82,10 @@ describe("loadEnv", () => {
   })
 
   it("treats a blank STT_URL as no dictation service", () => {
-    const config = loadEnv({ source: { STT_URL: "   " }, warn: () => {} })
+    const config = loadEnv({
+      source: { ...CREDENTIALS, STT_URL: "   " },
+      warn: () => {},
+    })
     expect(config.STT_URL).toBe("")
   })
 
@@ -83,6 +93,7 @@ describe("loadEnv", () => {
     const warnings: string[] = []
     const config = loadEnv({
       source: {
+        ...CREDENTIALS,
         STT_API_KEY: "never-log-this-key",
         DICTATION_MAX_SECONDS: "not-a-number",
         DICTATION_MAX_BYTES: "-5",
@@ -102,20 +113,20 @@ describe("loadEnv", () => {
 
   it("accepts a remote OPENCODE_URL and strips trailing slashes", () => {
     const config = loadEnv({
-      source: { OPENCODE_URL: "http://10.0.0.5:4096/" },
+      source: { ...CREDENTIALS, OPENCODE_URL: "http://10.0.0.5:4096/" },
       warn: () => {},
     })
     expect(config.OPENCODE_URL).toBe("http://10.0.0.5:4096")
 
     const tunnel = loadEnv({
-      source: { OPENCODE_URL: "http://127.0.0.1:4096/prefix/" },
+      source: { ...CREDENTIALS, OPENCODE_URL: "http://127.0.0.1:4096/prefix/" },
       warn: () => {},
     })
     expect(tunnel.OPENCODE_URL).toBe("http://127.0.0.1:4096/prefix")
 
     // A query or fragment is dropped; URL resolution would ignore it anyway.
     const withQuery = loadEnv({
-      source: { OPENCODE_URL: "http://10.0.0.5:4096/?token=abc/" },
+      source: { ...CREDENTIALS, OPENCODE_URL: "http://10.0.0.5:4096/?token=abc/" },
       warn: () => {},
     })
     expect(withQuery.OPENCODE_URL).toBe("http://10.0.0.5:4096")
@@ -123,17 +134,17 @@ describe("loadEnv", () => {
 
   it("fails the boot for a malformed or credential-bearing OPENCODE_URL", () => {
     expect(() =>
-      loadEnv({ source: { OPENCODE_URL: "opencode:4096" }, warn: () => {} }),
+      loadEnv({ source: { ...CREDENTIALS, OPENCODE_URL: "opencode:4096" }, warn: () => {} }),
     ).toThrow("must use http or https")
     expect(() =>
-      loadEnv({ source: { OPENCODE_URL: "not a url" }, warn: () => {} }),
+      loadEnv({ source: { ...CREDENTIALS, OPENCODE_URL: "not a url" }, warn: () => {} }),
     ).toThrow("absolute http(s) URL")
     expect(() =>
-      loadEnv({ source: { OPENCODE_URL: "ftp://opencode:4096" }, warn: () => {} }),
+      loadEnv({ source: { ...CREDENTIALS, OPENCODE_URL: "ftp://opencode:4096" }, warn: () => {} }),
     ).toThrow("must use http or https")
     expect(() =>
       loadEnv({
-        source: { OPENCODE_URL: "http://owner:secret@10.0.0.5:4096" },
+        source: { ...CREDENTIALS, OPENCODE_URL: "http://owner:secret@10.0.0.5:4096" },
         warn: () => {},
       }),
     ).toThrow("must not embed credentials")
@@ -142,7 +153,7 @@ describe("loadEnv", () => {
   it("clamps an absurd byte cap to the ceiling and says why", () => {
     const warnings: string[] = []
     const config = loadEnv({
-      source: { DICTATION_MAX_BYTES: "999999999999" },
+      source: { ...CREDENTIALS, DICTATION_MAX_BYTES: "999999999999" },
       warn: (message) => warnings.push(message),
     })
 
@@ -156,15 +167,17 @@ describe("loadEnv", () => {
   it("binds loopback unless HOST is set explicitly", () => {
     // Container images set HOST=0.0.0.0; a bare local start must not listen on
     // every interface.
-    const config = loadEnv({ source: {}, warn: () => {} })
+    const config = loadEnv({ source: CREDENTIALS, warn: () => {} })
     expect(config.HOST).toBe("127.0.0.1")
-    expect(loadEnv({ source: { HOST: "0.0.0.0" }, warn: () => {} }).HOST).toBe("0.0.0.0")
+    expect(
+      loadEnv({ source: { ...CREDENTIALS, HOST: "0.0.0.0" }, warn: () => {} }).HOST,
+    ).toBe("0.0.0.0")
   })
 
   it("falls back from an unknown scenario", () => {
     const warnings: string[] = []
     const config = loadEnv({
-      source: { FAKE_SCENARIO: "nope", OPENCHAT_PASSWORD: "x", SESSION_SECRET: "y" },
+      source: { ...CREDENTIALS, FAKE_SCENARIO: "nope", SESSION_SECRET: "y" },
       warn: (message) => warnings.push(message),
     })
     expect(config.FAKE_SCENARIO).toBe("default")
@@ -178,84 +191,6 @@ describe("loadEnv", () => {
   })
 })
 
-describe("production hardening", () => {
-  const production = {
-    NODE_ENV: "production",
-    BACKEND_MODE: "live",
-    OPENCODE_PASSWORD: "opencode-secret",
-    SESSION_SECRET: "a".repeat(32),
-    COOKIE_SECURE: "1",
-    OPENCHAT_PASSWORD: "app-secret",
-  }
-
-  it("boots with an explicit password, secret and secure cookie", () => {
-    const config = loadEnv({ source: production, warn: () => {} })
-    expect(config.OPENCHAT_PASSWORD).toBe("app-secret")
-    expect(config.SESSION_SECRET).toBe(production.SESSION_SECRET)
-    expect(config.COOKIE_SECURE).toBe(true)
-  })
-
-  it("refuses an unset password", () => {
-    expect(() =>
-      loadEnv({
-        source: { ...production, OPENCHAT_PASSWORD: undefined },
-        warn: () => {},
-      }),
-    ).toThrow(/OPENCHAT_PASSWORD/)
-  })
-
-  it("refuses the development default password without echoing it", () => {
-    let message = ""
-    try {
-      loadEnv({ source: { ...production, OPENCHAT_PASSWORD: "openchat-dev" }, warn: () => {} })
-    } catch (error) {
-      message = error instanceof Error ? error.message : String(error)
-    }
-    expect(message).toMatch(/OPENCHAT_PASSWORD/)
-    expect(message).not.toContain("openchat-dev")
-  })
-
-  it("refuses an unset session secret", () => {
-    expect(() =>
-      loadEnv({
-        source: { ...production, SESSION_SECRET: undefined },
-        warn: () => {},
-      }),
-    ).toThrow(/SESSION_SECRET/)
-  })
-
-  it("refuses an insecure session cookie", () => {
-    expect(() =>
-      loadEnv({
-        source: { ...production, COOKIE_SECURE: undefined },
-        warn: () => {},
-      }),
-    ).toThrow(/COOKIE_SECURE/)
-  })
-
-  it("allows basic auth without a secure cookie", () => {
-    const config = loadEnv({
-      source: { ...production, AUTH_MODE: "basic", COOKIE_SECURE: undefined },
-      warn: () => {},
-    })
-    expect(config.AUTH_MODE).toBe("basic")
-    expect(config.COOKIE_SECURE).toBe(false)
-  })
-
-  it("honours the explicit insecure-cookie opt-out", () => {
-    const warnings: string[] = []
-    const config = loadEnv({
-      source: {
-        ...production,
-        COOKIE_SECURE: undefined,
-        ALLOW_INSECURE_COOKIE: "1",
-      },
-      warn: (message) => warnings.push(message),
-    })
-    expect(config.COOKIE_SECURE).toBe(false)
-    expect(warnings.some((warning) => warning.includes("ALLOW_INSECURE_COOKIE"))).toBe(true)
-  })
-})
 
 describe("Code surface env", () => {
   const productionCode = {
@@ -271,7 +206,10 @@ describe("Code surface env", () => {
 
   it("defaults to an unconfigured surface without warnings", () => {
     const warnings: string[] = []
-    const config = loadEnv({ source: {}, warn: (message) => warnings.push(message) })
+    const config = loadEnv({
+      source: CREDENTIALS,
+      warn: (message) => warnings.push(message),
+    })
 
     expect(config.CODE_HOST_ORIGIN).toBe("")
     expect(config.CODE_TICKET_SECRET).toBe("")
@@ -283,6 +221,7 @@ describe("Code surface env", () => {
   it("reads a bare origin, the secret, TTL and timeout", () => {
     const config = loadEnv({
       source: {
+        ...CREDENTIALS,
         CODE_HOST_ORIGIN: "https://code.example.com/",
         CODE_TICKET_SECRET: "code-ticket-secret",
         CODE_TICKET_TTL_SECONDS: "45",
@@ -309,7 +248,7 @@ describe("Code surface env", () => {
     for (const value of invalid) {
       let message = ""
       try {
-        loadEnv({ source: { CODE_HOST_ORIGIN: value }, warn: () => {} })
+        loadEnv({ source: { ...CREDENTIALS, CODE_HOST_ORIGIN: value }, warn: () => {} })
       } catch (error) {
         message = error instanceof Error ? error.message : String(error)
       }
@@ -322,7 +261,7 @@ describe("Code surface env", () => {
   it("generates an ephemeral ticket secret in development and warns", () => {
     const warnings: string[] = []
     const config = loadEnv({
-      source: { CODE_HOST_ORIGIN: "http://127.0.0.1:8090" },
+      source: { ...CREDENTIALS, CODE_HOST_ORIGIN: "http://127.0.0.1:8090" },
       warn: (message) => warnings.push(message),
     })
 
@@ -364,7 +303,7 @@ describe("Code surface env", () => {
   it("clamps the TTL to 60 s in development and refuses it in production", () => {
     const warnings: string[] = []
     const config = loadEnv({
-      source: { CODE_TICKET_TTL_SECONDS: "120" },
+      source: { ...CREDENTIALS, CODE_TICKET_TTL_SECONDS: "120" },
       warn: (message) => warnings.push(message),
     })
     expect(config.CODE_TICKET_TTL_SECONDS).toBe(60)
@@ -383,7 +322,7 @@ describe("Code surface env", () => {
   it("falls back from an invalid status timeout without echoing the value", () => {
     const warnings: string[] = []
     const config = loadEnv({
-      source: { CODE_STATUS_TIMEOUT_MS: "not-a-number" },
+      source: { ...CREDENTIALS, CODE_STATUS_TIMEOUT_MS: "not-a-number" },
       warn: (message) => warnings.push(message),
     })
     expect(config.CODE_STATUS_TIMEOUT_MS).toBe(2000)

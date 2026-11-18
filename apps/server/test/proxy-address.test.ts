@@ -34,7 +34,7 @@ function badLogin(headers: Record<string, string> = {}) {
   return {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify({ password: "wrong" }),
+    body: JSON.stringify({ user: "owner", password: "wrong" }),
   }
 }
 

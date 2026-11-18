@@ -1,11 +1,15 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto"
+import { compare } from "bcryptjs"
 
 export const SESSION_COOKIE = "oc_session"
 
 export interface AuthSettings {
   mode: "session" | "basic"
   user: string
+  /** Plaintext credential; empty when `passwordHash` is configured. */
   password: string
+  /** bcrypt hash (`$2a$`, `$2b$` or `$2y$`); empty for a plaintext deployment. */
+  passwordHash: string
   secret: string
   ttlSeconds: number
   secureCookie: boolean
@@ -78,8 +82,34 @@ export function parseCookies(header: string | null): Record<string, string> {
   return cookies
 }
 
-export function verifyPassword(input: string, settings: AuthSettings): string | null {
-  return constantTimeEqual(input, settings.password) ? settings.user : null
+/**
+ * Verifies a login attempt. The username is compared constant-time first, but
+ * the password check always runs: a wrong username costs the same hash work as
+ * a wrong password, and only the combined result decides. That keeps an
+ * unknown user from answering measurably faster than a known one.
+ *
+ * A configured hash is verified with bcrypt; otherwise the plaintext compare
+ * stays. The caller throttles failures, so this function only decides.
+ */
+export async function verifyCredentials(
+  user: string,
+  password: string,
+  settings: AuthSettings,
+): Promise<string | null> {
+  const userMatches = constantTimeEqual(user, settings.user)
+  const passwordMatches = settings.passwordHash
+    ? await compareHash(password, settings.passwordHash)
+    : constantTimeEqual(password, settings.password)
+  return userMatches && passwordMatches ? settings.user : null
+}
+
+/** `compare` throws on a malformed hash; a malformed hash must deny. */
+async function compareHash(password: string, hash: string): Promise<boolean> {
+  try {
+    return await compare(password, hash)
+  } catch {
+    return false
+  }
 }
 
 /** Validates `Authorization: Basic base64(user:password)`. */
@@ -97,6 +127,8 @@ export function verifyBasic(
   } catch {
     return null
   }
+  // Basic auth only knows the plaintext pair; config refuses hash + basic.
+  if (!settings.password) return null
   return constantTimeEqual(decoded, `${settings.user}:${settings.password}`)
     ? settings.user
     : null

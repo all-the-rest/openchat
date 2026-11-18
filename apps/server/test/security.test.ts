@@ -4,12 +4,13 @@ import { createApp } from "../src/app"
 import { FakeBackend } from "@openchat/opencode"
 
 const PASSWORD = "secret-password"
+const USER = "owner"
 
 function loginRequest(headers: Record<string, string> = {}) {
   return {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify({ password: PASSWORD }),
+    body: JSON.stringify({ user: USER, password: PASSWORD }),
   }
 }
 
@@ -17,7 +18,7 @@ function badLoginRequest(headers: Record<string, string> = {}) {
   return {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify({ password: "wrong" }),
+    body: JSON.stringify({ user: USER, password: "wrong" }),
   }
 }
 
@@ -92,7 +93,7 @@ describe("content type guard", () => {
     const response = await server.app.request("/api/auth/login", {
       method: "POST",
       headers: { "content-type": "text/plain" },
-      body: JSON.stringify({ password: PASSWORD }),
+      body: JSON.stringify({ user: "owner", password: PASSWORD }),
     })
     expect(response.status).toBe(415)
     expect(await json(response)).toMatchObject({ error: { code: "unsupported_media_type" } })

@@ -127,6 +127,7 @@ export function authSettings(config: EnvConfig): AuthSettings {
     mode: config.AUTH_MODE,
     user: config.OPENCHAT_USER,
     password: config.OPENCHAT_PASSWORD,
+    passwordHash: config.OPENCHAT_PASSWORD_HASH,
     secret: config.SESSION_SECRET,
     ttlSeconds: config.SESSION_TTL_SECONDS,
     secureCookie: config.COOKIE_SECURE,

@@ -173,7 +173,6 @@ describe("compose stack boundaries", () => {
 
   it("keeps every required secret an interpolation, not a value", () => {
     const secretKeys = [
-      "OPENCHAT_PASSWORD",
       "SESSION_SECRET",
       "OPENCODE_PASSWORD",
       "CODE_TICKET_SECRET",
@@ -187,8 +186,14 @@ describe("compose stack boundaries", () => {
       }
     }
 
-    // Optional secrets are still references, never literals.
+    // Optional secrets are still references, never literals. The login
+    // credential is one of two, so compose passes both and the BFF enforces
+    // exactly one.
     expect(COMPOSE).toMatch(/^\s*STT_API_KEY: \$\{STT_API_KEY:-\}$/m)
+    expect(COMPOSE).toMatch(/^\s*OPENCHAT_PASSWORD: \$\{OPENCHAT_PASSWORD:-\}$/m)
+    expect(COMPOSE).toMatch(
+      /^\s*OPENCHAT_PASSWORD_HASH: \$\{OPENCHAT_PASSWORD_HASH:-\}$/m,
+    )
 
     // No obvious credential literal anywhere in the file.
     expect(COMPOSE).not.toMatch(/^.*(?:PASSWORD|SECRET|SIGNING_KEY|API_KEY).*:\s*["']?[A-Za-z0-9+/=]{16,}/m)
@@ -196,7 +201,7 @@ describe("compose stack boundaries", () => {
   })
 
   it("keeps the env template secret-free", () => {
-    for (const key of ["OPENCHAT_PASSWORD", "SESSION_SECRET", "OPENCODE_PASSWORD", "CODE_TICKET_SECRET", "ARTIFACT_SIGNING_KEY", "STT_API_KEY"]) {
+    for (const key of ["OPENCHAT_PASSWORD", "OPENCHAT_PASSWORD_HASH", "SESSION_SECRET", "OPENCODE_PASSWORD", "CODE_TICKET_SECRET", "ARTIFACT_SIGNING_KEY", "STT_API_KEY"]) {
       expect(ENV_TEMPLATE, `${key} must stay empty in the template`).toMatch(
         new RegExp(`^${key}=$`, "m"),
       )

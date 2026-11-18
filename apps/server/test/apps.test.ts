@@ -294,18 +294,19 @@ describe("/api/info apps availability", () => {
 
 describe("FAKE_APPS", () => {
   it("parses off and falls back to on for an unknown value", () => {
-    const off = loadEnv({ source: { FAKE_APPS: "off" }, warn: () => {} })
+    const credentials = { OPENCHAT_PASSWORD: "dev-password" }
+    const off = loadEnv({ source: { ...credentials, FAKE_APPS: "off" }, warn: () => {} })
     expect(off.FAKE_APPS).toBe(false)
 
-    const upper = loadEnv({ source: { FAKE_APPS: "OFF" }, warn: () => {} })
+    const upper = loadEnv({ source: { ...credentials, FAKE_APPS: "OFF" }, warn: () => {} })
     expect(upper.FAKE_APPS).toBe(false)
 
-    const on = loadEnv({ source: { FAKE_APPS: "on" }, warn: () => {} })
+    const on = loadEnv({ source: { ...credentials, FAKE_APPS: "on" }, warn: () => {} })
     expect(on.FAKE_APPS).toBe(true)
 
     const warnings: string[] = []
     const invalid = loadEnv({
-      source: { FAKE_APPS: "sometimes" },
+      source: { ...credentials, FAKE_APPS: "sometimes" },
       warn: (message) => warnings.push(message),
     })
     expect(invalid.FAKE_APPS).toBe(true)

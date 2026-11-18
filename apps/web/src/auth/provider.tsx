@@ -14,7 +14,7 @@ export type AuthStatus = "loading" | "authenticated" | "unauthenticated" | "erro
 export interface AuthValue {
   status: AuthStatus
   user: string | null
-  signIn(password: string): Promise<void>
+  signIn(user: string, password: string): Promise<void>
   signOut(): Promise<void>
   retry(): Promise<void>
 }
@@ -45,8 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void bootstrap()
   }, [bootstrap])
 
-  const signIn = useCallback(async (password: string) => {
-    const result = await api.login(password)
+  const signIn = useCallback(async (user: string, password: string) => {
+    const result = await api.login(user, password)
     setUser(result.user)
     setStatus("authenticated")
   }, [])
