@@ -344,12 +344,12 @@ export function ArtifactViewer({
             </button>
             <button
               type="button"
-              data-testid="artifact-reload"
+              data-testid="artifact-reset"
               onClick={reset}
               disabled={phase === "loading"}
               className="btn btn-outline btn-sm"
             >
-              {t("artifacts.reload")}
+              {t("artifacts.reset")}
             </button>
             <button
               ref={presentRef}

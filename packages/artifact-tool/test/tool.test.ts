@@ -73,8 +73,14 @@ describe("openchat_app_write: happy path", () => {
     expect(body.html.startsWith("<!doctype html")).toBe(true)
     expect(body.html).toContain('<div id="root"></div>')
     expect(body.html).toContain("<style>body { color: red }</style>")
-    expect(body.html).toContain("document.getElementById(\"root\")")
-    expect(body.html).not.toContain("window.openchat")
+    expect(body.html).toContain('document.getElementById("root")')
+    // The bridge is inlined ahead of the bundle, so the app IIFE finds
+    // `window.openchat` on its first call.
+    expect(body.html).toContain("window.openchat")
+    expect(body.html.indexOf("window.openchat")).toBeLessThan(
+      body.html.indexOf('document.getElementById("root")'),
+    )
+    expect(body.html.match(/<script>/g)).toHaveLength(2)
     expect(body.html.toLowerCase()).not.toContain("https:")
   })
 

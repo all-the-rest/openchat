@@ -693,6 +693,11 @@ msgid "dictation.requesting"
 msgstr "Requesting microphone…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.reset"
+msgstr "Reset"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.retry"
 msgstr "Retry"

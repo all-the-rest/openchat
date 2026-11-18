@@ -197,6 +197,9 @@ importers:
 
   packages/artifact-tool:
     dependencies:
+      '@openchat/artifact-host':
+        specifier: workspace:*
+        version: link:../../apps/artifact-host
       '@openchat/contracts':
         specifier: workspace:*
         version: link:../contracts

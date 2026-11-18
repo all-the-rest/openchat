@@ -31,6 +31,7 @@ export const artifacts = {
   "artifacts.downloadFailed": msg({ id: "artifacts.downloadFailed", message: "The download failed. Try again." }),
   "artifacts.refreshFailed": msg({ id: "artifacts.refreshFailed", message: "The artifact link could not be refreshed. Reload to get a fresh one." }),
   "artifacts.reload": msg({ id: "artifacts.reload", message: "Reload" }),
+  "artifacts.reset": msg({ id: "artifacts.reset", message: "Reset" }),
   "artifacts.present": msg({ id: "artifacts.present", message: "Present" }),
   "artifacts.exitPresent": msg({ id: "artifacts.exitPresent", message: "Exit present" }),
   "artifacts.presentRegion": msg({ id: "artifacts.presentRegion", message: "Presented artifact" }),
