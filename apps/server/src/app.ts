@@ -19,7 +19,7 @@ import { SSE_HEARTBEAT_MS } from "./sse"
 import { FixedWindowThrottle } from "./throttle"
 import { STT_TIMEOUT_MS } from "./transcribe"
 
-export const SERVER_VERSION = "0.1.0"
+export const SERVER_VERSION = "2.0.0"
 
 /** Per-address prompt budget: 30 accepted prompts in a rolling 60 s window. */
 export const PROMPT_LIMIT = 30
