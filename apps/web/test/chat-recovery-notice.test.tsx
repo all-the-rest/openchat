@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => ({
   listInbox: vi.fn(),
   cancelQueued: vi.fn(),
   listSessions: vi.fn(),
+  chatFiles: vi.fn(),
+  deleteChatFile: vi.fn(),
+  chatFileDownloadUrl: vi.fn(),
   createSession: vi.fn(),
   prompt: vi.fn(),
   interrupt: vi.fn(),
@@ -117,6 +120,10 @@ beforeEach(() => {
   mocks.listMessages.mockResolvedValue([])
   mocks.listInbox.mockResolvedValue([])
   mocks.listSessions.mockResolvedValue([])
+  mocks.chatFiles.mockResolvedValue({
+    files: [],
+    quota: { usedBytes: 0, quotaBytes: 1024, totalUsedBytes: 0, totalQuotaBytes: 4096 },
+  })
 })
 
 afterEach(() => {

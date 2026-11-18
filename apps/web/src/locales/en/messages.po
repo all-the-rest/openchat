@@ -18,6 +18,11 @@ msgid "search.resultCount"
 msgstr "{count} found for “{query}”."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.deleteBody"
+msgstr "{name} will be removed from this chat. This cannot be undone."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.action.connectDone"
 msgstr "{server} connected."
@@ -33,9 +38,19 @@ msgid "artifacts.meta"
 msgstr "{size} · {date}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.quota"
+msgstr "{used} of {total} used ({percent}%)"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "app.tagline"
 msgstr "A workspace for your agent."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.origin.agent"
+msgstr "Agent"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -143,6 +158,11 @@ msgid "artifacts.back"
 msgstr "Back to artifacts"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.deleteCancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.inboxCancel"
 msgstr "Cancel"
@@ -156,6 +176,16 @@ msgstr "Cancel recording"
 #: src/i18n/messages/shell.ts
 msgid "surface.chat"
 msgstr "Chat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.quotaLabel"
+msgstr "Chat file storage"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.listLabel"
+msgstr "Chat files"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -293,6 +323,26 @@ msgid "artifacts.draftData"
 msgstr "Data"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.delete"
+msgstr "Delete"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.deleteLabel"
+msgstr "Delete {name}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.deleteConfirm"
+msgstr "Delete file"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.deleteTitle"
+msgstr "Delete this file?"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.narrow"
 msgstr "Desktop only"
@@ -323,6 +373,11 @@ msgid "apps.disconnectServer"
 msgstr "Disconnect {server}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.dismiss"
+msgstr "Dismiss"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftDismiss"
 msgstr "Dismiss"
@@ -338,9 +393,19 @@ msgid "tool.status.success"
 msgstr "Done"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.download"
+msgstr "Download"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.download"
 msgstr "Download"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.downloadLabel"
+msgstr "Download {name}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -396,6 +461,11 @@ msgstr "Failed"
 #: src/i18n/messages/search.ts
 msgid "search.status.failed"
 msgstr "Failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.title"
+msgstr "Files"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -748,6 +818,11 @@ msgid "artifacts.draftTitleFallback"
 msgstr "Result from this artifact"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.retry"
 msgstr "Retry"
@@ -1038,6 +1113,16 @@ msgid "artifacts.downloadFailed"
 msgstr "The download failed. Try again."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.deleteFailed"
+msgstr "The file could not be deleted."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.loadFailed"
+msgstr "The file list could not be loaded."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.blockedBody"
 msgstr "The frame never finished loading. Open Code in a new tab instead."
@@ -1176,6 +1261,11 @@ msgstr "Unsupported content: {type}"
 #: src/i18n/messages/chat.ts
 msgid "session.untitled"
 msgstr "Untitled"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.origin.upload"
+msgstr "Uploaded"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts

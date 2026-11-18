@@ -1,9 +1,11 @@
 import type { Context } from "hono"
 import type { Hono } from "hono"
+import { CHAT_FILE_BODY_CEILING_BYTES } from "@openchat/contracts"
 import { authenticate, deriveSigningKey } from "./auth"
 import type { AuthSettings } from "./auth"
 import type { AppEnv } from "./app"
 import type { EnvConfig } from "./env"
+import { isChatFilesUploadPath } from "./chat-files-paths"
 import { jsonError, payloadTooLarge } from "./http"
 import { ARTIFACT_BODY_MAX_BYTES, MAX_BODY_BYTES } from "./limits"
 import type { FixedWindowThrottle } from "./throttle"
@@ -53,8 +55,12 @@ function isJsonEndpoint(c: Context): boolean {
   if (SAFE_METHODS.has(c.req.method)) return false
   if (!c.req.path.startsWith("/api/")) return false
   // Logout has no body; transcribe carries raw audio and enforces the
-  // dictation cap itself.
-  return c.req.path !== LOGOUT_PATH && c.req.path !== TRANSCRIBE_PATH
+  // dictation cap itself; the chat-file upload carries bytes, not JSON.
+  return (
+    c.req.path !== LOGOUT_PATH &&
+    c.req.path !== TRANSCRIBE_PATH &&
+    !isChatFilesUploadPath(c.req.path)
+  )
 }
 
 function hasJsonContentType(c: Context): boolean {
@@ -101,6 +107,9 @@ function lastForwardedEntry(header: string | undefined): string | undefined {
 function bodyCap(pathname: string): number {
   if (pathname === TRANSCRIBE_PATH) return Number.POSITIVE_INFINITY
   if (pathname === ARTIFACTS_PATH) return ARTIFACT_BODY_MAX_BYTES
+  // The route rejects above WORKSPACE_MAX_FILE_BYTES, which the env clamps to
+  // this ceiling; the guard only keeps a huge declared length off the socket.
+  if (isChatFilesUploadPath(pathname)) return CHAT_FILE_BODY_CEILING_BYTES
   return MAX_BODY_BYTES
 }
 

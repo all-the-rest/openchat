@@ -38,6 +38,7 @@ import { AppsCache, probeApps } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
 import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
 import { registerArtifactInternalRoute } from "./artifacts-internal"
+import { registerChatFilesRoutes } from "./chat-files"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
@@ -373,6 +374,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     config: deps.config,
     now: deps.artifactsNow,
   })
+  registerChatFilesRoutes(app, deps.config)
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
   registerEventRoute(app, deps)

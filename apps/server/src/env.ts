@@ -3,13 +3,14 @@ import { join } from "node:path"
 import type { FakeScenario } from "@openchat/contracts"
 import { isFakeScenario } from "@openchat/opencode"
 import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
+import { loadWorkspaceEnv, type WorkspaceFileEnv } from "./env-workspace"
 import { loadCredentialEnv } from "./env-auth"
 import { webDistDir } from "./static"
 
 export type BackendMode = "fake" | "live"
 export type AuthMode = "session" | "basic"
 
-export interface EnvConfig {
+export interface EnvConfig extends WorkspaceFileEnv {
   HOST: string
   PORT: number
   WORKSPACE_DIR: string
@@ -293,6 +294,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     { production, warn },
   )
   const workspaceDir = read(source, "WORKSPACE_DIR") ?? process.cwd()
+  const workspaceFiles = loadWorkspaceEnv(source, warn)
 
   if (authMode === "basic" && credentials.passwordHash) {
     throw new Error(
@@ -356,6 +358,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     HOST: read(source, "HOST") ?? DEFAULT_HOST,
     PORT: readPort(source, DEFAULT_PORT, warn),
     WORKSPACE_DIR: workspaceDir,
+    ...workspaceFiles,
     BACKEND_MODE: backendMode,
     FAKE_SCENARIO: isFakeScenario(scenarioValue) ? scenarioValue : "default",
     FAKE_APPS: fakeAppsValue !== "off",
