@@ -105,6 +105,20 @@ describe("requirements.lock", () => {
   })
 })
 
+describe("requirements-test.lock", () => {
+  it("pins the test-only reader exactly and keeps it out of the image", () => {
+    const test = requirements(read("packages", "python-env", "requirements-test.lock"))
+    expect(test.length).toBeGreaterThanOrEqual(1)
+    for (const line of test) {
+      expect(line, `${line} must be an exact pin`).toMatch(
+        /^[A-Za-z0-9][A-Za-z0-9._-]*==[0-9]+(?:\.[0-9]+)*$/,
+      )
+      expect(LOCKED.map(nameOf), `${line} must not ship in the image`).not.toContain(nameOf(line))
+    }
+    expect(test.map(nameOf)).toContain("pypdf")
+  })
+})
+
 describe("requirements-dev.lock", () => {
   it("pins every distribution with ==", () => {
     expect(DEV_LOCKED.length).toBeGreaterThanOrEqual(15)

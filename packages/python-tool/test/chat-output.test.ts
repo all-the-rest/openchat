@@ -1,8 +1,8 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
-import { writeChatOutputs } from "../src/chat-output"
+import { writeChatFile, writeChatOutputs } from "../src/chat-output"
 
 const created: string[] = []
 afterEach(() => {
@@ -64,5 +64,50 @@ describe("chat output writer", () => {
     expect((await writeChatOutputs(root, "session-1/files/invoice.dotx", undefined, [
       { name: "a.pdf", bytes: new Uint8Array([]) },
     ])).ok).toBe(false)
+  })
+})
+
+describe("new chat document writer", () => {
+  it("creates one file with 0600 and returns its name", async () => {
+    const { root, files } = workspace()
+    const result = await writeChatFile(root, "session-1/files/report.docx", new Uint8Array(Buffer.from("docx")))
+    expect(result).toEqual({ ok: true, name: "report.docx" })
+    expect(readFileSync(join(files, "report.docx")).toString()).toBe("docx")
+    expect(statSync(join(files, "report.docx")).mode & 0o777).toBe(0o600)
+  })
+
+  it("suffixes a collision instead of overwriting", async () => {
+    const { root, files } = workspace()
+    writeFileSync(join(files, "report.docx"), "existing")
+    const result = await writeChatFile(root, "session-1/files/report.docx", new Uint8Array(Buffer.from("new")))
+    expect(result).toEqual({ ok: true, name: "report-1.docx" })
+    expect(readFileSync(join(files, "report-1.docx")).toString()).toBe("new")
+  })
+
+  it("never follows a symlink at the target name", async () => {
+    const { root, files } = workspace()
+    const target = join(root, "outside.docx")
+    writeFileSync(target, "outside")
+    symlinkSync(target, join(files, "report.docx"))
+    const result = await writeChatFile(root, "session-1/files/report.docx", new Uint8Array(Buffer.from("new")))
+    expect(result).toEqual({ ok: true, name: "report-1.docx" })
+    expect(readFileSync(target).toString()).toBe("outside")
+  })
+
+  it("refuses an unsafe path, an empty payload and a missing chat folder", async () => {
+    const { root } = workspace()
+    const bytes = new Uint8Array(Buffer.from("docx"))
+    expect(await writeChatFile(root, "/etc/report.docx", bytes)).toEqual({
+      ok: false,
+      error: "chatPath: use a path inside WORKSPACE_DIR/chats",
+    })
+    expect(await writeChatFile(root, "session-2/files/report.docx", bytes)).toEqual({
+      ok: false,
+      error: "chatPath: the chat directory is not a safe directory",
+    })
+    expect(await writeChatFile(root, "session-1/files/report.docx", new Uint8Array([]))).toEqual({
+      ok: false,
+      error: "size: the generated file exceeds the chat file cap",
+    })
   })
 })

@@ -185,7 +185,7 @@ The OpenCode image carries Python so the document tools work offline. The base
 is Alpine 3.24.4, whose repository has **Python 3.14.10** and no 3.13 package;
 the issue asked for 3.13, so this is the one owner-visible deviation.
 
-Three files are the contract:
+Four files are the contract:
 
 - `packages/python-env/requirements.lock` — the pip-installed half, exact `==`
   pins, installed with `--no-deps`. It carries `markitdown 0.1.9` with the four
@@ -195,12 +195,24 @@ Three files are the contract:
   `python-pptx 1.0.2`, `charset-normalizer`, `typing_extensions`, …).
 - `packages/python-env/requirements-dev.lock` — the native half for a
   workstation, resolved from PyPI at the versions the Alpine packages provide.
+- `packages/python-env/requirements-test.lock` — test-only pins for the Python
+  unit tests of the tool scripts (`pypdf`, which reads the PDF text layer).
+  Never installed in the image; the build proves the same behaviour with the
+  `pdfminer.six` that markitdown already brings.
 - `packages/python-env/apk-packages.txt` — the same native half as Alpine
   packages, pinned to `py3-onnxruntime=1.24.4-r1`, `py3-pandas=3.0.3-r0`,
   `py3-lxml=6.1.1-r0`, `py3-openpyxl=3.1.5-r1`, `py3-cryptography=47.0.0-r0`
   and `py3-pillow=12.2.0-r0`. `onnxruntime` publishes no musllinux wheel, so
   pip cannot provide it on Alpine at all; the apk packages also share their
   libraries instead of vendoring a second copy.
+
+The font comes from apk too, in the same `RUN` as `python3`: `font-dejavu`
+(2.37-r6, 9,990 KiB installed, `/usr/share/fonts/dejavu/`). reportlab embeds a
+subset of it, which is what keeps umlauts, Greek and Cyrillic in the PDF text
+layer; the build asserts both TTF paths and the offline smoke test extracts the
+three samples. Details and the licence note:
+[`25-documents.md`](25-documents.md). The font adds about 10 MiB to the Python
+layer, on top of the 268 MB figure below.
 
 `markitdown` is mandatory and available two ways: the CLI is on `PATH`
 (`markitdown <file> > out.md`) and `read_document` calls its Python API for
@@ -215,7 +227,9 @@ would add audio/video transcription and Azure clients.
 Two deliberate omissions: `pypdfium2` (pdfplumber imports it only for its
 optional page renderer, which `read_document` never uses; the offline PDF
 conversion above covers the code path) and the `pandoc` binary (~150 MB, no
-consumer). `pypdf` went with the switch to markitdown.
+consumer). `pypdf` left the image with the switch to markitdown and is now a
+test-only pin: the unit tests read the embedded font's text layer with it, the
+build smoke test uses `pdfminer.six`.
 
 A `python-wheels` stage downloads the pip half once with
 `pip download --only-binary :all:` on the target architecture; the runtime
@@ -256,9 +270,11 @@ extra. That is the item to cut first if the budget ever tightens; dropping the
 functional loss.
 
 Development uses `pnpm run setup:python` (Node only, no new JS dependency;
-creates `.venv` from `python3` 3.12+, installs both locks with `--no-deps`,
+creates `.venv` from `python3` 3.12+, installs all three locks with `--no-deps`,
 verifies the imports, refuses a venv whose major/minor differs from the host)
-and `pnpm run python:check` (offline; skips when `.venv` is absent). On Apple
+and `pnpm run python:check` (offline; skips when `.venv` is absent). The
+package's `pnpm test` then also runs the Python unit tests through that venv
+and skips them with one line when it is missing. On Apple
 silicon the cp314 native wheels need macOS 14+; the download path was verified
 for `macosx_14_0_arm64` (45 wheels).
 

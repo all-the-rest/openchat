@@ -33,6 +33,12 @@ export const MAX_HEADERS = 50
 export const MAX_FORMULAS = 200
 export const MAX_CELL_CHARS = 2_000
 
+/** `docx_from_text` (issue #22): one block model, one set of caps. */
+export const MAX_BLOCKS = 500
+export const MAX_BLOCK_TEXT_CHARS = 20_000
+export const MAX_TABLE_ROWS = 50
+export const MAX_TABLE_COLUMNS = 8
+
 /** The artifact store's own limits, repeated here so a wrapper is rejected early. */
 export const ARTIFACT_MAX_BYTES = 1_048_576
 export const ARTIFACT_TITLE_MAX = 120

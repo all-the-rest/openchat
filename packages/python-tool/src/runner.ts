@@ -80,6 +80,7 @@ export type ScriptRun =
 
 const SCRIPTS: Record<ScriptName, string> = {
   docx_fill: fileURLToPath(new URL("../python/docx_fill.py", import.meta.url)),
+  docx_from_text: fileURLToPath(new URL("../python/docx_from_text.py", import.meta.url)),
   xlsx_write: fileURLToPath(new URL("../python/xlsx_write.py", import.meta.url)),
   pdf_from_markdown: fileURLToPath(new URL("../python/pdf_from_markdown.py", import.meta.url)),
   read_document: fileURLToPath(new URL("../python/read_document.py", import.meta.url)),
@@ -93,6 +94,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   parse_failed: "parse: the document could not be read",
   render_failed: "internal: the document could not be generated",
   too_large: "size: the generated document exceeds the artifact limit",
+  too_many: "size: the input exceeds the document limits",
   unsupported: "unsupported: this file type cannot be read",
   bad_archive: "archive: the file is not a readable ZIP archive",
   encrypted: "archive: the ZIP has encrypted entries",
@@ -109,6 +111,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 const EXPECTED_EXTENSION: Record<PythonToolName, string> = {
   docx_fill: ".docx",
+  docx_from_text: ".docx",
   xlsx_write: ".xlsx",
   pdf_from_markdown: ".pdf",
   read_document: ".md",

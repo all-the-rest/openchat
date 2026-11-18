@@ -110,6 +110,23 @@ describe("runner: error mapping", () => {
     })
   })
 
+  it("maps the input-cap code of the DOCX builder", async () => {
+    const tempRoot = await root()
+    const run = createRunner({
+      spawn: withSpawn({
+        code: 1,
+        stdout: '{"ok":false,"code":"too_many"}',
+        stderr: "",
+        timedOut: false,
+      }).spawn,
+      tempRoot,
+    })
+    expect(await run("docx_from_text", {})).toEqual({
+      ok: false,
+      error: "size: the input exceeds the document limits",
+    })
+  })
+
   it("never returns stderr or a traceback", async () => {
     const tempRoot = await root()
     const traceback = "Traceback (most recent call last):\n  File \"x.py\", line 1, in <module>\nSecret"

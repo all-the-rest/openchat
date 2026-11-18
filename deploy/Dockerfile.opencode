@@ -8,7 +8,8 @@
 #          Node.js (the MCP tools run through `tsx`), Python 3.14 with the
 #          document toolchain (markitdown, python-docx, openpyxl, reportlab;
 #          native packages from apk, pip wheels offline, no compiler), the
-#          artifact, python and memory MCP tool trees
+#          DejaVu fonts (embedded by reportlab, so PDFs keep umlauts, Greek and
+#          Cyrillic in the text layer), the artifact, python and memory MCP tool trees
 #
 # The entrypoint (`opencode`), the user (root) and the working directory are the
 # upstream contract and stay untouched. Compose passes `serve --hostname …
@@ -104,9 +105,20 @@ RUN apk add --no-cache ca-certificates curl git nodejs
 # conversion smoke test runs later with `--network=none`. The wheelhouse is a
 # bind mount, not a layer, so it cannot survive in the final filesystem even as
 # a whiteout.
+#
+# `font-dejavu` is the only font source: reportlab embeds a subset of it for
+# every PDF, which is what keeps umlauts and non-Latin scripts in the text
+# layer. The name was verified against this image's repositories
+# (`apk info -L font-dejavu` → `/usr/share/fonts/dejavu/DejaVuSans*.ttf`,
+# Alpine 3.24.4, package 2.37-r6); the pin fails the build on a repository bump
+# instead of silently changing glyph coverage. The font is licensed under the
+# Bitstream Vera licence (free, redistribution permitted) — no runtime
+# download, ever.
 COPY packages/python-env/apk-packages.txt /tmp/apk-packages.txt
 RUN --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels \
-    apk add --no-cache python3 py3-pip \
+    apk add --no-cache python3 py3-pip font-dejavu=2.37-r6 \
+ && test -f /usr/share/fonts/dejavu/DejaVuSans.ttf \
+ && test -f /usr/share/fonts/dejavu/DejaVuSansMono.ttf \
  && grep -v '^#' /tmp/apk-packages.txt | xargs apk add --no-cache \
  && python3 -m pip install --disable-pip-version-check --break-system-packages \
       --no-index --find-links /wheels --no-deps --no-cache-dir \
@@ -168,6 +180,7 @@ RUN node --version \
   && /opt/artifact-tool/node_modules/.bin/tsx --version \
   && test -f /opt/artifact-tool/packages/python-tool/src/index.ts \
   && test -f /opt/artifact-tool/packages/python-tool/python/docx_fill.py \
+  && test -f /opt/artifact-tool/packages/python-tool/python/docx_from_text.py \
   && test -f /opt/artifact-tool/packages/memory-tool/src/index.ts \
   && python3 --version
 
