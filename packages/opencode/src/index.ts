@@ -37,6 +37,8 @@ export interface PromptInput {
   delivery?: "queue"
   /** Persisted model id; the live adapter applies it before the prompt. */
   model?: string
+  /** Persisted variant; applied only when the model still offers it. */
+  variant?: string
   /** Persisted agent id; the live adapter applies it before the prompt. */
   agent?: string
 }

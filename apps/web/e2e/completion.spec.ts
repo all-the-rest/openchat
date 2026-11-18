@@ -3,20 +3,25 @@ import { guardExternalRequests, login, startChat } from "./helpers"
 
 const BFF = "http://localhost:8787"
 
-test("the chosen model reaches the fake host", async ({ page }) => {
+test("the chosen model variant reaches the fake host", async ({ page }) => {
   const external = guardExternalRequests(page)
   await page.goto("/")
   await login(page)
   const sessionID = await startChat(page)
 
-  await page.getByTestId("model-select").selectOption("fake/echo")
+  await expect(page.getByTestId("model-select")).toBeVisible()
+  await page.getByTestId("model-select").click()
+  await page.getByRole("menuitem", { name: /Fake Echo: thorough/ }).click()
+  await expect(page.getByTestId("model-select")).toContainText("Fake Echo: thorough")
   await page.getByTestId("composer").fill("model check")
   await page.getByTestId("send").click()
   await expect(page.getByTestId("transcript")).toContainText("Hello from the deterministic fake backend")
 
   const response = await page.request.get(`${BFF}/api/__fake/prompt/${sessionID}`)
   expect(response.ok()).toBeTruthy()
-  expect(await response.json()).toMatchObject({ text: "model check", model: "fake/echo" })
+  expect(await response.json()).toMatchObject({
+    text: "model check", model: "fake/echo", variant: "thorough",
+  })
 
   expect(external).toEqual([])
 })
@@ -61,10 +66,35 @@ test("settings persist across a reload", async ({ page }) => {
 
   const content = page.getByTestId("app-content")
   await content.getByTestId("locale-select").selectOption("de")
-  await content.getByTestId("model-select").selectOption("fake/echo")
+  await content.getByTestId("model-select").click()
+  // The language switch above already relabelled the default row.
+  await content
+    .getByRole("menuitem", { name: /Fake Echo: (Default|Standard)/ })
+    .click()
   await page.reload()
 
   await expect(page.locator("html")).toHaveAttribute("lang", "de")
-  await expect(page.getByTestId("model-select")).toHaveValue("fake/echo")
+  await expect(page.getByTestId("model-select")).toContainText("Fake Echo")
+  expect(external).toEqual([])
+})
+
+test("a favourite stays pinned and can be reapplied after a reload", async ({ page }) => {
+  const external = guardExternalRequests(page)
+  await page.goto("/")
+  await login(page)
+  await startChat(page)
+
+  await expect(page.getByTestId("model-select")).toBeVisible()
+  await page.getByTestId("model-select").click()
+  await page.getByRole("button", { name: "Add Fake Reasoner to favorites" }).click()
+  await expect(page.getByTestId("model-option").first()).toContainText("Fake Reasoner")
+  await page.reload()
+
+  await expect(page.getByTestId("model-select")).toBeVisible()
+  await page.getByTestId("model-select").click()
+  await expect(page.getByTestId("model-option").first()).toContainText("Fake Reasoner")
+  await page.getByTestId("model-option").first().click()
+  await expect(page.getByTestId("model-select")).toContainText("Fake Reasoner")
+
   expect(external).toEqual([])
 })

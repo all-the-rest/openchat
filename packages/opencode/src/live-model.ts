@@ -1,28 +1,67 @@
-import type { OpenCodeClient } from "@opencode/client"
+import type { ModelRef, OpenCodeClient } from "@opencode/client"
+import type { ModelInfo, ModelStatus } from "@openchat/contracts"
 
-type ModelRef = Parameters<OpenCodeClient["session"]["switchModel"]>[0]["model"]
 type AgentID = Parameters<OpenCodeClient["session"]["switchAgent"]>[0]["agent"]
+
+/** The host fields we read from a chat model; older hosts omit the metadata. */
+export interface HostModelInfo {
+  modelID: string
+  name: string
+  providerID: string
+  variants?: ReadonlyArray<{ id: string }>
+  limit?: { context?: number }
+  capabilities?: { tools?: boolean; input?: readonly string[]; output?: readonly string[] }
+  status?: ModelStatus
+}
+
+/** Maps one host model to the contract, tolerating missing optional metadata. */
+export function mapHostModel(model: HostModelInfo, providerName: string): ModelInfo {
+  return {
+    id: model.modelID,
+    name: model.name,
+    providerID: model.providerID,
+    providerName,
+    variants: model.variants?.map((variant) => variant.id) ?? [],
+    contextLimit: model.limit?.context ?? 0,
+    capabilities: {
+      tools: model.capabilities?.tools ?? false,
+      reasoning:
+        model.capabilities?.output?.includes("reasoning") ?? false,
+      image: model.capabilities?.input?.includes("image") ?? false,
+    },
+    status: model.status ?? "active",
+  }
+}
+
+/** Provider ids and the variants each host model still offers. */
+export type ModelHostInfo = Map<string, { providerID: string; variants: readonly string[] }>
 
 /**
  * Applies the browser's persisted choice before a prompt. The pinned client
  * has no `model`/`agent` on `session.prompt`; it exposes the session switches
- * instead, so the two optional `PromptInput` fields become one switch each.
- * Unknown model ids are ignored rather than guessed: the host keeps its default
- * and the conversation still works.
+ * instead, so the optional `PromptInput` fields become one switch each.
+ *
+ * Two guards keep a stale browser state from reaching the host: an unknown
+ * model is ignored (the host keeps its default), and a variant the model no
+ * longer offers is dropped from the model ref.
  */
 export async function applyCompletion(
   client: OpenCodeClient,
   sessionID: string,
-  input: { model?: string; agent?: string },
-  providers: () => Promise<Map<string, string>>,
+  input: { model?: string; variant?: string; agent?: string },
+  providers: () => Promise<ModelHostInfo>,
 ): Promise<void> {
   if (input.model) {
-    const providerID = (await providers()).get(input.model)
-    if (providerID) {
-      await client.session.switchModel({
-        sessionID,
-        model: { id: input.model, providerID } as ModelRef,
-      })
+    const info = (await providers()).get(input.model)
+    if (info) {
+      const variant =
+        input.variant && info.variants.includes(input.variant) ? input.variant : undefined
+      const ref: ModelRef = {
+        id: input.model,
+        providerID: info.providerID,
+        ...(variant ? { variant } : {}),
+      }
+      await client.session.switchModel({ sessionID, model: ref })
     }
   }
   if (input.agent) {
