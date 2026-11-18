@@ -99,7 +99,12 @@ describe("document response", () => {
     const { host, fixture } = await hostWithFixture()
     const exp = nowSeconds() + 300
     const expired = nowSeconds() - 1
-    const farFuture = nowSeconds() + 900 + 61
+    // The receiver accepts at most TTL + 60 s of skew, measured against its own
+    // clock. This value must stay outside that window even if the machine is
+    // loaded and the nine requests below take a few seconds, hence the extra
+    // margin; exactly one second beyond the boundary was accepted once the
+    // clock had ticked (seen as a 200 in a full-suite run).
+    const farFuture = nowSeconds() + 900 + 61 + 300
     const cases = [
       `/a/${fixture.id}`,
       url(fixture.id, exp, ""),
