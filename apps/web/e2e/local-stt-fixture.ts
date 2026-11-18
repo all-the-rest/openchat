@@ -9,7 +9,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { STT_MODEL_FILES } from "@openchat/contracts"
 
-export const LOCAL_STT_BFF_PORT = 8791
+export const LOCAL_STT_BFF_PORT = 8792
 export const LOCAL_STT_BFF_ORIGIN = `http://127.0.0.1:${LOCAL_STT_BFF_PORT}`
 export const LOCAL_STT_WEB_PORT = 5175
 
