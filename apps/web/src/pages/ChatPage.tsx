@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useLocation, useNavigate, useParams } from "react-router-dom"
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { ChatFiles } from "../chat/ChatFiles"
 import { CompletionPickers } from "../chat/CompletionPicker"
 import { Composer } from "../chat/Composer"
@@ -11,6 +11,7 @@ import { useSessions } from "../chat/sessions"
 import { Transcript } from "../chat/Transcript"
 import { useChatSession } from "../chat/useChatSession"
 import { ErrorBanner } from "../components/ErrorBanner"
+import { ChevronDownIcon } from "../components/icons"
 import type { MessageKey } from "../i18n"
 import { useT } from "../i18n/provider"
 
@@ -32,6 +33,9 @@ export function ChatPage() {
 
   const session = sessions.find((entry) => entry.id === sessionId)
   const title = session?.title || t("session.untitled")
+  const parent = session?.parentID
+    ? sessions.find((entry) => entry.id === session.parentID)
+    : undefined
 
   const pendingPrompt = (location.state as ChatLocationState | null)?.pendingPrompt
 
@@ -74,7 +78,23 @@ export function ChatPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-subtle bg-app px-4">
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{title}</h1>
+        <div className="min-w-0 flex-1">
+          {parent ? (
+            <Link
+              to={`/c/${parent.id}`}
+              data-testid="parent-link"
+              className="flex min-w-0 items-center gap-1 text-xs text-muted hover:text-base-content"
+            >
+              <ChevronDownIcon className="size-3 shrink-0 rotate-90" />
+              <span className="truncate">
+                {t("session.backToParent", {
+                  title: parent.title || t("session.untitled"),
+                })}
+              </span>
+            </Link>
+          ) : null}
+          <h1 className="truncate text-lg font-semibold">{title}</h1>
+        </div>
         <CompletionPickers />
       </header>
 

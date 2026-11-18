@@ -54,4 +54,6 @@ export interface FakeBackendOptions {
   onAppAction?: (action: "connect" | "disconnect", name: string) => void
   /** Deterministic background jobs for the `/tasks` page. Empty by default. */
   seedJobs?: readonly BackgroundJob[]
+  /** Seeds one parent and one child chat, linked by `parentID`. */
+  seedSubagents?: boolean
 }

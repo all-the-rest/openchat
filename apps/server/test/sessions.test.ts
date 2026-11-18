@@ -29,6 +29,18 @@ describe("sessions", () => {
     expect(await json<Message[]>(messages)).toEqual([])
   })
 
+  it("maps the parent link of a seeded subagent session", async () => {
+    const server = makeServer({ seedSubagents: true })
+    const cookie = await login(server)
+
+    const listed = await json<SessionInfo[]>(
+      await server.app.request("/api/sessions", { headers: { cookie } }),
+    )
+    const child = listed.find((session) => session.id === "ses_subagent_child")
+    expect(child?.parentID).toBe("ses_subagent_parent")
+    expect(listed.find((session) => session.id === "ses_subagent_parent")?.parentID).toBeUndefined()
+  })
+
   it("requires authentication", async () => {
     const server = makeServer()
     const response = await server.app.request("/api/sessions")

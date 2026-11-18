@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest"
 import { EVENT } from "@openchat/contracts"
 import type { EventEnvelope, Message } from "@openchat/contracts"
 import { FakeBackend, resolveScenario } from "../src"
+import {
+  FAKE_SUBAGENT_CHILD_ID,
+  FAKE_SUBAGENT_CHILD_TITLE,
+  FAKE_SUBAGENT_PARENT_ID,
+  FAKE_SUBAGENT_PARENT_TITLE,
+} from "../src/fake-seed"
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -68,6 +74,20 @@ describe("FakeBackend", () => {
     const messages = await backend.listMessages(session.id)
     expect(messages.map((message) => message.id)).toEqual(["msg_1", "msg_2"])
     expect(messages.every((message) => message.created === 1000)).toBe(true)
+  })
+
+  it("seeds a deterministic parent and child subagent pair", async () => {
+    const backend = new FakeBackend({ delayMs: 0, now: () => 1000, seedSubagents: true })
+    const sessions = await backend.listSessions()
+
+    expect(sessions.map((session) => session.id)).toEqual([
+      FAKE_SUBAGENT_PARENT_ID,
+      FAKE_SUBAGENT_CHILD_ID,
+    ])
+    expect(sessions[0]?.title).toBe(FAKE_SUBAGENT_PARENT_TITLE)
+    expect(sessions[1]?.title).toBe(FAKE_SUBAGENT_CHILD_TITLE)
+    expect(sessions[1]?.parentID).toBe(FAKE_SUBAGENT_PARENT_ID)
+    expect(await backend.listMessages(FAKE_SUBAGENT_CHILD_ID)).toHaveLength(2)
   })
 
   it("streams started, deltas, completion and success", async () => {

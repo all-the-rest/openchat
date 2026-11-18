@@ -1,4 +1,4 @@
-import type { InboxEntry, Message, MessageStatus } from "@openchat/contracts"
+import type { InboxEntry, Message, MessageStatus, SessionInfo } from "@openchat/contracts"
 import { EVENT, messageText } from "@openchat/contracts"
 import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -143,13 +143,13 @@ function renderProbe() {
   )
 }
 
-function renderChat() {
+function renderChat(sessionID = "ses_1") {
   return render(
     <ThemeProvider initialTheme="dark">
       <I18nProvider initialLocale="en">
         <SessionsProvider>
           <EventStreamProvider>
-            <MemoryRouter initialEntries={["/c/ses_1"]}>
+            <MemoryRouter initialEntries={[`/c/${sessionID}`]}>
               <Routes>
                 <Route path="/c/:sessionId" element={<ChatPage />} />
               </Routes>
@@ -159,6 +159,10 @@ function renderChat() {
       </I18nProvider>
     </ThemeProvider>,
   )
+}
+
+function sessionInfo(id: string, title: string, parentID?: string): SessionInfo {
+  return { id, title, directory: "/workspace", created: 1, updated: 1, parentID }
 }
 
 function source(): FakeEventSource {
@@ -314,6 +318,22 @@ describe("inbox", () => {
       ),
     )
     await waitFor(() => expect(screen.queryByText("event turn")).toBeNull())
+  })
+})
+
+describe("subagent parent link", () => {
+  it("links a child chat back to the parent title", async () => {
+    mocks.listSessions.mockResolvedValue([
+      sessionInfo("ses_1", "Parent chat"),
+      sessionInfo("ses_child", "Agent: check the figures", "ses_1"),
+    ])
+    mocks.listMessages.mockResolvedValue([])
+
+    renderChat("ses_child")
+
+    const link = await screen.findByTestId("parent-link")
+    expect(link).toHaveAttribute("href", "/c/ses_1")
+    expect(link).toHaveTextContent("Back to Parent chat")
   })
 })
 
