@@ -79,8 +79,12 @@ export function createNonce(): string {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("")
 }
 
-/** Integer pixels inside the documented band. */
+/**
+ * Integer pixels inside the documented band. A non-finite input is not a
+ * height: fall back to the minimum instead of letting `NaN` reach the style.
+ */
 export function clampHeight(value: number): number {
+  if (!Number.isFinite(value)) return ARTIFACT_RESIZE_MIN
   const rounded = Math.round(value)
   if (rounded < ARTIFACT_RESIZE_MIN) return ARTIFACT_RESIZE_MIN
   if (rounded > ARTIFACT_RESIZE_MAX) return ARTIFACT_RESIZE_MAX

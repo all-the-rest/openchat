@@ -54,7 +54,8 @@ export const BRIDGE_SCRIPT = `(function () {
     var cleaned = {};
     if ("title" in payload) {
       if (typeof payload.title !== "string") return null;
-      cleaned.title = payload.title.slice(0, TITLE_MAX);
+      // Code points, like the viewer: a UTF-16 slice can cut a surrogate pair.
+      cleaned.title = Array.from(payload.title).slice(0, TITLE_MAX).join("");
     }
     if ("text" in payload) {
       if (typeof payload.text !== "string") return null;
@@ -134,7 +135,7 @@ export const BRIDGE_SCRIPT = `(function () {
       try {
         window.location.reload();
       } catch (error) {
-        /* a reload may be blocked; the parent falls back to remounting */
+        /* a reload may be blocked; the parent cannot tell and shows the frame as is */
       }
     }
   });

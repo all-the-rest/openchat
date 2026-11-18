@@ -6,8 +6,11 @@
  */
 import { BRIDGE_SCRIPT } from "@openchat/artifact-host/bridge"
 
-/** Bumped when the shell itself changes; asserted by a test. */
-export const SHELL_VERSION = "1"
+/**
+ * Bumped when the shell itself changes; asserted by a test. Generation 2 is
+ * the document that carries the bridge shim ahead of the bundle.
+ */
+export const SHELL_VERSION = "2"
 
 /**
  * Reset and the design tokens an app may use. The artifact has no access to
@@ -59,8 +62,7 @@ export function escapeHtml(text: string): string {
  * comment carries the toolchain versions that produced the bundle.
  */
 export function buildDocument(input: ShellInput): string {
-  const bridge = bridgeScript()
-  const bridgeTag = bridge.length > 0 ? `<script>${bridge}</script>\n` : ""
+  const bridgeTag = `<script>${bridgeScript()}</script>\n`
   return `<!doctype html><html lang="en" data-oc="${SHELL_VERSION}"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
