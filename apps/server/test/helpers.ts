@@ -1,4 +1,7 @@
 import type { Hono } from "hono"
+import { mkdtempSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import type {
   BackgroundJob,
   EventEnvelope,
@@ -37,6 +40,8 @@ export interface TestServerOptions {
   onAppAction?: (action: "connect" | "disconnect", name: string) => void
   /** Deterministic background jobs for `/api/jobs`. */
   seedJobs?: readonly BackgroundJob[]
+  /** Mimics the host instruction-entry cap; omitted means unlimited. */
+  instructionMaxBytes?: number
   /** Code host health probe; keeps tests off the network. */
   codeProbe?: CodeProbe
   codeStatusCacheMs?: number
@@ -68,6 +73,7 @@ export function makeConfig(overrides: Record<string, string | undefined> = {}): 
       WORKSPACE_DIR: "/workspace",
       BACKEND_MODE: "fake",
       FAKE_SCENARIO: "default",
+      MEMORY_DIR: mkdtempSync(join(tmpdir(), "openchat-test-memory-")),
       ...overrides,
     },
     warn: () => {},
@@ -85,6 +91,7 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
     appsAvailable: options.appsAvailable ?? config.FAKE_APPS,
     onAppAction: options.onAppAction,
     seedJobs: options.seedJobs,
+    instructionMaxBytes: options.instructionMaxBytes,
   })
   return {
     app: createApp({

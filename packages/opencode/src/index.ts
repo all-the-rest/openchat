@@ -98,6 +98,12 @@ export interface ChatBackend {
   info(): Promise<ServerInfo>
   listSessions(): Promise<SessionInfo[]>
   createSession(input: CreateSessionInput): Promise<SessionInfo>
+  /**
+   * Attach or replace one durable instruction entry on a session. The host
+   * announces the change at the next step boundary. Throws the client's
+   * `InstructionEntryValueTooLargeError` when the value exceeds its cap.
+   */
+  putSessionInstruction(sessionID: string, key: string, value: string): Promise<void>
   listMessages(sessionID: string): Promise<Message[]>
   prompt(sessionID: string, input: PromptInput): Promise<PromptResult>
   /** Pending turns of a session, oldest first. */

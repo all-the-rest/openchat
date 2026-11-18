@@ -19,6 +19,7 @@
   "dependencies": {
     "@openchat/code-ticket": "workspace:*",
     "@openchat/contracts": "workspace:*",
+    "@openchat/memory-store": "workspace:*",
     "@openchat/opencode": "workspace:*",
     "bcryptjs": "^3.0.3",
     "hono": "^4.13.19"

@@ -37,6 +37,10 @@ import { PWA_ORIGIN, PWA_PORT } from "./e2e/pwa-fixture"
 const WEB_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(WEB_DIR, "..", "..")
 const WORKSPACE_DIR = mkdtempSync(join(tmpdir(), "openchat-e2e-"))
+// The memory spec writes real facts into this directory; every other spec's
+// chats only receive the injected index, so one temp store keeps them apart
+// from a developer's workspace.
+const MEMORY_DIR = mkdtempSync(join(tmpdir(), "openchat-e2e-memory-"))
 
 // Seed the artifact store before the BFF and host start. Content-addressed like
 // the real store, so `/api/artifacts` lists exactly one deterministic document
@@ -125,6 +129,7 @@ export default defineConfig({
         OPENCHAT_PASSWORD: "test-password",
         SESSION_SECRET: "test-secret",
         WORKSPACE_DIR,
+        MEMORY_DIR,
         STT_URL: "http://127.0.0.1:8899",
         // The stub Code host below stands in for apps/code-host; the ticket
         // audience and the secret must match it exactly.

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { NavLink, useNavigate } from "react-router-dom"
 import { useAuth } from "../auth/provider"
-import { AppsIcon, ArtifactsIcon, PlusIcon, SearchIcon, TasksIcon } from "../components/icons"
+import { AppsIcon, ArtifactsIcon, MemoryIcon, PlusIcon, SearchIcon, TasksIcon } from "../components/icons"
 import { LocaleSelect, ThemeToggle } from "../components/controls"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useI18n, useT } from "../i18n/provider"
@@ -93,6 +93,19 @@ export function SessionSidebar({
           >
             <TasksIcon className="size-4" />
             {t("tasks.title")}
+          </NavLink>
+          <NavLink
+            to="/memory"
+            data-testid="nav-memory"
+            onClick={() => onNavigate?.()}
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-row px-2 py-1.5 text-sm ${
+                isActive ? "bg-selected text-base-content" : "text-secondary hover:bg-hover"
+              }`
+            }
+          >
+            <MemoryIcon className="size-4" />
+            {t("memory.title")}
           </NavLink>
           <NavLink
             to="/search?scope=all"

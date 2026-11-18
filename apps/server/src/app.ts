@@ -10,6 +10,8 @@ import type { CodeProbe } from "./code"
 import { CODE_TICKET_LIMIT, CODE_TICKET_WINDOW_MS } from "./code"
 import type { EnvConfig } from "./env"
 import { jsonError } from "./http"
+import { MemoryStore } from "@openchat/memory-store"
+import { MemoryService } from "./memory-service"
 import {
   authSettings,
   registerAuthentication,
@@ -60,6 +62,8 @@ export interface AppOptions {
   verify?: CredentialVerifier
   /** Login concurrency gate; tests shrink it to one permit. */
   verificationGate?: VerificationGate
+  /** Memory store clock; tests advance it. */
+  memoryNow?: () => Date
 }
 
 export interface AppVariables {
@@ -106,6 +110,12 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     })
   const app = new Hono<AppEnv>()
 
+  const memoryStore = new MemoryStore({
+    dir: config.MEMORY_DIR,
+    now: options.memoryNow,
+  })
+  const memory = new MemoryService({ store: memoryStore, backend })
+
   app.onError((error, c) => {
     if (error instanceof BackendError) {
       const status = error.code === "not_found" ? 404 : 400
@@ -141,6 +151,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     appsNow: options.appsNow,
     artifactsThrottle,
     artifactsNow: options.artifactsNow,
+    memory,
   })
 
   return app

@@ -1,4 +1,5 @@
 import { reportNetworkFailure, reportNetworkSuccess } from "../pwa/offline"
+import { memoryApi } from "./memory"
 import type {
   AppsResponse,
   ArtifactResponse,
@@ -48,12 +49,9 @@ export class ApiError extends Error {
     this.retryAfter = retryAfter
   }
 
-  get isUnauthorized(): boolean {
-    return this.status === 401
-  }
+  get isUnauthorized(): boolean { return this.status === 401 }
 }
 
-/** Only a delta-seconds `Retry-After` is meaningful for the UI. */
 function parseRetryAfter(response: Response): number | undefined {
   const header = response.headers.get("retry-after")?.trim()
   if (!header || !/^\d+$/.test(header)) return undefined
@@ -73,7 +71,7 @@ async function parseError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, message, code, parseRetryAfter(response))
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
   if (init.body !== undefined && !headers.has("content-type")) {
     headers.set("content-type", "application/json")
@@ -388,6 +386,8 @@ export const api = {
    * accepts the base MIME type (`audio/webm`, `audio/mp4`, `audio/ogg`) and
    * rejects anything else with `415 unsupported_media_type`.
    */
+  ...memoryApi(request),
+
   transcribe(audio: Blob, options: { language?: string } = {}): Promise<TranscriptionResponse> {
     const query = options.language ? `?language=${encodeURIComponent(options.language)}` : ""
     const mime = audio.type.split(";")[0]?.trim() || "application/octet-stream"

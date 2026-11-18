@@ -49,6 +49,15 @@ export function isSafeSessionID(value: string): boolean {
 }
 
 /**
+ * A directory under `chats/` that is a session. Dot-directories (`.memory`,
+ * editor droppings) are bookkeeping and must never be listed as a chat or
+ * counted in the workspace quota.
+ */
+export function isSessionDirectoryName(value: string): boolean {
+  return !value.startsWith(".") && isSafeSessionID(value)
+}
+
+/**
  * The one route that carries a raw file body. Everything else under
  * `/api/sessions` takes JSON, so the request guard and the node adapter need
  * this predicate to raise their body cap for exactly this path.

@@ -57,11 +57,9 @@ export interface EnvConfig extends WorkspaceFileEnv {
   ARTIFACT_SIGNING_KEY: string
   /** Directory holding one subdirectory per artifact. */
   ARTIFACTS_DIR: string
-  /**
-   * Bearer token for `POST /internal/artifacts`, shared with the MCP tool.
-   * Generated for a development boot; required in production once the surface
-   * is configured.
-   */
+  /** Directory holding facts.jsonl, INDEX.md and audit.jsonl. */
+  MEMORY_DIR: string
+  /** Bearer token for the internal artifact and memory routes. */
   ARTIFACT_INTERNAL_TOKEN: string
 }
 
@@ -394,6 +392,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     ARTIFACT_HOST_URL: artifacts.hostUrl,
     ARTIFACT_SIGNING_KEY: artifacts.signingKey,
     ARTIFACTS_DIR: read(source, "ARTIFACTS_DIR") ?? join(workspaceDir, ARTIFACT_DIR_NAME),
+    MEMORY_DIR: read(source, "MEMORY_DIR") ?? join(workspaceDir, "chats", ".memory"),
     ARTIFACT_INTERNAL_TOKEN: artifacts.internalToken,
   }
 }

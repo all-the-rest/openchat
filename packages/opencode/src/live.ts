@@ -103,6 +103,10 @@ export class LiveBackend implements ChatBackend {
     return normalizeSession(session, input.directory)
   }
 
+  async putSessionInstruction(sessionID: string, key: string, value: string): Promise<void> {
+    await this.client.experimental.session.instructions.entry.put({ sessionID, key, value })
+  }
+
   async listMessages(sessionID: string): Promise<Message[]> {
     const response = await this.client.message.list({ sessionID })
     const messages: Message[] = []

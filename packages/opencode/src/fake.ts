@@ -24,12 +24,16 @@ import type {
   SearchOutcome,
 } from "./index"
 import { FakeAppInventory } from "./fake-apps"
+import { FakeInstructions } from "./fake-instructions"
 import { FakeTaskStore } from "./fake-tasks"
 import { FakeEvents } from "./fake-events"
 import { FakePermissions } from "./fake-permissions"
 import { fakeSearch } from "./fake-search"
 import { clone, errorText, PartWriter } from "./fake-parts"
 import { resolveScenario, runScenario } from "./scenarios"
+import type { FakeBackendOptions } from "./fake-types"
+
+export type { FakeBackendOptions } from "./fake-types"
 import type { ScenarioOutcome } from "./scenarios"
 
 interface RunState {
@@ -58,30 +62,6 @@ export interface RecordedPrompt {
   agent?: string
 }
 
-export interface FakeBackendOptions {
-  /** Scenario for prompts without a prefix. Defaults to `default`. */
-  scenario?: FakeScenario
-  /**
-   * Delay between scripted chunks in milliseconds. Defaults to 15, or 400 for
-   * the `slow` scenario. Tests pass 0.
-   */
-  delayMs?: number
-  /** Injected clock for deterministic ids/timestamps. */
-  now?: () => number
-  workspace?: string
-  version?: string
-  /** Sources the fake reports as unavailable, for the disabled group state. */
-  disabledSources?: readonly SearchSource[]
-  /** Sources whose query throws, for a partial failure in the response. */
-  failingSources?: readonly SearchSource[]
-  /** False simulates a host without an app surface: `listApps` throws. */
-  appsAvailable?: boolean
-  /** Records connect/disconnect calls, so a test can prove the port is used. */
-  onAppAction?: (action: "connect" | "disconnect", name: string) => void
-  /** Deterministic background jobs for the `/tasks` page. Empty by default. */
-  seedJobs?: readonly BackgroundJob[]
-}
-
 /** Deterministic in-memory backend; task methods come from `FakeTaskStore`. */
 export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private readonly sessions = new Map<string, SessionState>()
@@ -97,9 +77,11 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private readonly failingSources: readonly SearchSource[]
   private readonly apps: FakeAppInventory
   private readonly onAppAction?: (action: "connect" | "disconnect", name: string) => void
+  private readonly instructionMaxBytes?: number
   private readonly events: FakeEvents
   private readonly permissions: FakePermissions
   private readonly recorded = new Map<string, RecordedPrompt>()
+  private readonly instructions = new FakeInstructions()
   private readonly parts: PartWriter
 
   constructor(options: FakeBackendOptions = {}) {
@@ -113,6 +95,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
     this.failingSources = options.failingSources ?? []
     this.apps = new FakeAppInventory({ available: options.appsAvailable })
     this.onAppAction = options.onAppAction
+    this.instructionMaxBytes = options.instructionMaxBytes
     this.events = new FakeEvents(this.clock)
     this.permissions = new FakePermissions((type, sid, data, durable) =>
       this.events.emit(type, sid, data, durable),
@@ -150,6 +133,16 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
 
   async listMessages(sessionID: string): Promise<Message[]> {
     return this.requireSession(sessionID).messages.map((message) => clone(message))
+  }
+
+  async putSessionInstruction(sessionID: string, key: string, value: string): Promise<void> {
+    this.requireSession(sessionID)
+    this.instructions.put(sessionID, key, value, this.instructionMaxBytes)
+  }
+
+  /** Fake-mode probe: the instruction entries currently attached to a session. */
+  instructionEntries(sessionID: string): Record<string, string> | null {
+    return this.instructions.entries(sessionID)
   }
 
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {

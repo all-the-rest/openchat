@@ -28,6 +28,12 @@ export function registerFakeControlsRoutes(app: Hono<AppEnv>, backend: ChatBacke
     return c.json(probe(backend)?.recordedPrompt(c.req.param("id")) ?? null)
   })
 
+  /** The memory index the BFF put on a session; fake mode has no host store. */
+  app.get("/api/__fake/instructions/:id", (c) => {
+    c.header("Cache-Control", "no-store")
+    return c.json(probe(backend)?.instructionEntries(c.req.param("id")) ?? null)
+  })
+
   app.post("/api/__fake/permission", async (c) => {
     c.header("Cache-Control", "no-store")
     const body = await readJson(c)

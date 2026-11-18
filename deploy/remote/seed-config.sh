@@ -33,6 +33,7 @@ TOOL_DIR=/opt/artifact-tool/packages/artifact-tool
 TOOL_COMMAND_TSX=/opt/artifact-tool/node_modules/.bin/tsx
 TOOL_ENTRY=/opt/artifact-tool/packages/artifact-tool/src/index.ts
 PYTHON_TOOL_ENTRY=/opt/artifact-tool/packages/python-tool/src/index.ts
+MEMORY_TOOL_ENTRY=/opt/artifact-tool/packages/memory-tool/src/index.ts
 PYTHON_BIN=/usr/bin/python3
 BFF_URL=http://bff:8787
 DOCUMENTS_URL=http://documents:8099
@@ -141,6 +142,17 @@ main() {
         "WORKSPACE_DIR": "$WORKSPACE",
         "DOCUMENTS_URL": "$DOCUMENTS_URL",
         "DOCUMENTS_TOKEN": "$documents_token"
+      }
+    },
+    "openchat-memory": {
+      "type": "local",
+      "command": ["$TOOL_COMMAND_TSX", "$MEMORY_TOOL_ENTRY"],
+      "enabled": true,
+      "environment": {
+        "OPENCHAT_BFF_URL": "$BFF_URL",
+        "ARTIFACT_INTERNAL_TOKEN": "$token",
+        "WORKSPACE_DIR": "$WORKSPACE",
+        "MEMORY_DIR": "$WORKSPACE/chats/.memory"
       }
     }
   }

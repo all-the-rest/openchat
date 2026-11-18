@@ -15,6 +15,7 @@ import {
   FILES_DIR_NAME,
   isInside,
   isSafeSessionID,
+  isSessionDirectoryName,
 } from "./chat-files-paths"
 
 export interface ChatFilesAudit {
@@ -40,7 +41,7 @@ export async function auditChatFiles(workspaceDir: string): Promise<ChatFilesAud
     return { withoutMetadata, withoutFile }
   }
   for (const chat of chats) {
-    if (!chat.isDirectory() || !isSafeSessionID(chat.name)) continue
+    if (!chat.isDirectory() || !isSessionDirectoryName(chat.name)) continue
     const entries = await readChatIndex(workspaceDir, chat.name)
     const known = new Set(entries.map((file) => file.name))
     const prefix = `${chat.name}/${FILES_DIR_NAME}`
@@ -113,7 +114,9 @@ export async function reportChatFileOrphans(
       withFileTypes: true,
     })
     for (const chat of chats) {
-      if (chat.isDirectory() && !sessions.has(chat.name)) orphanDirs.push(chat.name)
+      if (chat.isDirectory() && isSessionDirectoryName(chat.name) && !sessions.has(chat.name)) {
+        orphanDirs.push(chat.name)
+      }
     }
     Object.assign(audit, await auditChatFiles(options.workspaceDir))
   } catch {

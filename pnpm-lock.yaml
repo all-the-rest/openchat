@@ -81,6 +81,9 @@ importers:
       '@openchat/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@openchat/memory-store':
+        specifier: workspace:*
+        version: link:../../packages/memory-store
       '@openchat/opencode':
         specifier: workspace:*
         version: link:../../packages/opencode
@@ -258,6 +261,44 @@ importers:
       zod:
         specifier: ^4.6.7
         version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.6
+        version: 26.6.6
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@26.6.6)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  packages/memory-store:
+    dependencies:
+      '@openchat/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.6
+        version: 26.6.6
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@26.6.6)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  packages/memory-tool:
+    dependencies:
+      '@openchat/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@openchat/memory-store':
+        specifier: workspace:*
+        version: link:../memory-store
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
     devDependencies:
       '@types/node':
         specifier: ^26.6.6

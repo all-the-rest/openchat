@@ -33,6 +33,9 @@ const SettingsPage = lazy(() =>
   import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
 )
 const TasksPage = lazy(() => import("./tasks/TasksPage").then((m) => ({ default: m.TasksPage })))
+const MemoryPage = lazy(() =>
+  import("./memory/MemoryPage").then((m) => ({ default: m.MemoryPage })),
+)
 
 /**
  * Suspense boundary for one lazily imported route. It sits inside the shell
@@ -234,6 +237,14 @@ function AppRoutes() {
           element={
             <LazyRoute>
               <TasksPage />
+            </LazyRoute>
+          }
+        />
+        <Route
+          path="/memory"
+          element={
+            <LazyRoute>
+              <MemoryPage />
             </LazyRoute>
           }
         />

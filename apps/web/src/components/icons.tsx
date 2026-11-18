@@ -244,3 +244,13 @@ export function TasksIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function MemoryIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3a5 5 0 0 0-5 5v1a4 4 0 0 0-1 7.7V19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2.3A4 4 0 0 0 17 9V8a5 5 0 0 0-5-5z" />
+      <path d="M9 21v-4" />
+      <path d="M15 21v-4" />
+    </Icon>
+  )
+}

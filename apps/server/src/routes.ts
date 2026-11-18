@@ -41,13 +41,15 @@ import type { AppsProbe } from "./apps-cache"
 import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
 import { registerArtifactInternalRoute } from "./artifacts-internal"
 import { registerChatFilesRoutes } from "./chat-files"
+import { registerMemoryRoutes } from "./memory-routes"
+import type { MemoryService } from "./memory-service"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
+import { registerEventRoute } from "./events-stream"
 import { registerFakeControlsRoutes } from "./fake-controls"
 import { registerFakeHostRoute } from "./fake-host-route"
 import type { FixedWindowThrottle, VerificationGate } from "./throttle"
-import { SSE_RETRY_FRAME } from "./sse"
 import { registerTranscribeRoute } from "./transcribe"
 import { localModelAvailable } from "./models"
 import { registerTasksRoutes } from "./tasks"
@@ -88,15 +90,8 @@ export interface RouteDeps {
   artifactsThrottle: FixedWindowThrottle
   /** Injected clock for signed artifact URLs. */
   artifactsNow?: () => number
-}
-
-function sseHeaders(): Record<string, string> {
-  return {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  }
+  /** Memory injection; the store is created once in `createApp`. */
+  memory: MemoryService
 }
 
 function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
@@ -231,6 +226,10 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
       title: parsed.data.title,
       directory: config.WORKSPACE_DIR,
     })
+    // Memory is injected after creation and must never fail the session: the
+    // owner can chat even when the memory directory is unreadable.
+    deps.memory.track(session.id)
+    await deps.memory.inject(session.id).catch(() => undefined)
     return c.json(session satisfies SessionInfo)
   })
 
@@ -258,6 +257,8 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     // Count accepted submissions only; a rejected body must not consume the
     // caller's budget.
     promptThrottle.record(address)
+    // A chat that existed before this boot becomes refreshable once it is used.
+    deps.memory.track(c.req.param("id"))
     // Spec 03: one active run per session. A second send is queued rather than
     // rejected, so the BFF defaults to the queue delivery mode.
     const result = await backend.prompt(c.req.param("id"), {
@@ -286,68 +287,6 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   app.post("/api/sessions/:id/interrupt", async (c) => {
     await backend.interrupt(c.req.param("id"))
     return c.json({ ok: true })
-  })
-}
-
-function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
-  const { backend, sseHeartbeatMs } = deps
-
-  app.get("/api/events", (c) => {
-    const lifecycle = new AbortController()
-    const encoder = new TextEncoder()
-    const subscription = backend.subscribe(lifecycle.signal)
-    let heartbeat: ReturnType<typeof setInterval> | undefined
-    let finished = false
-
-    const cleanup = () => {
-      if (finished) return
-      finished = true
-      if (heartbeat !== undefined) clearInterval(heartbeat)
-      lifecycle.abort()
-    }
-
-    const onAbort = () => cleanup()
-    c.req.raw.signal.addEventListener("abort", onAbort, { once: true })
-    if (c.req.raw.signal.aborted) cleanup()
-
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        const write = (chunk: string) => {
-          controller.enqueue(encoder.encode(chunk))
-        }
-        const pump = async () => {
-          try {
-            write(`${SSE_RETRY_FRAME}\n\n`)
-            heartbeat = setInterval(() => {
-              try {
-                write(": heartbeat\n\n")
-              } catch {
-                cleanup()
-              }
-            }, sseHeartbeatMs)
-            for await (const event of subscription) {
-              write(`data: ${JSON.stringify(event)}\n\n`)
-            }
-          } catch {
-            // The client went away or the backend stopped; closing is enough.
-          } finally {
-            cleanup()
-            c.req.raw.signal.removeEventListener("abort", onAbort)
-            try {
-              controller.close()
-            } catch {
-              // Already closed by the consumer.
-            }
-          }
-        }
-        void pump()
-      },
-      cancel() {
-        cleanup()
-      },
-    })
-
-    return new Response(body, { headers: sseHeaders() })
   })
 }
 
@@ -390,10 +329,15 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     now: deps.artifactsNow,
   })
   registerChatFilesRoutes(app, deps.config)
+  registerMemoryRoutes(app, {
+    config: deps.config,
+    store: deps.memory.store,
+    service: deps.memory,
+  })
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
   registerTasksRoutes(app, { backend: deps.backend })
-  registerEventRoute(app, deps)
+  registerEventRoute(app, { backend: deps.backend, sseHeartbeatMs: deps.sseHeartbeatMs })
   // Fake mode only; the live adapter has no outage switch to expose.
   if (deps.config.BACKEND_MODE === "fake") {
     if (deps.backend instanceof FakeHostSwitch) registerFakeHostRoute(app, deps.backend)

@@ -13,6 +13,7 @@ import {
   FILES_DIR_NAME,
   isSafeFileName,
   isSafeSessionID,
+  isSessionDirectoryName,
 } from "./chat-files-paths"
 
 const INDEX_VERSION = 1
@@ -121,7 +122,7 @@ export async function totalIndexedBytes(workspaceDir: string): Promise<number> {
   }
   let total = 0
   for (const entry of entries) {
-    if (!entry.isDirectory() || !isSafeSessionID(entry.name)) continue
+    if (!entry.isDirectory() || !isSessionDirectoryName(entry.name)) continue
     const files = await readChatIndex(workspaceDir, entry.name)
     for (const file of files) total += file.size
   }

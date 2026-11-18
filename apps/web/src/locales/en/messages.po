@@ -8,6 +8,16 @@ msgstr ""
 "Language: en\n"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.by"
+msgstr "{action} by {actor}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.count"
+msgstr "{count, plural, one {# active fact} other {# active facts}}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.schedules.runs"
 msgstr "{count, plural, one {# run} other {# runs}}"
@@ -58,9 +68,24 @@ msgid "files.quota"
 msgstr "{used} of {total} used ({percent}%)"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.index.tokens"
+msgstr "~{tokens} tokens"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.error.duplicate"
+msgstr "A near-identical fact already exists."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "update.title"
 msgstr "A new version is available"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.validation.reason"
+msgstr "A reason is required."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
@@ -78,9 +103,29 @@ msgid "app.tagline"
 msgstr "A workspace for your agent."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.status.active"
+msgstr "Active"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.status.active"
 msgstr "Active"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.add.title"
+msgstr "Add a fact"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.add.submit"
+msgstr "Add fact"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.created"
+msgstr "Added {when}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -223,6 +268,11 @@ msgid "composer.attachmentsLabel"
 msgstr "Attachments"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.title"
+msgstr "Audit tail"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.auto"
 msgstr "Auto"
@@ -260,6 +310,11 @@ msgstr "Cancel"
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.deleteCancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
@@ -368,6 +423,11 @@ msgid "tasks.action.confirm"
 msgstr "Confirm deletion of {title}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.confirmed"
+msgstr "Confirmed {when}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.connect"
 msgstr "Connect"
@@ -463,6 +523,11 @@ msgid "settings.defaults"
 msgstr "Defaults for new chats"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.delete"
+msgstr "delete"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.delete"
 msgstr "Delete"
@@ -478,9 +543,19 @@ msgid "tasks.action.delete"
 msgstr "Delete {title}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.delete"
+msgstr "Delete {topic}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.model.delete"
 msgstr "Delete downloaded speech model"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.deleteSubmit"
+msgstr "Delete fact"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -488,9 +563,19 @@ msgid "files.deleteConfirm"
 msgstr "Delete file"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.deleteConfirm"
+msgstr "Delete this fact? The audit keeps the reason."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.deleteTitle"
 msgstr "Delete this file?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.status.deleted"
+msgstr "Deleted"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -573,13 +658,13 @@ msgid "settings.documents"
 msgstr "Documents"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.done"
+#: src/i18n/messages/render.ts
+msgid "tool.status.success"
 msgstr "Done"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.success"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.done"
 msgstr "Done"
 
 #. js-lingui-explicit-id
@@ -618,9 +703,19 @@ msgid "artifacts.downloading"
 msgstr "Downloading…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.description"
+msgstr "Durable facts the agent keeps across sessions. It writes and prunes them; you keep the last word."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.create.duration"
 msgstr "Duration (for example, 30 minutes)"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.edit"
+msgstr "Edit {topic}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -653,11 +748,6 @@ msgid "auth.loginDescription"
 msgstr "Enter your username and password to open the workspace."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.error"
-msgstr "Error"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.error"
 msgstr "Error"
@@ -668,9 +758,39 @@ msgid "tool.status.error"
 msgstr "Error"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.error"
+msgstr "Error"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.exitPresent"
 msgstr "Exit present"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.status.expired"
+msgstr "Expired"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.expires"
+msgstr "Expires {when}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.trust.explicit"
+msgstr "Explicit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.export"
+msgstr "Export JSON"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.add.text"
+msgstr "Fact"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -693,6 +813,11 @@ msgid "files.title"
 msgstr "Files"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.search.placeholder"
+msgstr "Filter by text, topic or tag"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.jobs.finished"
 msgstr "Finished: {when}"
@@ -701,6 +826,11 @@ msgstr "Finished: {when}"
 #: src/i18n/messages/code.ts
 msgid "code.focusFrame"
 msgstr "Focus Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.add.topicPlaceholder"
+msgstr "For example, preference.language"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
@@ -718,19 +848,29 @@ msgid "artifacts.description"
 msgstr "HTML documents your agent has written. Each one runs sandboxed on a separate origin."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.image"
+msgstr "Image"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.kind.image"
 msgstr "Image"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
-msgid "artifacts.kind.image"
-msgstr "Image"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
 msgid "artifacts.galleryTitle"
 msgstr "Image gallery"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.index.title"
+msgstr "Index preview"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.trust.inferred"
+msgstr "Inferred"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -768,6 +908,11 @@ msgid "chat.jumpToLatest"
 msgstr "Jump to latest message"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.deleteCancel"
+msgstr "Keep fact"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.schedules.error"
 msgstr "Last run failed: {text}"
@@ -803,6 +948,11 @@ msgid "session.loading"
 msgstr "Loading chats…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.loading"
+msgstr "Loading memory…"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.loading"
 msgstr "Loading messages…"
@@ -823,6 +973,16 @@ msgid "app.loading"
 msgstr "Loading…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.error.secret"
+msgstr "Looks like a secret; remove the credential."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.error.instruction"
+msgstr "Looks like an instruction; memory holds facts only."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "nav.main"
 msgstr "Main navigation"
@@ -836,6 +996,16 @@ msgstr "MCP server"
 #: src/i18n/messages/apps.ts
 msgid "apps.description"
 msgstr "MCP servers and skills of this workspace. Status comes from the host."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.title"
+msgstr "Memory"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.loadFailed"
+msgstr "Memory could not be loaded."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -903,6 +1073,11 @@ msgid "tasks.jobs.empty"
 msgstr "No background jobs right now."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.empty"
+msgstr "No changes recorded yet."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "session.empty"
 msgstr "No chats yet."
@@ -911,6 +1086,16 @@ msgstr "No chats yet."
 #: src/i18n/messages/code.ts
 msgid "code.ticketTitle"
 msgstr "No Code sign-in ticket"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.search.empty"
+msgstr "No fact matches this filter."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.empty"
+msgstr "No facts yet. The agent adds one when it learns something durable, or add one here."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -968,6 +1153,11 @@ msgid "code.state.down"
 msgstr "Not reachable"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.trust.observed"
+msgstr "Observed"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.offline"
 msgstr "Offline"
@@ -996,6 +1186,11 @@ msgstr "Open Code in a new tab"
 #: src/i18n/messages/shell.ts
 msgid "menu.trigger"
 msgstr "Open menu"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.source"
+msgstr "Open source session"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
@@ -1108,6 +1303,11 @@ msgid "tasks.schedules.prompt"
 msgstr "Prompt: {text}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.prune"
+msgstr "prune"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.statusQueued"
 msgstr "Queued"
@@ -1126,6 +1326,11 @@ msgstr "Queued messages"
 #: src/i18n/messages/chat.ts
 msgid "chat.statusReady"
 msgstr "Ready"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.deleteReason"
+msgstr "Reason (required)"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1213,11 +1418,6 @@ msgid "tasks.action.resume"
 msgstr "Resume {title}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.retry"
-msgstr "Retry"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.retry"
 msgstr "Retry"
@@ -1253,6 +1453,11 @@ msgid "files.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.retry"
 msgstr "Retry"
@@ -1260,6 +1465,11 @@ msgstr "Retry"
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "host.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
@@ -1273,19 +1483,24 @@ msgid "tasks.create.ends"
 msgstr "Run once"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.running"
+#: src/i18n/messages/render.ts
+msgid "tool.status.running"
 msgstr "Running"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.running"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.running"
 msgstr "Running"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.autoHint"
 msgstr "Runs automatically when relevant"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.fact.save"
+msgstr "Save"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -1326,6 +1541,11 @@ msgstr "Search chats, files, web and apps"
 #: src/i18n/messages/search.ts
 msgid "search.groupFailed"
 msgstr "Search failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.search.label"
+msgstr "Search memory"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1508,6 +1728,11 @@ msgid "tasks.kind.subagent"
 msgstr "Subagent"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.status.superseded"
+msgstr "Superseded"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "surface.label"
 msgstr "Surface"
@@ -1536,6 +1761,11 @@ msgstr "Tasks could not be loaded."
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftText"
 msgstr "Text"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.validation.required"
+msgstr "Text and topic are required."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -1613,6 +1843,26 @@ msgid "artifacts.downloadFailed"
 msgstr "The download failed. Try again."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.error.invalid"
+msgstr "The fact is empty or too long."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.add.failed"
+msgstr "The fact was not added. {reason}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.delete.failed"
+msgstr "The fact was not deleted. {reason}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.edit.failed"
+msgstr "The fact was not saved. {reason}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.deleteFailed"
 msgstr "The file could not be deleted."
@@ -1668,6 +1918,11 @@ msgid "chat.permissionFailed"
 msgstr "The reply could not be sent. Try again."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.error.generic"
+msgstr "The request failed."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.errorUnknown"
 msgstr "The request failed."
@@ -1691,6 +1946,11 @@ msgstr "The search failed."
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.modelDownloadFailed"
 msgstr "The speech model could not be downloaded. Check the connection to this server and try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.error.storeFull"
+msgstr "The store is full; prune first."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -1726,6 +1986,11 @@ msgstr "This app is built for OpenCode major version {version}."
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.staleTitle"
 msgstr "This artifact link has expired"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.index.hint"
+msgstr "This block is injected into each new session, capped at about 400 tokens."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -1788,9 +2053,19 @@ msgid "search.kindTool"
 msgstr "Tool"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.add.topic"
+msgstr "Topic"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.transcribing"
 msgstr "Transcribing…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.add.trust"
+msgstr "Trust"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1811,6 +2086,11 @@ msgstr "Unsupported content: {type}"
 #: src/i18n/messages/chat.ts
 msgid "session.untitled"
 msgstr "Untitled"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.update"
+msgstr "update"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1866,6 +2146,11 @@ msgstr "What do you want to work on?"
 #: src/i18n/messages/search.ts
 msgid "search.sourceWorkspace"
 msgstr "Workspace"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.write"
+msgstr "write"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
