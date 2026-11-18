@@ -33,7 +33,6 @@ export const chat = {
   "chat.transcript": msg({ id: "chat.transcript", message: "Chat transcript" }),
   "chat.youSaid": msg({ id: "chat.youSaid", message: "You said" }),
   "chat.assistantSaid": msg({ id: "chat.assistantSaid", message: "Assistant answer" }),
-  "chat.empty": msg({ id: "chat.empty", message: "Start the conversation." }),
   "chat.loading": msg({ id: "chat.loading", message: "Loading messages…" }),
   "chat.loadFailed": msg({ id: "chat.loadFailed", message: "Messages could not be loaded." }),
   "chat.retry": msg({ id: "chat.retry", message: "Retry" }),

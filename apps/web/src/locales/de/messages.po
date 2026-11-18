@@ -883,11 +883,6 @@ msgid "dictation.start"
 msgstr "Diktat starten"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.empty"
-msgstr "Starte die Unterhaltung."
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.stop"
 msgstr "Aufnahme beenden"

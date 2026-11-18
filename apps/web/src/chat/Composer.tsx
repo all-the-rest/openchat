@@ -16,6 +16,7 @@ import { DictationFeedback } from "../dictation/DictationFeedback"
 import { RecordingPill } from "../dictation/RecordingPill"
 import { useDictation } from "../dictation/useDictation"
 import { useDictationConfig } from "../dictation/useDictationConfig"
+import { useMediaQuery } from "../lib/useMediaQuery"
 import { readDraft, writeDraft } from "./drafts"
 
 export interface ComposerProps {
@@ -54,6 +55,9 @@ export function Composer({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const valueRef = useRef(value)
   const caretRef = useRef<number | null>(null)
+  // Phones have no Enter key; the keyboard hint would only describe a gesture
+  // the device cannot perform.
+  const coarsePointer = useMediaQuery("(pointer: coarse)")
 
   valueRef.current = value
 
@@ -210,7 +214,9 @@ export function Composer({
         </div>
       </div>
       {dictation.enabled ? <DictationFeedback dictation={dictation} /> : null}
-      <p className="px-2 pt-1.5 text-xs text-muted">{t("composer.hint")}</p>
+      {coarsePointer ? null : (
+        <p className="px-2 pt-1.5 text-xs text-muted">{t("composer.hint")}</p>
+      )}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import type { Message } from "@openchat/contracts"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { ChatHero } from "../components/ChatHero"
 import { ArrowDownIcon } from "../components/icons"
 import { useT } from "../i18n/provider"
 import { MessageItem } from "./MessageItem"
@@ -87,6 +88,10 @@ export function Transcript({
     setPinned(false)
   }, [highlightMessageID, messages])
 
+  // An empty session gets the same centred start as the landing page, so the
+  // first impression does not depend on whether the chat already exists.
+  const empty = !loading && !failed && messages.length === 0
+
   const lastMessage = messages[messages.length - 1]
   useEffect(() => {
     if (lastMessage?.role === "user") scrollToBottom()
@@ -119,7 +124,12 @@ export function Transcript({
         className="min-h-0 flex-1 overflow-y-auto"
       >
         <h2 className="sr-only">{t("chat.transcript")}</h2>
-        <div className="mx-auto flex w-full max-w-[768px] flex-col gap-6 px-4 py-6">
+        <div
+          data-testid="transcript-body"
+          className={`mx-auto flex w-full max-w-[768px] flex-col gap-6 px-4 py-6 ${
+            empty ? "min-h-full justify-center" : ""
+          }`.trim()}
+        >
           {loading ? (
             <div className="flex flex-col gap-3" aria-hidden="true">
               <div className="skeleton h-4 w-2/3" />
@@ -134,7 +144,7 @@ export function Transcript({
               </button>
             </div>
           ) : messages.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted">{t("chat.empty")}</p>
+            <ChatHero level="h2" />
           ) : (
             messages.map((message) => (
               <MessageItem
@@ -164,7 +174,7 @@ export function Transcript({
           onClick={scrollToBottom}
           aria-label={t("chat.jumpToLatest")}
           title={t("chat.jumpToLatest")}
-          className="btn btn-circle btn-sm absolute bottom-4 left-1/2 -translate-x-1/2 border border-subtle bg-elevated shadow-md"
+          className="btn btn-circle btn-sm absolute bottom-6 left-1/2 z-10 -translate-x-1/2 border border-strong bg-elevated text-base-content shadow-lg"
         >
           <ArrowDownIcon className="size-4" />
         </button>

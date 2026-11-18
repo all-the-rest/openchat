@@ -201,6 +201,22 @@
   }
 }
 
+/*
+ * One focus ring on form fields. daisyUI's `.input:focus` tints the border to
+ * `base-content` and draws a 2 px outline at the same time, so a focused field
+ * shows two rings — on the login card that reads like an error state. This
+ * keeps the neutral border and lets a single ring in the app's focus token
+ * carry focus. Declared as a utility so it wins over daisyUI's own layer.
+ */
+@utility field-input {
+  &:focus,
+  &:focus-within {
+    --input-color: var(--oc-border-strong);
+    outline: 2px solid var(--oc-focus);
+    outline-offset: 2px;
+  }
+}
+
 @layer components {
   /* Markdown prose. Semantic tokens only, no palette utilities. */
   .markdown > :first-child {

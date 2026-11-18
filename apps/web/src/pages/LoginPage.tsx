@@ -67,63 +67,68 @@ export function LoginPage() {
       </div>
 
       <div className="flex flex-1 items-center justify-center px-4 pb-20">
-        <form
-          onSubmit={(event) => void submit(event)}
-          className="w-full max-w-sm rounded-card border border-subtle bg-surface p-6 shadow-md"
-        >
-          <h1 className="text-xl font-semibold">{t("auth.loginTitle")}</h1>
-          <p className="mt-1 text-sm text-muted">{t("auth.loginDescription")}</p>
-
-          <label htmlFor="login-user" className="mt-5 block text-sm font-medium">
-            {t("auth.userLabel")}
-          </label>
-          <input
-            id="login-user"
-            data-testid="login-user"
-            ref={userRef}
-            type="text"
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={user}
-            onChange={(event) => setUser(event.target.value)}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? "login-error" : undefined}
-            className="input input-bordered mt-1 w-full"
-          />
-
-          <label htmlFor="login-password" className="mt-4 block text-sm font-medium">
-            {t("auth.passwordLabel")}
-          </label>
-          <input
-            id="login-password"
-            data-testid="login-password"
-            ref={passwordRef}
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder={t("auth.passwordPlaceholder")}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? "login-error" : undefined}
-            className="input input-bordered mt-1 w-full"
-          />
-
-          {error ? (
-            <p id="login-error" role="alert" className="mt-2 text-sm text-error">
-              {t(error === "invalid" ? "auth.invalidCredentials" : "auth.loginFailed")}
-            </p>
-          ) : null}
-
-          <button
-            type="submit"
-            data-testid="login-submit"
-            disabled={user.length === 0 || password.length === 0 || pending}
-            className="btn btn-primary mt-5 w-full"
+        <div className="w-full max-w-sm">
+          <p data-testid="login-wordmark" className="mb-6 text-center text-2xl font-semibold">
+            {t("app.name")}
+          </p>
+          <form
+            onSubmit={(event) => void submit(event)}
+            className="w-full rounded-card border border-subtle bg-surface p-6 shadow-md"
           >
-            {pending ? t("auth.signingIn") : t("auth.signIn")}
-          </button>
-        </form>
+            <h1 className="text-xl font-semibold">{t("auth.loginTitle")}</h1>
+            <p className="mt-1 text-sm text-muted">{t("auth.loginDescription")}</p>
+
+            <label htmlFor="login-user" className="mt-5 block text-sm font-medium">
+              {t("auth.userLabel")}
+            </label>
+            <input
+              id="login-user"
+              data-testid="login-user"
+              ref={userRef}
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={user}
+              onChange={(event) => setUser(event.target.value)}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "login-error" : undefined}
+              className="input field-input mt-1 w-full"
+            />
+
+            <label htmlFor="login-password" className="mt-4 block text-sm font-medium">
+              {t("auth.passwordLabel")}
+            </label>
+            <input
+              id="login-password"
+              data-testid="login-password"
+              ref={passwordRef}
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder={t("auth.passwordPlaceholder")}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "login-error" : undefined}
+              className="input field-input mt-1 w-full"
+            />
+
+            {error ? (
+              <p id="login-error" role="alert" className="mt-2 text-sm text-error">
+                {t(error === "invalid" ? "auth.invalidCredentials" : "auth.loginFailed")}
+              </p>
+            ) : null}
+
+            <button
+              type="submit"
+              data-testid="login-submit"
+              disabled={user.length === 0 || password.length === 0 || pending}
+              className="btn btn-primary mt-5 w-full"
+            >
+              {pending ? t("auth.signingIn") : t("auth.signIn")}
+            </button>
+          </form>
+        </div>
       </div>
     </main>
   )
