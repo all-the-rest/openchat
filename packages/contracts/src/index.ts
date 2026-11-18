@@ -8,6 +8,7 @@ export * from "./artifacts"
 export * from "./files"
 export * from "./artifacts/caps"
 export * from "./permissions"
+export * from "./stt-model"
 
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"
@@ -154,11 +155,22 @@ export interface CodeStatusResponse {
   matches: boolean
 }
 
-/** Dictation availability and the limits the composer must respect. */
+/** Path availability: local is true only when every pinned file exists. */
+export interface LocalDictationInfo {
+  available: boolean
+  model: string
+}
+export interface ServerDictationInfo {
+  available: boolean
+}
+/** Dictation limits; `enabled` still means "microphone usable". */
 export interface DictationInfo {
   enabled: boolean
   maxSeconds: number
   maxBytes: number
+  /** Absent on older BFFs; the client then uses the server path. */
+  local?: LocalDictationInfo
+  server?: ServerDictationInfo
 }
 
 /**

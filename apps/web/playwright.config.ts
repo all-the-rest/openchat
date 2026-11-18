@@ -26,6 +26,12 @@ import {
   HOST_STATUS_BFF_PORT,
   HOST_STATUS_WEB_PORT,
 } from "./e2e/host-status-fixture"
+import {
+  LOCAL_STT_BFF_ORIGIN,
+  LOCAL_STT_BFF_PORT,
+  LOCAL_STT_MODEL_DIR,
+  LOCAL_STT_WEB_PORT,
+} from "./e2e/local-stt-fixture"
 import { PWA_ORIGIN, PWA_PORT } from "./e2e/pwa-fixture"
 
 const WEB_DIR = dirname(fileURLToPath(import.meta.url))
@@ -201,6 +207,31 @@ export default defineConfig({
         SESSION_SECRET: "test-secret",
         WORKSPACE_DIR,
       },
+    },
+    {
+      // On-device dictation stack: a complete model directory, no STT_URL.
+      // The worker is stubbed by the spec, so no weight bytes are read here.
+      command: "pnpm --filter @openchat/server start",
+      cwd: REPO_ROOT,
+      url: `${LOCAL_STT_BFF_ORIGIN}/healthz`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        PORT: String(LOCAL_STT_BFF_PORT),
+        BACKEND_MODE: "fake",
+        OPENCHAT_PASSWORD: "test-password",
+        SESSION_SECRET: "test-secret",
+        WORKSPACE_DIR,
+        STT_MODEL_DIR: LOCAL_STT_MODEL_DIR,
+      },
+    },
+    {
+      command: `pnpm --filter @openchat/web dev --port ${LOCAL_STT_WEB_PORT} --strictPort`,
+      cwd: REPO_ROOT,
+      url: `http://localhost:${LOCAL_STT_WEB_PORT}`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: { OPENCHAT_BFF_TARGET: LOCAL_STT_BFF_ORIGIN },
     },
     {
       // Stub Code host: redeems the real tickets the BFF mints, so the switch,

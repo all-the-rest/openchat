@@ -218,6 +218,11 @@ msgid "artifacts.back"
 msgstr "Back to artifacts"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.inboxCancel"
 msgstr "Cancel"
@@ -403,6 +408,11 @@ msgid "files.deleteLabel"
 msgstr "Delete {name}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.model.delete"
+msgstr "Delete downloaded speech model"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.deleteConfirm"
 msgstr "Delete file"
@@ -436,6 +446,16 @@ msgstr "Deutsch"
 #: src/i18n/messages/settings.ts
 msgid "settings.dictation"
 msgstr "Dictation"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.path.local"
+msgstr "Dictation: on this device"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.path.server"
+msgstr "Dictation: via server"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -488,6 +508,11 @@ msgid "tool.status.success"
 msgstr "Done"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.start"
+msgstr "Download"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.download"
 msgstr "Download"
@@ -501,6 +526,16 @@ msgstr "Download"
 #: src/i18n/messages/files.ts
 msgid "files.downloadLabel"
 msgstr "Download {name}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.title"
+msgstr "Download the speech model?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.model.progress"
+msgstr "Downloading {file}: {loaded} of {total}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -1263,6 +1298,11 @@ msgid "artifacts.draftText"
 msgstr "Text"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.body"
+msgstr "The {size} model runs only on this device. Audio never leaves it."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.failed"
 msgstr "The action failed."
@@ -1358,6 +1398,11 @@ msgid "apps.error.host"
 msgstr "The host did not answer."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.modelUnavailable"
+msgstr "The local speech model is unavailable. Try again or use the server path."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.cancelFailed"
 msgstr "The queued message could not be cancelled."
@@ -1394,6 +1439,11 @@ msgstr "The search failed."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
+msgid "dictation.error.modelDownloadFailed"
+msgstr "The speech model could not be downloaded. Check the connection to this server and try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
 msgid "dictation.error.network"
 msgstr "The transcription service could not be reached. Check your connection and try again."
 
@@ -1426,6 +1476,11 @@ msgstr "This artifact link has expired"
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.unsupported"
 msgstr "This browser cannot record audio in a format the service accepts. Try a different browser."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.outOfMemory"
+msgstr "This device has not enough memory for the local speech model. Try again or use the server path."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1516,6 +1571,11 @@ msgstr "Uploaded"
 #: src/i18n/messages/chat.ts
 msgid "composer.attachmentUploading"
 msgstr "Uploading…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.server"
+msgstr "Use server STT"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts

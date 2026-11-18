@@ -218,6 +218,11 @@ msgid "artifacts.back"
 msgstr "Zurück zu den Artefakten"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.cancel"
+msgstr "Abbrechen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.inboxCancel"
 msgstr "Abbrechen"
@@ -403,6 +408,11 @@ msgid "files.deleteLabel"
 msgstr "{name} löschen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.model.delete"
+msgstr "Sprachmodell löschen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.deleteConfirm"
 msgstr "Datei löschen"
@@ -436,6 +446,16 @@ msgstr "Deutsch"
 #: src/i18n/messages/settings.ts
 msgid "settings.dictation"
 msgstr "Diktat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.path.local"
+msgstr "Diktat: auf diesem Gerät"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.path.server"
+msgstr "Diktat: über den Server"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -488,6 +508,11 @@ msgid "tool.status.success"
 msgstr "Fertig"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.start"
+msgstr "Modell herunterladen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.download"
 msgstr "Herunterladen"
@@ -501,6 +526,16 @@ msgstr "Herunterladen"
 #: src/i18n/messages/files.ts
 msgid "files.downloadLabel"
 msgstr "{name} herunterladen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.title"
+msgstr "Sprachmodell herunterladen?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.model.progress"
+msgstr "{file} wird geladen: {loaded} von {total}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -1263,6 +1298,11 @@ msgid "artifacts.draftText"
 msgstr "Text"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.body"
+msgstr "Das {size} große Modell läuft nur auf diesem Gerät. Audio verlässt es nie."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.failed"
 msgstr "Die Aktion ist fehlgeschlagen."
@@ -1358,6 +1398,11 @@ msgid "apps.error.host"
 msgstr "Der Host hat nicht geantwortet."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.modelUnavailable"
+msgstr "Das Sprachmodell ist auf diesem Gerät nicht verfügbar."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.cancelFailed"
 msgstr "Die wartende Nachricht konnte nicht abgebrochen werden."
@@ -1394,6 +1439,11 @@ msgstr "Die Suche ist fehlgeschlagen."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
+msgid "dictation.error.modelDownloadFailed"
+msgstr "Das Sprachmodell konnte nicht geladen werden."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
 msgid "dictation.error.network"
 msgstr "Der Transkriptionsdienst war nicht erreichbar. Prüfe deine Verbindung und versuch es erneut."
 
@@ -1426,6 +1476,11 @@ msgstr "Dieser Artefakt-Link ist abgelaufen"
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.unsupported"
 msgstr "Dieser Browser kann Audio nicht in einem unterstützten Format aufnehmen. Verwende einen anderen Browser."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.outOfMemory"
+msgstr "Dem Browser fehlt Speicher für die lokale Erkennung."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1516,6 +1571,11 @@ msgstr "Hochgeladen"
 #: src/i18n/messages/chat.ts
 msgid "composer.attachmentUploading"
 msgstr "Wird hochgeladen…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.download.server"
+msgstr "Server-Erkennung nutzen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts

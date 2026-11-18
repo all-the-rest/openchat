@@ -13,6 +13,10 @@ references/raw
 # Default artifact store of a development run (`ARTIFACTS_DIR`).
 .openchat-artifacts/
 
+# Pinned third-party speech-model weights, provisioned by `pnpm run stt:fetch`.
+# Never commit model files; the manifest lives in packages/contracts.
+apps/web/public/models/
+
 # Third-party REA skill (MIT). Installed locally, not vendored.
 .opencode/skills/reverse-engineer-anything/
 test-results

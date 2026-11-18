@@ -5,6 +5,7 @@ import { isFakeScenario } from "@openchat/opencode"
 import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
 import { loadWorkspaceEnv, type WorkspaceFileEnv } from "./env-workspace"
 import { loadCredentialEnv } from "./env-auth"
+import { sttModelDir } from "./models"
 import { webDistDir } from "./static"
 
 export type BackendMode = "fake" | "live"
@@ -40,6 +41,8 @@ export interface EnvConfig extends WorkspaceFileEnv {
   STT_URL: string
   /** Sent upstream as a bearer token; empty when unset. Never logged. */
   STT_API_KEY: string
+  /** Directory holding the pinned local model files served under `/models/`. */
+  STT_MODEL_DIR: string
   DICTATION_MAX_SECONDS: number
   DICTATION_MAX_BYTES: number
   /** Empty when the deployment has no Code host (surface off). */
@@ -376,6 +379,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     TRUST_PROXY: readBoolean(source, "TRUST_PROXY"),
     STT_URL: read(source, "STT_URL") ?? "",
     STT_API_KEY: readSecret(source, "STT_API_KEY") ?? "",
+    STT_MODEL_DIR: sttModelDir(source),
     DICTATION_MAX_SECONDS: readNumber(
       source,
       "DICTATION_MAX_SECONDS",

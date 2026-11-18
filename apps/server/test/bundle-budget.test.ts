@@ -36,6 +36,7 @@ function validBuild(): Fixture {
       isEntry: true,
       imports: ["_icons.js"],
       dynamicImports: [...LAZY_ROUTES],
+      assets: ["assets/local-worker-fixture.js"],
     },
     "_icons.js": { file: "assets/icons.js", imports: ["_rolldown-runtime.js"] },
     "_rolldown-runtime.js": { file: "assets/rolldown-runtime.js" },
@@ -51,6 +52,7 @@ function validBuild(): Fixture {
 
   const sizes: Record<string, number> = {}
   for (const chunk of Object.values(manifest)) sizes[chunk.file] = 1_000
+  sizes["assets/local-worker-fixture.js"] = 1_000
   sizes["assets/elk.js"] = LIMIT + 998_000
 
   for (const route of LAZY_ROUTES) {
@@ -117,6 +119,7 @@ describe("bundle budget", () => {
       isEntry: true,
       imports: ["_icons.js"],
       dynamicImports: LAZY_ROUTES.filter((route) => route !== "src/pages/ChatPage.tsx"),
+      assets: ["assets/local-worker-fixture.js"],
     }
     fixture.manifest["src/pages/ChatPage.tsx"] = {
       file: "assets/ChatPage.js",
@@ -158,6 +161,24 @@ describe("bundle budget", () => {
     expect(result.status).toBe(2)
     expect(result.stderr).toContain("no build at")
     expect(result.stdout).toBe("")
+  })
+
+  it("requires the speech worker as a lazy asset", () => {
+    const fixture = validBuild()
+    delete fixture.manifest["index.html"]?.assets
+    expect(run(build(fixture), "--list").stdout).toBe(
+      "0\tassets/local-worker-*.js\tspeech worker must be a lazy asset of the entry\n",
+    )
+  })
+
+  it("keeps the ONNX runtime out of the entry chunk", () => {
+    const fixture = validBuild()
+    const root = build(fixture)
+    const entry = join(root, DIST, fixture.manifest["index.html"]?.file ?? "")
+    writeFileSync(entry, "onnxruntime-web must not be here")
+    expect(run(root, "--list").stdout).toBe(
+      "0\tassets/index-entry.js\tmodel runtime must not enter the entry chunk\n",
+    )
   })
 
   it("resolves manifest references by key", () => {
