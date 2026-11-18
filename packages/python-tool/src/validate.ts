@@ -10,6 +10,12 @@ import {
   MAX_VALUE_CHARS,
   MAX_VALUES,
 } from "./limits"
+import type { ArchiveExtractInput, ArchiveListInput } from "./validate-archives"
+import {
+  ARCHIVE_TOOL_NAMES,
+  validateArchiveExtract,
+  validateArchiveList,
+} from "./validate-archives"
 import type { DocumentsConvertInput, DocumentsFillInput } from "./validate-documents"
 import { validateDocumentsConvert, validateDocumentsFill } from "./validate-documents"
 
@@ -20,7 +26,7 @@ import { validateDocumentsConvert, validateDocumentsFill } from "./validate-docu
  * model gets one decisive message per call.
  */
 
-export const TOOL_NAMES = [
+export const DOCUMENT_TOOL_NAMES = [
   "docx_fill",
   "xlsx_write",
   "pdf_from_markdown",
@@ -28,6 +34,8 @@ export const TOOL_NAMES = [
   "documents_fill",
   "documents_convert",
 ] as const
+
+export const TOOL_NAMES = [...DOCUMENT_TOOL_NAMES, ...ARCHIVE_TOOL_NAMES] as const
 
 export type ToolName = (typeof TOOL_NAMES)[number]
 
@@ -66,6 +74,8 @@ export type ValidatedCall =
   | { name: "read_document"; value: ReadDocumentInput }
   | { name: "documents_fill"; value: DocumentsFillInput }
   | { name: "documents_convert"; value: DocumentsConvertInput }
+  | { name: "archive_list"; value: ArchiveListInput }
+  | { name: "archive_extract"; value: ArchiveExtractInput }
 
 export type ValidationResult =
   | { ok: true; value: ValidatedCall }
@@ -380,6 +390,10 @@ export function validateTool(name: string, input: unknown): ValidationResult {
       return validateDocumentsFill(input)
     case "documents_convert":
       return validateDocumentsConvert(input)
+    case "archive_list":
+      return validateArchiveList(input)
+    case "archive_extract":
+      return validateArchiveExtract(input)
     default:
       return bad("input: unknown tool")
   }

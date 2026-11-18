@@ -116,8 +116,10 @@ through Lingui (`composer.attach*`, `composer.attachment*`); the German PO is
   for a future slice.
 - **Thumbnails, previews and inline images.** Uploaded content is never
   previewed on the app origin; documents render only in the artifact sandbox.
-- **Macro execution or archive inspection.** Office files are stored as bytes;
-  the ZIP marker check is a type check, not a virus scan.
+- **Macro execution or a virus scan.** Office files are stored as bytes; the
+  ZIP marker check is a type check. Archive *inspection* is an explicit,
+  guarded agent tool in [26-archives.md](26-archives.md) — it unzips only on
+  request and never scans for malware.
 - **Client-side type/size checks.** The browser's `File.type` is never trusted
   or sent; the server is the single authority.
 - **SSE-driven file-list refresh.** The page refetches after upload and send;

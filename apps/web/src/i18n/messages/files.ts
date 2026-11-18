@@ -13,6 +13,7 @@ export const files = {
   "files.retry": msg({ id: "files.retry", message: "Retry" }),
   "files.origin.upload": msg({ id: "files.origin.upload", message: "Uploaded" }),
   "files.origin.agent": msg({ id: "files.origin.agent", message: "Agent" }),
+  "files.kind.archive": msg({ id: "files.kind.archive", message: "Archive" }),
   "files.download": msg({ id: "files.download", message: "Download" }),
   "files.downloadLabel": msg({ id: "files.downloadLabel", message: "Download {name}" }),
   "files.delete": msg({ id: "files.delete", message: "Delete" }),

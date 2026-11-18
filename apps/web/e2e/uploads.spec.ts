@@ -7,6 +7,8 @@ import {
   E2E_PDF_NAME,
   E2E_PNG_BYTES,
   E2E_PNG_NAME,
+  E2E_ZIP_BYTES,
+  E2E_ZIP_NAME,
   expectedReference,
 } from "./upload-fixture"
 
@@ -41,6 +43,42 @@ test("picker upload, prompt reference and byte-exact download", async ({ page })
   const path = await download.path()
   expect(path).not.toBeNull()
   expect(await readFile(path as string)).toEqual(E2E_PDF_BYTES)
+
+  expect(external).toEqual([])
+})
+
+test("a ZIP upload shows as a generic archive and downloads byte-exact", async ({ page }) => {
+  const external = guardExternalRequests(page)
+  await page.goto("/")
+  await login(page)
+  const sessionID = await startChat(page)
+
+  await page.getByTestId("attach-button").click()
+  await page.getByTestId("attachment-input").setInputFiles({
+    name: E2E_ZIP_NAME,
+    mimeType: "application/zip",
+    buffer: E2E_ZIP_BYTES,
+  })
+  await expect(page.getByTestId("attachment-chip")).toHaveAttribute("data-status", "ready")
+
+  await page.getByTestId("composer").fill("What is in this archive?")
+  await page.getByTestId("send").click()
+
+  const userMessage = page.getByTestId("message-user").last()
+  await expect
+    .poll(async () => (await userMessage.textContent()) ?? "")
+    .toContain(expectedReference(sessionID, E2E_ZIP_NAME))
+
+  const row = page.getByTestId("chat-file").filter({ hasText: E2E_ZIP_NAME })
+  await expect(row).toBeVisible()
+  await expect(row.getByTestId("chat-file-archive")).toHaveText("Archive")
+  await expect(row.locator("iframe, img")).toHaveCount(0)
+
+  const downloadPromise = page.waitForEvent("download")
+  await row.getByRole("link", { name: `Download ${E2E_ZIP_NAME}` }).click()
+  const path = await (await downloadPromise).path()
+  expect(path).not.toBeNull()
+  expect(await readFile(path as string)).toEqual(E2E_ZIP_BYTES)
 
   expect(external).toEqual([])
 })

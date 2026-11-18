@@ -37,6 +37,19 @@ export const MAX_CELL_CHARS = 2_000
 export const ARTIFACT_MAX_BYTES = 1_048_576
 export const ARTIFACT_TITLE_MAX = 120
 
+/**
+ * ZIP archives (issue #52). The Python scripts repeat these numbers in
+ * `python/_archive.py`, so a direct script call is capped identically.
+ */
+export const MAX_ARCHIVE_ENTRIES = 500
+export const MAX_ARCHIVE_DEPTH = 10
+export const MAX_ARCHIVE_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
+/** Declared uncompressed bytes above 10 MiB and 100× the archive are a bomb. */
+export const ARCHIVE_BOMB_RATIO = 100
+export const ARCHIVE_BOMB_FLOOR_BYTES = 10 * 1024 * 1024
+export const MAX_ARCHIVE_DIRECTORY_NAME = 64
+export const MAX_ARCHIVE_PATH_CHARS = 300
+
 /** Documents service (issue #46): template read guard and wire caps. */
 export const MAX_TEMPLATE_BYTES = 8 * 1024 * 1024
 export const MAX_TEMPLATE_PATH_CHARS = 300

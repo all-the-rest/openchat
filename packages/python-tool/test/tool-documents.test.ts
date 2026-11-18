@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import type { DocumentsClient, DocumentsResult } from "../src/documents-client"
 import type { PythonRunner } from "../src/runner"
 import type { ToolDeps } from "../src/tool"
-import { runDocumentTool } from "../src/tool"
+import { isToolSuccess, runDocumentTool } from "../src/tool"
 
 const created: string[] = []
 afterEach(() => {
@@ -91,7 +91,7 @@ describe("documents_fill tool", () => {
     const s = spy()
     const result = await runDocumentTool("documents_fill", FILL, deps(root, s))
     expect(result.ok).toBe(true)
-    if (result.ok) {
+    if (result.ok && isToolSuccess(result.value)) {
       expect(result.value.files).toEqual(["invoice.docx", "invoice.pdf"])
       expect(result.value.filename).toBe("invoice.docx")
     }
@@ -131,7 +131,7 @@ describe("documents_convert tool", () => {
       deps(root, s),
     )
     expect(result.ok).toBe(true)
-    if (result.ok) expect(result.value.files).toEqual(["source.pdf"])
+    if (result.ok && isToolSuccess(result.value)) expect(result.value.files).toEqual(["source.pdf"])
     expect(s.calls).toEqual(["convert"])
     expect(readFileSync(join(root, "chats", "session-1", "files", "source.pdf")).toString()).toBe("%PDF-1.7")
   })

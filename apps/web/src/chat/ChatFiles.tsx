@@ -164,6 +164,11 @@ export function ChatFiles({ sessionID, version = 0 }: ChatFilesProps) {
               <span data-testid="chat-file-name" className="min-w-0 flex-1 truncate" title={file.displayName}>
                 {file.displayName}
               </span>
+              {file.mime === "application/zip" ? (
+                <span data-testid="chat-file-archive" className="badge badge-outline badge-sm shrink-0">
+                  {t("files.kind.archive")}
+                </span>
+              ) : null}
               <span className="badge badge-ghost badge-sm shrink-0">
                 {t(file.origin === "agent" ? "files.origin.agent" : "files.origin.upload")}
               </span>

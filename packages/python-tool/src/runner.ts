@@ -8,6 +8,7 @@ import {
   MAX_FILE_BYTES,
   TOOL_TIMEOUT_MS,
 } from "./limits"
+import type { ArchiveToolName } from "./validate-archives"
 import type { ToolName } from "./validate"
 
 /**
@@ -59,18 +60,31 @@ export interface RunnerOptions {
 }
 
 /** The two chat-file tools call the HTTP service, never a Python script. */
-export type PythonToolName = Exclude<ToolName, "documents_fill" | "documents_convert">
+export type PythonToolName = Exclude<
+  ToolName,
+  "documents_fill" | "documents_convert" | ArchiveToolName
+>
+
+/** Every tool backed by exactly one fixed script path. */
+export type ScriptName = Exclude<ToolName, "documents_fill" | "documents_convert">
 
 export type PythonRunner = (
   tool: PythonToolName,
   input: Record<string, unknown>,
 ) => Promise<RunResult>
 
-const SCRIPTS: Record<PythonToolName, string> = {
+/** One script answer: only the structured body, never stderr. */
+export type ScriptRun =
+  | { ok: true; payload: Record<string, unknown> }
+  | { ok: false; error: string }
+
+const SCRIPTS: Record<ScriptName, string> = {
   docx_fill: fileURLToPath(new URL("../python/docx_fill.py", import.meta.url)),
   xlsx_write: fileURLToPath(new URL("../python/xlsx_write.py", import.meta.url)),
   pdf_from_markdown: fileURLToPath(new URL("../python/pdf_from_markdown.py", import.meta.url)),
   read_document: fileURLToPath(new URL("../python/read_document.py", import.meta.url)),
+  archive_list: fileURLToPath(new URL("../python/archive_list.py", import.meta.url)),
+  archive_extract: fileURLToPath(new URL("../python/archive_extract.py", import.meta.url)),
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -80,6 +94,17 @@ const ERROR_MESSAGES: Record<string, string> = {
   render_failed: "internal: the document could not be generated",
   too_large: "size: the generated document exceeds the artifact limit",
   unsupported: "unsupported: this file type cannot be read",
+  bad_archive: "archive: the file is not a readable ZIP archive",
+  encrypted: "archive: the ZIP has encrypted entries",
+  too_many_entries: "archive: the ZIP has more than 500 entries",
+  too_deep: "archive: a path nests deeper than 10 directories",
+  archive_too_large: "archive: the ZIP expands beyond the 200 MiB uncompressed cap",
+  bomb: "archive: refused as a likely zip bomb",
+  unsafe_entry: "archive: the ZIP contains an unsafe entry",
+  file_too_large: "size: an extracted file exceeds the 25 MiB chat file cap",
+  quota_exceeded: "quota: the chat file quota would be exceeded",
+  already_exists: "already_exists: the target exists; choose another directory",
+  internal: "internal: the archive tool failed",
 }
 
 const EXPECTED_EXTENSION: Record<PythonToolName, string> = {
@@ -118,19 +143,10 @@ function readErrorCode(stdout: string): string | null {
 }
 
 function readSuccess(
-  stdout: string,
+  payload: Record<string, unknown>,
   tool: PythonToolName,
 ): { ok: true; value: PythonFile } | { ok: false; error: string } {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(stdout.trim()) as unknown
-  } catch {
-    return { ok: false, error: "internal: the document tool answered an unexpected body" }
-  }
-  if (!isRecord(parsed) || parsed.ok !== true) {
-    return { ok: false, error: "internal: the document tool answered an unexpected body" }
-  }
-  const { filename, mediaType, data } = parsed
+  const { filename, mediaType, data } = payload
   if (typeof filename !== "string" || typeof mediaType !== "string" || typeof data !== "string") {
     return { ok: false, error: "internal: the document tool answered an unexpected body" }
   }
@@ -156,7 +172,8 @@ function readSuccess(
   return { ok: true, value: { filename, mediaType, data: bytes } }
 }
 
-function mapResult(result: ProcessResult, tool: PythonToolName): RunResult {
+/** Exit status, timeout and stream failures become one fixed line each. */
+function mapScriptResult(result: ProcessResult): ScriptRun {
   if (result.failure === "output") {
     return { ok: false, error: "internal: the document tool produced too much output" }
   }
@@ -175,7 +192,16 @@ function mapResult(result: ProcessResult, tool: PythonToolName): RunResult {
   if (result.code !== 0) {
     return { ok: false, error: fixedError(readErrorCode(result.stdout)) }
   }
-  return readSuccess(result.stdout, tool)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(result.stdout.trim()) as unknown
+  } catch {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  if (!isRecord(parsed) || parsed.ok !== true) {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  return { ok: true, payload: parsed }
 }
 
 /** The real boundary: no shell, a byte cap on both streams, SIGKILL on timeout. */
@@ -251,7 +277,9 @@ function childEnvironment(cwd: string): Record<string, string> {
   }
 }
 
-export function createRunner(options: RunnerOptions = {}): PythonRunner {
+export function createScriptRunner(
+  options: RunnerOptions = {},
+): (tool: ScriptName, input: Record<string, unknown>) => Promise<ScriptRun> {
   const python = options.python ?? process.env.OPENCHAT_PYTHON ?? "python3"
   const spawnImpl = options.spawn ?? spawnProcess
   const tempRoot = options.tempRoot ?? tmpdir()
@@ -272,11 +300,20 @@ export function createRunner(options: RunnerOptions = {}): PythonRunner {
         timeoutMs,
         input: JSON.stringify(input),
       })
-      return mapResult(result, tool)
+      return mapScriptResult(result)
     } catch {
       return { ok: false, error: "internal: the document tool failed" }
     } finally {
       await rm(cwd, { recursive: true, force: true })
     }
+  }
+}
+
+export function createRunner(options: RunnerOptions = {}): PythonRunner {
+  const run = createScriptRunner(options)
+  return async (tool, input) => {
+    const result = await run(tool, input)
+    if (!result.ok) return result
+    return readSuccess(result.payload, tool)
   }
 }

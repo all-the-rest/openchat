@@ -1,6 +1,8 @@
 import type { BffOptions } from "@openchat/artifact-tool/bff"
 import { getDocument, postDocument } from "@openchat/artifact-tool/bff"
 import type { ArtifactInternalCreateRequest } from "@openchat/contracts"
+import { extractArchive, listArchive } from "./archive"
+import type { ArchiveRunner, ArchiveValue } from "./archive-types"
 import { writeChatOutputs } from "./chat-output"
 import type { DocumentsClient } from "./documents-client"
 import { ARTIFACT_MAX_BYTES, MAX_FILE_BYTES, MAX_TITLE, READ_PREVIEW_BYTES } from "./limits"
@@ -21,7 +23,9 @@ const PDF_MIME = "application/pdf"
 
 export interface ToolDeps extends BffOptions {
   runner: PythonRunner
-  /** Root of `WORKSPACE_DIR/chats`; required by the two chat-file tools. */
+  /** Fixed-script boundary for the two archive tools; required by them. */
+  archiveRunner?: ArchiveRunner
+  /** Root of `WORKSPACE_DIR/chats`; required by the chat-file tools. */
   workspaceDir?: string
   /** Client of the headless LibreOffice service. */
   documents?: DocumentsClient
@@ -45,12 +49,21 @@ export interface ToolSuccess {
 }
 
 export type ToolResult =
-  | { ok: true; value: ToolSuccess }
+  | { ok: true; value: ToolSuccess | ArchiveValue }
   | { ok: false; error: string }
 
 function previewOf(data: Buffer): string {
   if (data.byteLength <= READ_PREVIEW_BYTES) return data.toString("utf8")
   return `${data.subarray(0, READ_PREVIEW_BYTES).toString("utf8")}\n…`
+}
+
+interface StoreResult {
+  ok: true
+  value: ToolSuccess
+}
+
+export function isToolSuccess(value: ToolSuccess | ArchiveValue): value is ToolSuccess {
+  return !("kind" in value)
 }
 
 async function storeFile(
@@ -60,7 +73,7 @@ async function storeFile(
   mediaType: string,
   file: Buffer,
   preview?: string,
-): Promise<ToolResult> {
+): Promise<StoreResult | { ok: false; error: string }> {
   if (file.byteLength > MAX_FILE_BYTES) {
     return { ok: false, error: "size: the generated document exceeds the artifact limit" }
   }
@@ -240,6 +253,18 @@ export async function runDocumentTool(
       )
       if (!stored.ok) return stored
       return { ok: true, value: { ...stored.value, files: written.names } }
+    }
+
+    case "archive_list":
+    case "archive_extract": {
+      const workspaceDir = deps.workspaceDir
+      const runner = deps.archiveRunner
+      if (!workspaceDir) return { ok: false, error: "zipPath: WORKSPACE_DIR is not configured" }
+      if (!runner) return { ok: false, error: "internal: the archive runner is not configured" }
+      if (call.name === "archive_list") {
+        return listArchive(workspaceDir, runner, call.value.zipPath)
+      }
+      return extractArchive(workspaceDir, runner, call.value)
     }
 
     default:
