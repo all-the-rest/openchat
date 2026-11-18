@@ -8,6 +8,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "@playwright/test"
+import { CODE_STUB_ORIGIN, CODE_STUB_SECRET } from "./e2e/code-stub"
 
 const WEB_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(WEB_DIR, "..", "..")
@@ -87,6 +88,10 @@ export default defineConfig({
         SESSION_SECRET: "test-secret",
         WORKSPACE_DIR,
         STT_URL: "http://127.0.0.1:8899",
+        // The `/code` capture frames the stub host from the shared E2E suite;
+        // the ticket audience and secret must match it exactly.
+        CODE_HOST_ORIGIN: CODE_STUB_ORIGIN,
+        CODE_TICKET_SECRET: CODE_STUB_SECRET,
       },
     },
     {
@@ -97,8 +102,18 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
-      // Same fake Whisper service the E2E dictation spec uses. `tsx` is not a
-      // dependency of the web package; Node ≥ 24 strips the types itself.
+      // Same stub Code host the functional suite uses: the `/code` screenshot
+      // and the E2E tests must frame the identical stand-in.
+      command: "tsx e2e/code-stub.ts",
+      cwd: WEB_DIR,
+      url: `${CODE_STUB_ORIGIN}/__health`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+      env: { CODE_TICKET_SECRET: CODE_STUB_SECRET },
+    },
+    {
+      // Same fake Whisper service the E2E dictation spec uses. Node ≥ 24
+      // strips the types of this file itself, no loader needed.
       command: "node e2e/fake-stt.ts",
       cwd: WEB_DIR,
       url: "http://127.0.0.1:8899/healthz",

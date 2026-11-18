@@ -82,7 +82,8 @@ async function applyNavStep(
     return
   }
 
-  const region = page.getByRole(step.scope)
+  const region =
+    step.scope === "app-bar" ? page.getByTestId("app-bar") : page.getByRole(step.scope)
   let locator = region.getByRole(
     step.role,
     step.name !== undefined ? { name: step.name, exact: true } : undefined,

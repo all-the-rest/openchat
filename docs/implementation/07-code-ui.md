@@ -161,11 +161,88 @@ landing page has no session yet and does not pass a key.
   without `allow-same-origin` would break the ticket exchange.
 - **No WebSocket.** The Code host proxies SSE only; the embed does not add a
   channel (see implementation 06).
-- **No E2E stub host yet.** The ticket exchange and framing are covered by the
-  Code host's own suite; the browser-level framing check stays a deploy-time
-  step.
-- **No screenshot route yet.** The screenshot harness has no Code route; a
-  stable Code frame needs a stub host.
+- **No real-OpenCode browser coverage.** The stub host (`e2e/code-stub.ts`,
+  below) covers the app's framing contract, the ticket exchange and the state
+  channel; the real OpenCode shell is still only covered by the header-level
+  spike and the Code host's own suite.
+- **The screenshot frame is the stub.** `ui-review` captures the `code-stub`
+  route, not the OpenCode UI; the route name and note say so.
+
+## End-to-end coverage
+
+**Status:** 2026-11-18. The browser half of the surface is covered against a
+stub Code host; the BFF routes and the Code host keep their own suites.
+
+### The stub Code host
+
+`e2e/code-stub.ts` is a loopback HTTP server on `http://127.0.0.1:8099`, started
+as its own Playwright `webServer` by **both** `playwright.config.ts` and
+`playwright.screenshots.config.ts`. The BFF is started with
+`CODE_HOST_ORIGIN=http://127.0.0.1:8099` and the same `CODE_TICKET_SECRET` as
+the stub, so every ticket the app mints is verified by a real `readTicket` call
+with the matching audience. The stub runs under `tsx`, because
+`@openchat/code-ticket` ships TypeScript with extensionless relative imports.
+
+| Route | Behaviour |
+| --- | --- |
+| `GET /__health` | `200 {"ok":true,"version":"2.3.0"}`; the BFF's probe and Playwright's readiness URL. |
+| `GET /__auth?ticket=…&next=…` | Valid ticket: `302` to the sanitised `next` plus an `HttpOnly` session cookie. Invalid or deliberately rejected: `401` with a page that posts `{type:"openchat:code-state",state:"unauthenticated"}` to the app origin and carries a visible marker. |
+| `GET /__requests` | Request log for assertions: `kind` (`browser` or `upstream`), method, path and whether `authorization` was present. Only the scheme is recorded, never the value. |
+| `GET /__upstream` | The simulated OpenCode upstream: rendering an authenticated page makes one loopback request here with `Authorization: Basic`, mirroring the credential the real Code host injects. |
+| anything else | A page with `data-testid="code-stub"` that echoes the requested path in `data-testid="code-path"`. |
+
+**What it proves, and what it does not.** It proves the app's browser contract:
+the ticket URL, the redirect, framing, the deep-link `next`, the translated
+frame title, the one-switch rule, the state-message channel and the credential
+boundary. It proves nothing about the real OpenCode shell. That remains the
+header-level spike plus the Code host's own suite (implementation 06); there is
+no deploy-time substitute here.
+
+**Control mechanism.** A valid ticket whose validated `next` is exactly
+`/signed-out` is rejected on purpose. The app reaches it with
+`/code/signed-out`, which no app route or fake-backend flow produces, so the
+signed-out state is deterministic per request and cannot trigger by accident;
+no second server is needed.
+
+**Two honest limits** (recorded in the file header):
+
+- The session cookie is set but not enforced. The app (`localhost:5173`) and
+  the stub (`127.0.0.1:8099`) are different sites, and a `SameSite=Lax` cookie
+  is not sent on a cross-site iframe request. The real host relies on a shared
+  registrable domain (implementation 06); gating pages on the cookie here would
+  `401` every legitimate frame.
+- The stub plays its own upstream. "The upstream request carried Basic" is
+  proven by that loopback hop on the server side, not by a real OpenCode.
+
+**Ticket budget.** The suite runs against the Vite dev server, where React
+StrictMode double-invokes the mint effect, so one `/code` load is four mints.
+Four parallel tests would share the BFF's 20-mints-per-address budget and the
+last one would get a `429` that looks like an unreachable host. Each test
+therefore presents its own `X-Forwarded-For` on `/api/code/**`, and the E2E BFF
+runs with `TRUST_PROXY=1`; every other spec keeps the socket address. This is
+test isolation only — production configuration does not change.
+
+### The four E2E cases
+
+All four log in through the real form with `e2e/helpers.ts` and guard against
+external hosts with `guardExternalRequests`.
+
+| Test | Proves |
+| --- | --- |
+| `the switch opens Code in a single bar and returns to chat` | The switch is visible on chat, `/code` follows the click, the frame is titled with the translated label and shows the stub marker, and `/code` has exactly one switch and no app bar or sidebar. Chat returns to `/` with the sidebar and still one switch. |
+| `a deep link reaches the Code host path and survives a reload` | `/code/deep/path` arrives as `next=/deep/path` at the stub (the page echoes the path), a reload stays on the surface and re-runs the exchange with a fresh ticket. |
+| `a rejected ticket shows the sign-in state and foreign messages are ignored` | A message posted from the app's own origin is ignored while the frame is healthy; the stub's deliberate `/signed-out` rejection produces "Sign in to open Code" and the re-mint button. |
+| `the upstream credential never reaches the browser` | The stub's log shows the server-side request with a `Basic` authorization scheme, no browser request to the Code host origin carried any `authorization` header (also collected with `page.on("request")`), and the rendered stub page contains no credential. |
+
+### Screenshot route
+
+`screenshots/ui-review.config.ts` captures `code-stub` for `/code` at all four
+viewports. The name and the note state exactly what the pixels are: the frame
+is `e2e/code-stub.ts`, not the OpenCode UI. The capture clicks `Code` in the app
+bar (a direct `/code` load would not prove the switch navigates) and waits for
+the stub marker; below 1024 px the app deliberately shows its
+desktop-orientation notice instead of a frame, so the same wait accepts that
+notice. PNGs stay out of git; `ui-review/` is ignored.
 
 ## Tests
 
@@ -177,4 +254,5 @@ landing page has no session yet and does not pass a key.
 | `test/app-shell.test.tsx` | existing drawer behaviour with the switch inside the app bar. |
 
 All component tests mock `../src/api/client`; no test reaches a BFF or a Code
-host.
+host. The browser-level suite and its stub are described under
+[End-to-end coverage](#end-to-end-coverage).

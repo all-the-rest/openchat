@@ -13,7 +13,7 @@
 // One seed set for the whole run is what keeps the sidebar identical in every
 // capture while the four viewport projects run in parallel.
 
-import type { Page } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 import { readFileSync } from "node:fs"
 import { isAbsolute, resolve } from "node:path"
 import process from "node:process"
@@ -49,7 +49,8 @@ export interface UiReviewViewportSize {
 
 export interface UiReviewClickStep {
   kind: "click"
-  scope: "banner" | "complementary" | "main"
+  /** `app-bar` is the chat app bar (`data-testid="app-bar"`), not a landmark. */
+  scope: "banner" | "complementary" | "main" | "app-bar"
   role: "link" | "button"
   name?: string
   within?: string
@@ -206,6 +207,29 @@ const waitForSearchResults = async (page: Page) => {
   await page.locator("[data-search-result]").first().waitFor({ timeout: 30_000 })
 }
 
+/**
+ * The Code capture frames the stub host. Below the `lg` breakpoint the app
+ * deliberately renders the desktop-orientation notice instead of a frame, so
+ * the terminal state is either the stub marker inside the frame or that notice.
+ * Polled by count rather than `locator.or()`: a `frameLocator` operand is not
+ * resolved once the frame does not exist, and the narrow layout never has one.
+ */
+const waitForCodeStub = async (page: Page) => {
+  const marker = page.frameLocator('[data-testid="code-frame"]').getByTestId("code-stub")
+  const narrowNotice = page.getByTestId("code-new-tab-fallback")
+  await expect
+    .poll(
+      async () => {
+        if ((await narrowNotice.count()) > 0) {
+          return (await narrowNotice.first().isVisible()) ? "ready" : "waiting"
+        }
+        return (await marker.count()) > 0 ? "ready" : "waiting"
+      },
+      { timeout: 30_000 },
+    )
+    .toBe("ready")
+}
+
 const searchQuery = "/search?scope=all&q=opencode"
 const searchNoHits = "/search?scope=all&q=nothing"
 
@@ -332,6 +356,24 @@ export const uiReviewConfig: UiReviewConfig = {
         },
       ],
       variants: [DARK],
+    },
+    {
+      name: "code-stub",
+      path: "/code",
+      expectedTitle: APP_TITLE,
+      states: ["filled"],
+      auth: "user",
+      viewports: ALL_VIEWPORTS,
+      note: "The frame is the stub Code host from apps/web/e2e/code-stub.ts, not the OpenCode UI: the capture shows the app's slim bar, the translated frame title and the stub page. Below 1024 px the app shows the desktop-orientation notice instead of the frame, by design.",
+      nav: [
+        {
+          kind: "click",
+          scope: "app-bar",
+          role: "button",
+          name: "Code",
+        },
+      ],
+      waitForContentReady: waitForCodeStub,
     },
     {
       name: "chat-empty",

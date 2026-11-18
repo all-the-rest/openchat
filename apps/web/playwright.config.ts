@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "@playwright/test"
+import { CODE_STUB_ORIGIN, CODE_STUB_SECRET } from "./e2e/code-stub"
 
 const WEB_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(WEB_DIR, "..", "..")
@@ -45,6 +46,14 @@ export default defineConfig({
         SESSION_SECRET: "test-secret",
         WORKSPACE_DIR,
         STT_URL: "http://127.0.0.1:8899",
+        // The stub Code host below stands in for apps/code-host; the ticket
+        // audience and the secret must match it exactly.
+        CODE_HOST_ORIGIN: CODE_STUB_ORIGIN,
+        CODE_TICKET_SECRET: CODE_STUB_SECRET,
+        // The code spec presents a per-test `X-Forwarded-For` client, so the
+        // BFF's per-address ticket budget (20 mints/min) is per simulated user
+        // instead of shared by the whole parallel suite. See e2e/code.spec.ts.
+        TRUST_PROXY: "1",
       },
     },
     {
@@ -55,8 +64,19 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
-      // `tsx` is not a dependency of the web package; Node ≥ 24 strips the
-      // types of this erasable-syntax file on its own.
+      // Stub Code host: redeems the real tickets the BFF mints, so the switch,
+      // deep links and the frame are exercised end to end without OpenCode.
+      // `tsx` resolves the TypeScript sources of `@openchat/code-ticket`.
+      command: "tsx e2e/code-stub.ts",
+      cwd: WEB_DIR,
+      url: `${CODE_STUB_ORIGIN}/__health`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+      env: { CODE_TICKET_SECRET: CODE_STUB_SECRET },
+    },
+    {
+      // Node ≥ 24 strips the types of this erasable-syntax file on its own;
+      // it has no dependency on the ticket package, so no loader is needed.
       command: "node e2e/fake-stt.ts",
       cwd: WEB_DIR,
       url: "http://127.0.0.1:8899/healthz",
