@@ -7,7 +7,8 @@
 # beyond Node's own stack; the container is `read_only` in compose and mounts
 # the artifact volume read-only.
 #
-# Build from the repository root (the host imports `@openchat/server/artifacts-sign`):
+# Build from the repository root (the host reads its signing and artifact-id
+# contract from `@openchat/contracts`):
 #   docker build -f deploy/Dockerfile.artifact-host -t openchat-artifact-host .
 
 ARG NODE_IMAGE=node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
@@ -30,7 +31,6 @@ RUN pnpm install --frozen-lockfile --filter @openchat/artifact-host...
 
 COPY tsconfig.base.json ./
 COPY packages ./packages
-COPY apps/server ./apps/server
 COPY apps/artifact-host ./apps/artifact-host
 
 RUN pnpm --filter @openchat/artifact-host run build:image

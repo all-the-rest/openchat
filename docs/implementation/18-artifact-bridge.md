@@ -20,8 +20,8 @@ sandbox section demands (no top navigation, no egress).
 | Viewer wiring | `apps/web/src/artifacts/ArtifactViewer.tsx` | Sends `artifact:init` on `load`, applies the reported height, resets in place, holds the last result locally and forwards it to `onArtifactResult`. |
 | Draft panel | `apps/web/src/artifacts/DraftPanel.tsx` | The editable draft under the frame: title, text, optional JSON `data`, Copy and Dismiss. |
 | Frame | `apps/web/src/artifacts/parts.tsx` | Optional content height; the sandbox attribute is unchanged. |
-| Artifact shim | `apps/artifact-host/src/bridge.ts` | `BRIDGE_SCRIPT`, the inlined `window.openchat` implementation. |
-| Export | `apps/artifact-host/package.json` | `@openchat/artifact-host/bridge` for the tool shell (slice 3). |
+| Artifact shim | `packages/contracts/src/artifacts/bridge.ts` | `BRIDGE_SCRIPT`, the inlined `window.openchat` implementation. |
+| Export | `packages/contracts/package.json` | `@openchat/contracts/artifacts/bridge` for the tool shell (slice 3). |
 | Fixtures | `apps/artifact-host/test/fixtures/` | `calculator`, `chart`, `broken` (JSX input) and `cdn` (final HTML). |
 | Tests | `apps/web/test/artifact-bridge.test.tsx`, `apps/artifact-host/test/bridge.test.ts` | The protocol, the proofs and the fixtures. |
 
@@ -68,11 +68,11 @@ load timeout.
 
 ## Limits
 
-The wire caps have one owner: `packages/contracts/src/bridge.ts`. The host shim
-interpolates them into the script it emits, and the viewer imports the same
-constants, so raising a cap on one side cannot leave the other truncating or
-rejecting at the old value. The table names the constants rather than repeating
-their numbers.
+The wire caps have one owner: `packages/contracts/src/artifacts/caps.ts`. The
+host shim interpolates them into the script it emits, and the viewer imports
+the same constants, so raising a cap on one side cannot leave the other
+truncating or rejecting at the old value. The table names the constants rather
+than repeating their numbers.
 
 | Limit | Contract constant | Enforced by |
 | --- | --- | --- |
@@ -199,7 +199,7 @@ The shell inlines the shim **before** the app bundle, inside the same document,
 so `window.openchat` exists when the compiled IIFE runs:
 
 ```ts
-import { BRIDGE_SCRIPT } from "@openchat/artifact-host/bridge"
+import { BRIDGE_SCRIPT } from "@openchat/contracts/artifacts/bridge"
 
 const html = `<!doctype html><html>…<body><div id="root"></div>
 <script>${BRIDGE_SCRIPT}</script><script>${bundle}</script>
@@ -208,13 +208,15 @@ const html = `<!doctype html><html>…<body><div id="root"></div>
 
 This is wired: `packages/artifact-tool/src/shell.ts` returns `BRIDGE_SCRIPT`
 from `bridgeScript()` and emits the bridge tag first, and
-`@openchat/artifact-tool` depends on `@openchat/artifact-host` (`workspace:*`).
+`@openchat/artifact-tool` depends on `@openchat/contracts` (`workspace:*`).
 `compile.test.ts` pins the bridge text, its position ahead of the bundle, and
-the two script elements, so the order cannot regress silently.
+the two script elements, so the order cannot regress silently; a byte-and-sha256
+fixture pins the emitted document across the move into the contracts package.
 
-The import resolves through the `./bridge` subpath export in
-`apps/artifact-host/package.json`. Do not minify or wrap the shim in a module:
-it is a classic script, and the shell is one portable document.
+The import resolves through the `./artifacts/bridge` subpath export in
+`packages/contracts/package.json`; the root index does not re-export the shim,
+so the web bundle never carries its text. Do not minify or wrap the shim in a
+module: it is a classic script, and the shell is one portable document.
 
 The shim expects `#root` to exist at `DOMContentLoaded` (the shell already
 renders `<div id="root"></div>`) and sets `data-theme` and `color-scheme` on

@@ -1,6 +1,6 @@
 import { readdir, rm } from "node:fs/promises"
 import { afterEach, describe, expect, it } from "vitest"
-import { ArtifactSigner } from "@openchat/server/artifacts-sign"
+import { ArtifactSigner } from "@openchat/contracts/artifacts/sign"
 import { CSP_POLICIES, SANDBOX_POLICY, documentPolicy } from "../src/app"
 import { nodeHeaders } from "../src/http"
 import { ArtifactReader } from "../src/store"

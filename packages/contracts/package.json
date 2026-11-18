@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./artifacts/sign": "./src/artifacts/sign.ts",
+    "./artifacts/bridge": "./src/artifacts/bridge.ts",
+    "./artifacts/id": "./src/artifacts/id.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -16,6 +19,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }

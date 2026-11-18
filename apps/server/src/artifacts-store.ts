@@ -4,19 +4,15 @@ import type { Dirent } from "node:fs"
 import { join } from "node:path"
 import { ARTIFACT_MAX_BYTES, ARTIFACT_TITLE_MAX } from "@openchat/contracts"
 import type { ArtifactMeta } from "@openchat/contracts"
+import {
+  ARTIFACT_DOCUMENT_FILE,
+  ARTIFACT_META_FILE,
+  isArtifactId,
+} from "@openchat/contracts/artifacts/id"
 
 /** Newest-first list length; the store never returns more than this. */
 export const ARTIFACT_LIST_LIMIT = 100
 
-/**
- * One directory per artifact, named after the SHA-256 of the document:
- *
- * ```
- * <dir>/<id>/index.html
- * <dir>/<id>/meta.json    { title, bytes, createdAt }
- * ```
- */
-const ID_PATTERN = /^[0-9a-f]{64}$/
 /** Leading document marker; the HTML is stored as-is, so this is all we need. */
 const DOCUMENT_START = /^<(?:!doctype html|html)/
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/g
@@ -138,7 +134,7 @@ export class ArtifactStore {
 
     const directory = join(this.dir, id)
     await mkdir(directory, { recursive: true })
-    await writeAtomic(join(directory, "index.html"), bytes)
+    await writeAtomic(join(directory, ARTIFACT_DOCUMENT_FILE), bytes)
 
     // Re-check before writing metadata: two writers racing on one id both
     // reach this point, and only the first `meta.json` may survive.
@@ -150,14 +146,17 @@ export class ArtifactStore {
       bytes: bytes.byteLength,
       createdAt: new Date(this.now()).toISOString(),
     }
-    await writeAtomic(join(directory, "meta.json"), Buffer.from(JSON.stringify(meta), "utf8"))
+    await writeAtomic(
+      join(directory, ARTIFACT_META_FILE),
+      Buffer.from(JSON.stringify(meta), "utf8"),
+    )
     return { ok: true, artifact: { id, ...meta } }
   }
 
   /** `null` for an unknown id, a bad shape or an unreadable directory. */
   async get(id: string): Promise<ArtifactMeta | null> {
-    if (!ID_PATTERN.test(id)) return null
-    const stored = await readMeta(join(this.dir, id, "meta.json"))
+    if (!isArtifactId(id)) return null
+    const stored = await readMeta(join(this.dir, id, ARTIFACT_META_FILE))
     if (!stored) return null
     return { id, ...stored }
   }
@@ -171,7 +170,7 @@ export class ArtifactStore {
     const meta = await this.get(id)
     if (!meta) return null
     try {
-      return await readFile(join(this.dir, id, "index.html"))
+      return await readFile(join(this.dir, id, ARTIFACT_DOCUMENT_FILE))
     } catch {
       return null
     }
@@ -190,7 +189,7 @@ export class ArtifactStore {
       return []
     }
     const ids = entries
-      .filter((entry) => entry.isDirectory() && ID_PATTERN.test(entry.name))
+      .filter((entry) => entry.isDirectory() && isArtifactId(entry.name))
       .map((entry) => entry.name)
     const items = await Promise.all(ids.map((id) => this.get(id)))
     const found = items.filter((item): item is ArtifactMeta => item !== null)

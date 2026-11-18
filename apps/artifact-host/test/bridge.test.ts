@@ -5,9 +5,9 @@ import {
   ARTIFACT_RESULT_MAX_BYTES,
   ARTIFACT_RESULT_TITLE_MAX,
 } from "@openchat/contracts"
+import { BRIDGE_SCRIPT } from "@openchat/contracts/artifacts/bridge"
 import { describe, expect, it, vi } from "vitest"
 import { SANDBOX_POLICY, documentPolicy } from "../src/app"
-import { BRIDGE_SCRIPT } from "../src/bridge"
 import {
   brokenSource,
   calculatorSource,

@@ -24,20 +24,22 @@ slice 1.
 
 | Piece | Where | What it does |
 | --- | --- | --- |
-| Contracts | `packages/contracts/src/artifacts.ts` | limits, `ArtifactMeta`, `ArtifactResponse`, `ArtifactCreateRequest`, `ArtifactsSurfaceInfo`; `InfoResponse.artifacts`. |
+| Contracts | `packages/contracts/src/artifacts/index.ts` | limits, `ArtifactMeta`, `ArtifactResponse`, `ArtifactCreateRequest`, `ArtifactsSurfaceInfo`; `InfoResponse.artifacts`. |
 | Store | `apps/server/src/artifacts-store.ts` | content-addressed directory per artifact, validation, dedupe, newest-first list. |
-| Signing | `apps/server/src/artifacts-sign.ts` | HMAC-SHA256 over `id` and `exp`, constant-time verify, URL builder. |
+| Signing | `packages/contracts/src/artifacts/sign.ts` | HMAC-SHA256 over `id` and `exp`, constant-time verify, URL builder. |
+| Artifact id and layout | `packages/contracts/src/artifacts/id.ts` | the 64-hex id check plus the `index.html` / `meta.json` names, shared by the store, the reader and the signer. |
 | BFF routes | `apps/server/src/artifacts.ts` | `POST/GET /api/artifacts`, `GET /api/artifacts/:id`, creation throttle, `artifacts` in `/api/info`. |
 | Byte host | `apps/artifact-host/` | its own origin; serves `/a/<id>?exp&sig` with the sandbox headers and `/healthz`. |
 | Env | `apps/server/src/env.ts`, `apps/artifact-host/src/env.ts`, `.env.example` | see the tables below. |
 
 The pure signer is **one module, not two copies**: the host imports
-`@openchat/server/artifacts-sign` (a subpath export of the BFF package). The
-module has no HTTP, store or BFF dependency, and a duplicated verifier would be
-a drift bug waiting for its first key rotation. Everything else about the host
-is independent. Because it is a workspace package that imports another one, the
-host's image (a later slice) builds from the repository root like the other
-apps, not from `apps/artifact-host` alone.
+`@openchat/contracts/artifacts/sign`, a subpath export of the contracts package.
+It stays off the package root because it needs `node:crypto`, and the root index
+is what the browser bundle imports. The module has no HTTP, store or BFF
+dependency, and a duplicated verifier would be a drift bug waiting for its first
+key rotation. Everything else about the host is independent. The host's image
+still builds from the repository root, so the workspace link to
+`@openchat/contracts` resolves.
 
 ## Two-origin topology
 
@@ -341,14 +343,14 @@ The tool assembles the documented document and posts it as the artifact's
 | `<style>` (first) | Reset plus `--bg`, `--fg`, `--muted`, `--accent`, `--radius` and a `prefers-color-scheme` pair. |
 | `<style>` (second) | The validated user CSS. |
 | `<div id="root">` | The only mount point; the bundle throws a named error if it is absent. |
-| `<script>` (first) | The `window.openchat` shim from `apps/artifact-host/src/bridge.ts`, inlined as a classic script so it is installed before the bundle runs. |
+| `<script>` (first) | The `window.openchat` shim from `packages/contracts/src/artifacts/bridge.ts`, inlined as a classic script so it is installed before the bundle runs. |
 | `<script>` (second) | The Preact + app IIFE, ending in `render(h(App), root)`. |
 | Comment | `openchat artifact shell 2; esbuild <version>; preact <version>` — toolchain drift shows up in a diff. |
 
 - **The runtime is injected at write time**, never per request, so the preview,
   the download and a re-render of stored bytes are the same document.
 - **The bridge is inline, not a URL.** `bridgeScript()` returns the
-  `BRIDGE_SCRIPT` constant from `apps/artifact-host/src/bridge.ts`; the shell
+  `BRIDGE_SCRIPT` constant from `@openchat/contracts/artifacts/bridge`; the shell
   emits it as a `<script>` immediately after `#root` and before the bundle, so
   `window.openchat` exists when the IIFE runs. `compile.test.ts` asserts the
   bridge text, its position ahead of the bundle, that `window.openchat` is
@@ -528,8 +530,8 @@ Two smaller deviations follow from the same slice:
 - **Body cap.** `MAX_BODY_BYTES` (128 KiB) is too small for a 1 MiB document, so
   the artifacts route gets its own declared-body ceiling. The generic cap for
   every other route is unchanged.
-- **Shared signer.** The host imports the BFF's pure signing module (see above)
-  rather than carrying a copy.
+- **Shared signer.** The host imports the pure signing module from
+  `@openchat/contracts` (see above) rather than carrying a copy.
 
 ## Failure modes
 
@@ -563,9 +565,10 @@ protocol:
   minute per client address on the public route and 20 on the internal route);
   reads are not. The bridge has per-message and per-viewer bounds instead: the
   result byte cap, title cap and height band from
-  `packages/contracts/src/bridge.ts` on both ends, and one accepted result per
-  500 ms in the viewer (`apps/web/src/artifacts/bridge.ts`). The rate limit is
-  viewer-only on purpose: a limit in the untrusted half would be advisory.
+  `packages/contracts/src/artifacts/caps.ts` on both ends, and one accepted
+  result per 500 ms in the viewer (`apps/web/src/artifacts/bridge.ts`). The rate
+  limit is viewer-only on purpose: a limit in the untrusted half would be
+  advisory.
 - **No per-artifact result quota beyond that 500 ms window.** A daily quota has
   no product requirement.
 - Conditional requests (`If-None-Match`) are not answered with 304; the header
@@ -575,7 +578,9 @@ protocol:
 
 | File | Covers |
 | --- | --- |
-| `apps/server/test/artifacts-sign.test.ts` | deterministic unpadded base64url, id/expiry/key separation, URL shape and trailing slash, TTL, expired, far-future ceiling and its boundary, tampered signature, unshaped id/exp/signature tables, hostile input without a throw, URL round trip. |
+| `packages/contracts/test/artifacts-sign.test.ts` | deterministic unpadded base64url, id/expiry/key separation, URL shape and trailing slash, TTL, expired, far-future ceiling and its boundary, tampered signature, unshaped id/exp/signature tables, hostile input without a throw, URL round trip, and a fixed token minted by the pre-move signer that must keep verifying. |
+| `packages/contracts/test/artifacts-id.test.ts` | the 64-hex id check and the shared `index.html` / `meta.json` layout names. |
+| `apps/server/test/boundaries.test.ts` | no `apps/**` file imports another app or declares it as a dependency; the signing and shim modules stay off the browser entry point. |
 | `apps/server/test/artifacts-store.test.ts` | validation table (types, blank, size, document start), accepted document starts (doctype, uppercase, whitespace, BOM), exact byte cap, title sanitisation (trim, control characters, blank, 120 code points, emoji), layout and metadata, dedupe keeps the first title, one-byte difference, `null` for unknown/unshaped/broken, newest-first list, 100 cap and smaller limit, missing directory, no `.tmp` left behind. |
 | `apps/server/test/artifacts.test.ts` | auth on every route (including download), unconfigured/info/503/`[]`, half-configured, 201 metadata and a URL that verifies, on-disk bytes, dedupe, invalid-body table, non-object and malformed JSON, content-type guard, envelope 413, title capping, no URL/key in logs, 20-per-window throttle plus reset and free rejected bodies, newest-first list with freshly signed URLs, read by id, 404 for unknown and unshaped ids without echo, empty surface. |
 | `apps/server/test/artifacts-env.test.ts` | defaults, explicit values, path prefix and trailing slash, half-configured warnings without values, 32-character key floor, URL validation table, production https refusal and acceptance. |

@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest"
-import { ARTIFACT_URL_TTL_SECONDS } from "@openchat/contracts"
-import { ArtifactSigner, buildUrl, expiresAt } from "../src/artifacts-sign"
+import { ARTIFACT_URL_TTL_SECONDS } from "../src/artifacts"
+import { ArtifactSigner, buildUrl, expiresAt } from "../src/artifacts/sign"
 
 const KEY = "test-artifact-signing-key-0123456789"
 const OTHER_KEY = "test-artifact-signing-key-9876543210"
 const NOW = 1_700_000_000
 const ID = "a".repeat(64)
+
+/**
+ * Minted before the signer moved out of `apps/server/src/artifacts-sign.ts`
+ * (at 41337f1) with `KEY` over `${ID}\n1700000060`. The wire form is frozen:
+ * a URL this repository emitted then must still verify now.
+ */
+const LEGACY_EXP = 1_700_000_060
+const LEGACY_SIGNATURE = "B5sIPO-k4p_HkPSqIHGGwJJYJ8z_oXy5HOqRghUVkD8"
 
 function signer(key = KEY, nowMs = NOW * 1000): ArtifactSigner {
   return new ArtifactSigner({ key, now: () => nowMs })
@@ -121,6 +129,18 @@ describe("artifact URL signing", () => {
       expect(() => signer().verify(value, value, value)).not.toThrow()
       expect(signer().verify(value, value, value)).toBe(false)
     }
+  })
+
+  it("verifies a token minted before the move and re-mints it byte for byte", () => {
+    // Compatibility fixture, not a round trip: the token was produced by the
+    // old module. If the message format, the key handling or the encoding
+    // changed, this fails even though every self-round-trip test still passes.
+    const beforeExpiry = signer(KEY, (LEGACY_EXP - 1) * 1000)
+    expect(beforeExpiry.verify(ID, String(LEGACY_EXP), LEGACY_SIGNATURE)).toBe(true)
+    expect(beforeExpiry.sign(ID, LEGACY_EXP)).toBe(LEGACY_SIGNATURE)
+    expect(buildUrl("http://artifacts.test", ID, LEGACY_EXP, LEGACY_SIGNATURE)).toBe(
+      `http://artifacts.test/a/${ID}?exp=${LEGACY_EXP}&sig=${LEGACY_SIGNATURE}`,
+    )
   })
 
   it("verifies its own minted URL after a URL round trip", () => {

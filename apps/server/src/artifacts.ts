@@ -1,8 +1,8 @@
 import type { Hono } from "hono"
 import type { ArtifactMeta, ArtifactResponse, ArtifactsSurfaceInfo } from "@openchat/contracts"
+import { ArtifactSigner } from "@openchat/contracts/artifacts/sign"
 import type { AppEnv } from "./app"
 import { ArtifactStore } from "./artifacts-store"
-import { ArtifactSigner } from "./artifacts-sign"
 import type { EnvConfig } from "./env"
 import {
   BODY_TOO_LARGE,

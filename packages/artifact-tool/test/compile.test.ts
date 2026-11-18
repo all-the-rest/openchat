@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import { BRIDGE_SCRIPT } from "@openchat/artifact-host/bridge"
+import { BRIDGE_SCRIPT } from "@openchat/contracts/artifacts/bridge"
 import {
   ESBUILD_VERSION,
   PREACT_VERSION,
@@ -195,5 +196,34 @@ describe("shell", () => {
     })
     expect(document).not.toContain("</title><script>alert")
     expect(document).toContain("<title>&lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt;</title>")
+  })
+})
+
+/**
+ * Emission compatibility, frozen across the move of the shim into
+ * `@openchat/contracts`. The ids are SHA-256 over the exact UTF-8 bytes; the
+ * values were measured before the move. A deliberate shell or shim change
+ * updates these fixtures in the same commit — that is the point.
+ */
+describe("emission compatibility", () => {
+  const FIXED_DOCUMENT = buildDocument({
+    title: "Counter",
+    css: "body{}",
+    script: "(() => {})();",
+    tools: { esbuild: "0.28.2", preact: "10.29.8" },
+  })
+
+  it("keeps the shim at 5,680 bytes", () => {
+    expect(Buffer.byteLength(BRIDGE_SCRIPT, "utf8")).toBe(5_680)
+    expect(createHash("sha256").update(BRIDGE_SCRIPT, "utf8").digest("hex")).toBe(
+      "4dcab715af112ade4aea433fa36086ba683ff426ede09b6762c6bd86b4601e33",
+    )
+  })
+
+  it("emits the same fixed document byte for byte", () => {
+    expect(Buffer.byteLength(FIXED_DOCUMENT, "utf8")).toBe(6_573)
+    expect(createHash("sha256").update(FIXED_DOCUMENT, "utf8").digest("hex")).toBe(
+      "9e3101cb3a8226e683ceb6a1b6607891247654c2ab0bd27eaf091caf36552f20",
+    )
   })
 })
