@@ -57,11 +57,14 @@ Compose interpolates `$` in `.env` values, so a hash written as
 `$2b$12$abc…` arrives as `$2b$12` — the rest is read as an unset variable. The
 symptom is not a boot error but every login failing. In a Compose `.env`, double
 every `$` in `OPENCHAT_PASSWORD_HASH` (`$$2b$$12$$abc…`), and do the same for any
-`OPENCHAT_PASSWORD` that contains `$`. The deploy script escapes the value
-automatically; outside Compose (systemd, a shell `export`) no escaping is
-applied and the value must keep its single `$`. Boot validation (`$2a$`/`$2b$`/
-`$2y$`, exactly 60 characters) means an over-escaped value fails loudly instead
-of silently accepting no login.
+`OPENCHAT_PASSWORD` that contains `$`. The remote deploy's bootstrap
+(`deploy/remote/env-bootstrap.sh`, [`20-remote-deploy.md`](20-remote-deploy.md))
+does this while it writes the host `.env`; a Compose `.env` written by hand
+needs the doubling done by hand. `deploy/swap.sh` does not touch the value — it
+only passes `--env-file`. Outside Compose (systemd, a shell `export`) no
+escaping is applied and the value must keep its single `$`. Boot validation
+(`$2a$`/`$2b$`/`$2y$`, exactly 60 characters) means an over-escaped value fails
+loudly instead of silently accepting no login.
 
 ## Rotation
 
