@@ -175,11 +175,18 @@ export class LiveBackend implements ChatBackend {
   async listModels(): Promise<ModelInfo[]> {
     const response = await this.client.model.list({ types: ["chat"] })
     this.modelProviders = new Map(response.data.map((model) => [model.modelID, model.providerID]))
-    return response.data.map((model) => ({
-      id: model.modelID,
-      name: model.name,
-      providerID: model.providerID,
-    }))
+    return response.data.map((model) => {
+      const entry: ModelInfo = {
+        id: model.modelID,
+        name: model.name,
+        providerID: model.providerID,
+      }
+      const context = model.limit?.context
+      if (typeof context === "number" && Number.isFinite(context) && context > 0) {
+        entry.contextLimit = context
+      }
+      return entry
+    })
   }
 
   async listAgents(): Promise<AgentInfo[]> {

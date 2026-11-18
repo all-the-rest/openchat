@@ -20,7 +20,7 @@ describe("completion catalogue and forwarding", () => {
   it("exposes a non-empty fake catalogue", async () => {
     const backend = new FakeBackend()
     expect(await backend.listModels()).toEqual([
-      { id: "fake/echo", name: "Fake Echo", providerID: "fake" },
+      { id: "fake/echo", name: "Fake Echo", providerID: "fake", contextLimit: 128_000 },
     ])
     expect(await backend.listAgents()).toEqual([
       { id: "build", name: "Build", description: "Deterministic scenario runner" },
@@ -75,6 +75,30 @@ describe("completion catalogue and forwarding", () => {
     expect(switchAgent).toHaveBeenCalledWith({ sessionID: "ses_1", agent: "build" })
     expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ text: "hi" }))
     expect(calls).toEqual(["model", "agent", "prompt"])
+  })
+
+  it("publishes the host's context window only when it has one", async () => {
+    const backend = liveBackend(
+      liveClient({
+        model: {
+          list: async () => ({
+            data: [
+              {
+                modelID: "big",
+                name: "Big",
+                providerID: "p",
+                limit: { context: 200_000, output: 8_000 },
+              },
+              { modelID: "plain", name: "Plain", providerID: "p" },
+            ],
+          }),
+        },
+      }),
+    )
+    expect(await backend.listModels()).toEqual([
+      { id: "big", name: "Big", providerID: "p", contextLimit: 200_000 },
+      { id: "plain", name: "Plain", providerID: "p" },
+    ])
   })
 
   it("ignores an unknown model but still sends the prompt", async () => {

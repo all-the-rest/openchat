@@ -244,3 +244,14 @@ export function TasksIcon(props: IconProps) {
     </Icon>
   )
 }
+
+/** Tray with a downward arrow: the transcript download action. */
+export function DownloadIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4v10" />
+      <path d="m7.5 10 4.5 4.5 4.5-4.5" />
+      <path d="M4.5 19.5h15" />
+    </Icon>
+  )
+}

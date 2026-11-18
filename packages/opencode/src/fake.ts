@@ -1,7 +1,6 @@
 import { EVENT } from "@openchat/contracts"
 import type {
   AgentInfo,
-  BackgroundJob,
   EventEnvelope,
   FakeScenario,
   InboxEntry,
@@ -31,56 +30,18 @@ import { fakeSearch } from "./fake-search"
 import { clone, errorText, PartWriter } from "./fake-parts"
 import { resolveScenario, runScenario } from "./scenarios"
 import type { ScenarioOutcome } from "./scenarios"
+import type {
+  FakeBackendOptions,
+  QueuedPrompt,
+  RecordedPrompt,
+  RunState,
+  SessionState,
+} from "./fake-state"
 
-interface RunState {
-  sessionID: string
-  messageID: string
-  cancelled: boolean
-  wake?: () => void
-}
+export type { FakeBackendOptions, RecordedPrompt } from "./fake-state"
 
-interface SessionState {
-  info: SessionInfo
-  messages: Message[]
-}
-
-interface QueuedPrompt {
-  /** Id of the queued user message; this is the inbox entry id. */
-  messageID: string
-  text: string
-  created: number
-}
-
-/** Last accepted prompt of a session, exposed through the fake-mode probe. */
-export interface RecordedPrompt {
-  text: string
-  model?: string
-  agent?: string
-}
-
-export interface FakeBackendOptions {
-  /** Scenario for prompts without a prefix. Defaults to `default`. */
-  scenario?: FakeScenario
-  /**
-   * Delay between scripted chunks in milliseconds. Defaults to 15, or 400 for
-   * the `slow` scenario. Tests pass 0.
-   */
-  delayMs?: number
-  /** Injected clock for deterministic ids/timestamps. */
-  now?: () => number
-  workspace?: string
-  version?: string
-  /** Sources the fake reports as unavailable, for the disabled group state. */
-  disabledSources?: readonly SearchSource[]
-  /** Sources whose query throws, for a partial failure in the response. */
-  failingSources?: readonly SearchSource[]
-  /** False simulates a host without an app surface: `listApps` throws. */
-  appsAvailable?: boolean
-  /** Records connect/disconnect calls, so a test can prove the port is used. */
-  onAppAction?: (action: "connect" | "disconnect", name: string) => void
-  /** Deterministic background jobs for the `/tasks` page. Empty by default. */
-  seedJobs?: readonly BackgroundJob[]
-}
+/** Deterministic token report per completed fake run; no provider is called. */
+const RUN_USAGE = { input: 1200, output: 340, cached: 512 } as const
 
 /** Deterministic in-memory backend; task methods come from `FakeTaskStore`. */
 export class FakeBackend extends FakeTaskStore implements ChatBackend {
@@ -209,7 +170,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    return [{ id: "fake/echo", name: "Fake Echo", providerID: "fake" }]
+    return [{ id: "fake/echo", name: "Fake Echo", providerID: "fake", contextLimit: 128_000 }]
   }
 
   async listAgents(): Promise<AgentInfo[]> {
@@ -394,6 +355,19 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private completeMessage(run: RunState, message: Message): void {
     const session = this.requireSession(run.sessionID)
     session.info.updated = this.clock()
+    // Account the run before the completion event: a reload then reads the
+    // same numbers the live update announced, and the fake never invents a
+    // report for a session that has not run.
+    const previous = session.info.usage
+    const usage = {
+      input: (previous?.input ?? 0) + RUN_USAGE.input,
+      output: (previous?.output ?? 0) + RUN_USAGE.output,
+      cached: (previous?.cached ?? 0) + RUN_USAGE.cached,
+    }
+    session.info.usage = usage
+    this.events.emit(EVENT.usageUpdated, run.sessionID, {
+      sessionID: run.sessionID, usage,
+    }, true)
     this.events.emit(EVENT.messageCompleted, run.sessionID, {
       sessionID: run.sessionID, messageID: message.id, message: clone(message),
     }, true)

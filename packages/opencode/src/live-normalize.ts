@@ -5,6 +5,7 @@ import type {
   SessionInfo,
   ToolPart,
   ToolStatus,
+  UsageReport,
 } from "@openchat/contracts"
 import type {
   SessionInfo as OpenCodeSessionInfo,
@@ -96,14 +97,42 @@ function assistantParts(message: SessionMessageAssistant): Part[] {
   return parts
 }
 
+function tokenCount(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null
+  return Math.trunc(value)
+}
+
+/**
+ * A host session's token counters, or `undefined` when it has not reported any
+ * usage. The all-zero default of a fresh session is not a report, so it must
+ * not become a "0 tokens" claim in the UI. A missing counter also yields no
+ * report rather than a substituted zero.
+ */
+export function normalizeUsage(
+  tokens: { input?: number; output?: number; cache?: { read?: number } } | undefined,
+): UsageReport | undefined {
+  if (!tokens) return undefined
+  const input = tokenCount(tokens.input)
+  const output = tokenCount(tokens.output)
+  if (input === null || output === null) return undefined
+  const cached = tokenCount(tokens.cache?.read)
+  if (input + output + (cached ?? 0) === 0) return undefined
+  const usage: UsageReport = { input, output }
+  if (cached !== null && cached > 0) usage.cached = cached
+  return usage
+}
+
 export function normalizeSession(info: OpenCodeSessionInfo, workspace?: string): SessionInfo {
-  return {
+  const session: SessionInfo = {
     id: info.id,
     title: info.title ?? "",
     directory: info.location?.directory ?? workspace ?? "",
     created: info.time.created,
     updated: info.time.updated,
   }
+  const usage = normalizeUsage(info.tokens)
+  if (usage) session.usage = usage
+  return session
 }
 
 /** Returns `null` for message types the M1 transcript does not render. */

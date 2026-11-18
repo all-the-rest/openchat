@@ -24,8 +24,16 @@ export function SessionSidebar({
   const auth = useAuth()
   const navigate = useNavigate()
   const { sessions, loading, failed, create } = useSessions()
+  const [filter, setFilter] = useState("")
   const [creating, setCreating] = useState(false)
   const [createFailed, setCreateFailed] = useState(false)
+
+  // The sidebar stays the title surface: the palette is the global entry, this
+  // filters the already loaded list locally and never queries the host.
+  const needle = filter.trim().toLowerCase()
+  const visibleSessions = sessions.filter((session) =>
+    (session.title || t("session.untitled")).toLowerCase().includes(needle),
+  )
 
   const startNewChat = async () => {
     if (creating) return
@@ -141,6 +149,21 @@ export function SessionSidebar({
         <h2 className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted">
           {t("nav.chats")}
         </h2>
+        <div className="px-2 pb-2">
+          <label htmlFor="session-filter" className="sr-only">
+            {t("session.filterLabel")}
+          </label>
+          <input
+            id="session-filter"
+            type="search"
+            data-testid="session-filter"
+            maxLength={100}
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            placeholder={t("session.filterPlaceholder")}
+            className="w-full rounded-row border border-subtle bg-surface px-2 py-1 text-sm placeholder:text-muted"
+          />
+        </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
           {loading ? (
             <p className="px-2 py-1 text-xs text-muted">{t("session.loading")}</p>
@@ -148,9 +171,11 @@ export function SessionSidebar({
             <p className="px-2 py-1 text-xs text-error">{t("session.loadFailed")}</p>
           ) : sessions.length === 0 ? (
             <p className="px-2 py-1 text-xs text-muted">{t("session.empty")}</p>
+          ) : visibleSessions.length === 0 ? (
+            <p className="px-2 py-1 text-xs text-muted">{t("session.noMatch")}</p>
           ) : (
             <ul aria-label={t("session.listLabel")} className="flex flex-col gap-0.5">
-              {sessions.map((session) => (
+              {visibleSessions.map((session) => (
                 <li key={session.id}>
                   <NavLink
                     to={`/c/${session.id}`}

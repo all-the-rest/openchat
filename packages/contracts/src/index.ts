@@ -13,18 +13,33 @@ export * from "./stt-model"
 export * from "./transcript"
 export * from "./tasks"
 
+/**
+ * Token counts the host reported for one chat. Only fields the host actually
+ * sent are present; the UI must show "not reported" rather than a zero it
+ * invented. `cached` is the provider's cache read, which some hosts omit.
+ */
+export interface UsageReport {
+  input: number
+  output: number
+  cached?: number
+}
+
 export interface SessionInfo {
   id: string
   title: string
   directory: string
   created: number
   updated: number
+  /** Absent until the host reports a run; zero-token reports are omitted. */
+  usage?: UsageReport
 }
 
 export interface ModelInfo {
   id: string
   name: string
   providerID: string
+  /** Context window in tokens; absent when the host does not publish one. */
+  contextLimit?: number
 }
 
 export interface AgentInfo {

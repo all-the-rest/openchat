@@ -94,8 +94,24 @@ describe("FakeBackend", () => {
     )
   })
 
-  it("emits the rich scenario with reasoning, a tool and Markdown", async () => {
+  it("reports deterministic usage for a completed run", async () => {
     const backend = new FakeBackend({ delayMs: 0 })
+    const session = await backend.createSession({ directory: "/workspace" })
+    const events = await runUntilTerminal(backend, session.id, "hello")
+
+    const usageEvent = events.find((event) => event.type === EVENT.usageUpdated)
+    expect(usageEvent?.data.usage).toEqual({ input: 1200, output: 340, cached: 512 })
+
+    const listed = (await backend.listSessions()).find((entry) => entry.id === session.id)
+    expect(listed?.usage).toEqual({ input: 1200, output: 340, cached: 512 })
+
+    // A fresh chat has no report at all; absence is not a zero.
+    const other = await backend.createSession({ directory: "/workspace" })
+    const fresh = (await backend.listSessions()).find((entry) => entry.id === other.id)
+    expect(fresh?.usage).toBeUndefined()
+  })
+
+  it("emits the rich scenario with reasoning, a tool and Markdown", async () => {    const backend = new FakeBackend({ delayMs: 0 })
     const session = await backend.createSession({ directory: "/workspace" })
     const events = await runUntilTerminal(backend, session.id, "rich: sample")
 
