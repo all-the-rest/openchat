@@ -42,6 +42,10 @@ vi.mock("../src/chat/sessions", () => ({
 }))
 
 beforeEach(() => {
+  // jsdom keeps one localStorage per file: the restore/persistence tests below
+  // write "code", and a later mount at "/" would then redirect to /code in the
+  // same tick the chord test presses the key, so the two toggle each other.
+  window.localStorage.clear()
   mocks.info.mockReset()
   mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2" } })
 })
