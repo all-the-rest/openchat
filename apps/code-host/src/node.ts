@@ -1,0 +1,107 @@
+import { createServer } from "node:http"
+import type { IncomingMessage, Server, ServerResponse } from "node:http"
+import { Readable } from "node:stream"
+import type { Hono } from "hono"
+import type { AppEnv } from "./app"
+import { CSP_POLICIES } from "./proxy"
+
+type CspResponse = Response & { readonly [CSP_POLICIES]?: string[] }
+
+/**
+ * Bridges the node request/response pair to the Hono app.
+ *
+ * Request bodies are streamed straight into the web `Request` (the proxy
+ * forwards them), and response bodies are pumped chunk by chunk. Nothing is
+ * buffered, so an SSE frame reaches the browser on the same tick it arrives.
+ */
+export function createNodeHandler(
+  app: Hono<AppEnv>,
+): (request: IncomingMessage, response: ServerResponse) => void {
+  return (request, response) => {
+    handleRequest(app, request, response).catch(() => {
+      if (!response.headersSent) {
+        response.statusCode = 500
+        response.setHeader("content-type", "application/json")
+        response.end(JSON.stringify({ error: "internal_error" }))
+        return
+      }
+      response.end()
+    })
+  }
+}
+
+export function createNodeServer(app: Hono<AppEnv>): Server {
+  return createServer(createNodeHandler(app))
+}
+
+function requestHeaders(request: IncomingMessage): Headers {
+  const headers = new Headers()
+  for (const [name, value] of Object.entries(request.headers)) {
+    if (value === undefined) continue
+    headers.set(name, Array.isArray(value) ? value.join(", ") : value)
+  }
+  return headers
+}
+
+async function handleRequest(
+  app: Hono<AppEnv>,
+  request: IncomingMessage,
+  response: ServerResponse,
+): Promise<void> {
+  const lifecycle = new AbortController()
+  response.on("close", () => lifecycle.abort())
+
+  const method = request.method ?? "GET"
+  const hasBody = method !== "GET" && method !== "HEAD"
+  const host = request.headers.host ?? "127.0.0.1"
+  const url = new URL(request.url ?? "/", `http://${host}`)
+
+  const init: RequestInit & { duplex?: "half" } = {
+    method,
+    headers: requestHeaders(request),
+    signal: lifecycle.signal,
+  }
+  if (hasBody) {
+    init.body = Readable.toWeb(request) as ReadableStream<Uint8Array>
+    init.duplex = "half"
+  }
+
+  const webResponse = await app.fetch(new Request(url, init), {
+    remoteAddress: request.socket.remoteAddress,
+  })
+
+  response.statusCode = webResponse.status
+  const policies = (webResponse as CspResponse)[CSP_POLICIES]
+  for (const [name, value] of webResponse.headers) {
+    const lower = name.toLowerCase()
+    if (lower === "set-cookie") continue
+    if (lower === "content-security-policy" && policies) continue
+    response.setHeader(name, value)
+  }
+  if (policies) response.setHeader("content-security-policy", policies)
+  const cookies = webResponse.headers.getSetCookie()
+  if (cookies.length > 0) response.setHeader("set-cookie", cookies)
+  response.flushHeaders()
+
+  if (!webResponse.body) {
+    response.end()
+    return
+  }
+
+  const reader = webResponse.body.getReader()
+  try {
+    while (true) {
+      if (response.destroyed) {
+        await reader.cancel().catch(() => {})
+        break
+      }
+      const { done, value } = await reader.read()
+      if (done) break
+      if (!response.write(Buffer.from(value))) {
+        await new Promise<void>((resolve) => response.once("drain", resolve))
+      }
+    }
+  } finally {
+    if (!response.destroyed) response.end()
+  }
+}
