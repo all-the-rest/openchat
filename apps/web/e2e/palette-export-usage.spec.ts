@@ -21,6 +21,10 @@ test("Ctrl+K searches a chat title and opens the session", async ({ page }) => {
   expect(created.ok()).toBe(true)
   const session = (await created.json()) as SessionInfo
 
+  // The shortcut listener is a layout effect, so the painted opener proves it
+  // is armed. Wait for it before sending the keys: waiting for the URL alone
+  // can fire while the shell is still mounting and swallow the first Ctrl+K.
+  await expect(page.getByTestId("palette-open")).toBeVisible()
   await page.keyboard.press("Control+k")
   const palette = page.getByTestId("command-palette")
   await expect(palette).toBeVisible()

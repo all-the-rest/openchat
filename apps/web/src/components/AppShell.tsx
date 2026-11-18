@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Link, Outlet } from "react-router-dom"
 import { AppBarMenu } from "../components/AppBarMenu"
 import { SidebarToggle } from "../components/controls"
@@ -60,7 +60,10 @@ export function AppShell() {
 
   const closePalette = useCallback(() => setPaletteOpen(false), [])
 
-  useEffect(() => {
+  // Layout effect, not a passive one: the shortcut must be armed before the
+  // opener is painted, otherwise a Ctrl+K between commit and effect flush is
+  // lost — a race the palette's own E2E hit under four parallel workers.
+  useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return
       event.preventDefault()
