@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  APP_STATUSES,
   EVENT,
   eventEnvelopeSchema,
   messageSchema,
@@ -11,6 +12,17 @@ describe("contracts", () => {
   it("keeps event names unique", () => {
     const names = Object.values(EVENT)
     expect(new Set(names).size).toBe(names.length)
+  })
+
+  it("covers every MCP server status exactly once", () => {
+    expect(APP_STATUSES).toEqual([
+      "connected",
+      "pending",
+      "disabled",
+      "failed",
+      "needs_auth",
+    ])
+    expect(new Set(APP_STATUSES).size).toBe(APP_STATUSES.length)
   })
 
   it("accepts a message with every part kind", () => {

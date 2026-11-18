@@ -1,5 +1,9 @@
 import { z } from "zod"
 
+import type { AppsSurfaceInfo } from "./apps"
+
+export * from "./apps"
+
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"
 
@@ -84,6 +88,7 @@ export interface InfoResponse {
   scenario: string
   dictation: DictationInfo
   code: CodeSurfaceInfo
+  apps: AppsSurfaceInfo
 }
 
 /**
@@ -122,7 +127,9 @@ export interface DictationInfo {
   maxBytes: number
 }
 
-/** Result of one `POST /api/transcribe` call. */
+/**
+ * Result of one `POST /api/transcribe` call.
+ */
 export interface TranscriptionResponse {
   text: string
   durationMs: number

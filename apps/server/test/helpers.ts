@@ -4,6 +4,7 @@ import { FakeBackend } from "@openchat/opencode"
 import { createApp } from "../src/app"
 import type { AppEnv } from "../src/app"
 import type { CodeProbe } from "../src/code"
+import type { AppsCache, AppsProbe } from "../src/apps-cache"
 import { loadEnv } from "../src/env"
 import type { EnvConfig } from "../src/env"
 import type { FixedWindowThrottle } from "../src/throttle"
@@ -24,11 +25,21 @@ export interface TestServerOptions {
   disabledSources?: readonly SearchSource[]
   /** Sources whose fake query throws. */
   failingSources?: readonly SearchSource[]
+  /** Overrides `FAKE_APPS`; false simulates a host without an app surface. */
+  appsAvailable?: boolean
+  /** Records connect/disconnect calls. */
+  onAppAction?: (action: "connect" | "disconnect", name: string) => void
   /** Code host health probe; keeps tests off the network. */
   codeProbe?: CodeProbe
   codeStatusCacheMs?: number
   codeNow?: () => number
   codeTicketThrottle?: FixedWindowThrottle
+  /** App surface probe; the default reads the fake backend. */
+  appsProbe?: AppsProbe
+  appsCache?: AppsCache
+  appsCacheMs?: number
+  appsNow?: () => number
+  appsActionThrottle?: FixedWindowThrottle
 }
 
 export function makeConfig(overrides: Record<string, string | undefined> = {}): EnvConfig {
@@ -56,6 +67,8 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
     workspace: config.WORKSPACE_DIR,
     disabledSources: options.disabledSources,
     failingSources: options.failingSources,
+    appsAvailable: options.appsAvailable ?? config.FAKE_APPS,
+    onAppAction: options.onAppAction,
   })
   return {
     app: createApp({
@@ -67,6 +80,11 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
       codeStatusCacheMs: options.codeStatusCacheMs,
       codeNow: options.codeNow,
       codeTicketThrottle: options.codeTicketThrottle,
+      appsProbe: options.appsProbe,
+      appsCache: options.appsCache,
+      appsCacheMs: options.appsCacheMs,
+      appsNow: options.appsNow,
+      appsActionThrottle: options.appsActionThrottle,
     }),
     backend,
     config,

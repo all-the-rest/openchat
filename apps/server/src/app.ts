@@ -1,6 +1,9 @@
 import { Hono } from "hono"
 import { BackendError } from "@openchat/opencode"
 import type { ChatBackend } from "@openchat/opencode"
+import { APPS_ACTION_LIMIT, APPS_ACTION_WINDOW_MS } from "./apps"
+import { AppsCache } from "./apps-cache"
+import type { AppsProbe } from "./apps-cache"
 import type { CodeProbe } from "./code"
 import { CODE_TICKET_LIMIT, CODE_TICKET_WINDOW_MS } from "./code"
 import type { EnvConfig } from "./env"
@@ -37,6 +40,16 @@ export interface AppOptions {
   codeNow?: () => number
   /** Ticket throttle; tests inject a clock-bound instance. */
   codeTicketThrottle?: FixedWindowThrottle
+  /** App surface probe; injected so tests need not use the backend. */
+  appsProbe?: AppsProbe
+  /** Pre-built app cache; the default shares one instance across the routes. */
+  appsCache?: AppsCache
+  /** App snapshot cache lifetime in milliseconds; tests shorten it. */
+  appsCacheMs?: number
+  /** Clock for the app snapshot cache; tests advance it. */
+  appsNow?: () => number
+  /** App action throttle; tests inject a clock-bound instance. */
+  appsActionThrottle?: FixedWindowThrottle
 }
 
 export interface AppVariables {
@@ -68,6 +81,12 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       limit: CODE_TICKET_LIMIT,
       windowMs: CODE_TICKET_WINDOW_MS,
     })
+  const appsActionThrottle =
+    options.appsActionThrottle ??
+    new FixedWindowThrottle({
+      limit: APPS_ACTION_LIMIT,
+      windowMs: APPS_ACTION_WINDOW_MS,
+    })
   const app = new Hono<AppEnv>()
 
   app.onError((error, c) => {
@@ -96,6 +115,11 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     codeProbe: options.codeProbe,
     codeStatusCacheMs: options.codeStatusCacheMs,
     codeNow: options.codeNow,
+    appsActionThrottle,
+    appsProbe: options.appsProbe,
+    appsCache: options.appsCache,
+    appsCacheMs: options.appsCacheMs,
+    appsNow: options.appsNow,
   })
 
   return app

@@ -12,6 +12,7 @@ import type {
 } from "@openchat/contracts"
 import { BackendError } from "./errors"
 import type {
+  AppsSnapshot,
   ChatBackend,
   CreateSessionInput,
   PromptInput,
@@ -19,6 +20,7 @@ import type {
   SearchInput,
   SearchOutcome,
 } from "./index"
+import { FakeAppInventory } from "./fake-apps"
 import { FakeEvents } from "./fake-events"
 import { fakeSearch } from "./fake-search"
 import { clone, errorText, PartWriter } from "./fake-parts"
@@ -60,6 +62,10 @@ export interface FakeBackendOptions {
   disabledSources?: readonly SearchSource[]
   /** Sources whose query throws, for a partial failure in the response. */
   failingSources?: readonly SearchSource[]
+  /** False simulates a host without an app surface: `listApps` throws. */
+  appsAvailable?: boolean
+  /** Records connect/disconnect calls, so a test can prove the port is used. */
+  onAppAction?: (action: "connect" | "disconnect", name: string) => void
 }
 
 /**
@@ -78,6 +84,8 @@ export class FakeBackend implements ChatBackend {
   private readonly version: string
   private readonly disabledSources: readonly SearchSource[]
   private readonly failingSources: readonly SearchSource[]
+  private readonly apps: FakeAppInventory
+  private readonly onAppAction?: (action: "connect" | "disconnect", name: string) => void
   private readonly events: FakeEvents
   private readonly parts: PartWriter
 
@@ -89,6 +97,8 @@ export class FakeBackend implements ChatBackend {
     this.version = options.version ?? "0.1.0-fake"
     this.disabledSources = options.disabledSources ?? []
     this.failingSources = options.failingSources ?? []
+    this.apps = new FakeAppInventory({ available: options.appsAvailable })
+    this.onAppAction = options.onAppAction
     this.events = new FakeEvents(this.clock)
     this.parts = new PartWriter({
       nextID: (prefix) => this.events.nextID(prefix),
@@ -200,6 +210,20 @@ export class FakeBackend implements ChatBackend {
     return [{ id: "build", name: "Build", description: "Deterministic scenario runner" }]
   }
 
+  async listApps(): Promise<AppsSnapshot> {
+    return this.apps.list()
+  }
+
+  async connectApp(name: string): Promise<void> {
+    await this.apps.connect(name)
+    this.onAppAction?.("connect", name)
+  }
+
+  async disconnectApp(name: string): Promise<void> {
+    await this.apps.disconnect(name)
+    this.onAppAction?.("disconnect", name)
+  }
+
   async search(input: SearchInput): Promise<SearchOutcome> {
     return fakeSearch(
       input,
@@ -207,7 +231,7 @@ export class FakeBackend implements ChatBackend {
         info: session.info,
         messages: session.messages,
       })),
-      { disabled: this.disabledSources, failing: this.failingSources },
+      this.apps.searchOptions(this.disabledSources, this.failingSources),
     )
   }
 

@@ -11,6 +11,11 @@ export interface EnvConfig {
   WORKSPACE_DIR: string
   BACKEND_MODE: BackendMode
   FAKE_SCENARIO: FakeScenario
+  /**
+   * Fake mode only: `false` hides the app surface so the UI's "capability
+   * absent" state is reachable in a browser. A live host decides for itself.
+   */
+  FAKE_APPS: boolean
   OPENCODE_URL: string
   OPENCODE_USERNAME: string
   OPENCODE_PASSWORD: string
@@ -183,6 +188,13 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     warn(`FAKE_SCENARIO=${scenarioValue} is unknown; using default`)
   }
 
+  // `off` makes the fake backend answer as a host without an app surface, so
+  // the UI's hidden state is browsable. Only `BACKEND_MODE=fake` reads it.
+  const fakeAppsValue = read(source, "FAKE_APPS")?.toLowerCase() ?? "on"
+  if (fakeAppsValue !== "on" && fakeAppsValue !== "off") {
+    warn("FAKE_APPS must be on or off; using on")
+  }
+
   const configuredPassword = readSecret(source, "OPENCHAT_PASSWORD")
   const password = configuredPassword ?? DEFAULT_PASSWORD
   let secret = read(source, "SESSION_SECRET")
@@ -274,6 +286,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     WORKSPACE_DIR: read(source, "WORKSPACE_DIR") ?? process.cwd(),
     BACKEND_MODE: backendMode,
     FAKE_SCENARIO: isFakeScenario(scenarioValue) ? scenarioValue : "default",
+    FAKE_APPS: fakeAppsValue !== "off",
     OPENCODE_URL: readOpencodeUrl(source),
     OPENCODE_USERNAME: read(source, "OPENCODE_USERNAME") ?? "opencode",
     OPENCODE_PASSWORD: readSecret(source, "OPENCODE_PASSWORD") ?? "",

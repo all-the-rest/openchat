@@ -7,6 +7,7 @@ import {
   promptRequestSchema,
 } from "@openchat/contracts"
 import type {
+  AppsSurfaceInfo,
   CodeSurfaceInfo,
   DictationInfo,
   InfoResponse,
@@ -32,6 +33,9 @@ import {
   readJson,
 } from "./http"
 import { clientAddress } from "./middleware"
+import { registerAppsRoutes } from "./apps"
+import { AppsCache, probeApps } from "./apps-cache"
+import type { AppsProbe } from "./apps-cache"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
@@ -54,6 +58,16 @@ export interface RouteDeps {
   codeProbe?: CodeProbe
   codeStatusCacheMs?: number
   codeNow?: () => number
+  /** Connect/disconnect throttle, per client address. */
+  appsActionThrottle: FixedWindowThrottle
+  /** Injected for tests; the default reads `backend.listApps`. */
+  appsProbe?: AppsProbe
+  /** Pre-built cache, shared by `/api/apps` and `/api/info`. */
+  appsCache?: AppsCache
+  /** App snapshot cache lifetime; injectable so tests need not wait 10 s. */
+  appsCacheMs?: number
+  /** Injected clock for the app snapshot cache. */
+  appsNow?: () => number
 }
 
 function sseHeaders(): Record<string, string> {
@@ -108,14 +122,17 @@ function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   })
 }
 
-function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
+function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsCache): void {
   const { config, backend } = deps
 
   app.get("/api/info", async (c) => {
-    const [server, models, agents] = await Promise.all([
+    const [server, models, agents, appsAvailable] = await Promise.all([
       backend.info(),
       backend.listModels(),
       backend.listAgents(),
+      // Shares the `/api/apps` cache and never throws: an unreachable host must
+      // still boot and answer, with `apps.available === false`.
+      probeApps(appsCache),
     ])
     return c.json({
       server,
@@ -131,6 +148,7 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
         configured: Boolean(config.CODE_HOST_ORIGIN),
         expectedVersion: PINNED_OPENCODE_VERSION,
       } satisfies CodeSurfaceInfo,
+      apps: { available: appsAvailable } satisfies AppsSurfaceInfo,
     } satisfies InfoResponse)
   })
 }
@@ -277,8 +295,17 @@ function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
 
 /** Registers every API route; the guards and authentication run before it. */
 export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
+  // One cache for both `/api/apps` and `/api/info`: a page load probes once.
+  const appsCache =
+    deps.appsCache ??
+    new AppsCache({
+      probe: deps.appsProbe ?? (() => deps.backend.listApps()),
+      ttlMs: deps.appsCacheMs,
+      now: deps.appsNow,
+    })
+
   registerAuthRoutes(app, deps)
-  registerInfoRoutes(app, deps)
+  registerInfoRoutes(app, deps, appsCache)
   registerSessionRoutes(app, deps)
   registerCodeRoutes(app, {
     config: deps.config,
@@ -286,6 +313,12 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     probe: deps.codeProbe,
     statusCacheMs: deps.codeStatusCacheMs,
     now: deps.codeNow,
+  })
+  registerAppsRoutes(app, {
+    backend: deps.backend,
+    cache: appsCache,
+    config: deps.config,
+    actionThrottle: deps.appsActionThrottle,
   })
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)

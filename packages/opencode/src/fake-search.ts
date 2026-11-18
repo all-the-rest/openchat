@@ -6,6 +6,8 @@ import type {
 } from "@openchat/contracts"
 import { SEARCH_SOURCES } from "@openchat/contracts"
 import type { SearchInput, SearchOutcome } from "./index"
+import { defaultAppEntries } from "./fake-apps"
+import type { FakeAppEntry } from "./fake-apps"
 
 /** The slice of a session the fake search needs; `fake.ts` owns the store. */
 export interface SearchableSession {
@@ -18,6 +20,11 @@ export interface FakeSearchOptions {
   disabled?: readonly SearchSource[]
   /** Sources that throw, so the route reports a partial failure. */
   failing?: readonly SearchSource[]
+  /**
+   * Current app rows. `fake.ts` passes its inventory so a status change is
+   * visible here too; anything else gets the default inventory.
+   */
+  apps?: readonly FakeAppEntry[]
 }
 
 const FILES: ReadonlyArray<{ path: string; snippet: string }> = [
@@ -46,43 +53,6 @@ const WEB: ReadonlyArray<{ url: string; title: string; snippet: string }> = [
     url: "https://example.test/opencode-client",
     title: "OpenCode client reference",
     snippet: "The typed client the BFF uses for sessions, files and search.",
-  },
-]
-
-const APPS: ReadonlyArray<{
-  app: string
-  title: string
-  snippet: string
-  kind: "server" | "skill"
-  status: string
-}> = [
-  {
-    app: "filesystem",
-    title: "Filesystem",
-    snippet: "Read and write files in the workspace.",
-    kind: "server",
-    status: "connected",
-  },
-  {
-    app: "github",
-    title: "GitHub",
-    snippet: "Issues, pull requests and repository search.",
-    kind: "server",
-    status: "needs_auth",
-  },
-  {
-    app: "review",
-    title: "Review",
-    snippet: "Review a diff and report findings.",
-    kind: "skill",
-    status: "available",
-  },
-  {
-    app: "release",
-    title: "Release",
-    snippet: "Tag a version, draft notes and publish.",
-    kind: "skill",
-    status: "available",
   },
 ]
 
@@ -168,12 +138,19 @@ function webHits(query: string, limit: number): SearchHit[] {
     }))
 }
 
-function appHits(query: string, limit: number): SearchHit[] {
+function appHits(
+  query: string,
+  limit: number,
+  entries: readonly FakeAppEntry[],
+): SearchHit[] {
   const needle = query.toLowerCase()
-  return APPS.filter(
-    (entry) =>
-      matches(entry.app, needle) || matches(entry.title, needle) || matches(entry.snippet, needle),
-  )
+  return entries
+    .filter(
+      (entry) =>
+        matches(entry.app, needle) ||
+        matches(entry.title, needle) ||
+        matches(entry.snippet ?? "", needle),
+    )
     .slice(0, limit)
     .map((entry) => ({
       source: "apps",
@@ -190,6 +167,7 @@ function collect(
   source: SearchSource,
   sessions: readonly SearchableSession[],
   input: SearchInput,
+  apps: readonly FakeAppEntry[],
 ): SearchHit[] {
   switch (source) {
     case "chats":
@@ -199,7 +177,7 @@ function collect(
     case "web":
       return webHits(input.query, input.limit)
     case "apps":
-      return appHits(input.query, input.limit)
+      return appHits(input.query, input.limit, apps)
   }
 }
 
@@ -214,6 +192,7 @@ export function fakeSearch(
 ): SearchOutcome {
   const disabled = new Set(options.disabled ?? [])
   const failing = new Set(options.failing ?? [])
+  const apps = options.apps ?? defaultAppEntries()
   const available = SEARCH_SOURCES.filter((source) => !disabled.has(source))
   const hits: SearchHit[] = []
   const failed: SearchSource[] = []
@@ -223,7 +202,7 @@ export function fakeSearch(
       failed.push(source)
       continue
     }
-    hits.push(...collect(source, sessions, input))
+    hits.push(...collect(source, sessions, input, apps))
   }
   return { available: [...available], hits, failed }
 }

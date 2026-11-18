@@ -1,5 +1,7 @@
 import type {
   AgentInfo,
+  AppSkill,
+  AppServer,
   EventEnvelope,
   InboxEntry,
   Message,
@@ -47,6 +49,12 @@ export interface SearchOutcome {
   failed: SearchSource[]
 }
 
+/** MCP servers and skills of the workspace, as one read of the host. */
+export interface AppsSnapshot {
+  servers: AppServer[]
+  skills: AppSkill[]
+}
+
 export interface PromptResult {
   /**
    * Identifies the accepted prompt. The fake returns the assistant message id
@@ -76,6 +84,15 @@ export interface ChatBackend {
   interrupt(sessionID: string): Promise<void>
   listModels(): Promise<ModelInfo[]>
   listAgents(): Promise<AgentInfo[]>
+  /**
+   * MCP servers and skills of the workspace. Throws a `BackendError` when the
+   * host cannot answer the capability probe; one failing list must not hide
+   * the other.
+   */
+  listApps(): Promise<AppsSnapshot>
+  /** Connects one MCP server by its host-side name. */
+  connectApp(name: string): Promise<void>
+  disconnectApp(name: string): Promise<void>
   /** Grouped multi-source search; only `input.sources` are queried. */
   search(input: SearchInput): Promise<SearchOutcome>
   subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope>

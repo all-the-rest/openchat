@@ -1,4 +1,9 @@
-export type BackendErrorCode = "not_found" | "conflict" | "invalid"
+/**
+ * A failure the BFF can map onto a stable HTTP status. `unsupported` means the
+ * host has no such capability at all (the surface is absent); `unavailable`
+ * means the capability exists but the host did not answer.
+ */
+export type BackendErrorCode = "not_found" | "conflict" | "invalid" | "unsupported" | "unavailable"
 
 /** A failure the BFF can map onto a stable HTTP status. */
 export class BackendError extends Error {

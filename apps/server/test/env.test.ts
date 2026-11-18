@@ -12,6 +12,7 @@ describe("loadEnv", () => {
     expect(config.WORKSPACE_DIR).toBe(process.cwd())
     expect(config.BACKEND_MODE).toBe("fake")
     expect(config.FAKE_SCENARIO).toBe("default")
+    expect(config.FAKE_APPS).toBe(true)
     expect(config.OPENCODE_URL).toBe("http://127.0.0.1:4096")
     expect(config.OPENCODE_USERNAME).toBe("opencode")
     expect(config.OPENCHAT_USER).toBe("owner")

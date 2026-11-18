@@ -21,6 +21,7 @@ const backend: ChatBackend =
     : new FakeBackend({
         scenario: config.FAKE_SCENARIO,
         workspace: config.WORKSPACE_DIR,
+        appsAvailable: config.FAKE_APPS,
       })
 
 const app = createApp({ config, backend })

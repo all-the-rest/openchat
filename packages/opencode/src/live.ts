@@ -10,6 +10,7 @@ import type {
 } from "@openchat/contracts"
 import type { OpenCodeClient, V2Event } from "@opencode/client"
 import type {
+  AppsSnapshot,
   ChatBackend,
   CreateSessionInput,
   PromptInput,
@@ -19,6 +20,7 @@ import type {
 } from "./index"
 import { EventQueue } from "./events"
 import { BackendError } from "./errors"
+import { liveAppAction, liveApps } from "./live-apps"
 import { createToolEventState, normalizeEvent } from "./live-events"
 import { liveSearch } from "./live-search"
 import { normalizeMessage, normalizeSession } from "./live-normalize"
@@ -171,6 +173,18 @@ export class LiveBackend implements ChatBackend {
       name: agent.name,
       description: agent.description,
     }))
+  }
+
+  async listApps(): Promise<AppsSnapshot> {
+    return liveApps(this.client, this.workspace)
+  }
+
+  async connectApp(name: string): Promise<void> {
+    await liveAppAction(this.client, this.workspace, "connect", name)
+  }
+
+  async disconnectApp(name: string): Promise<void> {
+    await liveAppAction(this.client, this.workspace, "disconnect", name)
   }
 
   async search(input: SearchInput): Promise<SearchOutcome> {
