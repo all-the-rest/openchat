@@ -1,0 +1,15 @@
+[Unit]
+# OpenChat host guard (issue #36). Installed by deploy/host/install.sh, which
+# replaces @STACK_DIR@ with the stack root.
+#
+# Alert-only: the script prints one line above the threshold and deletes
+# nothing. No docker.service ordering and no OnFailure=.
+Description=Warn when the OpenChat artifacts disk is nearly full
+Documentation=file:@STACK_DIR@/docs/implementation/14-deployment.md
+After=local-fs.target
+
+[Service]
+Type=oneshot
+Nice=10
+TimeoutStartSec=60
+ExecStart="@STACK_DIR@/bin/artifact-usage.sh" --stack-dir "@STACK_DIR@" --warn-percent 90

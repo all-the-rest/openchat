@@ -1,0 +1,14 @@
+[Unit]
+# Daily, with a randomized delay so it does not collide with a deploy or with
+# the RAM watchdog tick.
+Description=Run the OpenChat dind image garbage collection daily
+Documentation=file:@STACK_DIR@/docs/implementation/14-deployment.md
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+Persistent=true
+Unit=openchat-dind-gc.service
+
+[Install]
+WantedBy=timers.target

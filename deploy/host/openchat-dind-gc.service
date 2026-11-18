@@ -1,0 +1,16 @@
+[Unit]
+# OpenChat host guard (issue #36). Installed by deploy/host/install.sh, which
+# replaces @STACK_DIR@ with the stack root.
+#
+# No docker.service ordering and no OnFailure=: when the optional dind profile
+# is off the script exits 0 without doing anything, and a failed prune must not
+# reach the host's Docker daemon.
+Description=Prune unused images inside the OpenChat rootless dind daemon
+Documentation=file:@STACK_DIR@/docs/implementation/14-deployment.md
+After=local-fs.target
+
+[Service]
+Type=oneshot
+Nice=10
+TimeoutStartSec=600
+ExecStart="@STACK_DIR@/bin/dind-gc.sh" --max-age-hours 168
