@@ -12,6 +12,7 @@
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "test:e2e": "pnpm --filter @openchat/web run test:e2e",
+    "deploy:test": "bash deploy/remote/test/run.sh",
     "stt:fetch": "node scripts/stt-fetch.ts",
     "stt:smoke": "node scripts/stt-smoke.ts",
     "release:version": "node scripts/release.ts version",
