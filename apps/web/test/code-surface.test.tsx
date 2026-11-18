@@ -194,7 +194,10 @@ describe("surface switch", () => {
     await waitFor(() => expect(screen.getByTestId("surface-switch")).toBeInTheDocument())
 
     fireEvent.keyDown(window, { key: "m", metaKey: true, shiftKey: true })
-    expect(screen.getByTestId("location")).toHaveTextContent("/code")
+    // The chord listener attaches in an effect once the host status resolves;
+    // waiting for the switch element alone races that effect under a loaded
+    // runner (CI), so the navigation is awaited instead of assumed.
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/code"))
 
     fireEvent.keyDown(window, { key: "m", shiftKey: true })
     fireEvent.keyDown(window, { key: "m", metaKey: true })
@@ -206,7 +209,7 @@ describe("surface switch", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/code")
 
     fireEvent.keyDown(window, { key: "m", ctrlKey: true, shiftKey: true })
-    expect(screen.getByTestId("location")).toHaveTextContent("/")
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/))
   })
 
   it("stays hidden and inert when the deployment has no Code host", async () => {
