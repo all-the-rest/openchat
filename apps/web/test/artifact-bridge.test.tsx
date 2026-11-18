@@ -292,8 +292,9 @@ describe("artifact bridge", () => {
     await act(async () => {})
     const { frame } = frames()
     fireEvent.load(frame)
-    // The bridge's repost and the viewer's handshake grace are both pending.
-    expect(vi.getTimerCount()).toBe(2)
+    // An expired URL is refused at once, so only the bridge's repost is
+    // pending; the former handshake-grace timer is no longer started.
+    expect(vi.getTimerCount()).toBe(1)
 
     view.unmount()
     // Unmounted, no repost may survive to fire into a viewer that is gone.

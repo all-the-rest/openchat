@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { ARTIFACT_DOCUMENT_FILE, isArtifactId } from "@openchat/contracts/artifacts/id"
+import {
+  ARTIFACT_DOCUMENT_FILE,
+  ARTIFACT_MEDIA_FILE,
+  isArtifactId,
+} from "@openchat/contracts/artifacts/id"
+import { artifactMime } from "@openchat/contracts/artifacts/mime"
 
 /**
  * Read-only view of the BFF-owned artifact directory. The host never writes,
@@ -18,14 +23,23 @@ export class ArtifactReader {
     this.dir = dir
   }
 
-  /** The stored document, or `null` when the id is unshaped or absent. */
-  async read(id: string): Promise<Buffer | null> {
+  /**
+   * The stored bytes and their sniffed MIME, or `null` when the id is unshaped
+   * or absent. The media name is tried first; a legacy directory only has the
+   * HTML name. The host never reads `meta.json`, so a broken sidecar cannot
+   * change the served type.
+   */
+  async read(id: string): Promise<{ bytes: Buffer; mime: string } | null> {
     if (!isArtifactId(id)) return null
-    try {
-      return await readFile(join(this.dir, id, ARTIFACT_DOCUMENT_FILE))
-    } catch {
-      // A missing directory, a missing file, a permission error: all 404.
-      return null
+    for (const file of [ARTIFACT_MEDIA_FILE, ARTIFACT_DOCUMENT_FILE]) {
+      try {
+        const bytes = await readFile(join(this.dir, id, file))
+        return { bytes, mime: artifactMime(bytes) }
+      } catch {
+        // A missing directory, a missing file, a permission error: try the
+        // other layout, then answer 404.
+      }
     }
+    return null
   }
 }

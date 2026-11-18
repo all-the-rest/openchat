@@ -57,10 +57,10 @@ msgstr "A new version is available"
 msgid "pwa.description"
 msgstr "A self-hosted workspace for your agent, available offline."
 
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.permissionDeniedGeneric"
 msgstr "A tool request was denied"
-
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -101,6 +101,11 @@ msgstr "Answer complete"
 #: src/i18n/messages/chat.ts
 msgid "chat.permissionHint"
 msgstr "Answer this request before sending another message."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.html"
+msgstr "App"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -453,12 +458,6 @@ msgid "apps.disconnectServer"
 msgstr "Disconnect {server}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/pwa.ts
-msgid "install.dismiss"
-msgstr "Dismiss"
-
-#. js-lingui-explicit-id
-
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftDismiss"
 msgstr "Dismiss"
@@ -471,6 +470,11 @@ msgstr "Dismiss"
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.dismiss"
+msgstr "Dismiss"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "install.dismiss"
 msgstr "Dismiss"
 
 #. js-lingui-explicit-id
@@ -554,6 +558,11 @@ msgid "search.status.failed"
 msgstr "Failed"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.file"
+msgstr "File"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.title"
 msgstr "Files"
@@ -577,6 +586,16 @@ msgstr "Host reachable"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.description"
 msgstr "HTML documents your agent has written. Each one runs sandboxed on a separate origin."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.image"
+msgstr "Image"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.galleryTitle"
+msgstr "Image gallery"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -859,6 +878,11 @@ msgid "auth.passwordPlaceholder"
 msgstr "Password"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.pdf"
+msgstr "PDF"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.pending"
 msgstr "Pending"
@@ -944,10 +968,6 @@ msgid "code.reload"
 msgstr "Reload"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "composer.attachmentRemove"
-msgstr "Remove {name}"
-
 #: src/i18n/messages/pwa.ts
 msgid "update.reload"
 msgstr "Reload to update"
@@ -957,6 +977,10 @@ msgstr "Reload to update"
 msgid "update.hint"
 msgstr "Reload when you are ready. Nothing changes until you do."
 
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentRemove"
+msgstr "Remove {name}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1499,14 +1523,14 @@ msgid "auth.userLabel"
 msgstr "Username"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/pwa.ts
-msgid "update.streamingHint"
-msgstr "Wait for the current answer to finish before reloading."
-
 #: src/i18n/messages/settings.ts
 msgid "settings.version"
 msgstr "Version"
 
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "update.streamingHint"
+msgstr "Wait for the current answer to finish before reloading."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts

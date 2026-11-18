@@ -29,9 +29,9 @@ test("lists the seeded artifact, opens it sandboxed and downloads its bytes", as
   await page.getByTestId("nav-artifacts").click()
   await expect(page).toHaveURL(/\/artifacts$/)
   await expect(page.getByRole("heading", { level: 1, name: "Artifacts" })).toBeVisible()
-  await expect(page.getByTestId("artifact-item")).toHaveCount(1)
+  await expect(page.getByTestId("artifact-item")).toHaveCount(3)
 
-  await page.getByTestId("artifact-item").click()
+  await page.getByRole("link", { name: `Open ${E2E_ARTIFACT_TITLE}` }).click()
   await expect(page).toHaveURL(new RegExp(`${VIEWER_URL}$`))
 
   const frame = page.getByTestId("artifact-frame")

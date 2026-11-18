@@ -1,6 +1,7 @@
 import type { Hono } from "hono"
 import type { ArtifactMeta, ArtifactResponse, ArtifactsSurfaceInfo } from "@openchat/contracts"
 import { ArtifactSigner } from "@openchat/contracts/artifacts/sign"
+import { artifactExtension } from "@openchat/contracts/artifacts/mime"
 import type { AppEnv } from "./app"
 import { ArtifactStore } from "./artifacts-store"
 import type { EnvConfig } from "./env"
@@ -141,14 +142,19 @@ export function registerArtifactsRoutes(app: Hono<AppEnv>, deps: ArtifactsRouteD
       return jsonError(c, 503, "artifacts_unavailable", UNAVAILABLE_MESSAGE)
     }
     const id = c.req.param("id") ?? ""
-    const bytes = await store.read(id)
-    if (!bytes) return jsonError(c, 404, "artifacts_unknown", UNKNOWN_MESSAGE)
+    const found = await store.readMedia(id)
+    if (!found) return jsonError(c, 404, "artifacts_unknown", UNKNOWN_MESSAGE)
 
-    c.header("Content-Type", "text/html; charset=utf-8")
+    // The MIME is sniffed and stored at write time, never taken from the
+    // request: an `Accept: text/html` download of a PNG stays a PNG.
+    c.header("Content-Type", found.mime)
     // The stored id is already shape-validated, so it is safe in a header. The
     // client overrides this name with the artifact's title.
-    c.header("Content-Disposition", `attachment; filename="artifact-${id}.html"`)
+    c.header(
+      "Content-Disposition",
+      `attachment; filename="artifact-${id}${artifactExtension(found.mime)}"`,
+    )
     c.header("X-Content-Type-Options", "nosniff")
-    return c.body(new Uint8Array(bytes))
+    return c.body(new Uint8Array(found.bytes))
   })
 }

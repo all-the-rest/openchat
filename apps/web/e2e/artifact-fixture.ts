@@ -40,6 +40,23 @@ export const E2E_ARTIFACT_ID = createHash("sha256")
   .update(E2E_ARTIFACT_HTML)
   .digest("hex")
 
+/** One valid 1×1 PNG, stored as media bytes and signed like any artifact. */
+export const E2E_IMAGE_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+)
+export const E2E_IMAGE_TITLE = "Pixel swatch"
+export const E2E_IMAGE_CREATED_AT = "2026-11-18T12:01:00.000Z"
+export const E2E_IMAGE_ID = createHash("sha256").update(E2E_IMAGE_PNG).digest("hex")
+
+/** A minimal PDF; the viewer frames it on the artifact origin, never inline. */
+export const E2E_PDF = Buffer.from(
+  "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n",
+)
+export const E2E_PDF_TITLE = "One page report"
+export const E2E_PDF_CREATED_AT = "2026-11-18T12:02:00.000Z"
+export const E2E_PDF_ID = createHash("sha256").update(E2E_PDF).digest("hex")
+
 /** Fixed loopback origin for the real artifact host. */
 export const E2E_ARTIFACT_HOST_URL = "http://127.0.0.1:4100"
 /** Shared with the BFF through the Playwright config env. */

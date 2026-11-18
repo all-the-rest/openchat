@@ -22,11 +22,15 @@ export function isArtifactId(value: string): boolean {
  * One directory per artifact:
  *
  * ```
- * <dir>/<id>/index.html   the stored document
- * <dir>/<id>/meta.json    { title, bytes, createdAt }
+ * <dir>/<id>/index.html   the stored HTML document (slices 1–3)
+ * <dir>/<id>/artifact.bin the stored image, PDF or generic bytes (this slice)
+ * <dir>/<id>/meta.json    { title, bytes, createdAt, mime? }
  * ```
  */
 export const ARTIFACT_DOCUMENT_FILE = "index.html"
+
+/** Name for non-HTML bytes. The host reads it before the legacy HTML name. */
+export const ARTIFACT_MEDIA_FILE = "artifact.bin"
 
 /** Sidecar metadata written by the BFF; never read by the byte host. */
 export const ARTIFACT_META_FILE = "meta.json"

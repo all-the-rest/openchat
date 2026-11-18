@@ -75,6 +75,16 @@ describe("artifact URL signing", () => {
     expect(signer().verify(ID, String(tooFar), signer().sign(ID, tooFar))).toBe(false)
   })
 
+  it("cannot replay one artifact's signed URL on another artifact", () => {
+    const otherID = "b".repeat(64)
+    const exp = NOW + ARTIFACT_URL_TTL_SECONDS
+    const signed = new URL(url(ID, exp))
+    const signature = signed.searchParams.get("sig") ?? ""
+    // Same key, same expiry, same signature shape: only the id changes.
+    expect(signer().verify(otherID, String(exp), signature)).toBe(false)
+    expect(signer().verify(ID, String(exp), signature)).toBe(true)
+  })
+
   it("rejects a signature from another key, id or expiry", () => {
     const exp = NOW + 60
     const signature = signer().sign(ID, exp)

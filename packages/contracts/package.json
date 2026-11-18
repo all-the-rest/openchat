@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./artifacts/sign": "./src/artifacts/sign.ts",
     "./artifacts/bridge": "./src/artifacts/bridge.ts",
-    "./artifacts/id": "./src/artifacts/id.ts"
+    "./artifacts/id": "./src/artifacts/id.ts",
+    "./artifacts/mime": "./src/artifacts/mime.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

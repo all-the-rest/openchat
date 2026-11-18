@@ -1,3 +1,4 @@
+import { artifactKind } from "@openchat/contracts/artifacts/mime"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { api } from "../api/client"
@@ -8,7 +9,9 @@ import { useArtifactBridge } from "./bridge"
 import type { ArtifactResult } from "./bridge"
 import { ARTIFACT_HANDSHAKE_GRACE_MS, useArtifactDocument } from "./document"
 import { artifactFilename, formatArtifactDate, formatBytes, saveBlob } from "./files"
+import { ArtifactCard } from "./ArtifactCard"
 import { DraftPanel } from "./DraftPanel"
+import { PdfPreview } from "./PdfPreview"
 import { ARTIFACT_LOAD_TIMEOUT_MS, ArtifactFrame, Panel, PresentBar, ViewerChrome } from "./parts"
 
 /**
@@ -183,6 +186,12 @@ export function ArtifactViewer({
           {t("artifacts.back")}
         </Link>
       </Panel>
+    ) : artifactKind(meta.mime) === "image" ? (
+      <div className="flex min-h-0 flex-1 items-start justify-center overflow-y-auto p-4">
+        <ArtifactCard artifact={meta} />
+      </div>
+    ) : artifactKind(meta.mime) === "pdf" ? (
+      <PdfPreview artifact={meta} />
     ) : (
       <ArtifactFrame
         key={epoch}

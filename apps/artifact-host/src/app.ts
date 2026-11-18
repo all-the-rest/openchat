@@ -43,6 +43,15 @@ export function documentPolicy(frameAncestors: string): string {
   ].join("; ")
 }
 
+/**
+ * Binary bytes are not documents: they carry no script, no network and no
+ * inline content to sandbox. `frame-ancestors` still limits framing to the chat
+ * origin, and the viewer's iframe keeps its `sandbox="allow-scripts"` attribute.
+ */
+export function mediaPolicy(frameAncestors: string): string {
+  return ["default-src 'none'", `frame-ancestors ${frameAncestors}`].join("; ")
+}
+
 export interface AppOptions {
   config: EnvConfig
   /** Epoch milliseconds; injected by tests for URL expiry. */
@@ -96,25 +105,27 @@ export function createApp(options: AppOptions): Hono {
       return errorResponse(403, "artifact_forbidden")
     }
 
-    const bytes = await reader.read(id)
-    if (!bytes) return errorResponse(404, "artifact_not_found")
+    const found = await reader.read(id)
+    if (!found) return errorResponse(404, "artifact_not_found")
 
+    // The type comes from the bytes. An `Accept: text/html` header, a file name
+    // or a stored metadata sidecar cannot turn a PNG or a PDF into a document.
+    const isDocument = found.mime.startsWith("text/html")
     const headers = new Headers({
-      "content-type": "text/html; charset=utf-8",
+      "content-type": found.mime,
       "x-content-type-options": "nosniff",
       "referrer-policy": "no-referrer",
       "cache-control": "no-store",
       // The id is the SHA-256 of these bytes, so no rehash is needed.
       etag: `"sha256:${id}"`,
     })
-    headers.append("content-security-policy", policy)
-    headers.append("content-security-policy", SANDBOX_POLICY)
+    const policies = isDocument
+      ? [policy, SANDBOX_POLICY]
+      : [mediaPolicy(config.ARTIFACT_FRAME_ANCESTORS)]
+    for (const value of policies) headers.append("content-security-policy", value)
 
-    const response = new Response(new Uint8Array(bytes), { status: 200, headers })
-    Object.defineProperty(response, CSP_POLICIES, {
-      value: [policy, SANDBOX_POLICY],
-      enumerable: false,
-    })
+    const response = new Response(new Uint8Array(found.bytes), { status: 200, headers })
+    Object.defineProperty(response, CSP_POLICIES, { value: policies, enumerable: false })
     return response
   })
 

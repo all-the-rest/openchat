@@ -11,6 +11,14 @@ import {
   E2E_ARTIFACT_ID,
   E2E_ARTIFACT_SIGNING_KEY,
   E2E_ARTIFACT_TITLE,
+  E2E_IMAGE_CREATED_AT,
+  E2E_IMAGE_ID,
+  E2E_IMAGE_PNG,
+  E2E_IMAGE_TITLE,
+  E2E_PDF,
+  E2E_PDF_CREATED_AT,
+  E2E_PDF_ID,
+  E2E_PDF_TITLE,
 } from "./e2e/artifact-fixture"
 import { CODE_STUB_ORIGIN, CODE_STUB_SECRET } from "./e2e/code-stub"
 import {
@@ -39,6 +47,38 @@ writeFileSync(
     createdAt: E2E_ARTIFACT_CREATED_AT,
   }),
 )
+// One image and one PDF join the document, seeded the same way: id-named
+// directory, exact bytes and a sidecar carrying the sniffed MIME.
+for (const media of [
+  {
+    id: E2E_IMAGE_ID,
+    bytes: E2E_IMAGE_PNG,
+    title: E2E_IMAGE_TITLE,
+    mime: "image/png",
+    createdAt: E2E_IMAGE_CREATED_AT,
+  },
+  {
+    id: E2E_PDF_ID,
+    bytes: E2E_PDF,
+    title: E2E_PDF_TITLE,
+    mime: "application/pdf",
+    createdAt: E2E_PDF_CREATED_AT,
+  },
+]) {
+  const directory = join(ARTIFACTS_DIR, media.id)
+  mkdirSync(directory, { recursive: true })
+  writeFileSync(join(directory, "artifact.bin"), media.bytes)
+  writeFileSync(
+    join(directory, "meta.json"),
+    JSON.stringify({
+      title: media.title,
+      bytes: media.bytes.byteLength,
+      createdAt: media.createdAt,
+      mime: media.mime,
+    }),
+  )
+}
+
 const REUSE_EXISTING = !process.env.CI
 
 export default defineConfig({

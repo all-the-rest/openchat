@@ -23,6 +23,8 @@ export const ARTIFACT_CSS_MAX_BYTES = 32_768
  */
 export const ARTIFACT_URL_TTL_SECONDS = 900
 
+export type { ArtifactKind } from "./mime"
+
 /** Stored metadata of one artifact. The id is the SHA-256 of the bytes. */
 export interface ArtifactMeta {
   /** 64 lowercase hex characters: the SHA-256 of the stored document. */
@@ -33,6 +35,11 @@ export interface ArtifactMeta {
   bytes: number
   /** ISO 8601 timestamp of the first write; a repeat write keeps it. */
   createdAt: string
+  /**
+   * MIME sniffed from the bytes at write time. Absent on documents written by
+   * the first storage slice, which the UI treats as HTML.
+   */
+  mime?: string
 }
 
 /**
