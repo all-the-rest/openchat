@@ -307,6 +307,22 @@ describe("bounds and deployment warnings", () => {
     expect(warnings.join("\n")).not.toContain("HOST is not a loopback address")
   })
 
+  it("does not mistake a 127.* DNS name for a loopback bind", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: production({ HOST: "127.example.com" }),
+      warn: (m) => warnings.push(m),
+    })
+    expect(config.HOST).toBe("127.example.com")
+    expect(warnings.join("\n")).toContain("HOST is not a loopback address")
+
+    for (const host of ["127.0.0.1", "127.0.0.2", "[::1]", "localhost"]) {
+      const quiet: string[] = []
+      loadEnv({ source: production({ HOST: host }), warn: (m) => quiet.push(m) })
+      expect(quiet.join("\n"), host).not.toContain("HOST is not a loopback address")
+    }
+  })
+
   it("warns when the app and the Code host do not share a hostname", () => {
     const warnings: string[] = []
     loadEnv({

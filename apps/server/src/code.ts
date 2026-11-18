@@ -33,8 +33,13 @@ export interface CodeRouteDeps {
   now?: () => number
 }
 
-const SCHEME_PREFIX = /^[a-z][a-z0-9+.-]*:/i
+/** A health body is a small JSON object; anything larger is not trusted. */
+const CODE_HEALTH_BODY_LIMIT_BYTES = 4_096
+/** Mirrors the Code host's bound: a version is a short printable token. */
+const CODE_VERSION_MAX_LENGTH = 64
+
 const CONTROL_BYTES = /[\u0000-\u001f\u007f]/
+const NON_PRINTABLE = /[^\x20-\x7e]/g
 
 /**
  * Sanitises the `next` parameter to a path on the Code host. This is defence
@@ -48,8 +53,46 @@ export function safeNext(raw: string | undefined): string {
   if (raw.startsWith("//")) return "/"
   if (raw.includes("\\")) return "/"
   if (CONTROL_BYTES.test(raw)) return "/"
-  if (SCHEME_PREFIX.test(raw)) return "/"
   return raw
+}
+
+/**
+ * Reads at most `limit` bytes of a probe body. A larger body is cancelled and
+ * reported as untrusted instead of being parsed.
+ */
+async function readBoundedText(response: Response, limit: number): Promise<string | null> {
+  const body = response.body
+  if (!body) return ""
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let size = 0
+  let text = ""
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > limit) {
+        await reader.cancel().catch(() => {})
+        return null
+      }
+      text += decoder.decode(value, { stream: true })
+    }
+    return text + decoder.decode()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * A version is a short printable token. Control bytes are dropped and the
+ * result is capped, so a hostile health answer cannot plant escapes in the
+ * status response or make it unbounded.
+ */
+function printableVersion(raw: string): string | null {
+  const cleaned = raw.replace(NON_PRINTABLE, "").trim()
+  if (cleaned.length === 0) return null
+  return cleaned.slice(0, CODE_VERSION_MAX_LENGTH)
 }
 
 /** The default probe: one GET of the Code host's `/__health`, bounded by a timer. */
@@ -64,13 +107,20 @@ export function createCodeProbe(fetchImpl: typeof fetch = fetch): CodeProbe {
         redirect: "error",
       })
       if (!response.ok) return { reachable: false }
-      const body = (await response.json()) as unknown
-      if (typeof body !== "object" || body === null) return { reachable: false }
-      const { ok, version } = body as Record<string, unknown>
-      if (ok !== true || typeof version !== "string" || version.length === 0) {
+      const text = await readBoundedText(response, CODE_HEALTH_BODY_LIMIT_BYTES)
+      if (text === null) return { reachable: false }
+      let body: unknown
+      try {
+        body = JSON.parse(text) as unknown
+      } catch {
         return { reachable: false }
       }
-      return { reachable: true, version }
+      if (typeof body !== "object" || body === null) return { reachable: false }
+      const { ok, version } = body as Record<string, unknown>
+      if (ok !== true || typeof version !== "string") return { reachable: false }
+      const bounded = printableVersion(version)
+      if (!bounded) return { reachable: false }
+      return { reachable: true, version: bounded }
     } catch {
       // Timeout, transport failure, non-JSON body: all mean "not reachable".
       // Upstream error text never reaches the client.

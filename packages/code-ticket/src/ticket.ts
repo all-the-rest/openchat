@@ -58,6 +58,13 @@ export interface ReadTicketOptions {
   codeHost: string
   /** Epoch milliseconds, the same shape as `Date.now()`. */
   now?: number
+  /**
+   * The receiver's configured ticket lifetime, in seconds. The read ceiling is
+   * `exp ≤ now + ttlSeconds + clock skew`, so a host configured for a shorter
+   * ticket rejects one that outlives it. Defaults to the mint ceiling and is
+   * clamped to the same `1..MAX_TICKET_TTL_SECONDS` range.
+   */
+  ttlSeconds?: number
 }
 
 /** Fixed-length constant-time compare; hashing hides the input lengths. */
@@ -158,8 +165,17 @@ export function readTicket(token: string, options: ReadTicketOptions): TicketCla
     if (claims.exp <= nowSeconds) return null
     // The ceiling is enforced at mint and at read: a second signer or a
     // hand-rolled token cannot buy a year-long ticket (and a year-long replay
-    // entry) just because it knows the secret.
-    if (claims.exp > nowSeconds + MAX_TICKET_TTL_SECONDS + MAX_TICKET_CLOCK_SKEW_SECONDS) {
+    // entry) just because it knows the secret. The receiver's own configured
+    // lifetime narrows this further; an out-of-range value is clamped, never
+    // treated as "no ceiling".
+    const configured = options.ttlSeconds
+    const ttlSeconds =
+      typeof configured === "number" &&
+      Number.isInteger(configured) &&
+      configured > 0
+        ? Math.min(configured, MAX_TICKET_TTL_SECONDS)
+        : MAX_TICKET_TTL_SECONDS
+    if (claims.exp > nowSeconds + ttlSeconds + MAX_TICKET_CLOCK_SKEW_SECONDS) {
       return null
     }
     if (!constantTimeEqual(claims.codeHost, options.codeHost)) return null
