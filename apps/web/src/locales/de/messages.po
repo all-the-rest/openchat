@@ -143,6 +143,16 @@ msgid "search.lastSource"
 msgstr "Mindestens eine Quelle muss ausgewählt bleiben."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attach"
+msgstr "Dateien anhängen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentsLabel"
+msgstr "Anhänge"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.auto"
 msgstr "Auto"
@@ -158,13 +168,13 @@ msgid "artifacts.back"
 msgstr "Zurück zu den Artefakten"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.deleteCancel"
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxCancel"
 msgstr "Abbrechen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.inboxCancel"
+#: src/i18n/messages/files.ts
+msgid "files.deleteCancel"
 msgstr "Abbrechen"
 
 #. js-lingui-explicit-id
@@ -373,11 +383,6 @@ msgid "apps.disconnectServer"
 msgstr "{server} trennen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.dismiss"
-msgstr "Ausblenden"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftDismiss"
 msgstr "Verwerfen"
@@ -388,18 +393,23 @@ msgid "chat.dismiss"
 msgstr "Ausblenden"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.dismiss"
+msgstr "Ausblenden"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.success"
 msgstr "Fertig"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.download"
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.download"
 msgstr "Herunterladen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.download"
+#: src/i18n/messages/files.ts
+msgid "files.download"
 msgstr "Herunterladen"
 
 #. js-lingui-explicit-id
@@ -798,6 +808,11 @@ msgid "code.reload"
 msgstr "Neu laden"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentRemove"
+msgstr "{name} entfernen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.mermaidLoading"
 msgstr "Diagramm wird gerendert…"
@@ -816,11 +831,6 @@ msgstr "Zurücksetzen"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftTitleFallback"
 msgstr "Ergebnis aus diesem Artefakt"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.retry"
-msgstr "Erneut versuchen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -850,6 +860,11 @@ msgstr "Erneut versuchen"
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.retry"
+msgstr "Erneut versuchen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.retry"
 msgstr "Erneut versuchen"
 
 #. js-lingui-explicit-id
@@ -1123,6 +1138,11 @@ msgid "files.loadFailed"
 msgstr "Die Dateiliste konnte nicht geladen werden."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentQuotaError"
+msgstr "Das Dateikontingent ist erschöpft."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.blockedBody"
 msgstr "Der Frame wurde nie fertig geladen. Öffne Code stattdessen in einem neuen Tab."
@@ -1208,6 +1228,16 @@ msgid "render.retryable"
 msgstr "Dieser Fehler kann erneut versucht werden."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentTooLarge"
+msgstr "Diese Datei ist zu groß."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentTypeError"
+msgstr "Dieser Dateityp ist nicht erlaubt."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.unknownServer"
 msgstr "Dieser Server ist nicht mehr eingerichtet."
@@ -1263,9 +1293,19 @@ msgid "session.untitled"
 msgstr "Unbenannt"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentFailed"
+msgstr "Upload fehlgeschlagen."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.origin.upload"
 msgstr "Hochgeladen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentUploading"
+msgstr "Wird hochgeladen…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts

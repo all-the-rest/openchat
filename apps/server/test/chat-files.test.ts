@@ -35,6 +35,13 @@ afterEach(async () => {
 
 const SESSION = "ses_files_1"
 
+/** Minimal ZIP-based Office bytes: a PK header and a `word/` entry name. */
+const DOCX_BYTES = Buffer.concat([
+  Buffer.from("PK\x03\x04", "latin1"),
+  Buffer.from("word/document.xml", "latin1"),
+  Buffer.from("Quarterly report template", "utf8"),
+])
+
 async function serverWith(overrides: Record<string, string> = {}): Promise<{
   server: TestServer
   cookie: string
@@ -53,13 +60,13 @@ async function upload(
   server: TestServer,
   cookie: string,
   name: string,
-  body: string,
+  body: string | Buffer,
   sessionID = SESSION,
 ): Promise<Response> {
   return await server.app.request(`${filesPath(sessionID)}?name=${encodeURIComponent(name)}`, {
     method: "POST",
     headers: { cookie, "content-type": "application/octet-stream" },
-    body,
+    body: typeof body === "string" ? body : new Uint8Array(body),
   })
 }
 
@@ -74,9 +81,9 @@ async function list(
 describe("chat files: round trip", () => {
   it("uploads, lists, downloads and deletes one file", async () => {
     const { server, cookie, dir } = await serverWith()
-    const bytes = Buffer.from("Quarterly report template", "utf8")
+    const bytes = DOCX_BYTES
 
-    const created = await upload(server, cookie, "template.docx", bytes.toString("utf8"))
+    const created = await upload(server, cookie, "template.docx", bytes)
     expect(created.status).toBe(201)
     const file = await json<ChatFileInfo>(created)
     expect(file).toMatchObject({

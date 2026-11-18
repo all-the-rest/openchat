@@ -107,6 +107,41 @@ describe("artifacts client", () => {
   })
 })
 
+describe("chat file upload client", () => {
+  it("sends raw bytes with the name in the query and no JSON content type", async () => {
+    const file = {
+      name: "report.pdf",
+      displayName: "report.pdf",
+      size: 4,
+      mtime: "2026-11-18T12:00:00.000Z",
+      mime: "application/pdf",
+      origin: "upload",
+      sha256: "a".repeat(64),
+    }
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(file), {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      }),
+    )
+
+    const bytes = new Blob(["%PDF"], { type: "application/pdf" })
+    await expect(api.uploadChatFile("ses_one", "report.pdf", bytes)).resolves.toEqual(file)
+
+    const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit]
+    expect(url).toBe("/api/sessions/ses_one/files?name=report.pdf")
+    expect(init.method).toBe("POST")
+    expect(init.body).toBe(bytes)
+    expect(new Headers(init.headers).get("content-type")).toBe("application/octet-stream")
+  })
+
+  it("encodes a file name with spaces in the query", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("{}", { status: 201 }))
+    await api.uploadChatFile("ses_one", "my report.pdf", new Blob(["x"]))
+    expect(lastRequest().url).toBe("/api/sessions/ses_one/files?name=my+report.pdf")
+  })
+})
+
 describe("auth client", () => {
   it("sends the username and password to the login route", async () => {
     fetchMock.mockResolvedValueOnce(
