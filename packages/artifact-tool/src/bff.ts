@@ -1,3 +1,4 @@
+import { isArtifactId } from "@openchat/contracts/artifacts/id"
 import type { ArtifactInternalCreateRequest, ArtifactWriteReceipt } from "@openchat/contracts"
 
 /**
@@ -25,6 +26,8 @@ const WRITE_PATH = "/internal/artifacts"
 const UNREACHABLE = "unreachable: the BFF did not answer; check OPENCHAT_BFF_URL"
 const UNEXPECTED_BODY = "internal: the BFF answered an unexpected body"
 const REDIRECTED = "internal: the BFF redirected the write"
+const READ_REDIRECTED = "internal: the BFF redirected the read"
+const UNKNOWN_ARTIFACT = "not_found: the artifact does not exist"
 const UNAUTHORIZED =
   "internal: the BFF rejected ARTIFACT_INTERNAL_TOKEN; the tool and the BFF must share the same value"
 
@@ -68,6 +71,56 @@ function isReceipt(value: unknown): value is ArtifactWriteReceipt {
 
 export function writeUrl(bffUrl: string): string {
   return `${bffUrl.replace(/\/+$/, "")}${WRITE_PATH}`
+}
+
+export function readUrl(bffUrl: string, artifactID: string): string {
+  return `${bffUrl.replace(/\/+$/, "")}${WRITE_PATH}/${artifactID}`
+}
+
+export type ReadDocumentResult =
+  | { ok: true; html: string }
+  | { ok: false; error: string }
+
+/**
+ * The tool's read half: the stored HTML of one artifact, fetched with the same
+ * bearer token and redirect refusal as the write. The public download route is
+ * session-authenticated; the internal route exists so a process next to
+ * OpenCode can read an artifact it produced without a browser cookie.
+ */
+export async function getDocument(
+  options: BffOptions,
+  artifactID: string,
+): Promise<ReadDocumentResult> {
+  if (!isArtifactId(artifactID)) return { ok: false, error: UNKNOWN_ARTIFACT }
+  const fetchImpl = options.fetch ?? globalThis.fetch
+  let response: Response
+  try {
+    response = await fetchImpl(readUrl(options.bffUrl, artifactID), {
+      method: "GET",
+      redirect: "manual",
+      credentials: "omit",
+      headers: {
+        accept: "text/html",
+        authorization: `Bearer ${options.token}`,
+      },
+    })
+  } catch {
+    return { ok: false, error: UNREACHABLE }
+  }
+
+  if (response.status >= 300 && response.status < 400) {
+    return { ok: false, error: READ_REDIRECTED }
+  }
+  if (response.status === 404) return { ok: false, error: UNKNOWN_ARTIFACT }
+  if (response.status !== 200) return { ok: false, error: statusError(response.status) }
+
+  try {
+    const html = await response.text()
+    if (html.length === 0) return { ok: false, error: UNEXPECTED_BODY }
+    return { ok: true, html }
+  } catch {
+    return { ok: false, error: UNEXPECTED_BODY }
+  }
 }
 
 export async function postDocument(

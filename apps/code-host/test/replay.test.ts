@@ -48,9 +48,11 @@ describe("TicketReplayCache", () => {
 
   it("evicts the oldest claim at the documented default bound", () => {
     const cache = new TicketReplayCache()
+    let accepted = 0
     for (let index = 0; index <= MAX_REPLAY_ENTRIES; index += 1) {
-      expect(cache.claim(`jti-${index}`, EXP, NOW)).toBe(true)
+      if (cache.claim(`jti-${index}`, EXP, NOW)) accepted += 1
     }
+    expect(accepted).toBe(MAX_REPLAY_ENTRIES + 1)
     expect(cache.size).toBe(MAX_REPLAY_ENTRIES)
 
     // The first entry is gone, so its jti can be claimed again; the second

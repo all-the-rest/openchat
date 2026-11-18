@@ -1,36 +1,63 @@
-import { loadToolEnv } from "@openchat/artifact-tool/env"
-import type { ToolEnv } from "@openchat/artifact-tool/env"
-
 /**
- * The tool's own configuration. The BFF URL and the bearer token are the same
- * two values the app tool reads; `OPENCHAT_PYTHON` is the interpreter, which
- * points at the repository venv in development and at `python3` in the image.
+ * The Python tool's own configuration. The BFF values are shared with the
+ * artifact tool; `OPENCHAT_PYTHON` is an operator choice between the image's
+ * `/usr/bin/python3` and a development virtualenv. No value is ever logged.
  */
 
-export const DEFAULT_PYTHON = "python3"
+const DEFAULT_BFF_URL = "http://127.0.0.1:8787"
 
-export interface DocumentsEnv extends ToolEnv {
-  /** Interpreter command or absolute path; never model input. */
+export interface ToolEnv {
+  /** Base URL of the BFF, e.g. `http://127.0.0.1:8787`. */
+  bffUrl: string
+  /** Shared bearer token for the internal artifact routes. Never logged. */
+  token: string
+  /** Interpreter command; `python3` from PATH by default. */
   python: string
 }
 
-export interface LoadDocumentsEnvOptions {
+export interface LoadToolEnvOptions {
   /** Injected for tests; defaults to `process.env`. */
   source?: Record<string, string | undefined>
 }
 
-function readPython(source: Record<string, string | undefined>): string {
-  const raw = source.OPENCHAT_PYTHON
-  if (raw === undefined || raw.trim().length === 0) return DEFAULT_PYTHON
-  const value = raw.trim()
-  if (value.includes("\u0000") || value.includes("\n") || value.includes("\r")) {
-    throw new Error("OPENCHAT_PYTHON must be one command or path")
-  }
-  return value
+function read(source: Record<string, string | undefined>, key: string): string | undefined {
+  const value = source[key]
+  if (value === undefined) return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
 }
 
-export function loadDocumentsEnv(options: LoadDocumentsEnvOptions = {}): DocumentsEnv {
+function readBffUrl(raw: string | undefined): string {
+  if (!raw) return DEFAULT_BFF_URL
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    throw new Error("OPENCHAT_BFF_URL must be an absolute http(s) URL")
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("OPENCHAT_BFF_URL must use http or https")
+  }
+  if (url.username || url.password) {
+    throw new Error("OPENCHAT_BFF_URL must not embed credentials")
+  }
+  if (url.search || url.hash) {
+    throw new Error("OPENCHAT_BFF_URL must not carry a query or fragment")
+  }
+  const path = url.pathname.replace(/\/+$/, "")
+  return path.length > 0 ? `${url.origin}${path}` : url.origin
+}
+
+/** Refusals name the variable only, never a value. */
+export function loadToolEnv(options: LoadToolEnvOptions = {}): ToolEnv {
   const source = options.source ?? process.env
-  const base = loadToolEnv({ source })
-  return { ...base, python: readPython(source) }
+  const bffUrl = readBffUrl(read(source, "OPENCHAT_BFF_URL"))
+  const token = read(source, "ARTIFACT_INTERNAL_TOKEN")
+  if (!token) {
+    throw new Error(
+      "ARTIFACT_INTERNAL_TOKEN must be set for the document tools; " +
+        "it is the same token the BFF reads",
+    )
+  }
+  return { bffUrl, token, python: read(source, "OPENCHAT_PYTHON") ?? "python3" }
 }

@@ -1,72 +1,163 @@
 import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
 /**
- * Contract test for the pinned Python set: every dependency is an exact
- * `name==version` line, no duplicates, no pre-releases, no VCS or URL
- * references, and every top-level name from requirements.in is resolved in
- * requirements.lock. No network and no interpreter needed.
+ * The locks are a contract, not a note. The image installs both with
+ * `--no-index`/`--no-deps`, so a range, a duplicate or a stray directive would
+ * either change the bytes between builds or fail the offline install. The
+ * native half has two representations (apk in the image, PyPI on a
+ * workstation); they must describe the same versions.
  */
 
-const LOCK = readFileSync(new URL("../../python-env/requirements.lock", import.meta.url), "utf8")
-const INPUT = readFileSync(new URL("../../python-env/requirements.in", import.meta.url), "utf8")
+const ROOT = join(import.meta.dirname, "..", "..", "..")
+const read = (...parts: string[]) => readFileSync(join(ROOT, ...parts), "utf8")
 
-const REQUIRED = ["python-docx", "openpyxl", "pypdf", "reportlab", "pillow"]
-const PIN = /^([A-Za-z0-9][A-Za-z0-9._-]*)==([0-9][A-Za-z0-9.+-]*)$/
+const LOCK = read("packages", "python-env", "requirements.lock")
+const DEV_LOCK = read("packages", "python-env", "requirements-dev.lock")
+const INPUT = read("packages", "python-env", "requirements.in")
+const APK = read("packages", "python-env", "apk-packages.txt")
 
-function entries(text: string): string[] {
+function requirements(text: string): string[] {
   return text
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith("#"))
 }
 
-function names(text: string): string[] {
-  return entries(text).map((line) => line.split("==")[0] ?? line)
+const LOCKED = requirements(LOCK)
+const DEV_LOCKED = requirements(DEV_LOCK)
+const APK_PACKAGES = requirements(APK)
+const ALL = [...LOCKED, ...DEV_LOCKED]
+
+function nameOf(line: string): string {
+  return line.split("==")[0]?.toLowerCase() ?? ""
+}
+
+function versionOf(line: string): string {
+  return line.split("==")[1] ?? ""
+}
+
+/** `markitdown[docx,pdf]==0.1.9` → `markitdown==0.1.9`. */
+function withoutExtras(line: string): string {
+  return line.replace(/\[[^\]]*\]/, "")
+}
+
+/** apk pins are `name=version-rN`; the distribution version drops `-rN`. */
+const APK_TO_DIST: Record<string, string> = {
+  "py3-onnxruntime": "onnxruntime",
+  "py3-pandas": "pandas",
+  "py3-lxml": "lxml",
+  "py3-openpyxl": "openpyxl",
+  "py3-cryptography": "cryptography",
+  "py3-pillow": "pillow",
 }
 
 describe("requirements.lock", () => {
-  it("pins every line with == and a version", () => {
-    for (const line of entries(LOCK)) {
-      expect(line, `unpinned line: ${line}`).toMatch(PIN)
+  it("pins every distribution with ==", () => {
+    expect(LOCKED.length).toBeGreaterThanOrEqual(20)
+    for (const line of LOCKED) {
+      expect(line, `${line} must be an exact pin`).toMatch(
+        /^[A-Za-z0-9][A-Za-z0-9._-]*==[0-9]+(?:\.[0-9]+)*$/,
+      )
     }
   })
 
-  it("has no duplicate package", () => {
-    const seen = new Set<string>()
-    for (const name of names(LOCK)) {
-      expect(seen.has(name.toLowerCase()), `duplicate: ${name}`).toBe(false)
-      seen.add(name.toLowerCase())
+  it("has no duplicate distribution", () => {
+    const names = LOCKED.map(nameOf)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
+  it("carries no pre-release, extras, URLs or directives", () => {
+    for (const line of LOCKED) {
+      expect(line).not.toMatch(/--pre|@|:\/\/|;|\[/)
     }
   })
 
-  it("contains the five top-level libraries", () => {
-    const pinned = names(LOCK).map((name) => name.toLowerCase())
-    for (const name of REQUIRED) expect(pinned).toContain(name)
+  it("keeps the native half out of the pip install", () => {
+    const names = LOCKED.map(nameOf)
+    for (const native of ["onnxruntime", "numpy", "pandas", "lxml", "openpyxl", "cryptography", "pillow"]) {
+      expect(names, `${native} must come from apk in the image`).not.toContain(native)
+    }
+    expect(LOCK).not.toMatch(/\bpandoc\b/i)
   })
 
-  it("carries no pre-release, VCS, URL or editable reference", () => {
-    for (const line of entries(LOCK)) {
-      expect(line).not.toContain("--pre")
-      expect(line).not.toContain("git+")
-      expect(line).not.toContain("http")
-      expect(line).not.toContain("-e ")
+  it("does not install the pypdfium2 renderer nobody imports", () => {
+    const names = LOCKED.map(nameOf)
+    expect(names).not.toContain("pypdfium2")
+    expect(names).not.toContain("pypdf")
+  })
+
+  it("contains markitdown and the converter halves of the four extras", () => {
+    const names = LOCKED.map(nameOf)
+    for (const dependency of [
+      "markitdown",
+      "magika",
+      "mammoth",
+      "pdfminer.six",
+      "pdfplumber",
+      "python-docx",
+      "python-pptx",
+      "reportlab",
+    ]) {
+      expect(names, `${dependency} missing from the lock`).toContain(dependency)
+    }
+  })
+})
+
+describe("requirements-dev.lock", () => {
+  it("pins every distribution with ==", () => {
+    expect(DEV_LOCKED.length).toBeGreaterThanOrEqual(15)
+    for (const line of DEV_LOCKED) {
+      expect(line, `${line} must be an exact pin`).toMatch(
+        /^[A-Za-z0-9][A-Za-z0-9._-]*==[0-9]+(?:\.[0-9]+)*$/,
+      )
     }
   })
 
-  it("ships no markitdown, by the documented size decision", () => {
-    expect(names(LOCK).map((name) => name.toLowerCase())).not.toContain("markitdown")
+  it("has no duplicate distribution and no overlap with the pip lock", () => {
+    const names = DEV_LOCKED.map(nameOf)
+    expect(new Set(names).size).toBe(names.length)
+    for (const name of names) {
+      expect(LOCKED.map(nameOf), `${name} is pinned twice`).not.toContain(name)
+    }
   })
 })
 
 describe("requirements.in", () => {
-  it("names only pinned top-level libraries", () => {
-    for (const line of entries(INPUT)) expect(line).toMatch(PIN)
-    expect(names(INPUT).map((name) => name.toLowerCase())).toEqual(REQUIRED)
+  it("is covered by the two locks at the exact version", () => {
+    for (const line of requirements(INPUT)) {
+      const pinned = withoutExtras(line)
+      expect(ALL, `${pinned} missing from both locks`).toContain(pinned)
+    }
   })
 
-  it("is fully represented in the lock", () => {
-    const locked = names(LOCK).map((name) => name.toLowerCase())
-    for (const name of names(INPUT)) expect(locked).toContain(name.toLowerCase())
+  it("requests markitdown's four format extras, never `all`", () => {
+    const markitdown = requirements(INPUT).find((line) => line.startsWith("markitdown"))
+    expect(markitdown).toBe("markitdown[docx,xlsx,pptx,pdf]==0.1.9")
+    expect(INPUT).not.toMatch(/markitdown\[all\]/)
+  })
+})
+
+describe("apk-packages.txt", () => {
+  it("pins every package to an exact Alpine version", () => {
+    expect(APK_PACKAGES.length).toBeGreaterThanOrEqual(6)
+    for (const line of APK_PACKAGES) {
+      expect(line, `${line} must be an apk pin`).toMatch(
+        /^py3-[a-z0-9-]+=[0-9]+\.[0-9]+(?:\.[0-9]+)?-r[0-9]+$/,
+      )
+    }
+  })
+
+  it("describes the same versions as the development lock", () => {
+    const dev = new Map(DEV_LOCKED.map((line) => [nameOf(line), versionOf(line)]))
+    for (const line of APK_PACKAGES) {
+      const [apkName, apkVersion] = line.split("=")
+      const dist = APK_TO_DIST[apkName ?? ""]
+      expect(dist, `unmapped apk package ${apkName}`).toBeDefined()
+      expect(dev.get(dist ?? ""), `${dist} differs between apk and the dev lock`).toBe(
+        apkVersion?.replace(/-r[0-9]+$/, ""),
+      )
+    }
   })
 })

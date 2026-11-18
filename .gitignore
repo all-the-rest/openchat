@@ -7,7 +7,7 @@ dist
 .DS_Store
 references/raw
 
-# Python environment of the document tools (`pnpm run setup:python`).
+# Development Python environment (`pnpm run setup:python`); the lock is tracked.
 .venv/
 
 # Default artifact store of a development run (`ARTIFACTS_DIR`).

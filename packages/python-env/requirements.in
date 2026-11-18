@@ -1,21 +1,20 @@
-# Top-level Python libraries for the typed document tools (issue #24).
+# Python dependencies for the document tools (issue #24).
 #
-# The runtime image installs exactly `requirements.lock`, never this file baked
-# from the index: the lock is the resolved, fully pinned set. Keep the two in
-# step; `packages/python-tool/test/lock.test.ts` fails when a name here is
-# missing from the lock or the lock carries an unpinned line.
+# This file records intent; requirements.lock and requirements-dev.lock carry
+# the exact pins. Everything is pinned with `==` and installed with
+# `--no-deps`, so the closure must be complete.
 #
-# markitdown is deliberately absent. Measured on the Alpine 3.24.4 base it pulls
-# a conversion stack of its own on top of these five libraries (see
-# docs/implementation/14-deployment.md) and would consume most of the 400 MB
-# image budget to re-read the three formats this set already reads directly.
-# read_document produces Markdown from python-docx, openpyxl and pypdf.
+# markitdown is the Microsoft converter and the owner-required reader. Only the
+# four format extras are requested: `all` would also pull audio/video
+# transcription and Azure cloud clients. XLSX brings pandas, DOCX brings lxml;
+# both are native packages and therefore live in requirements-dev.lock (and in
+# apk-packages.txt for the image).
 #
-# pandas is absent: no tool in this slice aggregates data frames.
-# pandoc is absent: the binary is large and the PDF path is reportlab, not
-# DOCX->Markdown.
+# Native packages (onnxruntime, numpy, pandas, lxml, openpyxl, cryptography,
+# pillow) are Alpine packages in the image and PyPI wheels in the development
+# virtualenv. pandoc is absent: a ~150 MB binary with no consumer here.
+markitdown[docx,xlsx,pptx,pdf]==0.1.9
 python-docx==1.2.0
 openpyxl==3.1.5
-pypdf==7.1.1
 reportlab==5.1.0
-pillow==13.0.0
+pillow==12.2.0

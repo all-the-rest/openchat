@@ -1,0 +1,31 @@
+# Native half of the document toolchain for `pnpm run setup:python`.
+#
+# The production image gets these from Alpine packages (apk-packages.txt) so
+# every compiled library exists exactly once on the musl filesystem. A
+# workstation has no apk, so it installs the same distribution versions from
+# PyPI wheels. Keep the versions in this file equal to apk-packages.txt; the
+# lock test enforces it, so development and production run the same code.
+#
+# Installed with `--no-deps`, together with requirements.lock. pypdfium2 is
+# absent for the reason documented in requirements.lock.
+cffi==2.0.0
+coloredlogs==15.0.1
+cryptography==47.0.0
+flatbuffers==25.12.19
+google-re2==1.1.20251105
+humanfriendly==10.0
+lxml==6.1.1
+mpmath==1.4.1
+numpy==2.4.6
+onnxruntime==1.24.4
+openpyxl==3.1.5
+packaging==26.2
+pandas==3.0.3
+pillow==12.2.0
+pybind11==3.0.1
+pycparser==3.0
+pyparsing==3.3.2
+python-dateutil==2.9.0
+pytz==2026.6
+sympy==1.14.0
+tzdata==2026.4

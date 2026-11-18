@@ -232,3 +232,75 @@ describe("internal artifact route: throttle", () => {
     expect(accepted.status).toBe(201)
   })
 })
+
+describe("internal artifact read route", () => {
+  async function get(
+    server: TestServer,
+    id: string,
+    auth: string | null = `Bearer ${TOKEN}`,
+  ): Promise<Response> {
+    const headers: Record<string, string> = {}
+    if (auth !== null) headers.authorization = auth
+    return await server.app.request(`/internal/artifacts/${id}`, { headers })
+  }
+
+  it("returns the stored document byte for byte without a session", async () => {
+    const server = makeServer({ env: env(await artifactDir()) })
+    const receipt = await json<ArtifactWriteReceipt>(
+      await post(server, { title: "Template", html: HTML }),
+    )
+    const response = await get(server, receipt.artifactID)
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8")
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff")
+    expect(response.headers.get("cache-control")).toBe("no-store")
+    expect(await response.text()).toBe(HTML)
+  })
+
+  it.each([
+    ["a missing header", null],
+    ["a wrong token", "Bearer wrong-token"],
+    ["a basic credential", `Basic ${TOKEN}`],
+  ])("rejects %s", async (_label, auth) => {
+    const server = makeServer({ env: env(await artifactDir()) })
+    const receipt = await json<ArtifactWriteReceipt>(
+      await post(server, { title: "Template", html: HTML }),
+    )
+    const response = await get(server, receipt.artifactID, auth)
+    expect(response.status).toBe(401)
+    expect(await json(response)).toMatchObject({ error: { code: "unauthorized" } })
+  })
+
+  it("answers 404 for an unknown id and a malformed id alike", async () => {
+    const server = makeServer({ env: env(await artifactDir()) })
+    const unknown = "0".repeat(64)
+    for (const id of [unknown, "0".repeat(63), "A".repeat(64), "g".repeat(64)]) {
+      const response = await get(server, id)
+      expect(response.status, id).toBe(404)
+      expect(await json(response)).toMatchObject({ error: { code: "artifacts_unknown" } })
+    }
+  })
+
+  it("answers 503 when the artifact surface is not configured", async () => {
+    const server = makeServer({
+      env: {
+        ARTIFACT_INTERNAL_TOKEN: TOKEN,
+        ARTIFACTS_DIR: await artifactDir(),
+      },
+    })
+    const response = await get(server, "0".repeat(64))
+    expect(response.status).toBe(503)
+    expect(await json(response)).toMatchObject({ error: { code: "artifacts_unavailable" } })
+  })
+
+  it("does not spend the write budget on reads", async () => {
+    const server = makeServer({ env: env(await artifactDir()) })
+    const receipt = await json<ArtifactWriteReceipt>(
+      await post(server, { title: "Template", html: HTML }),
+    )
+    for (let index = 0; index < 30; index += 1) {
+      const response = await get(server, receipt.artifactID)
+      expect(response.status).toBe(200)
+    }
+  })
+})
