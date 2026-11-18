@@ -2,12 +2,15 @@ import type {
   AgentInfo,
   AppSkill,
   AppServer,
+  BackgroundJob,
   EventEnvelope,
   InboxEntry,
   Message,
   ModelInfo,
   PermissionDecision,
   PermissionRequest,
+  Schedule,
+  ScheduleEnds,
   SearchHit,
   SearchSource,
   ServerInfo,
@@ -16,6 +19,12 @@ import type {
 
 export { BackendError } from "./errors"
 export type { BackendErrorCode } from "./errors"
+export {
+  mapScheduleError,
+  normalizeJob,
+  normalizeSchedule,
+  scheduleWhen,
+} from "./live-tasks"
 
 export interface PromptInput {
   text: string
@@ -36,6 +45,14 @@ export interface CreateSessionInput {
   title?: string
   /** Absolute workspace directory; the browser never chooses this. */
   directory: string
+}
+
+export interface CreateScheduleInput {
+  sessionID: string
+  /** 1–4000 characters, validated by the route. */
+  prompt: string
+  /** One-shot end condition: fire after a duration or at an instant. */
+  ends: ScheduleEnds
 }
 
 export interface SearchInput {
@@ -109,6 +126,14 @@ export interface ChatBackend {
   disconnectApp(name: string): Promise<void>
   /** Grouped multi-source search; only `input.sources` are queried. */
   search(input: SearchInput): Promise<SearchOutcome>
+  /** Schedules of one session; the host API requires a session id. */
+  listSchedules(sessionID: string): Promise<Schedule[]>
+  createSchedule(input: CreateScheduleInput): Promise<Schedule>
+  pauseSchedule(id: string): Promise<Schedule>
+  resumeSchedule(id: string): Promise<Schedule>
+  deleteSchedule(id: string): Promise<void>
+  /** Running and finished shell, subagent and image jobs, flat. */
+  listJobs(): Promise<BackgroundJob[]>
   subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope>
 }
 

@@ -1,8 +1,9 @@
-import type { EventEnvelope, PermissionDecision } from "@openchat/contracts"
+import type { BackgroundJob, EventEnvelope, PermissionDecision, Schedule } from "@openchat/contracts"
 import { BackendError } from "./errors"
 import type {
   AppsSnapshot,
   ChatBackend,
+  CreateScheduleInput,
   CreateSessionInput,
   PromptInput,
   PromptResult,
@@ -132,6 +133,36 @@ export class FakeHostSwitch implements ChatBackend {
   async search(input: SearchInput): Promise<SearchOutcome> {
     this.guard()
     return this.backend.search(input)
+  }
+
+  async listSchedules(sessionID: string): Promise<Schedule[]> {
+    this.guard()
+    return this.backend.listSchedules(sessionID)
+  }
+
+  async createSchedule(input: CreateScheduleInput): Promise<Schedule> {
+    this.guard()
+    return this.backend.createSchedule(input)
+  }
+
+  async pauseSchedule(id: string): Promise<Schedule> {
+    this.guard()
+    return this.backend.pauseSchedule(id)
+  }
+
+  async resumeSchedule(id: string): Promise<Schedule> {
+    this.guard()
+    return this.backend.resumeSchedule(id)
+  }
+
+  async deleteSchedule(id: string): Promise<void> {
+    this.guard()
+    return this.backend.deleteSchedule(id)
+  }
+
+  async listJobs(): Promise<BackgroundJob[]> {
+    this.guard()
+    return this.backend.listJobs()
   }
 
   async *subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {

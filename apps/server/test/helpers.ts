@@ -1,5 +1,10 @@
 import type { Hono } from "hono"
-import type { EventEnvelope, FakeScenario, SearchSource } from "@openchat/contracts"
+import type {
+  BackgroundJob,
+  EventEnvelope,
+  FakeScenario,
+  SearchSource,
+} from "@openchat/contracts"
 import { FakeBackend } from "@openchat/opencode"
 import { createApp } from "../src/app"
 import type { AppEnv } from "../src/app"
@@ -30,6 +35,8 @@ export interface TestServerOptions {
   appsAvailable?: boolean
   /** Records connect/disconnect calls. */
   onAppAction?: (action: "connect" | "disconnect", name: string) => void
+  /** Deterministic background jobs for `/api/jobs`. */
+  seedJobs?: readonly BackgroundJob[]
   /** Code host health probe; keeps tests off the network. */
   codeProbe?: CodeProbe
   codeStatusCacheMs?: number
@@ -77,6 +84,7 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
     failingSources: options.failingSources,
     appsAvailable: options.appsAvailable ?? config.FAKE_APPS,
     onAppAction: options.onAppAction,
+    seedJobs: options.seedJobs,
   })
   return {
     app: createApp({

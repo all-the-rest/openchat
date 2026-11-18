@@ -11,6 +11,7 @@ export * from "./artifacts/caps"
 export * from "./permissions"
 export * from "./stt-model"
 export * from "./transcript"
+export * from "./tasks"
 
 export interface SessionInfo {
   id: string
