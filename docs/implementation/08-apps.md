@@ -89,7 +89,8 @@ vocabulary (`apps/web/src/search/sources.ts`, `STATUS_LABEL`) so search and
   trace never becomes a row, and a bidi override cannot rewrite one.
 - A host row without a usable name or with a status outside the five known
   values is skipped: one malformed server must not turn the whole list into a
-  502. The list also survives a single failed source (next bullet).
+  502. Skills come from the same snapshot, so a failed source removes the
+  server rows and the skill rows together.
 - Skills are trimmed to `id`, `name`, `description`, `autoinvoke`. `path` and
   `content` stay upstream: they are workspace-local and can be large.
 - `connectApp(name)` / `disconnectApp(name)` call

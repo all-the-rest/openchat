@@ -203,4 +203,32 @@ describe("app snapshot cache", () => {
     expect(await second).toEqual({ available: true, servers: [], skills: [] })
     expect(calls).toBe(1)
   })
+
+  it("does not cache a probe that lost a race against an action", async () => {
+    let calls = 0
+    let release: (snapshot: AppsSnapshot) => void = () => {}
+    const probe = async (): Promise<AppsSnapshot> => {
+      calls += 1
+      if (calls === 1) {
+        return await new Promise<AppsSnapshot>((resolve) => {
+          release = resolve
+        })
+      }
+      return { servers: [{ name: "github", status: "connected" }], skills: [] }
+    }
+    const cache = new AppsCache({ probe, now: () => 0 })
+
+    const stale = cache.get()
+    // A connect lands while the first probe is still in flight, so the answer
+    // it is about to produce describes the host as it was before the action.
+    cache.invalidate()
+    release({ servers: [], skills: [] })
+    expect(await stale).toEqual({ available: true, servers: [], skills: [] })
+
+    // Pinning that answer would serve the pre-action list for a full window;
+    // the next read must ask the host again.
+    const fresh = await cache.get()
+    expect(fresh.servers).toEqual([{ name: "github", status: "connected" }])
+    expect(calls).toBe(2)
+  })
 })
