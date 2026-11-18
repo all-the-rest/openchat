@@ -83,7 +83,7 @@ test("presents the artifact, leaves with Escape and resets in place", async ({ p
     const url = new URL(request.url())
     if (url.pathname === `/api/artifacts/${E2E_ARTIFACT_ID}`) reads += 1
   })
-  await page.getByTestId("artifact-reload").click()
+  await page.getByTestId("artifact-reset").click()
   await expect(page.getByTestId("artifact-frame")).toHaveAttribute("src", firstSrc ?? "")
   await expect(page.getByTestId("artifact-frame")).toHaveAttribute("src", SIGNED_URL)
   const artifact = page.frameLocator('[data-testid="artifact-frame"]')

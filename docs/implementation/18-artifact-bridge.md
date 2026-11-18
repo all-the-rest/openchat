@@ -56,7 +56,8 @@ load timeout.
 - The shim accepts `artifact:init` only from `window.parent`. Same rule, mirrored.
 - The nonce is 16 random bytes as 32 hex characters (`crypto.getRandomValues`).
   It is not a credential: it proves "this is the frame I created", nothing more.
-  A reset mints a new nonce, so the previous frame's messages die with it.
+  An in-place reset keeps the nonce because it is the same document; a reset
+  that remounts the frame mints a new one, so the old frame's messages die.
 - Everything else is dropped without a response: a foreign source, a wrong
   nonce, an unknown type, a malformed body.
 
@@ -86,8 +87,8 @@ draft store. Until then a result is validated and dropped, not rendered.
 
 ## Reset semantics
 
-The viewer's Reset control (the existing `artifact-reload` test id and
-`artifacts.reload` catalogue key) restarts the app **without minting**:
+The viewer's Reset control (`artifact-reset` test id, `artifacts.reset`
+catalogue key) restarts the app **without minting**:
 
 1. If the frame completed the handshake, the viewer posts `artifact:reset` with
    the current nonce. The shim reloads its own document, the iframe fires
@@ -102,10 +103,9 @@ pre-expiry refresh still replaces the URL when the signature ages out; that is
 the only path that re-mints, and it is not reset. The stale panel's Retry also
 re-reads the metadata by design.
 
-Because the reset control is the slice-2 Reload button, its label still comes
-from `artifacts.reload`. The catalogue under `apps/web/src/i18n/**` is owned by
-the in-flight Lingui migration; the key should be renamed to `artifacts.reset`
-there, not here.
+The control is labelled from `artifacts.reset` ("Reset" / "Zurücksetzen"),
+which is in both locales. `artifacts.reload` remains for the stale panel's
+Retry, which re-reads the metadata by design.
 
 ## Proof A — an escaping app cannot navigate or reparent the top frame
 
@@ -158,22 +158,28 @@ the control.
 All four are read from disk by the tests. No fixture, test or shim makes a
 network request.
 
-## The one line slice 3's shell needs
+## The shell wiring (done)
 
-The shell must inline the shim **before** the app bundle, inside the same
-document, so `window.openchat` exists when the compiled IIFE runs:
+The shell inlines the shim **before** the app bundle, inside the same document,
+so `window.openchat` exists when the compiled IIFE runs:
 
 ```ts
 import { BRIDGE_SCRIPT } from "@openchat/artifact-host/bridge"
 
-const html = `<script>${BRIDGE_SCRIPT}</script><script>${bundle}</script>`
+const html = `<!doctype html><html>…<body><div id="root"></div>
+<script>${BRIDGE_SCRIPT}</script><script>${bundle}</script>
+</body></html>`
 ```
 
-The only new line in the shell template is
-`<script>${BRIDGE_SCRIPT}</script>`; the import resolves through the
-`./bridge` subpath export added to `apps/artifact-host/package.json`. Do not
-minify or wrap the shim in a module: it is a classic script, and the shell is
-one portable document.
+This is wired: `packages/artifact-tool/src/shell.ts` returns `BRIDGE_SCRIPT`
+from `bridgeScript()` and emits the bridge tag first, and
+`@openchat/artifact-tool` depends on `@openchat/artifact-host` (`workspace:*`).
+`compile.test.ts` pins the bridge text, its position ahead of the bundle, and
+the two script elements, so the order cannot regress silently.
+
+The import resolves through the `./bridge` subpath export in
+`apps/artifact-host/package.json`. Do not minify or wrap the shim in a module:
+it is a classic script, and the shell is one portable document.
 
 The shim expects `#root` to exist at `DOMContentLoaded` (the shell already
 renders `<div id="root"></div>`) and sets `data-theme` and `color-scheme` on
@@ -195,8 +201,3 @@ renders `<div id="root"></div>`) and sets `data-theme` and `color-scheme` on
 - **No composer insertion.** The callback is the seam; the route has no composer.
 - **No per-artifact result quota beyond 500 ms.** The 64 KiB cap and the rate
   limit are the documented bounds; a daily quota has no product requirement.
-- **No change to `docs/implementation/09-artifacts.md`.** It still says Reset
-  re-mints; slice 4 changes that, and the slice owner updates 09 when the slices
-  merge.
-- **No new i18n keys.** The reset control reuses `artifacts.reload`; the Lingui
-  migration owns the catalogue and should rename the key.

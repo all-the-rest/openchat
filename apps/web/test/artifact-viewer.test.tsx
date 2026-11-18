@@ -201,7 +201,7 @@ describe("artifact viewer", () => {
     const before = await screen.findByTestId("artifact-frame")
     expect(before).toHaveAttribute("src", artifact().url)
 
-    await user.click(screen.getByTestId("artifact-reload"))
+    await user.click(screen.getByTestId("artifact-reset"))
 
     // Reset remounts the frame with the same signed URL: no second metadata
     // read, no new signature, no lost present mode.

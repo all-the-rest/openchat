@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { BRIDGE_SCRIPT } from "@openchat/artifact-host/bridge"
 import {
   ESBUILD_VERSION,
   PREACT_VERSION,
@@ -115,7 +116,7 @@ describe("shell", () => {
     expect(document.trimEnd().endsWith("</body></html>")).toBe(true)
   })
 
-  it("ships no bridge today", async () => {
+  it("inlines the bridge before the app bundle", async () => {
     const script = await compileOrThrow(APP)
     const document = buildDocument({
       title: "Counter",
@@ -123,10 +124,30 @@ describe("shell", () => {
       script,
       tools: { esbuild: ESBUILD_VERSION, preact: PREACT_VERSION },
     })
-    expect(bridgeScript()).toBe("")
-    expect(document).not.toContain("window.openchat")
-    // Exactly one script element: the bundle. Slice 4 adds the bridge.
-    expect(document.match(/<script>/g)).toHaveLength(1)
+    const bridgeTag = `<script>${BRIDGE_SCRIPT}</script>`
+    const bundleTag = `<script>${script}</script>`
+    expect(bridgeScript()).toBe(BRIDGE_SCRIPT)
+    expect(document).toContain(bridgeTag)
+    // The shim is a classic script and must run first: window.openchat has to
+    // exist when the app IIFE calls it, so the order is part of the contract.
+    expect(document.indexOf(bridgeTag)).toBeLessThan(document.indexOf(bundleTag))
+    expect(document.indexOf(bridgeTag)).toBeGreaterThan(document.indexOf('<div id="root"></div>'))
+    expect(document.match(/<script>/g)).toHaveLength(2)
+    expect(document).not.toContain('<script type="module"')
+  })
+
+  it("does not let the app code close the bridge or bundle element early", async () => {
+    const script = await compileOrThrow(APP)
+    const document = buildDocument({
+      title: "Counter",
+      css: "",
+      script,
+      tools: { esbuild: ESBUILD_VERSION, preact: PREACT_VERSION },
+    })
+    // Exactly two terminators: the bridge and the bundle. A `</script` in the
+    // app code would add a third and break the document out of its element.
+    expect(script.toLowerCase()).not.toContain("</script")
+    expect(document.match(/<\/script>/g)).toHaveLength(2)
   })
 
   it("is deterministic for identical input", async () => {

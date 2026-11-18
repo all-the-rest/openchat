@@ -221,7 +221,7 @@ describe("artifact bridge", () => {
     post({ type: "artifact:ready", nonce }, window)
     await act(async () => {})
 
-    await user.click(screen.getByTestId("artifact-reload"))
+    await user.click(screen.getByTestId("artifact-reset"))
 
     expect(posted.map((entry) => (entry[0] as Record<string, unknown>).type)).toEqual([
       "artifact:init",
@@ -245,7 +245,7 @@ describe("artifact bridge", () => {
     fireEvent.load(before.frame)
     const first = initMessage(before.posted)
 
-    await user.click(screen.getByTestId("artifact-reload"))
+    await user.click(screen.getByTestId("artifact-reset"))
 
     const after = frames()
     expect(after.frame).not.toBe(before.frame)
