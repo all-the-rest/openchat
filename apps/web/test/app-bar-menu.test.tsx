@@ -75,6 +75,7 @@ function renderShell() {
                 <Route index element={<p>chat home</p>} />
                 <Route path="/search" element={<p>search page</p>} />
                 <Route path="/apps" element={<p>apps page</p>} />
+                <Route path="/artifacts" element={<p>artifacts page</p>} />
                 <Route path="/c/:sessionId" element={<p>chat page</p>} />
                 <Route path="/code" element={<p>code page</p>} />
               </Route>
@@ -281,6 +282,33 @@ describe("app bar menu entries", () => {
     expect(within(menu).queryByTestId("menu-apps")).toBeNull()
     expect(within(menu).getByTestId("menu-search")).toBeInTheDocument()
     expect(within(menu).getByTestId("menu-new-chat")).toBeInTheDocument()
+  })
+
+  it("opens the artifact list and closes the menu", async () => {
+    stubViewport(false)
+    mocks.info.mockResolvedValue({
+      code: { configured: true, expectedVersion: "2.3.0" },
+      apps: { available: true },
+      artifacts: { available: true },
+    })
+    const user = userEvent.setup()
+    renderShell()
+
+    const menu = await openMenu(user)
+    await user.click(within(menu).getByTestId("menu-artifacts"))
+    expect(screen.getByTestId("location")).toHaveTextContent("/artifacts")
+    expect(screen.queryByRole("menu")).toBeNull()
+  })
+
+  it("hides the Artifacts entry when storage is not configured", async () => {
+    stubViewport(false)
+    const user = userEvent.setup()
+    renderShell()
+
+    await waitFor(() => expect(mocks.info).toHaveBeenCalled())
+    const menu = await openMenu(user)
+
+    expect(within(menu).queryByTestId("menu-artifacts")).toBeNull()
   })
 
   it("creates a chat like the sidebar's New chat and closes", async () => {

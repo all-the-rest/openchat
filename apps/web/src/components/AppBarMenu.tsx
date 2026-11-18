@@ -12,7 +12,7 @@ import { SurfaceSwitch } from "../code/SurfaceSwitch"
 import { useSurface } from "../code/SurfaceProvider"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
-import { AppsIcon, MoreIcon, PlusIcon, SearchIcon } from "./icons"
+import { AppsIcon, ArtifactsIcon, MoreIcon, PlusIcon, SearchIcon } from "./icons"
 
 /** Desktop layout breakpoint, matching the shell's drawer and Tailwind's `lg`. */
 const WIDE_QUERY = "(min-width: 1024px)"
@@ -36,7 +36,7 @@ const MENU_ITEM = '[role="menuitem"]'
 export function AppBarMenu({ className = "" }: { className?: string }) {
   const t = useT()
   const wide = useMediaQuery(WIDE_QUERY)
-  const { configured, appsAvailable } = useSurface()
+  const { configured, appsAvailable, artifactsAvailable } = useSurface()
   const { create } = useSessions()
   const navigate = useNavigate()
   const location = useLocation()
@@ -207,6 +207,19 @@ export function AppBarMenu({ className = "" }: { className?: string }) {
             >
               <AppsIcon className="size-4 shrink-0" />
               {t("nav.apps")}
+            </Link>
+          ) : null}
+
+          {artifactsAvailable === true ? (
+            <Link
+              to="/artifacts"
+              role="menuitem"
+              data-testid="menu-artifacts"
+              onClick={() => close(false)}
+              className={ITEM}
+            >
+              <ArtifactsIcon className="size-4 shrink-0" />
+              {t("nav.artifacts")}
             </Link>
           ) : null}
 
