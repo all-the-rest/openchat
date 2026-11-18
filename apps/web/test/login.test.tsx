@@ -110,6 +110,8 @@ describe("login redirect", () => {
 
   it.each([
     ["a protocol-relative path", { from: "//evil.example" }],
+    // Some URL parsers normalise `/\host` to a protocol-relative URL.
+    ["a backslash path", { from: "/\\evil.example" }],
     ["a non-string value", { from: 42 }],
     ["an absent state", undefined],
   ])("falls back to the landing page for %s", async (_label, state) => {

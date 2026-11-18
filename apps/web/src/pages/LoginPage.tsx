@@ -7,13 +7,15 @@ import { useT } from "../i18n/provider"
 
 /**
  * Returns the requested same-origin path from a redirect state, or `null`.
- * Only absolute single-slash paths are accepted: `//evil.example` (and any
- * non-string) is treated as hostile and falls back to the landing page.
+ * Only absolute single-slash paths are accepted: `//evil.example`, a path with
+ * a backslash (some URL parsers read `/\evil.example` as `//evil.example`) and
+ * any non-string are treated as hostile and fall back to the landing page.
  */
 export function safeRedirectPath(state: unknown): string | null {
   if (typeof state !== "object" || state === null) return null
   const from = (state as { from?: unknown }).from
   if (typeof from !== "string" || !from.startsWith("/") || from.startsWith("//")) return null
+  if (from.includes("\\")) return null
   return from
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { Composer } from "../chat/Composer"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
+import { QueuedTurns } from "../chat/QueuedTurns"
 import { useSessions } from "../chat/sessions"
 import { Transcript } from "../chat/Transcript"
 import { useChatSession } from "../chat/useChatSession"
@@ -56,7 +57,9 @@ export function ChatPage() {
       ? t("chat.sendFailed")
       : chat.error === "stop"
         ? t("chat.stopFailed")
-        : null
+        : chat.error === "cancel"
+          ? t("chat.cancelFailed")
+          : null
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -76,6 +79,10 @@ export function ChatPage() {
 
       <div className="shrink-0 border-t border-subtle bg-app px-4 pb-3 pt-3">
         <div className="mx-auto w-full max-w-[768px]">
+          <QueuedTurns
+            entries={chat.inbox}
+            onCancel={(messageID) => void chat.cancelQueued(messageID)}
+          />
           <ConnectionNotice />
           {bannerMessage ? (
             <ErrorBanner message={bannerMessage} onDismiss={chat.clearError} />

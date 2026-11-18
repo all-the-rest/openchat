@@ -1,4 +1,4 @@
-import type { Message, MessageStatus } from "@openchat/contracts"
+import type { InboxEntry, Message, MessageStatus } from "@openchat/contracts"
 import { EVENT, messageText } from "@openchat/contracts"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { api } from "../api/client"
@@ -6,8 +6,9 @@ import { useEventStream } from "../api/events"
 import { useSurfaceOrNull } from "../code/SurfaceProvider"
 import { createID } from "../lib/ids"
 import { applyEvent, isTerminalEvent } from "../state/fold"
+import { applyInboxEvent } from "./inbox"
 
-export type ChatError = "load" | "send" | "stop" | null
+export type ChatError = "load" | "send" | "stop" | "cancel" | null
 
 export interface ChatSessionValue {
   messages: Message[]
@@ -19,10 +20,14 @@ export interface ChatSessionValue {
   running: boolean
   /** A prompt was accepted into the queue of the active run (spec 10 B). */
   queued: boolean
+  /** Pending turns restored from the inbox or announced by the event stream. */
+  inbox: InboxEntry[]
   lastAssistantStatus: MessageStatus | null
   canRetry: boolean
   send: (text: string) => Promise<void>
   stop: () => Promise<void>
+  /** Drops one pending turn from the host queue. */
+  cancelQueued: (messageID: string) => Promise<void>
   reload: (options?: { silent?: boolean }) => Promise<void>
   /** Asks the assistant to continue a stopped or completed answer. */
   continueRun: () => Promise<void>
@@ -38,6 +43,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
   const [submitting, setSubmitting] = useState(false)
   const [stopped, setStopped] = useState(false)
   const [queued, setQueued] = useState(false)
+  const [inbox, setInbox] = useState<InboxEntry[]>([])
   const { subscribe, reconnect } = useEventStream()
   const hostReachable = useSurfaceOrNull()?.hostReachable ?? null
 
@@ -56,9 +62,16 @@ export function useChatSession(sessionID: string): ChatSessionValue {
       inFlight.current = target
       if (!options.silent) setLoading(true)
       try {
-        const list = await api.listMessages(target)
+        // The inbox is a separate read: a failure there must not fail the
+        // transcript, it only leaves the queued markers empty until the next
+        // event or reload.
+        const [list, pending] = await Promise.all([
+          api.listMessages(target),
+          api.listInbox(target).catch(() => [] as InboxEntry[]),
+        ])
         if (activeSession.current !== target) return
         setMessages(list)
+        setInbox(pending)
         setQueued(false)
         setError(null)
       } catch {
@@ -77,6 +90,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     setSubmitting(false)
     setStopped(false)
     setQueued(false)
+    setInbox([])
     setError(null)
     void reload()
   }, [reload])
@@ -105,8 +119,14 @@ export function useChatSession(sessionID: string): ChatSessionValue {
       const eventSession = event.data.sessionID
       if (typeof eventSession === "string" && eventSession !== activeSession.current) return
       setMessages((current) => applyEvent(current, event))
+      setInbox((current) => applyInboxEvent(current, event))
       if (event.type === EVENT.executionStarted) {
         setStopped(false)
+        setQueued(false)
+      }
+      if (event.type === EVENT.inboxDelivered || event.type === EVENT.inboxCancelled) {
+        // The marker list is the source of truth; the optimistic flag only
+        // bridges the gap between a prompt response and its inbox entry.
         setQueued(false)
       }
       if (event.type === EVENT.interrupted) setStopped(true)
@@ -176,6 +196,23 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     }
   }, [sessionID])
 
+  const cancelQueued = useCallback(
+    async (messageID: string) => {
+      const previous = inbox
+      setError(null)
+      setInbox((current) => current.filter((entry) => entry.id !== messageID))
+      if (previous.length <= 1) setQueued(false)
+      try {
+        await api.cancelQueued(sessionID, messageID)
+      } catch {
+        // Put the marker back: the host still holds the pending turn.
+        setInbox(previous)
+        setError("cancel")
+      }
+    },
+    [inbox, sessionID],
+  )
+
   const continueRun = useCallback(async () => {
     await send("continue")
   }, [send])
@@ -216,11 +253,14 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     streaming,
     stopped,
     running,
-    queued,
+    // A restored pending turn counts as queued even before any prompt response.
+    queued: queued || inbox.length > 0,
+    inbox,
     lastAssistantStatus,
     canRetry,
     send,
     stop,
+    cancelQueued,
     reload,
     continueRun,
     retryLast,
