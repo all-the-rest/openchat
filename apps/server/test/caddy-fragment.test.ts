@@ -32,8 +32,15 @@ describe("Caddy fragment", () => {
     expect(rest).toContain("reverse_proxy openchat-bff:8787")
     expect(chat.indexOf("\thandle /api/events* {")).toBeLessThan(chat.indexOf("\thandle {"))
 
-    // code has no stream and is compressed as a whole; artifacts has no encode.
-    expect(site("code")).toContain("encode zstd gzip")
+    // The Code host proxies OpenCode's event stream on the same path, so it
+    // needs the same split; artifacts has no encode at all.
+    const code = site("code")
+    const codeSse = block(code, "\thandle /api/events* {", "\n\t}")
+    const codeRest = block(code, "\thandle {", "\n\t}")
+    expect(codeSse).toContain("reverse_proxy openchat-code-host:8090")
+    expect(codeSse).not.toMatch(/^\s*encode\b/m)
+    expect(codeRest).toContain("encode zstd gzip")
+    expect(code.indexOf("\thandle /api/events* {")).toBeLessThan(code.indexOf("\thandle {"))
     expect(site("artifacts")).not.toMatch(/^\s*encode\b/m)
     expect(CADDY).not.toContain("@compressible")
     expect(CADDY.match(/encode zstd gzip/g)).toHaveLength(2)
@@ -60,8 +67,8 @@ describe("Caddy fragment", () => {
     for (const host of ["chat", "code", "artifacts"]) {
       expect(CADDY).toContain(`${host}.__OPENCHAT_DOMAIN__ {`)
     }
-    expect(CADDY.match(/flush_interval -1/g)).toHaveLength(3)
-    expect(CADDY.match(/header_up X-Forwarded-For \{remote_host\}/g)).toHaveLength(3)
+    expect(CADDY.match(/flush_interval -1/g)).toHaveLength(4)
+    expect(CADDY.match(/header_up X-Forwarded-For \{remote_host\}/g)).toHaveLength(4)
     expect(CADDY).not.toMatch(/^\s*basic_auth\b/m)
     expect(CADDY).not.toMatch(/^\s*forward_auth\b/m)
     expect(CADDY).toContain("X-Frame-Options \"DENY\"")

@@ -323,9 +323,9 @@ Measured on `caddy:2-alpine` with a 700-byte `text/event-stream` body and a
 700-byte `text/html` body (`Accept-Encoding: gzip, zstd`): `/api/events` →
 `Content-Type: text/event-stream`, **no** `Content-Encoding`; `/` →
 `Content-Encoding: zstd`. `handle` blocks are ordered and exclusive, so the
-split is structural rather than a matcher subtlety. The `code` origin has no
-event stream and uses `encode zstd gzip` plainly; `artifacts` has no `encode` at
-all.
+split is structural rather than a matcher subtlety. The `code` origin proxies
+OpenCode's event stream on the same `/api/events` path, so it carries the same
+split; `artifacts` has no `encode` at all.
 
 To check the installed file on the host before a reload:
 

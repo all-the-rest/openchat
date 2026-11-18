@@ -76,11 +76,21 @@ code.__OPENCHAT_DOMAIN__ {
 	# No X-Frame-Options here: the chat origin embeds this UI. The Code host
 	# sets `Content-Security-Policy: frame-ancestors <chat origin>` itself, and
 	# an edge XFO would contradict it and break the frame.
-	# No event stream on this origin; the whole site is compressible.
-	encode zstd gzip
-	reverse_proxy openchat-code-host:8090 {
-		flush_interval -1
-		header_up X-Forwarded-For {remote_host}
+	# The Code host proxies OpenCode's event stream on `/api/events` as well, so
+	# it needs the same split as the chat origin: an exclusive handle without
+	# `encode`, everything else compressed. (Compressing SSE buffers tokens.)
+	handle /api/events* {
+		reverse_proxy openchat-code-host:8090 {
+			flush_interval -1
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy openchat-code-host:8090 {
+			flush_interval -1
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 }
 
