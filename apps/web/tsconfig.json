@@ -1,11 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["vite/client", "node"]
+    "types": ["vite/client", "node"],
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src",
     "test",
+    "scripts",
+    "lingui.config.ts",
     "e2e",
     "screenshots",
     "vite.config.ts",

@@ -5,15 +5,21 @@
  * catalogue. Deliberately narrow: it checks JSX text nodes (also across line
  * breaks) and the attributes that are read by users or assistive tech, plus a
  * short allowlist of DOM sinks in `.ts` files. It does not try to catch every
- * string.
+ * string. Text owned by Lingui's `<Trans>`, `<Plural>`, `<Select>` and
+ * `<SelectOrdinal>` components is exempt.
  *
  * Escape hatch: a line containing `i18n-ignore` is skipped, and files under
  * `src/i18n/` (the catalogues) are not scanned.
+ *
+ * In gate mode it also runs the catalog drift check (parity between the source
+ * locale and German, plus stale committed bundles); `--target` fixture runs and
+ * the ratchet `--count` mode skip that check.
  *
  * `--target=<dir>` points the scan at another tree; the tests use it to check
  * the gate against a temporary fixture. `--count` prints the finding count and
  * always exits successfully for the ratchet.
  */
+import { spawnSync } from "node:child_process"
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative, resolve } from "node:path"
 
@@ -30,6 +36,13 @@ const ATTRIBUTE_RE = new RegExp(
   `\\b(${ATTRIBUTES.join("|")})\\s*=\\s*(?:"([^"]*)"|'([^']*)')`,
   "g",
 )
+
+/**
+ * Lingui components own their children: `<Trans>Hello</Trans>` is translated,
+ * not a hard-coded literal. Their descendants are exempt too, so markup inside
+ * a message (`<Trans>Hello <strong>world</strong></Trans>`) stays allowed.
+ */
+const I18N_COMPONENTS = new Set(["Trans", "Plural", "Select", "SelectOrdinal"])
 
 /** `.ts` sinks where a literal is user-visible or announced by a screen reader. */
 const DOCUMENT_TITLE_RE = /\bdocument\.title\s*=\s*(?:"([^"]*)"|'([^']*)')/g
@@ -149,6 +162,25 @@ function scanTags(text: string): Tag[] {
   return tags
 }
 
+/** Ranges between a Lingui component's tags; text inside them is translated. */
+function i18nRanges(tags: Tag[]): Array<[number, number]> {
+  const ranges: Array<[number, number]> = []
+  const stack: Tag[] = []
+  for (const tag of tags) {
+    if (!tag.closing) {
+      if (!tag.source.endsWith("/>")) stack.push(tag)
+      continue
+    }
+    let index = stack.length - 1
+    while (index >= 0 && stack[index]?.name !== tag.name) index -= 1
+    if (index === -1) continue
+    const open = stack[index]
+    stack.length = index
+    if (open && I18N_COMPONENTS.has(open.name)) ranges.push([open.end, tag.start])
+  }
+  return ranges
+}
+
 /** Text ranges inside `[start, end)` that are neither a tag nor an expression. */
 function textSegments(text: string, start: number, end: number): Array<[number, number]> {
   const segments: Array<[number, number]> = []
@@ -206,8 +238,10 @@ function countLiteralStrings(): string[] {
     }
 
     if (/\.(tsx|jsx)$/.test(file)) {
+      const tags = scanTags(text)
+      const exempt = i18nRanges(tags)
       const stack: Tag[] = []
-      for (const tag of scanTags(text)) {
+      for (const tag of tags) {
         if (!tag.closing) {
           if (!tag.source.endsWith("/>")) stack.push(tag)
           for (const attribute of tag.source.matchAll(ATTRIBUTE_RE)) {
@@ -226,6 +260,9 @@ function countLiteralStrings(): string[] {
         stack.length = index
         if (!open) continue
         for (const [segmentStart, segmentEnd] of textSegments(text, open.end, tag.start)) {
+          if (exempt.some(([start, end]) => segmentStart >= start && segmentEnd <= end)) {
+            continue
+          }
           const raw = text.slice(segmentStart, segmentEnd)
           const value = raw.trim()
           if (value.length <= 1 || !hasWord(value)) continue
@@ -269,9 +306,29 @@ if (findings.length > 0) {
   console.error("Literal UI strings found (use useT() and src/i18n/messages):")
   for (const finding of findings) console.error(`  ${finding}`)
   console.error(
-    `\n${findings.length} finding(s). Add the key to en.ts and de.ts, or mark the line with i18n-ignore.`,
+    `\n${findings.length} finding(s). Add the key to the catalog and run i18n:extract, or mark the line with i18n-ignore.`,
   )
   process.exit(1)
+}
+
+/**
+ * Catalog drift gate. Skipped for fixture runs (`--target`) and for the ratchet
+ * counter, which must stay a pure literal count. The check lives in the web app
+ * because it needs Lingui's compiler from that workspace.
+ */
+if (!targetArgument) {
+  const appRoot = join(ROOT, "apps/web")
+  const check = spawnSync(process.execPath, ["scripts/check-catalogs.ts"], {
+    cwd: appRoot,
+    encoding: "utf8",
+  })
+  if (check.status !== 0) {
+    process.stderr.write(check.stdout ?? "")
+    process.stderr.write(check.stderr ?? "")
+    console.error("i18n: catalog drift check failed")
+    process.exit(1)
+  }
+  process.stdout.write(check.stdout ?? "")
 }
 
 console.log("i18n: no literal UI strings")
