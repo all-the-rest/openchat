@@ -68,13 +68,19 @@ load timeout.
 
 ## Limits
 
-| Limit | Value | Enforced by |
+The wire caps have one owner: `packages/contracts/src/bridge.ts`. The host shim
+interpolates them into the script it emits, and the viewer imports the same
+constants, so raising a cap on one side cannot leave the other truncating or
+rejecting at the old value. The table names the constants rather than repeating
+their numbers.
+
+| Limit | Contract constant | Enforced by |
 | --- | --- | --- |
-| Height | integer 80…4000 px | viewer clamps both sides; the shim clamps before sending |
-| Result | ≤ 64 KiB of JSON (`title + text + data`) | shim refuses to post; viewer refuses to accept |
-| Result rate | one accepted result per 500 ms | viewer |
-| Title | 200 code points | both ends truncate |
-| Reposts | initial `init` + 2, then silence | viewer |
+| Height | `ARTIFACT_HEIGHT_MIN`…`ARTIFACT_HEIGHT_MAX` px | viewer clamps both sides; the shim clamps before sending |
+| Result | `ARTIFACT_RESULT_MAX_BYTES` of JSON (`title + text + data`) | shim refuses to post; viewer refuses to accept |
+| Title | `ARTIFACT_RESULT_TITLE_MAX` code points | both ends truncate |
+| Result rate | `ARTIFACT_RESULT_INTERVAL_MS` | viewer only (policy, not a wire cap) |
+| Reposts | initial `init` + `ARTIFACT_INIT_MAX_REPOSTS`, then silence | viewer only (policy, not a wire cap) |
 | Target origin | `"*"` | both ends; safe because the frame is the only recipient and carries no credential |
 
 A result is an editable draft, never HTML: the viewer validates the shape,
@@ -218,8 +224,8 @@ renders `<div id="root"></div>`) and sets `data-theme` and `color-scheme` on
 
 | File | Pins |
 | --- | --- |
-| `apps/artifact-host/test/bridge.test.ts` | API shape; no send before init; init only from `window.parent`; queued/immediate `onInit`; result shape, nonce and 64 KiB refusal; `ResizeObserver` height plus `setHeight` clamping; reset nonce; no `fetch`/storage/`eval`/`window.open`/`</script` in the script text; sandbox policy; document policy; the `cdn` fixture and the validator oracle; the four fixtures. |
-| `apps/web/test/artifact-bridge.test.tsx` | init payload/target/nonce on load; exactly two reposts with the same nonce; ready stops reposts; the repost timer is cleared on unmount; resize clamp and frame height; `clampHeight` refuses `NaN`/`±Infinity`; foreign source and wrong nonce dropped; 65 KiB dropped; 10 Hz stream rate-limited; the callback and the panel's field value come from one result, no HTML injection; bridge reset with a ready frame; remount reset with the same URL and a fresh nonce; sandbox attribute; unknown type dropped. |
+| `apps/artifact-host/test/bridge.test.ts` | API shape; no send before init; init only from `window.parent`; queued/immediate `onInit`; result shape, nonce and the contract byte cap; the shim is built from the contract's caps rather than retyped literals; `ResizeObserver` height plus `setHeight` clamping; reset nonce; no `fetch`/storage/`eval`/`window.open`/`</script` in the script text; sandbox policy; document policy; the `cdn` fixture and the validator oracle; the four fixtures. |
+| `apps/web/test/artifact-bridge.test.tsx` | init payload/target/nonce on load; exactly two reposts with the same nonce; ready stops reposts; the repost timer is cleared on unmount; resize clamp and frame height; `clampHeight` refuses `NaN`/`±Infinity`; title truncation at the protocol cap, code points only; foreign source and wrong nonce dropped; the contract byte cap dropped; 10 Hz stream rate-limited; the callback and the panel's field value come from one result, no HTML injection; bridge reset with a ready frame; remount reset with the same URL and a fresh nonce; sandbox attribute; unknown type dropped. |
 | `apps/web/test/artifact-viewer.test.tsx` | (slice 2, updated) reset reuses the signed URL and performs no metadata read; present/Escape unchanged; a result renders locally with no callback; no panel before the first result. |
 | `apps/web/test/artifact-draft.test.tsx` | no panel before the first result; title/text/JSON `data` prefilled; generic title fallback; an untouched draft follows the artifact; an edited draft keeps its text and only offers a labelled "New result available" that replaces on click; Copy writes the draft to the clipboard and resets its acknowledgement; Dismiss clears and the next result shows again; `<img src=x onerror=…>` stays literal text; focus is not stolen; the callback and the panel come from one result path. |
 | `apps/web/e2e/artifacts.spec.ts` | (slice 2, updated) the seeded document is built through the real shell, so the handshake happens; reset keeps the same iframe element and signed URL, reloads the document in place and issues no `/api/artifacts/:id` read. |
@@ -231,5 +237,6 @@ renders `<div id="root"></div>`) and sets `data-theme` and `color-scheme` on
 - **No send / composer insertion from the viewer.** The panel drafts, copies and
   dismisses; `onArtifactResult` is the seam an inline chat card can use to insert
   into a composer later.
-- **No per-artifact result quota beyond 500 ms.** The 64 KiB cap and the rate
-  limit are the documented bounds; a daily quota has no product requirement.
+- **No per-artifact result quota beyond 500 ms.** The contract's result byte cap
+  and the rate limit are the documented bounds; a daily quota has no product
+  requirement.

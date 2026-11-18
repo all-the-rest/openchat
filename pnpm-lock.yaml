@@ -10,6 +10,9 @@ importers:
 
   apps/artifact-host:
     dependencies:
+      '@openchat/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@openchat/server':
         specifier: workspace:*
         version: link:../server

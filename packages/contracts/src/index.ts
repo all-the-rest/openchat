@@ -5,6 +5,7 @@ import type { ArtifactsSurfaceInfo } from "./artifacts"
 
 export * from "./apps"
 export * from "./artifacts"
+export * from "./bridge"
 
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"

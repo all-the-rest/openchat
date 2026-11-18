@@ -1,3 +1,10 @@
+import {
+  ARTIFACT_HEIGHT_MAX,
+  ARTIFACT_HEIGHT_MIN,
+  ARTIFACT_RESULT_MAX_BYTES,
+  ARTIFACT_RESULT_TITLE_MAX,
+} from "@openchat/contracts"
+
 /**
  * The artifact-side half of the bridge: `window.openchat`, injected by the
  * tool's shell **before** the compiled app bundle (07-artifact-runtime.md
@@ -12,16 +19,20 @@
  * from `event.origin`. A sandboxed document without `allow-same-origin` has an
  * opaque origin, so `event.origin` is the string `"null"` — and so is every
  * other opaque frame's.
+ *
+ * The numeric caps are the viewer's, from `@openchat/contracts`: they are
+ * interpolated here, so the emitted script and the viewer can never disagree.
+ * The values are numbers, so they cannot introduce a `</script` terminator.
  */
 export const BRIDGE_SCRIPT = `(function () {
   "use strict";
   if (typeof window === "undefined") return;
   if (window.openchat && typeof window.openchat.onInit === "function") return;
 
-  var RESULT_MAX_BYTES = 65536;
-  var TITLE_MAX = 200;
-  var RESIZE_MIN = 80;
-  var RESIZE_MAX = 4000;
+  var RESULT_MAX_BYTES = ${ARTIFACT_RESULT_MAX_BYTES};
+  var TITLE_MAX = ${ARTIFACT_RESULT_TITLE_MAX};
+  var RESIZE_MIN = ${ARTIFACT_HEIGHT_MIN};
+  var RESIZE_MAX = ${ARTIFACT_HEIGHT_MAX};
 
   var state = { theme: "light", locale: "en", nonce: null, ready: false, height: null };
   var initHandlers = [];

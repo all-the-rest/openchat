@@ -17,6 +17,7 @@
     "build:image": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/index.mjs --log-level=warning --legal-comments=none"
   },
   "dependencies": {
+    "@openchat/contracts": "workspace:*",
     "@openchat/server": "workspace:*",
     "hono": "^4.13.19"
   },
