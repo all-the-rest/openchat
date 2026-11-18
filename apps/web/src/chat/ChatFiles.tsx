@@ -28,7 +28,13 @@ function quotaText(
   return { used, total, percent }
 }
 
-export function ChatFiles({ sessionID }: { sessionID: string }) {
+interface ChatFilesProps {
+  sessionID: string
+  /** Bumped by the page after an upload or a send to refresh the list. */
+  version?: number
+}
+
+export function ChatFiles({ sessionID, version = 0 }: ChatFilesProps) {
   const t = useT()
   const { locale } = useI18n()
   const [status, setStatus] = useState<LoadStatus>("loading")
@@ -63,7 +69,7 @@ export function ChatFiles({ sessionID }: { sessionID: string }) {
     return () => {
       cancelled = true
     }
-  }, [sessionID, reloadToken])
+  }, [sessionID, reloadToken, version])
 
   const reload = useCallback(() => setReloadToken((value) => value + 1), [])
 

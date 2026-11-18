@@ -143,6 +143,16 @@ msgid "search.lastSource"
 msgstr "At least one source must stay selected."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attach"
+msgstr "Attach files"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentsLabel"
+msgstr "Attachments"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.auto"
 msgstr "Auto"
@@ -158,13 +168,13 @@ msgid "artifacts.back"
 msgstr "Back to artifacts"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.deleteCancel"
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxCancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.inboxCancel"
+#: src/i18n/messages/files.ts
+msgid "files.deleteCancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
@@ -373,11 +383,6 @@ msgid "apps.disconnectServer"
 msgstr "Disconnect {server}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.dismiss"
-msgstr "Dismiss"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftDismiss"
 msgstr "Dismiss"
@@ -388,18 +393,23 @@ msgid "chat.dismiss"
 msgstr "Dismiss"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.dismiss"
+msgstr "Dismiss"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.success"
 msgstr "Done"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.download"
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.download"
 msgstr "Download"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.download"
+#: src/i18n/messages/files.ts
+msgid "files.download"
 msgstr "Download"
 
 #. js-lingui-explicit-id
@@ -798,6 +808,11 @@ msgid "code.reload"
 msgstr "Reload"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentRemove"
+msgstr "Remove {name}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.mermaidLoading"
 msgstr "Rendering diagram…"
@@ -816,11 +831,6 @@ msgstr "Reset"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftTitleFallback"
 msgstr "Result from this artifact"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.retry"
-msgstr "Retry"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -850,6 +860,11 @@ msgstr "Retry"
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
@@ -1123,6 +1138,11 @@ msgid "files.loadFailed"
 msgstr "The file list could not be loaded."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentQuotaError"
+msgstr "The file quota is exhausted."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.blockedBody"
 msgstr "The frame never finished loading. Open Code in a new tab instead."
@@ -1208,6 +1228,16 @@ msgid "render.retryable"
 msgstr "This error can be retried."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentTooLarge"
+msgstr "This file is too large."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentTypeError"
+msgstr "This file type is not allowed."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.unknownServer"
 msgstr "This server is no longer configured."
@@ -1263,9 +1293,19 @@ msgid "session.untitled"
 msgstr "Untitled"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentFailed"
+msgstr "Upload failed."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.origin.upload"
 msgstr "Uploaded"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentUploading"
+msgstr "Uploading…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts

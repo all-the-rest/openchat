@@ -173,6 +173,20 @@ describe("chat file list", () => {
     expect(screen.queryByTestId("chat-files")).toBeNull()
   })
 
+  it("refetches when the page bumps the version after an upload or send", async () => {
+    mocks.chatFiles.mockResolvedValue(response({ files: [] }))
+    const view = renderFiles()
+    await waitFor(() => expect(mocks.chatFiles).toHaveBeenCalledTimes(1))
+
+    view.rerender(
+      <I18nProvider initialLocale="en">
+        <ChatFiles sessionID={SESSION} version={1} />
+      </I18nProvider>,
+    )
+
+    await waitFor(() => expect(mocks.chatFiles).toHaveBeenCalledTimes(2))
+  })
+
   it("uses the German catalogue for labels", async () => {
     render(
       <I18nProvider initialLocale="de">

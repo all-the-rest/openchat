@@ -199,6 +199,15 @@ export function BrainIcon(props: IconProps) {
   )
 }
 
+/** Paperclip for the composer's file picker. */
+export function PaperclipIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m20 11.5-8.4 8.4a5 5 0 0 1-7.1-7.1l9-9a3.4 3.4 0 0 1 4.8 4.8l-9 9a1.8 1.8 0 0 1-2.5-2.5l8.4-8.4" />
+    </Icon>
+  )
+}
+
 export function MicIcon(props: IconProps) {
   return (
     <Icon {...props}>
