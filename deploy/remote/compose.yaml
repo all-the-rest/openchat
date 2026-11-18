@@ -90,6 +90,10 @@ services:
       # with the containerd snapshotter (`storage_opt` is unavailable there).
       - /opt/stacks/openchat/disks/artifacts:/artifacts
       - /opt/stacks/openchat/disks/workspace:/workspace:ro
+      # The one subtree the BFF writes (issue #25). A nested bind keeps the
+      # rest of the agent's workspace read-only; mount-disks.sh creates the
+      # directory and gives it the service uid before the container starts.
+      - /opt/stacks/openchat/disks/workspace/chats:/workspace/chats
 
   code-host:
     image: openchat-code-host:${OPENCHAT_TAG:-local}
@@ -148,6 +152,9 @@ services:
       dind: {}
     volumes:
       - /opt/stacks/openchat/disks/workspace:/workspace
+      # The base file gives this target its own volume; on the host it must be
+      # the same directory the BFF writes into (issue #25).
+      - /opt/stacks/openchat/disks/workspace/chats:/workspace/chats
       # Bind mount, not the named volume: the deploy script seeds the one MCP
       # entry there once, and the agent may keep editing the file afterwards.
       # The official image runs as root with `HOME=/root`.
@@ -165,6 +172,7 @@ services:
       dind: {}
     volumes:
       - /opt/stacks/openchat/disks/workspace:/workspace
+      - /opt/stacks/openchat/disks/workspace/chats:/workspace/chats
 
   dind:
     # Memory, not CPU, is the binding constraint for the rootless daemon: the

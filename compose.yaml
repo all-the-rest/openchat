@@ -87,6 +87,8 @@ services:
       - artifacts:/artifacts
       # The workspace belongs to OpenCode; the BFF only reads it.
       - workspace:/workspace:ro
+      # Except the chat working files (issue #25): the BFF is their writer.
+      - chat-files:/workspace/chats
     healthcheck:
       test:
         - CMD
@@ -260,6 +262,9 @@ services:
       - opencode-data:/root/.local/share/opencode
       - opencode-config:/root/.config/opencode
       - workspace:/workspace
+      # Same volume the BFF writes, at the same path, so an agent sees exactly
+      # the files an upload stored (issue #25).
+      - chat-files:/workspace/chats
     # No `ports`: reachable only from the BFF and the Code host on `backend`.
     healthcheck:
       # Proves the binary is alive, not that the HTTP API answers. The API probe
@@ -307,6 +312,8 @@ services:
       HOME: /home/node
     volumes:
       - workspace:/workspace
+      # Same chat working files the BFF writes and the agent edits (issue #25).
+      - chat-files:/workspace/chats
     healthcheck:
       test:
         - CMD
@@ -390,6 +397,10 @@ volumes:
   artifacts:
   # Owned by OpenCode; read-only in the BFF, read-write in the toolbox.
   workspace:
+  # Chat working files: written by the BFF, read and written by the agent.
+  # Nested inside `workspace` at the same path, so a chat's files sit where the
+  # agent already looks (issue #25).
+  chat-files:
   opencode-data:
   opencode-config:
   dind-storage:

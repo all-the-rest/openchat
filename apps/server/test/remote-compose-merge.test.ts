@@ -19,6 +19,7 @@ interface Mount {
   type: string
   source?: string
   target: string
+  read_only?: boolean
 }
 
 interface Service {
@@ -81,6 +82,19 @@ describe("merged remote compose", () => {
     expect(wrong).toEqual([])
     // Every disk is covered, so a removed mount cannot pass this test.
     expect([...seen].sort()).toEqual([...DISK_TARGETS].sort())
+  })
+
+  it("hands the chat-files subtree to the same directory in every writer", () => {
+    // Issue #25: the BFF writes `chats/<session>/files`; the agent and the
+    // toolbox must see the same bytes at the same path, on the workspace disk.
+    for (const name of ["bff", "opencode", "toolbox"]) {
+      const mount = SERVICES[name]?.volumes?.find((entry) => entry.target === "/workspace/chats")
+      expect(mount, `${name} needs the chat-files mount`).toBeDefined()
+      expect(mount?.type).toBe("bind")
+      expect(mount?.source).toBe("/opt/stacks/openchat/disks/workspace/chats")
+      // The BFF is the writer; a `:ro` on this one target would fail at runtime.
+      expect(mount?.read_only, `${name} writes chat files`).not.toBe(true)
+    }
   })
 
   it("builds every application image from this tree and only dind from upstream", () => {

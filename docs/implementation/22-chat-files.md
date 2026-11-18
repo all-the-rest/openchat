@@ -135,3 +135,24 @@ the PO catalogue, and the compiled bundles are regenerated with
 - An agent-facing tool that writes into `files/`. `ChatFilesStore.write(...,
   origin: "agent")` is the path such a tool uses; the tool itself belongs to
   the tool-surface slice.
+
+## Deployment
+
+The BFF writes this directory, so it needs one writable subtree inside a
+workspace that stays read-only for everything else:
+
+- `compose.yaml` gives the BFF its own `chat-files` volume at `/workspace/chats`,
+  shared at the same path with `opencode` and the toolbox, so an uploaded file
+  is the file the agent reads.
+- The remote overlay replaces that target with a bind inside the workspace disk:
+  `/opt/stacks/openchat/disks/workspace/chats`. The BFF keeps
+  `/workspace:ro`; only `chats/` is writable.
+- `deploy/remote/mount-disks.sh` creates the nested mount point and chowns it to
+  uid/gid 1000 after mounting the workspace image, because the BFF runs as
+  `node`. Without it the first `mkdir` would fail inside a root-owned mount
+  point.
+- `deploy/Dockerfile.bff` pre-creates `/workspace/chats` owned by `node`, which
+  is the ownership a fresh named volume inherits for local runs.
+
+A filesystem that cannot be written (read-only mount, full disk) surfaces as
+`500 internal_error` with `io` in the log; the route never echoes the path.

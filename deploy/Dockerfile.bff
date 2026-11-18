@@ -54,8 +54,8 @@ FROM ${NODE_IMAGE} AS runtime
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tini \
  && rm -rf /var/lib/apt/lists/* \
- && mkdir -p /app/web /artifacts \
- && chown -R node:node /app /artifacts
+ && mkdir -p /app/web /artifacts /workspace/chats \
+ && chown -R node:node /app /artifacts /workspace/chats
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \

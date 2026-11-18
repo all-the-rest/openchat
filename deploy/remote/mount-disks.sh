@@ -289,6 +289,16 @@ ensure_disk() {
   mark_disk "$name" "$target"
 }
 
+# Chat working files are the one subtree the BFF writes (issue #25). The remote
+# overlay mounts it into the BFF as a nested bind, so the directory has to exist
+# and belong to the service uid before the container starts; otherwise the BFF
+# (uid 1000) cannot create a session directory inside a root-owned mount point.
+ensure_chat_files() {
+  local target=$1
+  run mkdir -p "$target"
+  run chown "$DISK_OWNER" "$target"
+}
+
 # The marker is written inside the mounted image. A dry run must not create it,
 # so it does not go through `run` (whose redirection would still execute).
 mark_disk() {
@@ -316,6 +326,7 @@ main() {
   check_free_space
   ensure_disk artifacts "$ARTIFACTS_SIZE"
   ensure_disk workspace "$WORKSPACE_SIZE"
+  ensure_chat_files "$STACK_DIR/disks/workspace/chats"
   ensure_disk dind "$DIND_SIZE"
   [ "$DRY_RUN" -eq 1 ] && note "dry run: nothing was created or mounted"
   return 0

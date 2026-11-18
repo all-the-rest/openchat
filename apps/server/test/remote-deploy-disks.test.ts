@@ -122,6 +122,24 @@ describe("mount-disks.sh failure paths", { timeout: 60_000 }, () => {
       ).toBe(true)
     }  })
 
+  it("creates and chowns the chat-files subtree inside the workspace disk", () => {
+    const test = fixture()
+    const result = run(DISKS, ["--stack-dir", test.stack], test.env)
+    expect(result.status, result.stderr).toBe(0)
+    const log = lines(test.log)
+    const mount = log.findIndex(
+      (line) => line.startsWith("mount -o loop") && line.endsWith("/workspace"),
+    )
+    const chown = log.findIndex(
+      (line) =>
+        line.startsWith("chown 1000:1000 ") && line.endsWith("/disks/workspace/chats"),
+    )
+    // The BFF mounts this path as a nested bind and must own it (issue #25).
+    expect(existsSync(join(test.stack, "disks", "workspace", "chats"))).toBe(true)
+    expect(mount, "the workspace must be mounted first").toBeGreaterThanOrEqual(0)
+    expect(chown, "chats must be chowned after the workspace mount").toBeGreaterThan(mount)
+  })
+
   it("stops before starting the next disk when a chown fails", () => {
     const test = fixture()
     const result = run(DISKS, ["--stack-dir", test.stack], { ...test.env, STUB_CHOWN_FAIL: "1" })
