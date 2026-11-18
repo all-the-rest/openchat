@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { DictationInfo } from "@openchat/contracts"
-import { api } from "../api/client"
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_SECONDS } from "./config"
-import {
-  mapCaptureError,
-  mapLocalError,
-  mapTranscribeError,
-  type DictationErrorCode,
-} from "./errors"
+import type {
+  DictationController,
+  DictationNotice,
+  DictationStatus,
+  UseDictationOptions,
+} from "./dictation-controller"
+import { mapCaptureError, mapLocalError, mapTranscribeError, type DictationErrorCode } from "./errors"
 import { formatBytes, formatDuration, pickMimeType } from "./format"
-import type { LocalProgress } from "./local-protocol"
 import { useLocalDictation } from "./useLocalDictation"
 import {
   attachMeter,
@@ -20,48 +19,15 @@ import {
   teardownSession,
   type RecordingSession,
 } from "./recorder"
+import { transcribeAudio } from "./transcribe-audio"
 
-export type DictationStatus = "idle" | "requesting" | "recording" | "transcribing" | "error"
-export type DictationPath = "local" | "server"
-
-export interface DictationNotice {
-  kind: "time" | "size"
-  /** Formatted limit, already localized by the caller. */
-  value: string
-}
-
-export interface UseDictationOptions {
-  config: DictationInfo | null | undefined
-  /** BCP-47 tag sent as `?language=`; the local pipeline uses it too. */
-  language: string
-  onTranscript(text: string): void
-}
-
-export interface DictationController {
-  enabled: boolean
-  /** Which path is active; the UI labels it explicitly. */
-  path: DictationPath
-  serverAvailable: boolean
-  consentPending: boolean
-  progress: LocalProgress | null
-  status: DictationStatus
-  elapsedMs: number
-  /** Normalized RMS level, 0 … 1. */
-  level: number
-  error: DictationErrorCode | null
-  notice: DictationNotice | null
-  press(): void
-  release(): void
-  toggle(): void
-  stop(): void
-  cancel(): void
-  retry(): void
-  dismiss(): void
-  chooseLocal(): void
-  chooseServer(): void
-  decline(): void
-  forgetModel(): Promise<void>
-}
+export type {
+  DictationController,
+  DictationNotice,
+  DictationPath,
+  DictationStatus,
+  UseDictationOptions,
+} from "./dictation-controller"
 
 /** A press shorter than this keeps recording hands-free instead of stopping. */
 export const HOLD_THRESHOLD_MS = 350
@@ -107,43 +73,25 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
       lastBlobRef.current = blob
       updateStatus("transcribing")
       setError(null)
-      let usedLocal = local.path === "local"
-      try {
-        let text = ""
-        if (usedLocal) {
-          try {
-            text = (await local.run(blob, languageRef.current)).text.trim()
-          } catch (failure) {
-            if (!local.serverAvailable) throw failure
-            // A broken model must never leave a silent microphone: switch to
-            // the server path and retry the same bytes once.
-            usedLocal = false
-            local.switchToServer()
-            const result = await api.transcribe(blob, { language: languageRef.current })
-            text = typeof result?.text === "string" ? result.text.trim() : ""
-          }
-        } else {
-          const result = await api.transcribe(blob, { language: languageRef.current })
-          text = typeof result?.text === "string" ? result.text.trim() : ""
-        }
-        if (!mountedRef.current) return
-        if (text.length === 0) {
-          lastBlobRef.current = null
-          setError("empty_transcript")
-          updateStatus("error")
-          return
-        }
+      const outcome = await transcribeAudio(blob, languageRef.current, local)
+      if (!mountedRef.current) return
+      if (outcome.ok && outcome.text.length > 0) {
         lastBlobRef.current = null
         updateStatus("idle")
-        onTranscriptRef.current(text)
-      } catch (failure) {
-        if (!mountedRef.current) return
-        const code = usedLocal ? mapLocalError(failure) : mapTranscribeError(failure)
-        // Empty audio cannot become non-empty on retry; recording anew can.
-        if (code === "empty_transcript") lastBlobRef.current = null
-        setError(code)
-        updateStatus("error")
+        onTranscriptRef.current(outcome.text)
+        return
       }
+      if (outcome.ok) {
+        lastBlobRef.current = null
+        setError("empty_transcript")
+        updateStatus("error")
+        return
+      }
+      const code = outcome.path === "local" ? mapLocalError(outcome.error) : mapTranscribeError(outcome.error)
+      // Empty audio cannot become non-empty on retry; recording anew can.
+      if (code === "empty_transcript") lastBlobRef.current = null
+      setError(code)
+      updateStatus("error")
     },
     [local, updateStatus],
   )
