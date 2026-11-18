@@ -1,10 +1,22 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ComponentProps } from "react"
-import { MemoryRouter, Route, Routes } from "react-router-dom"
+import {
+  MemoryRouter,
+  Route,
+  RouterProvider,
+  Routes,
+  createMemoryRouter,
+} from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { Composer } from "../src/chat/Composer"
-import { clearDraft, draftStorageKey, readDraft, writeDraft } from "../src/chat/drafts"
+import {
+  NEW_DRAFT_KEY,
+  clearDraft,
+  draftStorageKey,
+  readDraft,
+  writeDraft,
+} from "../src/chat/drafts"
 import { SurfaceProvider } from "../src/code/SurfaceProvider"
 import { SurfaceSwitch } from "../src/code/SurfaceSwitch"
 import { I18nProvider } from "../src/i18n/provider"
@@ -30,6 +42,9 @@ vi.mock("../src/chat/sessions", () => ({
 }))
 
 beforeEach(() => {
+  // The tests below that do not use an injected store share `sessionStorage`.
+  window.sessionStorage.clear()
+  mocks.create.mockClear()
   mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2.3.0" } })
   mocks.create.mockResolvedValue({
     id: "ses_new",
@@ -188,5 +203,53 @@ describe("Landing draft", () => {
     await user.click(screen.getByTestId("surface-chat"))
     await waitFor(() => expect(screen.getByTestId("composer")).toHaveValue("landing draft"))
     expect(readDraft("new")).toBe("landing draft")
+  })
+
+  it("clears the landing draft before it opens the new session", async () => {
+    const user = userEvent.setup()
+    const storage = window.sessionStorage
+    // What the navigation to the new session finds in storage: the landing
+    // draft must be gone there, not merely cleared by the composer afterwards.
+    const seen: { landing: string | null; session: string | null } = {
+      landing: "never navigated",
+      session: "never navigated",
+    }
+
+    const router = createMemoryRouter(
+      [
+        { path: "/", element: <LandingPage /> },
+        {
+          path: "/c/:sessionId",
+          loader: ({ params }) => {
+            seen.landing = storage.getItem(draftStorageKey(NEW_DRAFT_KEY))
+            seen.session = storage.getItem(draftStorageKey(params.sessionId ?? ""))
+            return null
+          },
+          element: <p>new chat</p>,
+        },
+      ],
+      { initialEntries: ["/"] },
+    )
+
+    render(
+      <I18nProvider initialLocale="en">
+        <RouterProvider router={router} />
+      </I18nProvider>,
+    )
+
+    await user.type(await screen.findByTestId("composer"), "first prompt")
+    expect(readDraft(NEW_DRAFT_KEY, storage)).toBe("first prompt")
+    // The session does not exist yet, so it has no draft of its own either.
+    expect(readDraft("ses_new", storage)).toBe("")
+
+    await user.click(screen.getByTestId("send"))
+    expect(await screen.findByText("new chat")).toBeInTheDocument()
+
+    expect(mocks.create).toHaveBeenCalledTimes(1)
+    expect(seen.landing).toBeNull()
+    expect(seen.session).toBeNull()
+    expect(readDraft(NEW_DRAFT_KEY, storage)).toBe("")
+    expect(readDraft("ses_new", storage)).toBe("")
+    expect(storage.getItem(draftStorageKey("ses_new"))).toBeNull()
   })
 })

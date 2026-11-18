@@ -153,7 +153,7 @@ describe("Code page", () => {
     // The Code host itself is not the failure here, so no version line.
     expect(screen.queryByText("This app expects version 2.3.0.")).toBeNull()
     expect(screen.queryByTestId("code-frame")).toBeNull()
-    expect(screen.getByTestId("code-state")).toHaveTextContent("Not reachable")
+    expect(screen.getByTestId("code-state")).toHaveTextContent("Sign-in failed")
 
     await user.click(screen.getByRole("button", { name: "Retry" }))
     expect(await screen.findByTestId("code-frame")).toBeInTheDocument()
@@ -222,6 +222,23 @@ describe("Code page", () => {
       "href",
       expect.stringContaining("__auth"),
     )
+  })
+
+  it("keeps a frame that fired load connected past the load timeout", async () => {
+    renderCode("/code", { loadTimeoutMs: 20 })
+    const frame = await screen.findByTestId("code-frame")
+
+    fireEvent.load(frame)
+    await waitFor(() => expect(screen.getByTestId("code-state")).toHaveTextContent("Connected"))
+
+    // Longer than the timeout the mounted frame started: `load` settles the
+    // wait, so a loaded frame must never be relabelled as blocked.
+    await new Promise((resolve) => setTimeout(resolve, 60))
+
+    expect(screen.getByTestId("code-state")).toHaveTextContent("Connected")
+    expect(screen.getByTestId("code-state")).not.toHaveTextContent("Embedding blocked")
+    expect(screen.getByTestId("code-frame")).toBeInTheDocument()
+    expect(screen.queryByText("The Code interface could not be embedded")).toBeNull()
   })
 
   it("shows an offline banner and never loads a cached Code UI", async () => {

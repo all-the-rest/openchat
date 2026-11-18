@@ -75,8 +75,11 @@ it again; the client deliberately does not duplicate those checks.
 
 ## The `/code` page
 
-Root layout: a slim bar (`role="banner"`, labelled, `tabIndex={-1}` so it can
-receive focus) and a content area that fills the rest. The bar holds the switch,
+Root layout: a slim bar and a content area that fills the rest. The bar is an
+explicit `role="banner"` (labelled, `tabIndex={-1}` so it can receive focus),
+but it sits inside `<main>` — `AppShell` wraps the outlet — so it is not a
+top-level landmark. On the chat routes the app bar is the one top-level banner;
+`/code` does not render it. The bar holds the switch,
 the connection state (`role="status"`, with a spinner while loading), Reload,
 "Open Code in a new tab" and, while a frame is up, "Focus Code". The secondary
 actions are outlined buttons, so they read as controls at a glance; below `lg`
@@ -108,7 +111,7 @@ app.
 | --- | --- | --- |
 | Loading | wide layout, and no ticket yet or `load` has not fired | bar shows a spinner and "Loading…"; frame area keeps its size |
 | Code host down | `status.reachable === false` or a rejected status call | alert panel: "Code host unreachable", the failing probe, the expected version, Retry |
-| Ticket failure | a rejected `GET /api/code/ticket` (for example the BFF's `429` from the 20-mints/minute budget) | its own panel: "No Code sign-in ticket", the ticket limit, Retry; no expected-version line, because the host is not the failure |
+| Ticket failure | a rejected `GET /api/code/ticket` (for example the BFF's `429` from the 20-mints/minute budget) | its own panel: "No Code sign-in ticket", the ticket limit, Retry; no expected-version line, because the host is not the failure; the bar says "Sign-in failed", not "Not reachable" |
 | Version mismatch | `status.matches === false` (and reachable) | non-blocking warning under the bar; the frame loads |
 | Unauthenticated | `message` from the ticket URL's **exact origin** with `{type: "openchat:code-state", state: "unauthenticated"}` | "Sign in to open Code" panel; the button re-mints and reloads |
 | Embedding blocked | wide layout, and `load` did not fire within `CODE_LOAD_TIMEOUT_MS` (15 s, `loadTimeoutMs` prop for tests) | explanation and the new-tab fallback; the frame is unmounted. This is the never-loads case only; see the H1 limitation below. |
@@ -155,8 +158,10 @@ navigates to `/c/<id>` and hands the text over as the pending prompt.
   alternative — a switch inside each page header — would have scattered the
   control and risked two switches. On `/code` the app bar is not rendered, so
   there is still exactly one. The app name is hidden from `lg` up because the
-  sidebar already shows it; the bar is a landmark (`role="banner"`), which also
-  removed the screenshot harness's `data-testid` special case.
+  sidebar already shows it; the app bar outside `<main>` is an explicit banner
+  (`role="banner"`) and therefore the single top-level landmark on a chat
+  route, which also removed the screenshot harness's `data-testid` special
+  case.
 - **No mobile overflow menu.** Spec 02 puts the mobile switch in an overflow
   menu; v1 has no overflow menu anywhere, so the switch stays in the bar at
   every width instead of introducing a one-item menu. Recorded as an open
@@ -311,8 +316,8 @@ notice. PNGs stay out of git; `ui-review/` is ignored.
 | File | Covers |
 | --- | --- |
 | `test/code-surface.test.tsx` | switch renders with `aria-pressed` and follows the route; storage round trip; `/` restores Code; shortcut toggles and ignores other keys; hidden and inert when unconfigured; app bar (`role="banner"`) and sidebar absent on `/code`; sidebar navigation stores `chat`; helper tables (route mapping, malformed/denied storage, deep-link mapping). |
-| `test/code-page.test.tsx` | deep-link suffix reaches the ticket call; root `next`; frame `src`, `title`, `allow`; distinct new-tab ticket; loading state and `load`; ticket failure has its own title/body and no version line, then Retry; unreachable status with expected version; mismatch warning without blocking; foreign-origin message ignored, Code-host origin signs out, sign-in re-mints; blocked timeout; offline; mobile notice; narrow bar says "Desktop only" and never Loading/Blocked; reload re-mints and keeps one switch; `Escape` focus reaches the bar and its visible outline class; unconfigured `/code` redirect. |
-| `test/drafts.test.tsx` | per-session set/get/clear, empty write removes, missing session/storage; Composer survives a remount, keeps a failed draft, clears on success, reloads the draft when the key changes; a landing prompt survives a Chat → Code → Chat switch under `openchat.draft.new`. |
+| `test/code-page.test.tsx` | deep-link suffix reaches the ticket call; root `next`; frame `src`, `title`, `allow`; distinct new-tab ticket; loading state and `load`; ticket failure has its own title/body, no version line and a "Sign-in failed" bar, then Retry; unreachable status with expected version; mismatch warning without blocking; foreign-origin message ignored, Code-host origin signs out, sign-in re-mints; blocked timeout; a frame that fired `load` stays Connected past the timeout and mounted; offline; mobile notice; narrow bar says "Desktop only" and never Loading/Blocked; reload re-mints and keeps one switch; `Escape` focus reaches the bar and its visible outline class; unconfigured `/code` redirect. |
+| `test/drafts.test.tsx` | per-session set/get/clear, empty write removes, missing session/storage; Composer survives a remount, keeps a failed draft, clears on success, reloads the draft when the key changes; a landing prompt survives a Chat → Code → Chat switch under `openchat.draft.new`; a landing send creates the session and the landing draft is already gone when the new route runs, with no draft for the new session id. |
 | `test/app-shell.test.tsx` | existing drawer behaviour with the switch inside the app bar. |
 
 All component tests mock `../src/api/client`; no test reaches a BFF or a Code

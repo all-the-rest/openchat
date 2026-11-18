@@ -189,6 +189,10 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
         ? "loading"
         : phase
   const ticketFailure = failure === "ticket"
+  // The panel already says the mint failed; the bar must not claim the Code
+  // host is unreachable when it was never asked.
+  const stateKey: MessageKey =
+    ticketFailure && state === "down" ? "code.state.ticket" : STATE_KEYS[state]
 
   const newTabLink = (short: boolean, testId = "code-new-tab") => (
     <a
@@ -226,7 +230,7 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
           {state === "loading" ? (
             <span className="loading loading-spinner loading-xs" aria-hidden="true" />
           ) : null}
-          {t(STATE_KEYS[state])}
+          {t(stateKey)}
         </span>
         <span className="flex-1" />
         <button
