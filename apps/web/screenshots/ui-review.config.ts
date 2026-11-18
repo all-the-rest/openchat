@@ -13,10 +13,17 @@
 // One seed set for the whole run is what keeps the sidebar identical in every
 // capture while the four viewport projects run in parallel.
 
-import { expect, type Page } from "@playwright/test"
+import { type Page } from "@playwright/test"
 import { readFileSync } from "node:fs"
 import { isAbsolute, resolve } from "node:path"
 import process from "node:process"
+import {
+  waitForAppsInventory,
+  waitForCodeStub,
+  waitForMermaid,
+  waitForSearchResults,
+  waitForToolCards,
+} from "./waits"
 
 export type UiReviewState = "filled" | "empty"
 export type UiReviewViewport = "mobile" | "tablet" | "desktop" | "wide"
@@ -191,45 +198,6 @@ const chatTranscript: UiReviewNavStep[] = [
   },
 ]
 
-const waitForMermaid = async (page: Page) => {
-  await page.locator('[data-testid="mermaid"] svg').first().waitFor({ timeout: 30_000 })
-}
-
-const waitForToolCards = async (page: Page) => {
-  await page.locator('[data-testid="tool-card"]').first().waitFor({ timeout: 30_000 })
-}
-
-/**
- * The search page debounces 250 ms, asks the BFF and then renders; waiting for
- * the first hit covers both and fails loudly if the fixture stops matching.
- */
-const waitForSearchResults = async (page: Page) => {
-  await page.locator("[data-search-result]").first().waitFor({ timeout: 30_000 })
-}
-
-/**
- * The Code capture frames the stub host. Below the `lg` breakpoint the app
- * deliberately renders the desktop-orientation notice instead of a frame, so
- * the terminal state is either the stub marker inside the frame or that notice.
- * Polled by count rather than `locator.or()`: a `frameLocator` operand is not
- * resolved once the frame does not exist, and the narrow layout never has one.
- */
-const waitForCodeStub = async (page: Page) => {
-  const marker = page.frameLocator('[data-testid="code-frame"]').getByTestId("code-stub")
-  const narrowNotice = page.getByTestId("code-new-tab-fallback")
-  await expect
-    .poll(
-      async () => {
-        if ((await narrowNotice.count()) > 0) {
-          return (await narrowNotice.first().isVisible()) ? "ready" : "waiting"
-        }
-        return (await marker.count()) > 0 ? "ready" : "waiting"
-      },
-      { timeout: 30_000 },
-    )
-    .toBe("ready")
-}
-
 const searchQuery = "/search?scope=all&q=opencode"
 const searchNoHits = "/search?scope=all&q=nothing"
 
@@ -356,6 +324,23 @@ export const uiReviewConfig: UiReviewConfig = {
         },
       ],
       variants: [DARK],
+    },
+    {
+      name: "apps",
+      path: "/apps",
+      expectedTitle: APP_TITLE,
+      states: ["filled"],
+      auth: "user",
+      viewports: ALL_VIEWPORTS,
+      note: "The fake host's inventory: five MCP servers across the five statuses (connected, needs auth, failed, disabled, pending) with their bounded error text, and the two skills, one with the Auto badge. No real MCP server is contacted.",
+      nav: [
+        {
+          kind: "goto",
+          path: "/apps",
+          reason: "The app bar has no entry and below 1024 px the sidebar's entry stays unmounted until the drawer opens; the route is the same one `nav-apps` links to, and the click path is covered by e2e/apps.spec.ts.",
+        },
+      ],
+      waitForContentReady: waitForAppsInventory,
     },
     {
       name: "code-stub",
