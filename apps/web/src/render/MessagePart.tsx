@@ -1,5 +1,6 @@
 import type { Part } from "@openchat/contracts"
 import { useT } from "../i18n/provider"
+import { TranscriptArtifact } from "../artifacts/TranscriptArtifact"
 import { ErrorCard } from "./ErrorCard"
 import { Markdown } from "./Markdown"
 import { ReasoningBlock } from "./ReasoningBlock"
@@ -20,6 +21,9 @@ export function MessagePart({ part, streaming }: { part: Part; streaming: boolea
 
     case "error":
       return <ErrorCard part={part} />
+
+    case "artifact":
+      return <TranscriptArtifact part={part} />
 
     default: {
       // Unknown parts never render their payload as HTML.

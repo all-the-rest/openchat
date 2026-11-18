@@ -113,6 +113,7 @@ describe("artifact store", () => {
         title: "Report",
         bytes: Buffer.byteLength(HTML),
         createdAt: "2026-01-02T03:04:05.000Z",
+        mime: "text/html; charset=utf-8",
       },
     })
     await expect(readFile(join(dir, id, "index.html"), "utf8")).resolves.toBe(HTML)
@@ -121,6 +122,7 @@ describe("artifact store", () => {
       title: "Report",
       bytes: Buffer.byteLength(HTML),
       createdAt: "2026-01-02T03:04:05.000Z",
+      mime: "text/html; charset=utf-8",
     })
     // No temporary file survived the atomic write.
     await expect(readdir(join(dir, id))).resolves.toEqual(["index.html", "meta.json"])

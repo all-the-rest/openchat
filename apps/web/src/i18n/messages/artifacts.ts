@@ -45,4 +45,9 @@ export const artifacts = {
   "artifacts.draftCopied": msg({ id: "artifacts.draftCopied", message: "Copied" }),
   "artifacts.draftDismiss": msg({ id: "artifacts.draftDismiss", message: "Dismiss" }),
   "artifacts.draftNewResult": msg({ id: "artifacts.draftNewResult", message: "New result available" }),
+  "artifacts.galleryTitle": msg({ id: "artifacts.galleryTitle", message: "Image gallery" }),
+  "artifacts.kind.image": msg({ id: "artifacts.kind.image", message: "Image" }),
+  "artifacts.kind.pdf": msg({ id: "artifacts.kind.pdf", message: "PDF" }),
+  "artifacts.kind.file": msg({ id: "artifacts.kind.file", message: "File" }),
+  "artifacts.kind.html": msg({ id: "artifacts.kind.html", message: "App" }),
 } as const

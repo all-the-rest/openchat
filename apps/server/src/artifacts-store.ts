@@ -6,9 +6,11 @@ import { ARTIFACT_MAX_BYTES, ARTIFACT_TITLE_MAX } from "@openchat/contracts"
 import type { ArtifactMeta } from "@openchat/contracts"
 import {
   ARTIFACT_DOCUMENT_FILE,
+  ARTIFACT_MEDIA_FILE,
   ARTIFACT_META_FILE,
   isArtifactId,
 } from "@openchat/contracts/artifacts/id"
+import { ARTIFACT_HTML_MIME, artifactMime } from "@openchat/contracts/artifacts/mime"
 
 /** Newest-first list length; the store never returns more than this. */
 export const ARTIFACT_LIST_LIMIT = 100
@@ -31,6 +33,13 @@ export interface ArtifactDraft {
   html: unknown
 }
 
+/** Untrusted binary input: base64 text and a plain-text title. */
+export interface ArtifactMediaDraft {
+  title: unknown
+  /** Unpadded or padded standard base64 of the exact stored bytes. */
+  data: unknown
+}
+
 export type ArtifactCreateResult =
   | { ok: true; artifact: ArtifactMeta }
   | { ok: false; reason: string }
@@ -39,6 +48,7 @@ interface StoredMeta {
   title: string
   bytes: number
   createdAt: string
+  mime?: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -77,7 +87,8 @@ async function readMeta(path: string): Promise<StoredMeta | null> {
     if (typeof title !== "string") return null
     if (typeof bytes !== "number" || !Number.isSafeInteger(bytes) || bytes < 0) return null
     if (typeof createdAt !== "string") return null
-    return { title, bytes, createdAt }
+    const mime = "mime" in parsed && typeof parsed.mime === "string" ? parsed.mime : undefined
+    return { title, bytes, createdAt, mime }
   } catch {
     return null
   }
@@ -86,6 +97,15 @@ async function readMeta(path: string): Promise<StoredMeta | null> {
 type DraftValidation =
   | { ok: true; title: string; html: string }
   | { ok: false; reason: string }
+
+type MediaValidation =
+  | { ok: true; title: string; bytes: Buffer; mime: string }
+  | { ok: false; reason: string }
+
+/** Standard base64 only; whitespace and URL-safe characters are refused. */
+const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+/** Four base64 characters carry at most three bytes. */
+const BASE64_MAX_CHARS = Math.ceil(ARTIFACT_MAX_BYTES / 3) * 4
 
 /**
  * The reasons are fixed short phrases: the route returns one as the error
@@ -108,6 +128,37 @@ function validateDraft(draft: ArtifactDraft): DraftValidation {
 }
 
 /**
+ * Binary bytes arrive as base64 in the JSON body, so the exact wire bytes are
+ * checked before decoding: a non-canonical encoding could otherwise turn one
+ * id into two different byte sequences. The sniffed MIME is stored alongside
+ * the metadata and is the only source of the served Content-Type.
+ */
+function validateMediaDraft(draft: ArtifactMediaDraft): MediaValidation {
+  if (typeof draft.title !== "string") return { ok: false, reason: "title must be a string" }
+  if (typeof draft.data !== "string" || draft.data.length === 0) {
+    return { ok: false, reason: "data must be a base64 string" }
+  }
+  if (draft.data.length > BASE64_MAX_CHARS) {
+    return { ok: false, reason: `data must not exceed ${ARTIFACT_MAX_BYTES} bytes` }
+  }
+  if (!BASE64_PATTERN.test(draft.data)) {
+    return { ok: false, reason: "data must be a base64 string" }
+  }
+  const bytes = Buffer.from(draft.data, "base64")
+  if (bytes.byteLength === 0 || bytes.byteLength > ARTIFACT_MAX_BYTES) {
+    return { ok: false, reason: `data must not exceed ${ARTIFACT_MAX_BYTES} bytes` }
+  }
+  if (bytes.toString("base64") !== draft.data) {
+    return { ok: false, reason: "data must be canonical base64" }
+  }
+  const mime = artifactMime(bytes)
+  if (mime === ARTIFACT_HTML_MIME) {
+    return { ok: false, reason: "HTML must be written with the html field" }
+  }
+  return { ok: true, title: cleanTitle(draft.title), bytes, mime }
+}
+
+/**
  * Content-addressed artifact storage. The id is the SHA-256 of the exact
  * UTF-8 bytes, so identical documents share one directory and a repeat write
  * keeps the first title: `meta.json` is only written when it does not exist.
@@ -124,8 +175,27 @@ export class ArtifactStore {
   async create(draft: ArtifactDraft): Promise<ArtifactCreateResult> {
     const validation = validateDraft(draft)
     if (!validation.ok) return validation
-
     const bytes = Buffer.from(validation.html, "utf8")
+    return this.storeBytes(bytes, validation.title, ARTIFACT_HTML_MIME, ARTIFACT_DOCUMENT_FILE)
+  }
+
+  /**
+   * Stores a sniffed image, PDF or opaque binary artifact. HTML is refused:
+   * one writer owns documents, so there is no path that can turn binary bytes
+   * into an HTML document on this origin.
+   */
+  async createMedia(draft: ArtifactMediaDraft): Promise<ArtifactCreateResult> {
+    const validation = validateMediaDraft(draft)
+    if (!validation.ok) return validation
+    return this.storeBytes(validation.bytes, validation.title, validation.mime, ARTIFACT_MEDIA_FILE)
+  }
+
+  private async storeBytes(
+    bytes: Buffer,
+    title: string,
+    mime: string,
+    file: string,
+  ): Promise<ArtifactCreateResult> {
     const id = createHash("sha256").update(bytes).digest("hex")
     // A repeat write of the same bytes is a read: the stored title and
     // creation time win, no matter who writes second.
@@ -134,7 +204,7 @@ export class ArtifactStore {
 
     const directory = join(this.dir, id)
     await mkdir(directory, { recursive: true })
-    await writeAtomic(join(directory, ARTIFACT_DOCUMENT_FILE), bytes)
+    await writeAtomic(join(directory, file), bytes)
 
     // Re-check before writing metadata: two writers racing on one id both
     // reach this point, and only the first `meta.json` may survive.
@@ -142,9 +212,10 @@ export class ArtifactStore {
     if (raced) return { ok: true, artifact: raced }
 
     const meta: StoredMeta = {
-      title: validation.title,
+      title,
       bytes: bytes.byteLength,
       createdAt: new Date(this.now()).toISOString(),
+      mime,
     }
     await writeAtomic(
       join(directory, ARTIFACT_META_FILE),
@@ -162,18 +233,28 @@ export class ArtifactStore {
   }
 
   /**
-   * The exact stored bytes for the BFF's download route. Metadata has to be
-   * readable too, so a directory without `meta.json` (a crash during the first
-   * write) is indistinguishable from an unknown id.
+   * Exact bytes plus their MIME for the BFF's download route and the byte host.
+   * The media name is tried first; a legacy directory only has `index.html`.
+   * A directory without a readable `meta.json` is an unknown id.
    */
-  async read(id: string): Promise<Buffer | null> {
+  async readMedia(id: string): Promise<{ bytes: Buffer; mime: string } | null> {
     const meta = await this.get(id)
     if (!meta) return null
-    try {
-      return await readFile(join(this.dir, id, ARTIFACT_DOCUMENT_FILE))
-    } catch {
-      return null
+    for (const file of [ARTIFACT_MEDIA_FILE, ARTIFACT_DOCUMENT_FILE]) {
+      try {
+        const bytes = await readFile(join(this.dir, id, file))
+        return { bytes, mime: meta.mime ?? artifactMime(bytes) }
+      } catch {
+        // Try the other layout before giving up.
+      }
     }
+    return null
+  }
+
+  /** The exact stored bytes; kept for the download route's callers. */
+  async read(id: string): Promise<Buffer | null> {
+    const found = await this.readMedia(id)
+    return found?.bytes ?? null
   }
 
   /**

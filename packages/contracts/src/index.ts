@@ -46,7 +46,17 @@ export interface ErrorPart {
   retryable?: boolean
 }
 
-export type Part = TextPart | ReasoningPart | ToolPart | ErrorPart
+/** A produced artifact. No signed URL is persisted: the renderer re-reads it. */
+export interface ArtifactPart {
+  type: "artifact"
+  id: string
+  artifactID: string
+  title: string
+  /** MIME sniffed at write time; absent on legacy HTML documents. */
+  mime?: string
+}
+
+export type Part = TextPart | ReasoningPart | ToolPart | ErrorPart | ArtifactPart
 
 export type MessageStatus = "streaming" | "complete" | "stopped" | "error"
 

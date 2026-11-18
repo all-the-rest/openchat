@@ -86,6 +86,8 @@ export interface RawResponse {
   rawHeaders: string[]
   headers: IncomingMessage["headers"]
   body: string
+  /** Exact bytes, so binary artifacts can be compared without a UTF-8 round trip. */
+  bytes: Buffer
 }
 
 /** Node-level request so duplicate headers (two CSP lines) stay observable. */
@@ -102,11 +104,13 @@ export function rawRequest(
         const chunks: Buffer[] = []
         response.on("data", (chunk: Buffer) => chunks.push(chunk))
         response.on("end", () => {
+          const bytes = Buffer.concat(chunks)
           resolve({
             status: response.statusCode ?? 0,
             rawHeaders: response.rawHeaders,
             headers: response.headers,
-            body: Buffer.concat(chunks).toString("utf8"),
+            body: bytes.toString("utf8"),
+            bytes,
           })
         })
       },

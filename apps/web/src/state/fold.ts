@@ -1,4 +1,5 @@
 import type {
+  ArtifactPart,
   ErrorPart,
   EventEnvelope,
   Message,
@@ -136,6 +137,17 @@ function readSnapshotPart(value: unknown): Part | null {
   if (raw.type === "text") return { type: "text", id: raw.id, text }
   if (raw.type === "reasoning") return { type: "reasoning", id: raw.id, text }
   if (raw.type === "tool") return readToolPart(raw)
+  if (raw.type === "artifact") {
+    if (typeof raw.artifactID !== "string" || typeof raw.title !== "string") return null
+    const part: ArtifactPart = {
+      type: "artifact",
+      id: raw.id,
+      artifactID: raw.artifactID,
+      title: raw.title,
+    }
+    if (typeof raw.mime === "string") part.mime = raw.mime
+    return part
+  }
   if (raw.type === "error") {
     const part: ErrorPart = {
       type: "error",

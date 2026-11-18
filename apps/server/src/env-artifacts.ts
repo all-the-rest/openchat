@@ -109,6 +109,14 @@ export function loadArtifactEnv(
     )
   }
   if (hostUrl && !signingKey) {
+    // There is no default key: a deployed surface must name one explicitly, or
+    // every signed URL would be built with a key the host does not have.
+    if (options.production) {
+      throw new Error(
+        "ARTIFACT_SIGNING_KEY must be set when ARTIFACT_HOST_URL is configured " +
+          "and NODE_ENV=production",
+      )
+    }
     options.warn("ARTIFACT_SIGNING_KEY is unset; the artifact surface stays hidden")
   }
   if (!hostUrl && signingKey) {

@@ -1,6 +1,7 @@
 import type { Locale } from "../i18n"
+import { artifactExtension } from "@openchat/contracts/artifacts/mime"
 
-/** Artifacts are stored as one HTML document, so the download keeps that type. */
+/** Legacy documents keep the HTML extension; media uses its sniffed one. */
 export const ARTIFACT_EXTENSION = ".html"
 
 /**
@@ -18,7 +19,8 @@ const MAX_FILENAME_BASE = 120
  * filesystem path on the owner's machine: separators, control characters and a
  * leading dot never survive, and the extension is added exactly once.
  */
-export function artifactFilename(title: string): string {
+export function artifactFilename(title: string, mime?: string): string {
+  const extension = mime ? artifactExtension(mime) : ARTIFACT_EXTENSION
   const flattened = title
     .replace(UNSAFE_FILENAME, " ")
     .replace(/\s+/g, " ")
@@ -26,7 +28,7 @@ export function artifactFilename(title: string): string {
     .replace(/^[\s.]+/, "")
   const base = [...flattened].slice(0, MAX_FILENAME_BASE).join("").trim()
   const safe = base.length > 0 ? base : FALLBACK_FILENAME
-  return safe.toLowerCase().endsWith(ARTIFACT_EXTENSION) ? safe : `${safe}${ARTIFACT_EXTENSION}`
+  return safe.toLowerCase().endsWith(extension) ? safe : `${safe}${extension}`
 }
 
 /** Whether a URL is close enough to expiry that a fresh read is worthwhile. */

@@ -172,6 +172,10 @@
   --radius-card: 16px;
   --radius-bubble: 22px;
   --radius-composer: 26px;
+
+  /* 05-rendering's image card: never wider than the thread text column. */
+  --container-image-card: 736px;
+  --container-image-preview: 420px;
 }
 
 @layer base {

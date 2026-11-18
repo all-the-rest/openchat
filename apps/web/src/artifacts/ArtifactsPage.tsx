@@ -5,6 +5,7 @@ import { api } from "../api/client"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useI18n, useT } from "../i18n/provider"
 import { formatArtifactDate, formatBytes } from "./files"
+import { ImageGallery } from "./ImageGallery"
 
 type LoadStatus = "loading" | "ready" | "error"
 
@@ -51,6 +52,8 @@ export function ArtifactsPage() {
           <h1 className="text-lg font-semibold">{t("artifacts.title")}</h1>
           <p className="text-sm text-muted">{t("artifacts.description")}</p>
         </header>
+
+        {status === "ready" ? <ImageGallery artifacts={items} /> : null}
 
         {status === "loading" ? (
           <div

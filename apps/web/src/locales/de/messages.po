@@ -63,6 +63,11 @@ msgid "chat.answerComplete"
 msgstr "Antwort vollständig"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.html"
+msgstr "App"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "menu.label"
 msgstr "App-Menü"
@@ -473,6 +478,11 @@ msgid "search.status.failed"
 msgstr "Fehlgeschlagen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.file"
+msgstr "Datei"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.title"
 msgstr "Dateien"
@@ -486,6 +496,16 @@ msgstr "Fokus auf Code"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.description"
 msgstr "HTML-Dokumente, die dein Agent geschrieben hat. Jedes läuft in einer Sandbox auf einer eigenen Origin."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.image"
+msgstr "Bild"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.galleryTitle"
+msgstr "Bildergalerie"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -726,6 +746,11 @@ msgstr "Passwort"
 #: src/i18n/messages/chat.ts
 msgid "auth.passwordPlaceholder"
 msgstr "Passwort"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.pdf"
+msgstr "PDF"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts

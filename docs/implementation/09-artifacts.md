@@ -720,3 +720,77 @@ file contains only the stored bytes. The server's fallback filename is
 | `apps/web/test/app-shell.test.tsx` | the sidebar entry is present only with `artifacts.available`. |
 | `apps/web/test/api-client.test.ts` | list, single read, download path and structured download error. |
 | `apps/web/e2e/artifacts.spec.ts` | seeded document through the real host: list, frame attributes and rendered document, byte-identical download, present/Escape focus return, in-place reset through the bridge handshake (same iframe element, reloaded document, same signed URL, no metadata read). The E2E config seeds the store and starts `apps/artifact-host` with the same key; no external host is contacted. |
+
+## Slice 5 — media, gallery and the production key refusal
+
+**Status:** 2026-11-18. The remaining v1 work of issue #6. The sandbox, the
+signed URL, the list, the viewer and the download from slices 1–4 are unchanged;
+this slice adds the byte kinds those pieces already make possible.
+
+### Signed URLs: one owner, no default key
+
+`ArtifactSigner` in `packages/contracts/src/artifacts/sign.ts` was already the
+single owner of the scheme: HMAC-SHA256 over `id + "\n" + exp`, constant-time
+verify, TTL 900 s plus 60 s of skew. Slice 5 adds the deployment guard that was
+still missing: `loadArtifactEnv` refuses a production boot when
+`ARTIFACT_HOST_URL` is set but `ARTIFACT_SIGNING_KEY` is not, and the artifact
+host refuses to boot without a 32-character key at all. There is no generated
+or default key. Tests pin the valid/tampered/expired/far-future/replay cases,
+including replay of a valid signature on a different id
+(`packages/contracts/test/artifacts-sign.test.ts`).
+
+### Binary artifacts
+
+The store already addressed bytes by SHA-256; `createMedia()` writes sniffed
+PNG/JPEG/GIF/WebP/PDF or opaque bytes to `<id>/artifact.bin` and stores the MIME
+in `meta.json`. The legacy HTML name and a missing MIME still mean HTML. The
+write path is the same bearer-gated `POST /internal/artifacts`, with a `data`
+field (canonical standard base64) instead of `html`; sending both or neither is
+a 400. HTML bytes are refused through `data`, so no path can turn binary bytes
+into an HTML document. `GET /api/artifacts/:id/download` answers the stored
+MIME and a matching extension, independently of the client's `Accept` header.
+
+The artifact host reads bytes, never `meta.json`. It sniffs the leading bytes
+again (`@openchat/contracts/artifacts/mime`) and serves that type with
+`nosniff`. A binary response carries one policy (`default-src 'none'` plus
+`frame-ancestors <chat origin>`); HTML keeps the two documented policies. No
+route answers with a redirect or a `Set-Cookie`.
+
+### Rendering
+
+- `ArtifactCard` (`apps/web/src/artifacts/ArtifactCard.tsx`) is the one renderer
+  for image, PDF and generic artifacts. An image uses the signed URL from the
+  BFF only, after a trust check on id, signature shape and (when supplied)
+  origin: no third-party image host, `loading="lazy"`, title as `alt`, and the
+  `max-w-image-card` / `max-h-image-preview` tokens cap the box. Every card has
+  a download action that goes through the app origin.
+- `PdfPreview` frames the signed URL on the artifact origin with
+  `sandbox="allow-scripts"`; no `srcDoc`, `data:` URL or inline HTML.
+- `ImageGallery` is a compact, keyboard-reachable grid on `/artifacts`; each
+  thumbnail is a link to the existing viewer.
+- `ArtifactPart` in the contracts is the transcript seam: `TranscriptArtifact`
+  reads fresh metadata for the id and renders the same card. No live tool emits
+  the part yet (image generation is out of scope), but a producer only has to
+  write the artifact and name its id.
+- An expired signature that loads the host's JSON 403 is now detected from the
+  metadata's `expiresAt`: the viewer shows the stable "link has expired" panel
+  instead of leaving a silent frame. A generation-1 document with a fresh URL
+  is still accepted as before.
+
+Every new visible string is in `artifacts.ts` and both catalogues;
+`i18n:extract` + `i18n:compile` regenerated the PO files and bundles.
+
+### Slice 5 tests
+
+| File | Pins |
+| --- | --- |
+| `packages/contracts/test/artifacts-mime.test.ts` | magic-byte sniffing, the four image MIME types, kind/extension mapping. |
+| `packages/contracts/test/artifacts-sign.test.ts` | replay on another id, tampering, expiry, far-future ceiling, legacy token. |
+| `apps/server/test/artifacts-media.test.ts` | base64 byte storage, dedupe, HTML refusal, non-canonical base64, both/neither fields, `Accept: text/html` download, production key refusal. |
+| `apps/artifact-host/test/security.test.ts` | no cookie on any route even with a request cookie, `connect-src 'none'`, no remote source outside `frame-ancestors`, no top-navigation/same-origin sandbox flag, no redirects or `Location`, binary bytes keep their type under `Accept: text/html`, PDF stays PDF. |
+| `apps/web/test/artifact-media.test.tsx` | allowed MIME only, third-party URL fallback, lazy image with alt, download filename, PDF frame attributes, gallery links. |
+| `apps/web/e2e/artifacts-media.spec.ts` | seeded image card opens the viewer; an intercepted expired URL shows the stable error panel. |
+
+**Deliberately not in this slice:** image generation and its provider;
+video/audio and their players; a media store outside the artifact store;
+changes to `deploy/remote/**` or `compose.yaml` (owned by another slice).

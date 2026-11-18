@@ -133,7 +133,7 @@ describe("create artifact", () => {
 
     const body = await json<ArtifactResponse>(response)
     expect(Object.keys(body).sort()).toEqual(
-      ["bytes", "createdAt", "expiresAt", "id", "title", "url"],
+      ["bytes", "createdAt", "expiresAt", "id", "mime", "title", "url"],
     )
     expect(body.id).toMatch(/^[0-9a-f]{64}$/)
     expect(body.title).toBe("Report")
@@ -156,7 +156,12 @@ describe("create artifact", () => {
 
     await expect(readFile(join(dir, body.id, "index.html"), "utf8")).resolves.toBe(HTML)
     const meta: unknown = JSON.parse(await readFile(join(dir, body.id, "meta.json"), "utf8"))
-    expect(meta).toEqual({ title: "Report", bytes: body.bytes, createdAt: body.createdAt })
+    expect(meta).toEqual({
+      title: "Report",
+      bytes: body.bytes,
+      createdAt: body.createdAt,
+      mime: "text/html; charset=utf-8",
+    })
   })
 
   it("accepts a document above the generic JSON cap", async () => {

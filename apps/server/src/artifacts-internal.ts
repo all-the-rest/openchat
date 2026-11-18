@@ -110,7 +110,17 @@ export function registerArtifactInternalRoute(
       return jsonError(c, 400, "artifacts_invalid", INVALID_BODY_MESSAGE)
     }
     const draft = isRecord(body) ? body : {}
-    const result = await store.create({ title: draft.title, html: draft.html })
+    // `data` is the binary write path (an image, a PDF or opaque bytes, already
+    // produced elsewhere); `html` is the app-document path. Both must not be
+    // sent at once, so neither the title nor the bytes can come from two fields.
+    const hasData = "data" in draft
+    const hasHTML = "html" in draft
+    if (hasData === hasHTML) {
+      return jsonError(c, 400, "artifacts_invalid", "provide exactly one of data or html")
+    }
+    const result = hasData
+      ? await store.createMedia({ title: draft.title, data: draft.data })
+      : await store.create({ title: draft.title, html: draft.html })
     if (!result.ok) return jsonError(c, 400, "artifacts_invalid", result.reason)
 
     // Only an accepted write consumes the budget.

@@ -1,4 +1,5 @@
 import type { ArtifactResponse } from "@openchat/contracts"
+import { artifactKind } from "@openchat/contracts/artifacts/mime"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ApiError, api } from "../api/client"
 import type { BridgeStatus } from "./bridge"
@@ -158,6 +159,20 @@ export function useArtifactDocument(options: ArtifactDocumentOptions): ArtifactD
   // generation 1. Never a second error, because the two shapes look identical.
   useEffect(() => {
     if (phase !== "ready" || frameFailed || !meta) return
+    // Images and PDFs are bytes, not documents with a bridge shim. Waiting for
+    // a handshake would show a false "loading" cover and then a stale panel.
+    if (artifactKind(meta.mime) !== "html") {
+      if (loaded && !legacy) setLegacy(true)
+      return
+    }
+    // An expired signature is answered with the host's JSON 403. The parent
+    // cannot read that cross-origin body, but it knows the expiry from the
+    // metadata: a loaded frame with no handshake and a past expiry is a refused
+    // document, not a generation-1 artifact. Show the stable stale panel.
+    if (loaded && handshake !== "ready" && Date.parse(meta.expiresAt) <= Date.now()) {
+      setFrameFailed(true)
+      return
+    }
     if (handshake === "ready" || legacy) return
 
     if (!loaded) {
