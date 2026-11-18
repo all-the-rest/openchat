@@ -1,0 +1,79 @@
+# syntax=docker/dockerfile:1.7
+#
+# BFF + built web assets.
+#
+# The BFF is the only browser-facing application origin: it serves `/api/*`,
+# `/healthz` and the built SPA from `apps/web/dist` on one port (see
+# docs/architecture/03-auth-deployment.md and docs/implementation/14-deployment.md).
+#
+# The runtime layer carries no `node_modules`: `build:image` bundles the entry
+# point with esbuild, so the shipped image is one `.mjs` file plus the static
+# build. That is why no dev dependency can leak into production, by
+# construction rather than by an install flag.
+#
+# Build from the repository root:
+#   docker build -f deploy/Dockerfile.bff -t openchat-bff .
+
+ARG NODE_IMAGE=node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
+
+FROM ${NODE_IMAGE} AS build
+WORKDIR /repo
+ENV CI=true
+# The version matches `packageManager` in package.json; corepack is deprecated
+# in Node 24 and its download is not reproducible inside a build.
+RUN npm install --global pnpm@11.23.0
+
+# Manifests first: the install layer survives a source-only change.
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/code-host/package.json ./apps/code-host/package.json
+COPY apps/artifact-host/package.json ./apps/artifact-host/package.json
+COPY packages/code-ticket/package.json ./packages/code-ticket/package.json
+COPY packages/contracts/package.json ./packages/contracts/package.json
+COPY packages/opencode/package.json ./packages/opencode/package.json
+
+# Only the BFF and the web app plus their workspace dependencies. `--frozen-lockfile`
+# makes a lockfile/manifest drift a build failure instead of a silent resolve.
+RUN pnpm install --frozen-lockfile --filter @openchat/server... --filter @openchat/web...
+
+COPY tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/server ./apps/server
+COPY apps/web ./apps/web
+
+RUN pnpm --filter @openchat/web run build \
+ && pnpm --filter @openchat/server run build:image
+
+FROM ${NODE_IMAGE} AS runtime
+# `tini` is PID 1 so `docker stop` reaches node as SIGTERM and the SSE streams
+# are torn down instead of waiting for the kernel to reap the container.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /app/web /artifacts \
+ && chown -R node:node /app /artifacts
+
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=8787 \
+    WEB_DIST_DIR=/app/web \
+    ARTIFACTS_DIR=/artifacts
+
+WORKDIR /app
+COPY --from=build --chown=node:node /repo/apps/server/dist/index.mjs /app/index.mjs
+COPY --from=build --chown=node:node /repo/apps/web/dist /app/web
+
+# `/artifacts` is a named volume; Docker copies this directory's ownership into
+# a fresh volume, so the non-root user can write to it.
+USER node
+EXPOSE 8787
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "/app/index.mjs"]
+
+# Liveness only: `/healthz` stays 200 while OpenCode is unreachable, by design
+# (docs/implementation/10-host-status.md). `/api/info` is the upstream probe and
+# needs a session, so it is checked by deploy/swap.sh instead.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8787)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

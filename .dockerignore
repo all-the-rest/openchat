@@ -1,0 +1,31 @@
+# Keep the build context to what the images actually copy. Everything below is
+# either machine-local state (a stale node_modules would shadow the container's
+# own install) or documentation that no Dockerfile reads.
+
+node_modules
+**/node_modules
+**/dist
+**/.vite
+**/coverage
+**/test-results
+**/playwright-report
+apps/web/ui-review
+
+.git
+.github
+.githooks
+.opencode
+.codegraph
+references
+
+# Host secrets never enter a build context, and therefore never an image.
+.env
+.env.*
+!.env.example
+deploy/env.example
+
+docs
+features
+
+*.log
+.DS_Store

@@ -1,0 +1,57 @@
+# syntax=docker/dockerfile:1.7
+#
+# Code host: the authenticated OpenCode UI proxy on its own origin
+# (`code.example.com`). Same bundle rule as the BFF — one `.mjs` file, no
+# `node_modules` in the runtime layer.
+#
+# Build from the repository root:
+#   docker build -f deploy/Dockerfile.code-host -t openchat-code-host .
+
+ARG NODE_IMAGE=node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
+
+FROM ${NODE_IMAGE} AS build
+WORKDIR /repo
+ENV CI=true
+RUN npm install --global pnpm@11.23.0
+
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/code-host/package.json ./apps/code-host/package.json
+COPY apps/artifact-host/package.json ./apps/artifact-host/package.json
+COPY packages/code-ticket/package.json ./packages/code-ticket/package.json
+COPY packages/contracts/package.json ./packages/contracts/package.json
+COPY packages/opencode/package.json ./packages/opencode/package.json
+
+RUN pnpm install --frozen-lockfile --filter @openchat/code-host...
+
+COPY tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/code-host ./apps/code-host
+
+RUN pnpm --filter @openchat/code-host run build:image
+
+FROM ${NODE_IMAGE} AS runtime
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=8090
+
+WORKDIR /app
+COPY --from=build --chown=node:node /repo/apps/code-host/dist/index.mjs /app/index.mjs
+
+# The proxy writes nothing: no volume, no home directory use.
+USER node
+EXPOSE 8090
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "/app/index.mjs"]
+
+# `/__sign-in` is the anonymous liveness reach (no upstream call). `/__health`
+# needs OpenCode and therefore answers 502 while the upstream is down, which is
+# a degraded state, not a dead container.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8090)+'/__sign-in').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

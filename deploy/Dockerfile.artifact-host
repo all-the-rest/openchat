@@ -1,0 +1,60 @@
+# syntax=docker/dockerfile:1.7
+#
+# Artifact host: a cookie-less read-only byte server on its own origin. It holds
+# one secret (`ARTIFACT_SIGNING_KEY`), reads one directory and writes nothing.
+#
+# The runtime layer gets no shell, no package manager and no network client
+# beyond Node's own stack; the container is `read_only` in compose and mounts
+# the artifact volume read-only.
+#
+# Build from the repository root (the host imports `@openchat/server/artifacts-sign`):
+#   docker build -f deploy/Dockerfile.artifact-host -t openchat-artifact-host .
+
+ARG NODE_IMAGE=node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
+
+FROM ${NODE_IMAGE} AS build
+WORKDIR /repo
+ENV CI=true
+RUN npm install --global pnpm@11.23.0
+
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/code-host/package.json ./apps/code-host/package.json
+COPY apps/artifact-host/package.json ./apps/artifact-host/package.json
+COPY packages/code-ticket/package.json ./packages/code-ticket/package.json
+COPY packages/contracts/package.json ./packages/contracts/package.json
+COPY packages/opencode/package.json ./packages/opencode/package.json
+
+RUN pnpm install --frozen-lockfile --filter @openchat/artifact-host...
+
+COPY tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/server ./apps/server
+COPY apps/artifact-host ./apps/artifact-host
+
+RUN pnpm --filter @openchat/artifact-host run build:image
+
+FROM ${NODE_IMAGE} AS runtime
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /artifacts
+
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=4100 \
+    ARTIFACTS_DIR=/artifacts
+
+WORKDIR /app
+COPY --from=build --chown=node:node /repo/apps/artifact-host/dist/index.mjs /app/index.mjs
+
+# Read-only mount: the host never creates the directory and never writes a byte.
+USER node
+EXPOSE 4100
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "/app/index.mjs"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4100)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
