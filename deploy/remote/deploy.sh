@@ -46,7 +46,8 @@ REQUIRED_FILES=(
   deploy/remote/Caddyfile.openchat deploy/remote/mount-disks.sh
   deploy/remote/env-bootstrap.sh deploy/remote/env-value.sh
   deploy/remote/seed-config.sh deploy/remote/caddy.sh
-  deploy/remote/openchat-disks.service deploy/remote/ssh-safe.sh
+  deploy/remote/openchat-disks.service deploy/remote/openchat-guard.sh
+  deploy/remote/openchat-guard.service deploy/remote/prune-releases.sh deploy/remote/ssh-safe.sh
 )
 
 usage() {
@@ -243,8 +244,10 @@ install_boot_unit() {
   step "boot unit and disk layout"
   remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/mount-disks.sh" "$STACK_DIR/bin/mount-disks.sh")"
   remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/caddy.sh" "$STACK_DIR/bin/caddy.sh")"
+  remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/openchat-guard.sh" "$STACK_DIR/bin/openchat-guard.sh")"
   remote "$(quote_cmd install -m 644 "$SRC/deploy/remote/openchat-disks.service" /etc/systemd/system/openchat-disks.service)"
-  remote "systemctl daemon-reload && systemctl enable openchat-disks.service"
+  remote "$(quote_cmd install -m 644 "$SRC/deploy/remote/openchat-guard.service" /etc/systemd/system/openchat-guard.service)"
+  remote "systemctl daemon-reload && systemctl enable openchat-disks.service openchat-guard.service"
   remote "printf 'artifacts=%s\nworkspace=%s\ndind=%s\nreserve=%s\n' $(shquote "$ARTIFACTS_SIZE") $(shquote "$WORKSPACE_SIZE") $(shquote "$DIND_SIZE") $(shquote "$RESERVE") > $(shquote "$STACK_DIR/disks/layout")"
 }
 
@@ -310,7 +313,8 @@ $(quote_cmd env "OPENCHAT_TAG=$TAG" COMPOSE_PROFILES=opencode,tools,dind docker 
   config --no-interpolate) > $(shquote "$compose_file"); \
 chmod 600 $(shquote "$compose_file"); \
 sed $(shquote "s/__OPENCHAT_DOMAIN__/$DOMAIN/g") $(shquote "$SRC/deploy/remote/Caddyfile.openchat") > $(shquote "$RELEASE/caddy.openchat"); \
-chmod 644 $(shquote "$RELEASE/caddy.openchat")"
+chmod 644 $(shquote "$RELEASE/caddy.openchat"); \
+printf '%s\n' $(shquote "$TAG") > $(shquote "$RELEASE/tag"); chmod 644 $(shquote "$RELEASE/tag")"
   remote "$render"
 }
 
@@ -329,6 +333,12 @@ install_caddy() {
   remote_script "$SRC/deploy/remote/caddy.sh" \
     --container "$CADDY_CONTAINER" \
     --fragment "$RELEASE/caddy.openchat"
+}
+
+# Bounded retention: keep current and previous; non-fatal, the swap already succeeded.
+prune_releases() {
+  step "bounded release retention"
+  remote_script "$SRC/deploy/remote/prune-releases.sh" --stack-dir "$STACK_DIR" || note "warning: release prune failed; the deploy is unaffected"
 }
 
 # BuildKit grew ~5.4 GiB per deploy on this host (#44) and the builder is shared
@@ -371,6 +381,7 @@ do_deploy() {
   render_release
   swap_release
   install_caddy
+  prune_releases
   prune_build_cache
   summarize
 
@@ -393,9 +404,9 @@ do_uninstall() {
   step "stop the stack"
   remote "if [ -f $(shquote "$STACK_DIR/current/compose.yaml") ]; then cd $(shquote "$STACK_DIR") && docker compose --project-name $(shquote "$PROJECT") --env-file $(shquote "$STACK_DIR/.env") --file current/compose.yaml down; fi"
   step "remove the boot unit and installed helpers"
-  remote "systemctl disable --now openchat-disks.service 2>/dev/null || true; rm -f /etc/systemd/system/openchat-disks.service; systemctl daemon-reload; rm -rf $(shquote "$STACK_DIR/bin")"
+  remote "systemctl disable --now openchat-disks.service openchat-guard.service 2>/dev/null || true; rm -f /etc/systemd/system/openchat-disks.service /etc/systemd/system/openchat-guard.service; systemctl daemon-reload; rm -rf $(shquote "$STACK_DIR/bin")"
   note ""
-  note "removed: the Caddy fragment and its import, the containers, openchat-disks.service and $STACK_DIR/bin."
+  note "removed: the Caddy fragment and its import, the containers, openchat-disks.service, openchat-guard.service and $STACK_DIR/bin."
   note "kept on purpose: $STACK_DIR/.env, $STACK_DIR/disks/*.img and the Caddy backup - they hold data."
   note "a deploy reinstalls the unit and bin; unmount a kept image with the repo's mount-disks.sh --umount."
   [ "$DRY_RUN" -eq 1 ] && note "dry run: nothing was removed or stopped"
