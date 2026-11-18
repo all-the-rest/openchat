@@ -14,6 +14,7 @@ import { DictationFeedback } from "../dictation/DictationFeedback"
 import { RecordingPill } from "../dictation/RecordingPill"
 import { useDictation } from "../dictation/useDictation"
 import { useDictationConfig } from "../dictation/useDictationConfig"
+import { readDraft, writeDraft } from "./drafts"
 
 export interface ComposerProps {
   onSend(text: string): Promise<void> | void
@@ -21,6 +22,11 @@ export interface ComposerProps {
   running: boolean
   disabled?: boolean
   autoFocus?: boolean
+  /**
+   * Session id whose draft is kept in `sessionStorage` (spec 13: switching
+   * surfaces must not lose the prompt). Omitted means component-local only.
+   */
+  draftKey?: string
   /** Explicit capability override; omitted means "read `GET /api/info`". */
   dictation?: DictationInfo | null
 }
@@ -33,11 +39,12 @@ export function Composer({
   running,
   disabled = false,
   autoFocus = false,
+  draftKey,
   dictation: dictationOverride,
 }: ComposerProps) {
   const t = useT()
   const { locale } = useI18n()
-  const [value, setValue] = useState("")
+  const [value, setValue] = useState(() => (draftKey ? readDraft(draftKey) : ""))
   const [sending, setSending] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const valueRef = useRef(value)
@@ -45,21 +52,42 @@ export function Composer({
 
   valueRef.current = value
 
+  /** Every write goes through here so the stored draft never lags the field. */
+  const updateValue = useCallback(
+    (next: string) => {
+      valueRef.current = next
+      setValue(next)
+      if (draftKey) writeDraft(draftKey, next)
+    },
+    [draftKey],
+  )
+
+  // A route change from /c/one to /c/two reuses the composer; load that
+  // session's draft instead of carrying the other chat's text over.
+  useEffect(() => {
+    if (!draftKey) return
+    const next = readDraft(draftKey)
+    valueRef.current = next
+    setValue(next)
+  }, [draftKey])
+
   const remoteDictation = useDictationConfig(dictationOverride === undefined)
   const dictationConfig = dictationOverride === undefined ? remoteDictation : dictationOverride
 
   /** Inserts at the caret without sending; the draft stays editable. */
-  const insertAtCaret = useCallback((text: string) => {
-    if (!text) return
-    const element = textareaRef.current
-    const current = valueRef.current
-    const start = element?.selectionStart ?? current.length
-    const end = element?.selectionEnd ?? start
-    const next = current.slice(0, start) + text + current.slice(end)
-    valueRef.current = next
-    caretRef.current = start + text.length
-    setValue(next)
-  }, [])
+  const insertAtCaret = useCallback(
+    (text: string) => {
+      if (!text) return
+      const element = textareaRef.current
+      const current = valueRef.current
+      const start = element?.selectionStart ?? current.length
+      const end = element?.selectionEnd ?? start
+      const next = current.slice(0, start) + text + current.slice(end)
+      caretRef.current = start + text.length
+      updateValue(next)
+    },
+    [updateValue],
+  )
 
   const dictation = useDictation({
     config: dictationConfig,
@@ -93,16 +121,17 @@ export function Composer({
     setSending(true)
     try {
       await onSend(text)
-      setValue("")
+      // Sent: the draft is consumed. A failure keeps it (and its stored copy).
+      updateValue("")
     } catch {
       // Keep the draft so a failed request never loses the prompt.
     } finally {
       setSending(false)
     }
-  }, [value, sending, onSend])
+  }, [value, sending, onSend, updateValue])
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    setValue(event.target.value)
+    updateValue(event.target.value)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {

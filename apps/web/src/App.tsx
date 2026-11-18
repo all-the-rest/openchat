@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from "./auth/provider"
 import { AppShell } from "./components/AppShell"
 import { EventStreamProvider } from "./api/events"
 import { SessionsProvider } from "./chat/sessions"
+import { CodePage } from "./code/CodePage"
+import { SurfaceHome, SurfaceProvider, useSurface } from "./code/SurfaceProvider"
 import { I18nProvider, useT } from "./i18n/provider"
 import { ChatPage } from "./pages/ChatPage"
 import { LandingPage } from "./pages/LandingPage"
@@ -19,12 +21,32 @@ function ProtectedShell() {
   }
 
   return (
-    <SessionsProvider>
-      <EventStreamProvider>
-        <AppShell />
-      </EventStreamProvider>
-    </SessionsProvider>
+    <SurfaceProvider>
+      <SessionsProvider>
+        <EventStreamProvider>
+          <AppShell />
+        </EventStreamProvider>
+      </SessionsProvider>
+    </SurfaceProvider>
   )
+}
+
+/**
+ * `/code` is unavailable unless `/api/info` reports a configured Code host;
+ * a direct visit falls back to chat, exactly like the hidden switch.
+ */
+export function CodeRoute() {
+  const { configured } = useSurface()
+
+  if (configured === false) return <Navigate to="/" replace />
+  if (configured !== true) {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <span className="loading loading-spinner loading-md" aria-hidden="true" />
+      </div>
+    )
+  }
+  return <CodePage />
 }
 
 function BootScreen() {
@@ -72,10 +94,19 @@ function AppRoutes() {
         }
       />
       <Route element={<ProtectedShell />}>
-        <Route path="/" element={<LandingPage />} />
+        <Route
+          path="/"
+          element={
+            <SurfaceHome>
+              <LandingPage />
+            </SurfaceHome>
+          }
+        />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/c/:sessionId" element={<ChatPage />} />
         <Route path="/c/:sessionId/:messageId" element={<ChatPage />} />
+        <Route path="/code" element={<CodeRoute />} />
+        <Route path="/code/*" element={<CodeRoute />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

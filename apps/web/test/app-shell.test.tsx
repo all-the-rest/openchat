@@ -1,10 +1,19 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { SurfaceProvider } from "../src/code/SurfaceProvider"
 import { AppShell } from "../src/components/AppShell"
 import { I18nProvider } from "../src/i18n/provider"
 import { ThemeProvider } from "../src/theme/provider"
+
+const mocks = vi.hoisted(() => ({ info: vi.fn() }))
+
+vi.mock("../src/api/client", () => ({ api: mocks }))
+
+beforeEach(() => {
+  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2.3.0" } })
+})
 
 vi.mock("../src/auth/provider", () => ({
   useAuth: () => ({
@@ -52,11 +61,13 @@ function renderShell() {
     <ThemeProvider initialTheme="dark">
       <I18nProvider initialLocale="en">
         <MemoryRouter initialEntries={["/"]}>
-          <Routes>
-            <Route element={<AppShell />}>
-              <Route index element={<p>main content</p>} />
-            </Route>
-          </Routes>
+          <SurfaceProvider>
+            <Routes>
+              <Route element={<AppShell />}>
+                <Route index element={<p>main content</p>} />
+              </Route>
+            </Routes>
+          </SurfaceProvider>
         </MemoryRouter>
       </I18nProvider>
     </ThemeProvider>,

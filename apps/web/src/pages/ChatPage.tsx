@@ -85,6 +85,7 @@ export function ChatPage() {
             onSend={chat.send}
             onStop={() => void chat.stop()}
             running={chat.running}
+            draftKey={sessionId}
           />
 
           <p

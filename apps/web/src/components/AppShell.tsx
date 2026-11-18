@@ -4,6 +4,8 @@ import { SidebarToggle } from "../components/controls"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
 import { SessionSidebar } from "../chat/SessionSidebar"
+import { SurfaceSwitch } from "../code/SurfaceSwitch"
+import { useSurface } from "../code/SurfaceProvider"
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -13,11 +15,20 @@ const WIDE_QUERY = "(min-width: 1024px)"
 
 export function AppShell() {
   const t = useT()
+  const { surface } = useSurface()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const wide = useMediaQuery(WIDE_QUERY)
   const drawerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const restoreFocus = useRef(false)
+
+  // The Code surface owns the full width (spec 13): no chat sidebar, no app
+  // bar — its own slim bar carries the switch.
+  const onCode = surface === "code"
+
+  useEffect(() => {
+    if (onCode) setSidebarOpen(false)
+  }, [onCode])
 
   // The drawer is off-canvas only below the wide breakpoint. While it is closed
   // there its content is inert and unmounted, so it cannot be tabbed into.
@@ -76,7 +87,7 @@ export function AppShell() {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-app text-base-content">
-      {sidebarOpen ? (
+      {!onCode && sidebarOpen ? (
         <div
           className="fixed inset-0 z-30 bg-scrim lg:hidden"
           aria-hidden="true"
@@ -84,35 +95,46 @@ export function AppShell() {
         />
       ) : null}
 
-      <div
-        ref={drawerRef}
-        data-testid="app-drawer"
-        role={sidebarOpen ? "dialog" : undefined}
-        aria-modal={sidebarOpen ? true : undefined}
-        aria-label={sidebarOpen ? t("session.listLabel") : undefined}
-        inert={drawerHidden}
-        className={`fixed inset-y-0 start-0 z-40 transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        {wide || sidebarOpen ? (
-          <SessionSidebar onNavigate={() => setSidebarOpen(false)} />
-        ) : null}
-      </div>
+      {onCode ? null : (
+        <div
+          ref={drawerRef}
+          data-testid="app-drawer"
+          role={sidebarOpen ? "dialog" : undefined}
+          aria-modal={sidebarOpen ? true : undefined}
+          aria-label={sidebarOpen ? t("session.listLabel") : undefined}
+          inert={drawerHidden}
+          className={`fixed inset-y-0 start-0 z-40 transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          {wide || sidebarOpen ? (
+            <SessionSidebar onNavigate={() => setSidebarOpen(false)} />
+          ) : null}
+        </div>
+      )}
 
       <div
         data-testid="app-content"
         inert={sidebarOpen && !wide}
         className="flex min-w-0 flex-1 flex-col"
       >
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-subtle px-2 lg:hidden">
-          <SidebarToggle
-            ref={triggerRef}
-            open={sidebarOpen}
-            onOpen={() => setSidebarOpen(true)}
-          />
-          <span className="truncate text-sm font-semibold">{t("app.name")}</span>
-        </div>
+        {onCode ? null : (
+          <div
+            data-testid="app-bar"
+            className="flex h-12 shrink-0 items-center gap-2 border-b border-subtle px-2"
+          >
+            <SidebarToggle
+              ref={triggerRef}
+              open={sidebarOpen}
+              onOpen={() => setSidebarOpen(true)}
+              className="lg:hidden"
+            />
+            <SurfaceSwitch />
+            <span className="min-w-0 flex-1 truncate px-1 text-sm font-semibold">
+              {t("app.name")}
+            </span>
+          </div>
+        )}
 
         <a
           href="#main-content"

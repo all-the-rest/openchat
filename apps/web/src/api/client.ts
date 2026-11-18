@@ -1,4 +1,6 @@
 import type {
+  CodeStatusResponse,
+  CodeTicketResponse,
   CreateSessionRequest,
   InfoResponse,
   LoginResponse,
@@ -102,6 +104,19 @@ export const api = {
 
   info(): Promise<InfoResponse> {
     return request<InfoResponse>("/api/info")
+  },
+
+  /**
+   * Mints a single-use Code-host entry URL. `next` is a path on the Code host;
+   * the BFF sanitises it and the Code host validates it again.
+   */
+  codeTicket(next: string): Promise<CodeTicketResponse> {
+    const params = new URLSearchParams({ next })
+    return request<CodeTicketResponse>(`/api/code/ticket?${params.toString()}`)
+  },
+
+  codeStatus(): Promise<CodeStatusResponse> {
+    return request<CodeStatusResponse>("/api/code/status")
   },
 
   async listSessions(): Promise<SessionInfo[]> {

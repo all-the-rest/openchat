@@ -5,6 +5,7 @@ import { afterEach, vi } from "vitest"
 afterEach(() => {
   cleanup()
   window.localStorage.clear()
+  window.sessionStorage.clear()
   document.documentElement.removeAttribute("data-theme")
   document.documentElement.lang = "en"
 })
