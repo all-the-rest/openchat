@@ -4,19 +4,15 @@ import { FakeHostSwitch, SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/openco
 import {
   createSessionRequestSchema,
   loginRequestSchema,
-  permissionReplyRequestSchema,
   promptRequestSchema,
 } from "@openchat/contracts"
 import type {
-  AgentInfo,
   AppsSurfaceInfo,
   CodeSurfaceInfo,
   DictationInfo,
   InfoResponse,
   InboxResponse,
   LoginResponse,
-  ModelInfo,
-  PermissionsResponse,
   PromptResponse,
   SessionInfo,
 } from "@openchat/contracts"
@@ -37,6 +33,7 @@ import {
   readJson,
 } from "./http"
 import { clientAddress } from "./middleware"
+import { registerCatalogRoutes, registerPermissionRoutes } from "./completion-routes"
 import { registerAppsRoutes } from "./apps"
 import { AppsCache, probeApps } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
@@ -203,12 +200,6 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
   })
 }
 
-/** The model and agent catalogues the browser pickers render. */
-function registerCatalogRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
-  app.get("/api/models", async (c) => c.json(await deps.backend.listModels() satisfies ModelInfo[]))
-  app.get("/api/agents", async (c) => c.json(await deps.backend.listAgents() satisfies AgentInfo[]))
-}
-
 function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   const { config, backend, promptThrottle } = deps
 
@@ -280,29 +271,6 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   // clients send `Content-Type: application/json` even though the body is empty.
   app.delete("/api/sessions/:id/inbox/:messageID", async (c) => {
     await backend.cancelQueued(c.req.param("id"), c.req.param("messageID"))
-    return c.json({ ok: true })
-  })
-
-  app.get("/api/sessions/:id/permissions", async (c) => {
-    const requests = await backend.listPermissions(c.req.param("id"))
-    return c.json({ requests } satisfies PermissionsResponse)
-  })
-
-  app.post("/api/sessions/:id/permissions/:requestID", async (c) => {
-    const body = await readJson(c)
-    if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
-    if (body === INVALID_JSON) {
-      return jsonError(c, 400, "invalid_request", "Invalid JSON body")
-    }
-    const parsed = permissionReplyRequestSchema.safeParse(body)
-    if (!parsed.success) {
-      return jsonError(c, 400, "invalid_request", invalidMessage(parsed.error))
-    }
-    await backend.replyPermission(
-      c.req.param("id"),
-      c.req.param("requestID"),
-      parsed.data.decision,
-    )
     return c.json({ ok: true })
   })
 
@@ -387,8 +355,9 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
 
   registerAuthRoutes(app, deps)
   registerInfoRoutes(app, deps, appsCache)
-  registerCatalogRoutes(app, deps)
+  registerCatalogRoutes(app, deps.backend)
   registerSessionRoutes(app, deps)
+  registerPermissionRoutes(app, deps.backend)
   registerCodeRoutes(app, {
     config: deps.config,
     ticketThrottle: deps.codeTicketThrottle,

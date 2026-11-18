@@ -77,7 +77,7 @@ describe("live permissions", () => {
   })
 
   it("maps deny to reject and once/always unchanged", async () => {
-    const reply = vi.fn(async () => undefined)
+    const reply = vi.fn(async (_input: { decision: string }) => undefined)
     const backend = backendWith({
       permission: { get: async () => ({}), reply },
     })

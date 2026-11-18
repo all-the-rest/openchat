@@ -7,6 +7,7 @@ export * from "./apps"
 export * from "./artifacts"
 export * from "./files"
 export * from "./artifacts/caps"
+export * from "./permissions"
 
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"
@@ -224,25 +225,6 @@ export interface PromptRequest {
   agent?: string
 }
 
-/**
- * One outstanding tool approval. `tool` is the host's action name (in practice
- * the tool asking), `action` is the human-readable description of the request.
- */
-export interface PermissionRequest {
-  id: string
-  sessionID: string
-  tool: string
-  action: string
-  resources: string[]
-}
-
-/** The UI decision; the live adapter maps `deny` to the host's `reject`. */
-export type PermissionDecision = "once" | "always" | "deny"
-
-export interface PermissionsResponse {
-  requests: PermissionRequest[]
-}
-
 /** Kind of a pending turn, mirroring the OpenCode inbox entry types. */
 export type InboxEntryKind = "user" | "synthetic" | "compaction" | "move"
 
@@ -349,11 +331,6 @@ export const promptRequestSchema = z.object({
   delivery: z.literal("queue").optional(),
   model: z.string().min(1).max(200).optional(),
   agent: z.string().min(1).max(200).optional(),
-})
-
-/** The three decisions the permission card can send to the BFF. */
-export const permissionReplyRequestSchema = z.object({
-  decision: z.enum(["once", "always", "deny"]),
 })
 
 export const createSessionRequestSchema = z.object({

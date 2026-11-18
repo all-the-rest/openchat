@@ -234,9 +234,9 @@ export class FakeBackend implements ChatBackend {
   }
 
   /** Fake-mode control: raises an approval the browser must answer. */
-  askPermission(sessionID: string, tool: string, action: string): PermissionRequest {
+  askPermission(sessionID: string, tool: string, action: string, resources: readonly string[] = []): PermissionRequest {
     this.requireSession(sessionID)
-    return this.permissions.ask(sessionID, tool, action)
+    return this.permissions.ask(sessionID, tool, action, resources)
   }
 
   async listApps(): Promise<AppsSnapshot> {
