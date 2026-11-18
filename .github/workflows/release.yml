@@ -1,0 +1,137 @@
+name: Release
+
+# A release is cut from a `v<version>` tag whose name matches the `VERSION`
+# file. `workflow_dispatch` exists for rehearsals: it defaults to a dry run that
+# builds both architectures and pushes nothing.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build the images without pushing or creating a release
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/all-the-rest/openchat
+  PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  version:
+    name: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read VERSION and match the tag
+        id: read
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [ -z "$version" ]; then
+            echo "::error::VERSION is empty"; exit 1
+          fi
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match VERSION ${version}"; exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+  gates:
+    name: fast gates
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The same fast tier CI runs. A release never starts from a red tree.
+      - run: pnpm run gates:fast
+
+  images:
+    name: image ${{ matrix.image }}
+    needs: [version, gates]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: bff
+            dockerfile: deploy/Dockerfile.bff
+          - image: code-host
+            dockerfile: deploy/Dockerfile.code-host
+          - image: artifact-host
+            dockerfile: deploy/Dockerfile.artifact-host
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          # A push is only reachable from a tag ref and only when the run is
+          # not a dry run. Everything else produces and discards the build.
+          push: ${{ github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true }}
+          provenance: true
+          sbom: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ needs.version.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  github-release:
+    name: GitHub release
+    needs: [version, images]
+    if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract the changelog section
+        run: |
+          version="${{ needs.version.outputs.version }}"
+          awk -v version="$version" '
+            $0 ~ "^## \\[" version "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::CHANGELOG.md has no section for ${version}"; exit 1
+          fi
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ needs.version.outputs.version }}" \
+            --title "OpenChat ${{ needs.version.outputs.version }}" \
+            --notes-file release-notes.md \
+            --verify-tag
