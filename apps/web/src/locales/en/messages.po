@@ -83,6 +83,11 @@ msgid "tasks.status.active"
 msgstr "Active"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favoriteAdd"
+msgstr "Add {name} to favorites"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.create.after"
 msgstr "After a duration"
@@ -96,6 +101,11 @@ msgstr "Agent"
 #: src/i18n/messages/files.ts
 msgid "files.origin.agent"
 msgstr "Agent"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.allModels"
+msgstr "All models"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -394,6 +404,11 @@ msgstr "Connection lost — reconnecting…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "chat.contextWindow"
+msgstr "Context window: {tokens} tokens"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.continue"
 msgstr "Continue"
 
@@ -503,6 +518,11 @@ msgid "chat.permissionDeny"
 msgstr "Deny"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deprecated"
+msgstr "Deprecated"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.narrow"
 msgstr "Desktop only"
@@ -573,13 +593,13 @@ msgid "settings.documents"
 msgstr "Documents"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.done"
+#: src/i18n/messages/render.ts
+msgid "tool.status.success"
 msgstr "Done"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.success"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.done"
 msgstr "Done"
 
 #. js-lingui-explicit-id
@@ -653,11 +673,6 @@ msgid "auth.loginDescription"
 msgstr "Enter your username and password to open the workspace."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.error"
-msgstr "Error"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.error"
 msgstr "Error"
@@ -665,6 +680,11 @@ msgstr "Error"
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.error"
+msgstr "Error"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.error"
 msgstr "Error"
 
 #. js-lingui-explicit-id
@@ -681,6 +701,11 @@ msgstr "Failed"
 #: src/i18n/messages/search.ts
 msgid "search.status.failed"
 msgstr "Failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favorites"
+msgstr "Favorites"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -718,19 +743,24 @@ msgid "artifacts.description"
 msgstr "HTML documents your agent has written. Each one runs sandboxed on a separate origin."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.image"
+msgstr "Image"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.kind.image"
 msgstr "Image"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
-msgid "artifacts.kind.image"
-msgstr "Image"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
 msgid "artifacts.galleryTitle"
 msgstr "Image gallery"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityImage"
+msgstr "Image input"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -863,6 +893,11 @@ msgid "chat.activeChoice"
 msgstr "Model: {model} · Agent: {agent}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.activeChoiceVariant"
+msgstr "Model: {model} · Variant: {variant} · Agent: {agent}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.needsAuth"
 msgstr "Needs auth"
@@ -911,6 +946,11 @@ msgstr "No chats yet."
 #: src/i18n/messages/code.ts
 msgid "code.ticketTitle"
 msgstr "No Code sign-in ticket"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.noModels"
+msgstr "No matching models"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -1128,6 +1168,11 @@ msgid "chat.statusReady"
 msgstr "Ready"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityReasoning"
+msgstr "Reasoning"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.reasoning"
 msgstr "Reasoning"
@@ -1183,6 +1228,11 @@ msgid "composer.attachmentRemove"
 msgstr "Remove {name}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favoriteRemove"
+msgstr "Remove {name} from favorites"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.mermaidLoading"
 msgstr "Rendering diagram…"
@@ -1211,11 +1261,6 @@ msgstr "Result from this artifact"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.resume"
 msgstr "Resume {title}"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.retry"
-msgstr "Retry"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -1263,6 +1308,11 @@ msgid "host.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.retry"
 msgstr "Retry transcription"
@@ -1273,13 +1323,13 @@ msgid "tasks.create.ends"
 msgstr "Run once"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.running"
+#: src/i18n/messages/render.ts
+msgid "tool.status.running"
 msgstr "Running"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.running"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.running"
 msgstr "Running"
 
 #. js-lingui-explicit-id
@@ -1326,6 +1376,11 @@ msgstr "Search chats, files, web and apps"
 #: src/i18n/messages/search.ts
 msgid "search.groupFailed"
 msgstr "Search failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.modelSearch"
+msgstr "Search models or providers"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1471,6 +1526,11 @@ msgstr "Skip to content"
 #: src/i18n/messages/search.ts
 msgid "search.sources"
 msgstr "Sources"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.stale"
+msgstr "Stale"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -1786,6 +1846,11 @@ msgstr "Too many attempts. Try again shortly."
 #: src/i18n/messages/search.ts
 msgid "search.kindTool"
 msgstr "Tool"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityTools"
+msgstr "Tools"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts

@@ -29,6 +29,7 @@ export interface QueuedPrompt {
 export interface RecordedPrompt {
   text: string
   model?: string
+  variant?: string
   agent?: string
 }
 

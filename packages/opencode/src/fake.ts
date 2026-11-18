@@ -24,6 +24,7 @@ import type {
   SearchOutcome,
 } from "./index"
 import { FakeAppInventory } from "./fake-apps"
+import { FAKE_MODELS, recordPrompt } from "./fake-completion"
 import { FakeTaskStore } from "./fake-tasks"
 import { FakeEvents } from "./fake-events"
 import { FakePermissions } from "./fake-permissions"
@@ -113,7 +114,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
 
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {
     const session = this.requireSession(sessionID)
-    this.recorded.set(sessionID, { text: input.text, model: input.model, agent: input.agent })
+    recordPrompt(this.recorded, sessionID, input)
     const active = this.runs.has(sessionID)
     if (active && input.delivery !== "queue") {
       throw new BackendError("conflict", `Session ${sessionID} already has an active run`)
@@ -168,7 +169,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    return [{ id: "fake/echo", name: "Fake Echo", providerID: "fake" }]
+    return FAKE_MODELS.map(clone)
   }
 
   async listAgents(): Promise<AgentInfo[]> {

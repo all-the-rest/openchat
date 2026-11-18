@@ -1,6 +1,7 @@
 import type { OpenCodeClient } from "@opencode/client"
 import { describe, expect, it, vi } from "vitest"
 import { FakeBackend } from "../src/fake"
+import { FAKE_MODELS } from "../src/fake-completion"
 import { LiveBackend } from "../src/live"
 
 function liveClient(overrides: Record<string, unknown>): OpenCodeClient {
@@ -16,12 +17,22 @@ function liveBackend(client: OpenCodeClient): LiveBackend {
   })
 }
 
+const hostModel = {
+  modelID: "gpt-x",
+  name: "GPT X",
+  providerID: "openai",
+  variants: [{ id: "fast" }, { id: "slow" }],
+  limit: { context: 128_000 },
+  capabilities: { tools: true, input: ["text", "image"], output: ["text", "reasoning"] },
+  status: "deprecated",
+}
+
 describe("completion catalogue and forwarding", () => {
-  it("exposes a non-empty fake catalogue", async () => {
+  it("exposes a non-empty fake catalogue with variants and a deprecated model", async () => {
     const backend = new FakeBackend()
-    expect(await backend.listModels()).toEqual([
-      { id: "fake/echo", name: "Fake Echo", providerID: "fake" },
-    ])
+    expect(await backend.listModels()).toEqual(FAKE_MODELS)
+    expect(FAKE_MODELS.some((model) => model.variants.length >= 2)).toBe(true)
+    expect(FAKE_MODELS.some((model) => model.status === "deprecated")).toBe(true)
     expect(await backend.listAgents()).toEqual([
       { id: "build", name: "Build", description: "Deterministic scenario runner" },
     ])
@@ -33,16 +44,40 @@ describe("completion catalogue and forwarding", () => {
     await backend.prompt(session.id, {
       text: "hello",
       model: "fake/echo",
+      variant: "thorough",
       agent: "build",
     })
     expect(backend.recordedPrompt(session.id)).toEqual({
       text: "hello",
       model: "fake/echo",
+      variant: "thorough",
       agent: "build",
     })
   })
 
-  it("applies the live model and agent with session switches before the prompt", async () => {
+  it("maps variants, capabilities, provider name, context and status from the host", async () => {
+    const backend = liveBackend(
+      liveClient({
+        model: { list: async () => ({ data: [hostModel] }) },
+        provider: { list: async () => ({ data: [{ id: "openai", name: "OpenAI" }] }) },
+        session: { switchModel: async () => undefined },
+      }),
+    )
+    expect(await backend.listModels()).toEqual([
+      {
+        id: "gpt-x",
+        name: "GPT X",
+        providerID: "openai",
+        providerName: "OpenAI",
+        variants: ["fast", "slow"],
+        contextLimit: 128_000,
+        capabilities: { tools: true, reasoning: true, image: true },
+        status: "deprecated",
+      },
+    ])
+  })
+
+  it("applies the live model, its variant and the agent with session switches", async () => {
     const calls: string[] = []
     const switchModel = vi.fn(async () => {
       calls.push("model")
@@ -55,26 +90,41 @@ describe("completion catalogue and forwarding", () => {
       return { id: "msg_1" }
     })
     const client = liveClient({
-      model: {
-        list: async () => ({
-          data: [{ modelID: "gpt-x", name: "GPT X", providerID: "openai" }],
-        }),
-      },
+      model: { list: async () => ({ data: [hostModel] }) },
+      provider: { list: async () => ({ data: [{ id: "openai", name: "OpenAI" }] }) },
       session: { switchModel, switchAgent, prompt },
     })
     const backend = liveBackend(client)
-    // `/api/info` warms the provider map before any prompt arrives.
+    // `/api/info` warms the host metadata before any prompt arrives.
     await backend.listModels()
 
-    await backend.prompt("ses_1", { text: "hi", model: "gpt-x", agent: "build" })
+    await backend.prompt("ses_1", {
+      text: "hi", model: "gpt-x", variant: "slow", agent: "build",
+    })
 
     expect(switchModel).toHaveBeenCalledWith({
       sessionID: "ses_1",
-      model: { id: "gpt-x", providerID: "openai" },
+      model: { id: "gpt-x", providerID: "openai", variant: "slow" },
     })
     expect(switchAgent).toHaveBeenCalledWith({ sessionID: "ses_1", agent: "build" })
     expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ text: "hi" }))
     expect(calls).toEqual(["model", "agent", "prompt"])
+  })
+
+  it("drops a variant the host no longer offers", async () => {
+    const switchModel = vi.fn(async () => undefined)
+    const backend = liveBackend(
+      liveClient({
+        model: { list: async () => ({ data: [hostModel] }) },
+        session: { switchModel, prompt: async () => ({ id: "msg_1" }) },
+      }),
+    )
+    await backend.listModels()
+    await backend.prompt("ses_1", { text: "hi", model: "gpt-x", variant: "gone" })
+    expect(switchModel).toHaveBeenCalledWith({
+      sessionID: "ses_1",
+      model: { id: "gpt-x", providerID: "openai" },
+    })
   })
 
   it("ignores an unknown model but still sends the prompt", async () => {

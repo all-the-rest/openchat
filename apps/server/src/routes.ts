@@ -2,11 +2,7 @@ import type { Hono } from "hono"
 import { STT_MODEL_ID } from "@openchat/contracts"
 import type { ChatBackend } from "@openchat/opencode"
 import { FakeHostSwitch, SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
-import {
-  createSessionRequestSchema,
-  loginRequestSchema,
-  promptRequestSchema,
-} from "@openchat/contracts"
+import { createSessionRequestSchema, loginRequestSchema } from "@openchat/contracts"
 import type {
   AppsSurfaceInfo,
   CodeSurfaceInfo,
@@ -14,7 +10,6 @@ import type {
   InfoResponse,
   InboxResponse,
   LoginResponse,
-  PromptResponse,
   SessionInfo,
 } from "@openchat/contracts"
 import {
@@ -35,6 +30,7 @@ import {
 } from "./http"
 import { clientAddress } from "./middleware"
 import { registerCatalogRoutes, registerPermissionRoutes } from "./completion-routes"
+import { registerPromptRoute } from "./prompt-route"
 import { registerAppsRoutes } from "./apps"
 import { AppsCache, probeApps } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
@@ -201,7 +197,7 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
 }
 
 function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
-  const { config, backend, promptThrottle } = deps
+  const { config, backend } = deps
 
   app.get("/api/sessions", async (c) => {
     const sessions = await backend.listSessions()
@@ -227,39 +223,6 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
 
   app.get("/api/sessions/:id/messages", async (c) => {
     return c.json(await backend.listMessages(c.req.param("id")))
-  })
-
-  app.post("/api/sessions/:id/prompt", async (c) => {
-    const address = clientAddress(c, config.TRUST_PROXY)
-    const throttle = promptThrottle.check(address)
-    if (throttle.limited) {
-      c.header("Retry-After", String(throttle.retryAfterSeconds))
-      return jsonError(c, 429, "too_many_requests", "Too many prompts")
-    }
-
-    const body = await readJson(c)
-    if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
-    if (body === INVALID_JSON) {
-      return jsonError(c, 400, "invalid_request", "Invalid JSON body")
-    }
-    const parsed = promptRequestSchema.safeParse(body)
-    if (!parsed.success) {
-      return jsonError(c, 400, "invalid_request", invalidMessage(parsed.error))
-    }
-    // Count accepted submissions only; a rejected body must not consume the
-    // caller's budget.
-    promptThrottle.record(address)
-    // Spec 03: one active run per session. A second send is queued rather than
-    // rejected, so the BFF defaults to the queue delivery mode.
-    const result = await backend.prompt(c.req.param("id"), {
-      text: parsed.data.text,
-      delivery: parsed.data.delivery ?? "queue",
-      model: parsed.data.model,
-      agent: parsed.data.agent,
-    })
-    const response: PromptResponse = { ok: true, messageID: result.messageID }
-    if (result.queued) response.queued = true
-    return c.json(response)
   })
 
   app.get("/api/sessions/:id/inbox", async (c) => {
@@ -295,6 +258,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerInfoRoutes(app, deps, appsCache)
   registerCatalogRoutes(app, deps.backend)
   registerSessionRoutes(app, deps)
+  registerPromptRoute(app, deps)
   registerPermissionRoutes(app, deps.backend)
   registerCodeRoutes(app, {
     config: deps.config,

@@ -18,9 +18,16 @@ describe("catalogue routes", () => {
 
     const models = await server.app.request("/api/models", { headers: { cookie } })
     expect(models.status).toBe(200)
-    expect(await json<ModelInfo[]>(models)).toEqual([
-      { id: "fake/echo", name: "Fake Echo", providerID: "fake" },
-    ])
+    const catalogue = await json<ModelInfo[]>(models)
+    expect(catalogue).toHaveLength(4)
+    expect(catalogue[0]).toEqual({
+      id: "fake/echo", name: "Fake Echo", providerID: "fake",
+      providerName: "Fake Provider", variants: ["fast", "thorough"],
+      contextLimit: 128_000,
+      capabilities: { tools: true, reasoning: false, image: false },
+      status: "active",
+    })
+    expect(catalogue.some((model) => model.status === "deprecated")).toBe(true)
 
     const agents = await server.app.request("/api/agents", { headers: { cookie } })
     expect(agents.status).toBe(200)
@@ -37,7 +44,9 @@ describe("catalogue routes", () => {
     const prompt = await server.app.request(`/api/sessions/${session.id}/prompt`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ text: "hello", model: "fake/echo", agent: "build" }),
+      body: JSON.stringify({
+        text: "hello", model: "fake/echo", variant: "thorough", agent: "build",
+      }),
     })
     expect(prompt.status).toBe(200)
 
@@ -48,6 +57,7 @@ describe("catalogue routes", () => {
     expect(await json(recorded)).toEqual({
       text: "hello",
       model: "fake/echo",
+      variant: "thorough",
       agent: "build",
     })
   })

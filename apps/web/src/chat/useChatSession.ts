@@ -9,7 +9,7 @@ import { useI18nOrNull } from "../i18n/provider"
 import { createID } from "../lib/ids"
 import { setStreamActive } from "../pwa/stream-guard"
 import { applyEvent, isTerminalEvent } from "../state/fold"
-import { useCompletionOrNull } from "./completion"
+import { completeModelValue, useCompletionOrNull } from "./completion"
 import { applyInboxEvent } from "./inbox"
 
 export type ChatError = "load" | "send" | "stop" | "cancel" | null
@@ -197,8 +197,13 @@ export function useChatSession(sessionID: string): ChatSessionValue {
       try {
         // The response confirms the run, not the user message ID: the fake and
         // live backends return the assistant message ID here.
+        const modelValue = completeModelValue(
+          { model: completion?.model ?? null, variant: completion?.variant ?? null },
+          completion?.models ?? [],
+        )
         const choice = {
-          model: completion?.model ?? undefined,
+          model: modelValue.model,
+          variant: modelValue.variant,
           agent: completion?.agent ?? undefined,
         }
         const result = await api.prompt(
@@ -217,7 +222,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
         throw failure
       }
     },
-    [sessionID, completion?.model, completion?.agent],
+    [sessionID, completion?.model, completion?.variant, completion?.agent, completion?.models],
   )
 
   const stop = useCallback(async () => {

@@ -83,6 +83,11 @@ msgid "tasks.status.active"
 msgstr "Aktiv"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favoriteAdd"
+msgstr "{name} zu Favoriten hinzufügen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.create.after"
 msgstr "Nach einer Dauer"
@@ -96,6 +101,11 @@ msgstr "Agent"
 #: src/i18n/messages/files.ts
 msgid "files.origin.agent"
 msgstr "Agent"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.allModels"
+msgstr "Alle Modelle"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -394,6 +404,11 @@ msgstr "Verbindung unterbrochen – neuer Versuch läuft…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "chat.contextWindow"
+msgstr "Kontextfenster: {tokens} Token"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.continue"
 msgstr "Fortsetzen"
 
@@ -503,6 +518,11 @@ msgid "chat.permissionDeny"
 msgstr "Ablehnen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deprecated"
+msgstr "Eingestellt"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.narrow"
 msgstr "Nur am Desktop"
@@ -573,14 +593,14 @@ msgid "settings.documents"
 msgstr "Dokumente"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.done"
-msgstr "Erledigt"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.success"
 msgstr "Fertig"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.done"
+msgstr "Erledigt"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -653,11 +673,6 @@ msgid "auth.loginDescription"
 msgstr "Gib deinen Benutzernamen und dein Passwort ein, um den Arbeitsplatz zu öffnen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.error"
-msgstr "Fehler"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.error"
 msgstr "Fehler"
@@ -665,6 +680,11 @@ msgstr "Fehler"
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.error"
+msgstr "Fehler"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.error"
 msgstr "Fehler"
 
 #. js-lingui-explicit-id
@@ -681,6 +701,11 @@ msgstr "Fehlgeschlagen"
 #: src/i18n/messages/search.ts
 msgid "search.status.failed"
 msgstr "Fehlgeschlagen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favorites"
+msgstr "Favoriten"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -718,19 +743,24 @@ msgid "artifacts.description"
 msgstr "HTML-Dokumente, die dein Agent geschrieben hat. Jedes läuft in einer Sandbox auf einer eigenen Origin."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.image"
+msgstr "Bild"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.kind.image"
 msgstr "Bild"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
-msgid "artifacts.kind.image"
-msgstr "Bild"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
 msgid "artifacts.galleryTitle"
 msgstr "Bildergalerie"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityImage"
+msgstr "Bildeingabe"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -863,6 +893,11 @@ msgid "chat.activeChoice"
 msgstr "Modell: {model} · Agent: {agent}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.activeChoiceVariant"
+msgstr "Modell: {model} · Variante: {variant} · Agent: {agent}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.needsAuth"
 msgstr "Anmeldung nötig"
@@ -911,6 +946,11 @@ msgstr "Noch keine Chats."
 #: src/i18n/messages/code.ts
 msgid "code.ticketTitle"
 msgstr "Kein Anmelde-Ticket für Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.noModels"
+msgstr "Keine passenden Modelle"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -1128,6 +1168,11 @@ msgid "chat.statusReady"
 msgstr "Bereit"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityReasoning"
+msgstr "Denkfähigkeit"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.reasoning"
 msgstr "Überlegung"
@@ -1183,6 +1228,11 @@ msgid "composer.attachmentRemove"
 msgstr "{name} entfernen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favoriteRemove"
+msgstr "{name} aus Favoriten entfernen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.mermaidLoading"
 msgstr "Diagramm wird gerendert…"
@@ -1211,11 +1261,6 @@ msgstr "Ergebnis aus diesem Artefakt"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.resume"
 msgstr "{title} fortsetzen"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.retry"
-msgstr "Erneut versuchen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -1263,6 +1308,11 @@ msgid "host.retry"
 msgstr "Erneut versuchen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.retry"
+msgstr "Erneut versuchen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.retry"
 msgstr "Transkription erneut versuchen"
@@ -1273,13 +1323,13 @@ msgid "tasks.create.ends"
 msgstr "Einmal ausführen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.running"
+#: src/i18n/messages/render.ts
+msgid "tool.status.running"
 msgstr "Läuft"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.running"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.running"
 msgstr "Läuft"
 
 #. js-lingui-explicit-id
@@ -1326,6 +1376,11 @@ msgstr "Chats, Dateien, Web und Apps durchsuchen"
 #: src/i18n/messages/search.ts
 msgid "search.groupFailed"
 msgstr "Suche fehlgeschlagen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.modelSearch"
+msgstr "Modelle oder Anbieter suchen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1471,6 +1526,11 @@ msgstr "Zum Inhalt springen"
 #: src/i18n/messages/search.ts
 msgid "search.sources"
 msgstr "Quellen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.stale"
+msgstr "Veraltet"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -1786,6 +1846,11 @@ msgstr "Zu viele Versuche. Versuch es gleich noch einmal."
 #: src/i18n/messages/search.ts
 msgid "search.kindTool"
 msgstr "Tool"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityTools"
+msgstr "Werkzeuge"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
