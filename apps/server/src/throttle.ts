@@ -14,6 +14,11 @@ export interface ThrottleOptions {
   windowMs?: number
   /** Injected clock for tests. */
   now?: () => number
+  /**
+   * Addresses tracked at once. Defaults to `MAX_TRACKED_ADDRESSES`; tests
+   * shrink it so eviction is observable without a thousand requests.
+   */
+  maxAddresses?: number
 }
 
 export interface ThrottleStatus {
@@ -29,7 +34,12 @@ interface Bucket {
 
 const DEFAULT_LIMIT = 10
 const DEFAULT_WINDOW_MS = 60_000
-const MAX_TRACKED_ADDRESSES = 1024
+/**
+ * Addresses one throttle tracks at once. A self-hosted deployment sees a
+ * handful of clients; the cap only exists so a spoofed forwarding header
+ * behind a misconfigured proxy cannot grow the map without bound.
+ */
+export const MAX_TRACKED_ADDRESSES = 1024
 const DEFAULT_VERIFICATION_PERMITS = 2
 
 export class FixedWindowThrottle {
@@ -37,11 +47,21 @@ export class FixedWindowThrottle {
   private readonly limit: number
   private readonly windowMs: number
   private readonly now: () => number
+  private readonly maxAddresses: number
 
   constructor(options: ThrottleOptions = {}) {
     this.limit = options.limit ?? DEFAULT_LIMIT
     this.windowMs = options.windowMs ?? DEFAULT_WINDOW_MS
     this.now = options.now ?? (() => Date.now())
+    this.maxAddresses = options.maxAddresses ?? MAX_TRACKED_ADDRESSES
+    if (!Number.isInteger(this.maxAddresses) || this.maxAddresses < 1) {
+      throw new Error("FixedWindowThrottle needs room for at least one address")
+    }
+  }
+
+  /** Addresses currently tracked; exposed for tests. */
+  get tracked(): number {
+    return this.buckets.size
   }
 
   check(address: string): ThrottleStatus {
@@ -59,7 +79,7 @@ export class FixedWindowThrottle {
   record(address: string): void {
     const bucket = this.activeBucket(address)
     if (!bucket) {
-      this.prune()
+      this.makeRoom()
       this.buckets.set(address, { events: 1, resetAt: this.now() + this.windowMs })
       return
     }
@@ -71,6 +91,11 @@ export class FixedWindowThrottle {
     this.buckets.delete(address)
   }
 
+  /**
+   * Reads a live bucket and marks it as recently used. `Map` keeps insertion
+   * order, so delete-and-reinsert turns the map into a cheap LRU list: the
+   * first key is the least recently used address.
+   */
   private activeBucket(address: string): Bucket | undefined {
     const bucket = this.buckets.get(address)
     if (!bucket) return undefined
@@ -78,14 +103,26 @@ export class FixedWindowThrottle {
       this.buckets.delete(address)
       return undefined
     }
+    this.buckets.delete(address)
+    this.buckets.set(address, bucket)
     return bucket
   }
 
-  private prune(): void {
-    if (this.buckets.size < MAX_TRACKED_ADDRESSES) return
+  /**
+   * Frees one slot before a new address is inserted: expired windows go first,
+   * then the least recently used address. Deterministic and clock-independent
+   * apart from the injected clock, so a spoofed address cannot grow the map.
+   */
+  private makeRoom(): void {
+    if (this.buckets.size < this.maxAddresses) return
     const now = this.now()
     for (const [address, bucket] of this.buckets) {
       if (now >= bucket.resetAt) this.buckets.delete(address)
+    }
+    while (this.buckets.size >= this.maxAddresses) {
+      const oldest = this.buckets.keys().next()
+      if (oldest.done) return
+      this.buckets.delete(oldest.value)
     }
   }
 }

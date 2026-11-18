@@ -1,4 +1,4 @@
-import type { Message, MessageStatus } from "@openchat/contracts"
+import type { InboxEntry, Message, MessageStatus } from "@openchat/contracts"
 import { EVENT, messageText } from "@openchat/contracts"
 import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -13,6 +13,8 @@ import { ThemeProvider } from "../src/theme/provider"
 
 const mocks = vi.hoisted(() => ({
   listMessages: vi.fn(),
+  listInbox: vi.fn(),
+  cancelQueued: vi.fn(),
   listSessions: vi.fn(),
   createSession: vi.fn(),
   prompt: vi.fn(),
@@ -104,6 +106,17 @@ function envelope(type: string, data: Record<string, unknown>): Record<string, u
   return { id: `evt_${type}`, created: 2, type, data }
 }
 
+function inboxEntry(text: string, id = "msg_queued"): InboxEntry {
+  return {
+    id,
+    sessionID: "ses_1",
+    kind: "user",
+    text,
+    delivery: "queue",
+    created: 2,
+  }
+}
+
 function SessionProbe() {
   const chat = useChatSession("ses_1")
   return (
@@ -152,6 +165,8 @@ beforeEach(() => {
   vi.stubGlobal("EventSource", FakeEventSource)
   for (const mock of Object.values(mocks)) mock.mockReset()
   mocks.listSessions.mockResolvedValue([])
+  mocks.listInbox.mockResolvedValue([])
+  mocks.cancelQueued.mockResolvedValue(undefined)
   mocks.prompt.mockResolvedValue({ ok: true, messageID: "msg_b" })
   mocks.interrupt.mockResolvedValue(undefined)
 })
@@ -222,6 +237,72 @@ describe("queued prompts", () => {
     await waitFor(() => expect(screen.queryByText("Queued")).toBeNull())
     expect(screen.queryByText(/queued until the current run/)).toBeNull()
     expect(screen.getByText("Assistant is responding…")).toBeInTheDocument()
+  })
+})
+
+describe("inbox", () => {
+  it("restores a queued turn after load and cancels it through the API", async () => {
+    const userEventSetup = userEvent.setup()
+    mocks.listMessages.mockResolvedValue([assistant("streaming", "still answering")])
+    mocks.listInbox.mockResolvedValue([inboxEntry("waiting turn")])
+
+    renderChat()
+    expect(await screen.findByText("waiting turn")).toBeInTheDocument()
+    expect(screen.getAllByText("Queued").length).toBeGreaterThan(0)
+
+    await userEventSetup.click(screen.getByRole("button", { name: "Cancel" }))
+
+    await waitFor(() =>
+      expect(mocks.cancelQueued).toHaveBeenCalledWith("ses_1", "msg_queued"),
+    )
+    await waitFor(() => expect(screen.queryByText("waiting turn")).toBeNull())
+    expect(screen.queryByText(/queued until the current run/)).toBeNull()
+  })
+
+  it("keeps the queued marker when the cancel request fails", async () => {
+    const userEventSetup = userEvent.setup()
+    mocks.listMessages.mockResolvedValue([assistant("streaming", "still answering")])
+    mocks.listInbox.mockResolvedValue([inboxEntry("waiting turn")])
+    mocks.cancelQueued.mockRejectedValue(new Error("conflict"))
+
+    renderChat()
+    await screen.findByText("waiting turn")
+    await userEventSetup.click(screen.getByRole("button", { name: "Cancel" }))
+
+    expect(
+      await screen.findByText("The queued message could not be cancelled."),
+    ).toBeInTheDocument()
+    expect(screen.getByText("waiting turn")).toBeInTheDocument()
+  })
+
+  it("applies live inbox events to the queued list", async () => {
+    mocks.listMessages.mockResolvedValue([assistant("streaming", "still answering")])
+
+    renderChat()
+    await screen.findByText("still answering")
+
+    act(() =>
+      source().emit(
+        EVENT.inboxEnqueued,
+        envelope(EVENT.inboxEnqueued, {
+          sessionID: "ses_1",
+          messageID: "msg_live_q",
+          kind: "user",
+          text: "event turn",
+          delivery: "queue",
+          created: 3,
+        }),
+      ),
+    )
+    expect(await screen.findByText("event turn")).toBeInTheDocument()
+
+    act(() =>
+      source().emit(
+        EVENT.inboxCancelled,
+        envelope(EVENT.inboxCancelled, { sessionID: "ses_1", messageID: "msg_live_q" }),
+      ),
+    )
+    await waitFor(() => expect(screen.queryByText("event turn")).toBeNull())
   })
 })
 

@@ -13,6 +13,8 @@ import { ThemeProvider } from "../src/theme/provider"
 
 const mocks = vi.hoisted(() => ({
   listMessages: vi.fn(),
+  listInbox: vi.fn(),
+  cancelQueued: vi.fn(),
   listSessions: vi.fn(),
   createSession: vi.fn(),
   prompt: vi.fn(),
@@ -113,6 +115,7 @@ beforeEach(() => {
   vi.stubGlobal("EventSource", FakeEventSource)
   for (const mock of Object.values(mocks)) mock.mockReset()
   mocks.listMessages.mockResolvedValue([])
+  mocks.listInbox.mockResolvedValue([])
   mocks.listSessions.mockResolvedValue([])
 })
 

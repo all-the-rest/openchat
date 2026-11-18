@@ -160,4 +160,36 @@ describe("forwarded address through the routes", () => {
     expect(statuses.slice(0, 20)).toEqual(Array.from({ length: 20 }, () => 200))
     expect(statuses[20]).toBe(429)
   })
+
+  it("caps the map under a spoofed rotating header and keeps a tracked window", async () => {
+    const throttle = new FixedWindowThrottle({
+      limit: 2,
+      windowMs: 60_000,
+      now: () => 0,
+      maxAddresses: 2,
+    })
+    const server = makeServer({
+      env: { ...TICKET_ENV, TRUST_PROXY: "1" },
+      codeTicketThrottle: throttle,
+    })
+    const cookie = await login(server)
+    const spoofed = (entry: string) =>
+      mint(server, cookie, { "x-forwarded-for": entry })
+
+    expect((await spoofed("198.51.100.1")).status).toBe(200)
+    expect((await spoofed("198.51.100.2")).status).toBe(200)
+    expect(throttle.tracked).toBe(2)
+
+    // A second request refreshes address 1's recency; address 2 is now the
+    // eviction candidate when address 3 appears.
+    expect((await spoofed("198.51.100.1")).status).toBe(200)
+    expect((await spoofed("198.51.100.3")).status).toBe(200)
+    expect(throttle.tracked).toBe(2)
+
+    // Address 1 kept its two-event window; address 2 was evicted and starts
+    // over instead of inheriting the old count.
+    expect((await spoofed("198.51.100.1")).status).toBe(429)
+    expect((await spoofed("198.51.100.2")).status).toBe(200)
+    expect(throttle.tracked).toBe(2)
+  })
 })

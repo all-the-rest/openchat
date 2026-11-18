@@ -4,6 +4,7 @@ import type {
   CodeStatusResponse,
   CodeTicketResponse,
   CreateSessionRequest,
+  InboxEntry,
   InfoResponse,
   LoginResponse,
   Message,
@@ -201,6 +202,21 @@ export const api = {
   async listMessages(sessionID: string): Promise<Message[]> {
     const body = await request<unknown>(`${sessionPath(sessionID)}/messages`)
     return unwrapList<Message>(body, "messages")
+  },
+
+  /** Pending turns of a session; a reload restores the queued markers. */
+  async listInbox(sessionID: string): Promise<InboxEntry[]> {
+    const body = await request<unknown>(`${sessionPath(sessionID)}/inbox`)
+    return unwrapList<InboxEntry>(body, "entries")
+  },
+
+  /** Drops one pending turn by the message id the prompt response returned. */
+  cancelQueued(sessionID: string, messageID: string): Promise<void> {
+    return request<void>(`${sessionPath(sessionID)}/inbox/${encodeURIComponent(messageID)}`, {
+      method: "DELETE",
+      // The BFF requires a JSON content type on state-changing requests.
+      body: JSON.stringify({}),
+    })
   },
 
   /** One grouped query; `sources` limits what the BFF is allowed to query. */

@@ -253,6 +253,26 @@ msgid "chat.copied"
 msgstr "In die Zwischenablage kopiert"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.cancelFailed"
+msgstr "Die wartende Nachricht konnte nicht abgebrochen werden."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxCancel"
+msgstr "Abbrechen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxLabel"
+msgstr "Wartende Nachrichten"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxPendingStep"
+msgstr "Ausstehender Schritt"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.copyCode"
 msgstr "Code kopieren"

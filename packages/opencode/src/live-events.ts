@@ -98,6 +98,32 @@ export function normalizeEvent(
         sessionID: event.data.sessionID,
         reason: event.data.reason,
       })
+    case "session.inbox.enqueued": {
+      const item = event.data.item
+      return envelope(event, "session.inbox.enqueued", {
+        sessionID: event.data.sessionID,
+        messageID: event.data.inboxID,
+        kind: item.type,
+        // Only user and synthetic entries carry prompt text; the other kinds
+        // are host bookkeeping and have nothing to display.
+        text:
+          item.type === "user" || item.type === "synthetic" ? item.payload.text : "",
+        delivery: item.delivery,
+        created: event.created,
+      })
+    }
+    case "session.inbox.delivered":
+    case "session.inbox.cancelled":
+      return envelope(event, event.type, {
+        sessionID: event.data.sessionID,
+        messageID: event.data.inboxID,
+      })
+    case "session.inbox.delivery.changed":
+      return envelope(event, "session.inbox.delivery.changed", {
+        sessionID: event.data.sessionID,
+        messageID: event.data.inboxID,
+        delivery: event.data.delivery,
+      })
     case "session.idle": {
       // `session.idle` only names the session. Claiming completion without an
       // id would make the client close whatever message happens to be last, so

@@ -253,6 +253,26 @@ msgid "chat.copied"
 msgstr "Copied to clipboard"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.cancelFailed"
+msgstr "The queued message could not be cancelled."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxCancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxLabel"
+msgstr "Queued messages"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxPendingStep"
+msgstr "Pending step"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.copyCode"
 msgstr "Copy code"
