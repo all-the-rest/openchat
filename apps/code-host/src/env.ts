@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto"
+import { isIP } from "node:net"
 import { MAX_TICKET_TTL_SECONDS } from "@openchat/code-ticket"
 
 export interface EnvConfig {
@@ -38,7 +39,7 @@ const DEFAULT_SESSION_TTL_SECONDS = 43_200
 /** 30 days. A longer `Max-Age` is a session token with no practical expiry. */
 const MAX_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "[::1]", "localhost"])
+const LOOPBACK_HOST = "localhost"
 
 function read(source: Record<string, string | undefined>, key: string): string | undefined {
   const value = source[key]
@@ -97,8 +98,23 @@ function readPort(
   return parsed
 }
 
+/**
+ * A bind address is loopback when it is `localhost` or a numeric loopback IP,
+ * not when it merely starts with `127.`: a DNS name such as `127.example.com`
+ * resolves wherever its owner says, so it must not silence the warning.
+ */
 function isLoopbackHost(host: string): boolean {
-  return LOOPBACK_HOSTS.has(host.toLowerCase()) || host.startsWith("127.")
+  const normalized = host.trim().toLowerCase()
+  if (normalized === LOOPBACK_HOST) return true
+  const bare =
+    normalized.startsWith("[") && normalized.endsWith("]")
+      ? normalized.slice(1, -1)
+      : normalized
+  const family = isIP(bare)
+  if (family === 4) return bare.startsWith("127.")
+  // `::1`, including the fully expanded form; `isIP` rejects DNS names.
+  if (family === 6) return bare === "::1" || /^(?:0{1,4}:){7}0{0,3}1$/.test(bare)
+  return false
 }
 
 /**

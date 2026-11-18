@@ -14,7 +14,7 @@ function codeEnv(overrides: Record<string, string | undefined> = {}) {
     CODE_HOST_ORIGIN: ORIGIN,
     CODE_TICKET_SECRET: SECRET,
     CODE_TICKET_TTL_SECONDS: "30",
-    CODE_STATUS_TIMEOUT_MS: "50",
+    CODE_STATUS_TIMEOUT_MS: "100",
     ...overrides,
   }
 }
@@ -145,7 +145,10 @@ describe("ticket minting", () => {
   it("keeps safeNext decisions independent of the route", () => {
     expect(safeNext(undefined)).toBe("/")
     expect(safeNext("/a?b=1")).toBe("/a?b=1")
-    expect(safeNext("javascript:alert(1)")).toBe("/")
+    // Protocol-relative input is rejected by the path check itself; the
+    // scheme-shaped case never reaches a separate scheme test.
+    expect(safeNext("//evil.example")).toBe("/")
+    expect(safeNext("https://evil.example")).toBe("/")
   })
 
   it("mints a fresh jti per request and keeps tokens out of status and logs", async () => {
@@ -309,6 +312,56 @@ describe("Code host status", () => {
     now = 10_001
     await server.app.request("/api/code/status", { headers: { cookie } })
     expect(calls).toBe(2)
+  })
+
+  it("probes with redirects disabled", async () => {
+    let seen: RequestInit | undefined
+    const stub = (async (_input: string | URL | Request, init?: RequestInit) => {
+      seen = init
+      return Response.json({ ok: true, version: PINNED_OPENCODE_VERSION })
+    }) as typeof fetch
+
+    const result = await createCodeProbe(stub)(ORIGIN, 1_000)
+    expect(result).toEqual({ reachable: true, version: PINNED_OPENCODE_VERSION })
+    // A redirect would let another origin answer the probe.
+    expect(seen?.redirect).toBe("error")
+  })
+
+  it("bounds a hostile version before it reaches the client", async () => {
+    const version = `2.3.0-${"x".repeat(200)}`
+    const probe = createCodeProbe(
+      (async () => Response.json({ ok: true, version })) as typeof fetch,
+    )
+    const server = makeServer({ env: codeEnv(), codeProbe: probe })
+    const cookie = await login(server)
+    const body = await json<CodeStatusResponse>(
+      await server.app.request("/api/code/status", { headers: { cookie } }),
+    )
+    expect(body.reachable).toBe(true)
+    expect(body.version).toHaveLength(64)
+    expect(body.version?.startsWith("2.3.0-")).toBe(true)
+    expect(body.matches).toBe(false)
+  })
+
+  it("bounds the health body it reads from a hostile host", async () => {
+    let pulls = 0
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1
+        controller.enqueue(new Uint8Array(1_024).fill(0x20))
+      },
+    })
+    const probe = createCodeProbe(
+      (async () => new Response(endless, { status: 200 })) as typeof fetch,
+    )
+    const server = makeServer({ env: codeEnv(), codeProbe: probe })
+    const cookie = await login(server)
+    const body = await json<CodeStatusResponse>(
+      await server.app.request("/api/code/status", { headers: { cookie } }),
+    )
+    expect(body.reachable).toBe(false)
+    expect(body).not.toHaveProperty("version")
+    expect(pulls).toBeLessThan(10)
   })
 })
 

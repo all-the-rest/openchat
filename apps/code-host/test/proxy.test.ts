@@ -5,6 +5,7 @@ import { basicAuthorization } from "../src/http"
 import {
   OPENCODE_PASSWORD,
   APP_ORIGIN,
+  CODE_HOST_ORIGIN,
   cookieFor,
   makeApp,
   rawHeaderValues,
@@ -203,7 +204,11 @@ describe("proxy response", () => {
 
     const response = await app.request("/api/echo?x=1", {
       method: "POST",
-      headers: { cookie: cookieFor(config), "content-type": "application/json" },
+      headers: {
+        cookie: cookieFor(config),
+        "content-type": "application/json",
+        origin: CODE_HOST_ORIGIN,
+      },
       body: JSON.stringify({ prompt: "hello" }),
     })
     expect(response.status).toBe(200)

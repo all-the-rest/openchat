@@ -56,6 +56,9 @@ const DEFAULT_DICTATION_MAX_SECONDS = 120
 const DEFAULT_DICTATION_MAX_BYTES = 26_214_400
 const DEFAULT_CODE_TICKET_TTL_SECONDS = 60
 const DEFAULT_CODE_STATUS_TIMEOUT_MS = 2_000
+/** Matches the Code host's probe bound: a status probe must not hold a socket. */
+const MIN_CODE_STATUS_TIMEOUT_MS = 100
+const MAX_CODE_STATUS_TIMEOUT_MS = 10_000
 /** Matches `MAX_TICKET_TTL_SECONDS` in `@openchat/code-ticket`. */
 const MAX_CODE_TICKET_TTL_SECONDS = 60
 /**
@@ -93,6 +96,24 @@ function readNumber(
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed <= 0) {
     warn(`${key} must be a positive integer; using the default`)
+    return fallback
+  }
+  return parsed
+}
+
+/**
+ * A TCP port; anything outside `1..65535` would fail later inside `listen`.
+ */
+function readPort(
+  source: Record<string, string | undefined>,
+  fallback: number,
+  warn: (message: string) => void,
+): number {
+  const value = read(source, "PORT")
+  if (!value) return fallback
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+    warn("PORT must be an integer between 1 and 65535; using the default")
     return fallback
   }
   return parsed
@@ -280,9 +301,29 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     dictationMaxBytes = DICTATION_MAX_BYTES_CEILING
   }
 
+  let codeStatusTimeoutMs = readNumber(
+    source,
+    "CODE_STATUS_TIMEOUT_MS",
+    DEFAULT_CODE_STATUS_TIMEOUT_MS,
+    warn,
+  )
+  if (codeStatusTimeoutMs < MIN_CODE_STATUS_TIMEOUT_MS) {
+    warn(
+      `CODE_STATUS_TIMEOUT_MS is below the ${MIN_CODE_STATUS_TIMEOUT_MS} ms floor; ` +
+        "using the floor",
+    )
+    codeStatusTimeoutMs = MIN_CODE_STATUS_TIMEOUT_MS
+  } else if (codeStatusTimeoutMs > MAX_CODE_STATUS_TIMEOUT_MS) {
+    warn(
+      `CODE_STATUS_TIMEOUT_MS is above the ${MAX_CODE_STATUS_TIMEOUT_MS} ms ceiling; ` +
+        "using the ceiling",
+    )
+    codeStatusTimeoutMs = MAX_CODE_STATUS_TIMEOUT_MS
+  }
+
   return {
     HOST: read(source, "HOST") ?? DEFAULT_HOST,
-    PORT: readNumber(source, "PORT", DEFAULT_PORT, warn),
+    PORT: readPort(source, DEFAULT_PORT, warn),
     WORKSPACE_DIR: read(source, "WORKSPACE_DIR") ?? process.cwd(),
     BACKEND_MODE: backendMode,
     FAKE_SCENARIO: isFakeScenario(scenarioValue) ? scenarioValue : "default",
@@ -309,11 +350,6 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     CODE_HOST_ORIGIN: codeHostOrigin,
     CODE_TICKET_SECRET: codeTicketSecret ?? "",
     CODE_TICKET_TTL_SECONDS: codeTicketTtl,
-    CODE_STATUS_TIMEOUT_MS: readNumber(
-      source,
-      "CODE_STATUS_TIMEOUT_MS",
-      DEFAULT_CODE_STATUS_TIMEOUT_MS,
-      warn,
-    ),
+    CODE_STATUS_TIMEOUT_MS: codeStatusTimeoutMs,
   }
 }

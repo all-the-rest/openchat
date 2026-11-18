@@ -1,5 +1,7 @@
+import { createHmac } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import { APP_ORIGIN, cookieFor, makeApp, sessionCookieValue, ticketFor } from "./helpers"
+import type { EnvConfig } from "../src/env"
+import { APP_ORIGIN, makeApp, sessionCookieValue, ticketFor } from "./helpers"
 
 const NOW = 1_700_000_000_000
 
@@ -9,6 +11,24 @@ function flipLast(value: string): string {
 
 function authPath(ticket: string, next = "/"): string {
   return `/__auth?ticket=${encodeURIComponent(ticket)}&next=${encodeURIComponent(next)}`
+}
+
+function signed(payload: string, key: string | Buffer): string {
+  const signature = createHmac("sha256", key).update(`v1.${payload}`).digest("base64url")
+  return `v1.${payload}.${signature}`
+}
+
+/** A correctly shaped, correctly audience-bound ticket with an arbitrary exp. */
+function ticketExpiringAt(config: EnvConfig, exp: number): string {
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: "owner",
+      codeHost: config.CODE_HOST_ORIGIN,
+      exp,
+      jti: "forged-jti",
+    }),
+  ).toString("base64url")
+  return signed(payload, config.CODE_TICKET_SECRET)
 }
 
 describe("ticket exchange", () => {
@@ -49,12 +69,50 @@ describe("ticket exchange", () => {
     expect(await response.json()).toEqual({ error: "code_session_required" })
   })
 
-  it("does not accept a session value as a ticket", async () => {
+  it("does not accept a ticket-shaped value signed with the cookie key", async () => {
     const { app, config } = makeApp()
-    const value = cookieFor(config).slice("oc_code=".length)
-    const response = await app.request(authPath(value))
+    // Valid ticket shape, audience and expiry; only the signing key is the
+    // cookie's derived key. Without key separation this would sign in.
+    const payload = Buffer.from(
+      JSON.stringify({
+        sub: "owner",
+        codeHost: config.CODE_HOST_ORIGIN,
+        exp: Math.floor(Date.now() / 1000) + 30,
+        jti: "forged-jti",
+      }),
+    ).toString("base64url")
+    const cookieKey = createHmac("sha256", config.CODE_TICKET_SECRET)
+      .update("openchat:code-session")
+      .digest()
+    const response = await app.request(authPath(signed(payload, cookieKey)))
     expect(response.status).toBe(401)
     expect(response.headers.getSetCookie()).toEqual([])
+  })
+
+  it("does not accept a cookie-shaped value signed with the ticket key", async () => {
+    const { app, config } = makeApp()
+    // Valid session payload and expiry; signed with the ticket key rather
+    // than the derived cookie key.
+    const payload = Buffer.from(
+      JSON.stringify({ sub: "owner", exp: Math.floor(Date.now() / 1000) + 3_600 }),
+    ).toString("base64url")
+    const response = await app.request("/api/session", {
+      headers: { cookie: `oc_code=${signed(payload, config.CODE_TICKET_SECRET)}` },
+    })
+    expect(response.status).toBe(401)
+  })
+
+  it("rejects a ticket that outlives the configured lifetime", async () => {
+    const exp = Math.floor(Date.now() / 1000) + 100
+    const shortLived = makeApp({ CODE_TICKET_TTL_SECONDS: "20" })
+    const shortTicket = ticketExpiringAt(shortLived.config, exp)
+    // 100 s is inside the default 60 s + 60 s skew ceiling, so only the
+    // configured 20 s narrows the read to a rejection.
+    expect((await shortLived.app.request(authPath(shortTicket))).status).toBe(401)
+
+    const standard = makeApp()
+    const standardTicket = ticketExpiringAt(standard.config, exp)
+    expect((await standard.app.request(authPath(standardTicket))).status).toBe(302)
   })
 
   it("verifies before claiming, so a forged jti cannot burn the real ticket", async () => {

@@ -45,6 +45,9 @@ function requestHeaders(request: IncomingMessage): Headers {
 
 type DrainResult = "drain" | "closed"
 
+/** Hard ceiling for `reader.cancel()` during teardown. */
+export const CANCEL_TIMEOUT_MS = 2_000
+
 /**
  * Waits for `drain`, but gives up when the peer goes away first. A client that
  * stops reading and disconnects never drains, so waiting only for `drain`
@@ -69,6 +72,25 @@ function waitForDrain(response: ServerResponse): Promise<DrainResult> {
 }
 
 /**
+ * Cancels the reader, but never lets a hostile stream hold teardown: a reader
+ * whose `cancel` never settles is abandoned at the deadline.
+ */
+async function cancelReader(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs: number,
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, timeoutMs)
+  })
+  try {
+    await Promise.race([reader.cancel().catch(() => {}), deadline])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+/**
  * Pumps a web response body into the node response without buffering. A
  * teardown (client disconnect) cancels the reader instead of ending a dead
  * response, and the loop re-checks `destroyed` after every awaited wait.
@@ -76,6 +98,7 @@ function waitForDrain(response: ServerResponse): Promise<DrainResult> {
 export async function pumpResponseBody(
   body: ReadableStream<Uint8Array>,
   response: ServerResponse,
+  cancelTimeoutMs = CANCEL_TIMEOUT_MS,
 ): Promise<void> {
   const reader = body.getReader()
   let closed = response.destroyed
@@ -93,7 +116,7 @@ export async function pumpResponseBody(
     }
   } finally {
     if (closed || response.destroyed) {
-      await reader.cancel().catch(() => {})
+      await cancelReader(reader, cancelTimeoutMs)
     } else {
       response.end()
     }
