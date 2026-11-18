@@ -30,12 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cover the Code surface against a stub host; pin the draft clear and the loaded frame (#11)
 - keep the BFF env under the length gate; raise the test floor to the merged 740; raise the test floor to 742; record the chat-pattern study and repair the merged lockfile; raise the test floor to 896 (#13, #17, #20, #33)
 - cover the surface in a browser and capture it; pin the race guard and raise the ratchet floor (#15)
-- drop the reviewer subagent; add version, changelog and image release machinery; drop the remaining role definitions (#19)
+- drop the reviewer subagent; add version, changelog and image release machinery; drop the remaining role definitions; OpenChat 2.0.0 (#19)
 - toggle the tool card without user-event timing (#29)
 - settle the outage banner on the wide bar (#33)
 - compare a hostile version by major (#34)
 - pin that a wrong username still pays the bcrypt round (#39)
-- give the rollback cases room under a loaded workspace (#40)
+- give the rollback cases room under a loaded workspace; do not build the toolbox image without the dind profile (#40, #44)
+- give the bridge caps one owner (#41)
+- cap the build cache and ship the artifact tool without dev deps (#44)
 - add ratchet gates, GitHub Actions and the UI screenshot harness
 - raise the test floor to 960
 
@@ -50,10 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - normalise reserved paths, police trust proxy, verify downloads (#20)
 - key the throttles on the hop the proxy appended (#31)
 - close the review gaps the Code surface carried (#32)
+- close the review findings on the remote driver; keep the Code origin's event stream uncompressed too (#40, #41)
+- stop an anonymous burst from burning the BFF, and harden the cookie (#42)
 
 ### Documentation
 
 - add clean-room analysis scaffold and feasibility study; record first desktop and mobile observation pass; record breakpoints and the composer add menu; cut settings down to a self-hosted single-user product; align the integration map with the published client types; verify the OpenCode 2.3 facts and record the V2 scope; correct deliverable status and observation numbering; point to the v1.0 and v2.0 milestones (#1)
 - document the Code surface variables in .env.example (#11)
 - design the interactive app runtime (#13)
+- count the five images the workflow publishes (#19)
 - decide the styling layer and record the gate successor (#20)
