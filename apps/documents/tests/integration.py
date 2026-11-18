@@ -30,7 +30,6 @@ try:
     import docxtpl  # noqa: F401
     import docx  # noqa: F401
     import pypdf
-    import markitdown  # noqa: F401
 
     HAS_LIBS = True
 except ImportError:
@@ -88,14 +87,6 @@ class TestConversion(unittest.TestCase):
             text = "\n".join(page.extract_text() or "" for page in reader.pages)
             for expected in ("Ada Lovelace", "Analytical engine", "Punch cards"):
                 self.assertIn(expected, text)
-
-    def test_extract_returns_markdown(self) -> None:
-        from documents.extract import extract_markdown
-        from documents.render import render_template
-
-        filled = render_template(fixture("invoice.dotx"), VALUES)
-        text = extract_markdown(filled, "invoice.docx")
-        self.assertIn("Ada Lovelace", text)
 
 
 if __name__ == "__main__":

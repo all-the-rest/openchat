@@ -131,6 +131,7 @@ describe("release workflow", () => {
       "deploy/Dockerfile.bff",
       "deploy/Dockerfile.code-host",
       "deploy/Dockerfile.artifact-host",
+      "deploy/Dockerfile.documents",
       "deploy/Dockerfile.opencode",
       "deploy/code-host/tools.Dockerfile",
     ]) {

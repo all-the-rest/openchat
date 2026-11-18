@@ -1,20 +1,40 @@
-import { errorText, isErrorCode } from "./errors"
-import type { ErrorCode } from "./errors"
-import { decodeBase64, MAX_DOCUMENT_BYTES } from "./validate"
-import type { JsonValue } from "./validate"
+import {
+  DOCUMENTS_TIMEOUT_MS,
+  MAX_DOCUMENTS_RESPONSE_BYTES,
+} from "./limits"
 
 /**
  * Typed client for the headless documents service. One bearer token, one
- * deadline, one response cap. Service errors are mapped to our stable codes;
- * no raw body, stderr or traceback is ever returned to the model.
+ * deadline, one response cap. Service codes map to fixed sentences: no raw
+ * body, LibreOffice stderr or traceback is ever returned to the model.
  */
 
-export const DEFAULT_DOCUMENTS_TIMEOUT_MS = 40_000
-export const MAX_DOCUMENTS_RESPONSE_BYTES = 24 * 1024 * 1024
+const SERVICE_ERROR = {
+  invalid_template: "template: not a readable DOCX or DOTX package",
+  unknown_placeholder: "values: the template has a placeholder without a value",
+  render_failed: "template: the document could not be rendered",
+  convert_failed: "convert: the document could not be exported as a PDF",
+  macro_document: "unsupported: macro-enabled documents are rejected",
+  too_large: "size: the document exceeds the service limit",
+  timeout: "timeout: the conversion ran longer than its limit",
+  bad_request: "input: the documents service refused the request",
+  unauthorized: "service: the documents token was rejected",
+  not_found: "service: the documents service has no such endpoint",
+  service_error: "service: the documents service rejected the request",
+  service_unavailable: "service: the documents service is unreachable; check DOCUMENTS_URL",
+  invalid_output: "internal: the documents service returned an unexpected result",
+} as const
+
+type Code = keyof typeof SERVICE_ERROR
+const CODES = new Set<string>(Object.keys(SERVICE_ERROR))
+
+function codeOf(value: unknown): Code {
+  return typeof value === "string" && CODES.has(value) ? (value as Code) : "service_error"
+}
 
 export interface FillRequest {
   template: string
-  values: Record<string, JsonValue>
+  values: Record<string, unknown>
   name: string
 }
 
@@ -25,8 +45,9 @@ export interface FillResponse {
   pdfName: string
 }
 
-export interface ExtractResponse {
-  markdown: string
+export interface ConvertResponse {
+  pdf: Uint8Array
+  pdfName: string
 }
 
 export type DocumentsResult<T> = { ok: true; value: T } | { ok: false; error: string }
@@ -42,16 +63,33 @@ export interface DocumentsClientOptions {
 
 export interface DocumentsClient {
   fill(request: FillRequest): Promise<DocumentsResult<FillResponse>>
-  extract(request: { name: string; base64: string }): Promise<DocumentsResult<ExtractResponse>>
+  convert(request: { document: string; name: string }): Promise<DocumentsResult<ConvertResponse>>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+function decode(value: unknown, field: string, cap: number): DocumentsResult<Uint8Array> {
+  if (typeof value !== "string" || value.length === 0) {
+    return { ok: false, error: `${field}: the service returned no base64 data` }
+  }
+  if (value.length > Math.ceil((cap * 4) / 3) + 4) {
+    return { ok: false, error: SERVICE_ERROR.too_large }
+  }
+  if (value.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) {
+    return { ok: false, error: SERVICE_ERROR.invalid_output }
+  }
+  const bytes = new Uint8Array(Buffer.from(value, "base64"))
+  if (bytes.byteLength === 0 || bytes.byteLength > cap) {
+    return { ok: false, error: SERVICE_ERROR.too_large }
+  }
+  return { ok: true, value: bytes }
+}
+
 export function createDocumentsClient(options: DocumentsClientOptions): DocumentsClient {
-  const timeout = options.timeoutMs ?? DEFAULT_DOCUMENTS_TIMEOUT_MS
-  const responseCap = options.maxResponseBytes ?? MAX_DOCUMENTS_RESPONSE_BYTES
+  const timeout = options.timeoutMs ?? DOCUMENTS_TIMEOUT_MS
+  const cap = options.maxResponseBytes ?? MAX_DOCUMENTS_RESPONSE_BYTES
   const fetcher = options.fetchImpl ?? fetch
 
   async function post(
@@ -70,35 +108,32 @@ export function createDocumentsClient(options: DocumentsClientOptions): Document
         signal: AbortSignal.timeout(timeout),
       })
     } catch (error) {
-      const code: ErrorCode = error instanceof Error && error.name === "TimeoutError" ? "timeout" : "service_unavailable"
-      return { ok: false, error: errorText(code) }
+      const code: Code = error instanceof Error && error.name === "TimeoutError" ? "timeout" : "service_unavailable"
+      return { ok: false, error: SERVICE_ERROR[code] }
     }
 
     const declared = Number(response.headers.get("content-length") ?? "0")
-    if (Number.isFinite(declared) && declared > responseCap) {
-      return { ok: false, error: errorText("too_large") }
+    if (Number.isFinite(declared) && declared > cap) {
+      return { ok: false, error: SERVICE_ERROR.too_large }
     }
     let raw: ArrayBuffer
     try {
       raw = await response.arrayBuffer()
     } catch {
-      return { ok: false, error: errorText("service_unavailable") }
+      return { ok: false, error: SERVICE_ERROR.service_unavailable }
     }
-    if (raw.byteLength > responseCap) return { ok: false, error: errorText("too_large") }
+    if (raw.byteLength > cap) return { ok: false, error: SERVICE_ERROR.too_large }
 
     let parsed: unknown
     try {
       parsed = JSON.parse(new TextDecoder().decode(raw))
     } catch {
-      return { ok: false, error: errorText("service_error") }
+      return { ok: false, error: SERVICE_ERROR.service_error }
     }
-    if (!isRecord(parsed)) return { ok: false, error: errorText("service_error") }
-
+    if (!isRecord(parsed)) return { ok: false, error: SERVICE_ERROR.service_error }
     if (!response.ok) {
       const nested = isRecord(parsed.error) ? parsed.error : undefined
-      const rawCode = nested?.code
-      const code: ErrorCode = isErrorCode(rawCode) ? rawCode : "service_error"
-      return { ok: false, error: errorText(code) }
+      return { ok: false, error: SERVICE_ERROR[codeOf(nested?.code)] }
     }
     return { ok: true, value: parsed }
   }
@@ -110,35 +145,37 @@ export function createDocumentsClient(options: DocumentsClientOptions): Document
       name: request.name,
     })
     if (!result.ok) return result
-    const value = result.value
-    const docx = decodeBase64(value.docx, "docx", MAX_DOCUMENTS_RESPONSE_BYTES)
-    const pdf = decodeBase64(value.pdf, "pdf", MAX_DOCUMENTS_RESPONSE_BYTES)
-    if (!docx.ok) return { ok: false, error: docx.error }
-    if (!pdf.ok) return { ok: false, error: pdf.error }
-    if (typeof value.docxName !== "string" || typeof value.pdfName !== "string") {
-      return { ok: false, error: errorText("invalid_output") }
+    const docx = decode(result.value.docx, "docx", cap)
+    if (!docx.ok) return docx
+    const pdf = decode(result.value.pdf, "pdf", cap)
+    if (!pdf.ok) return pdf
+    if (typeof result.value.docxName !== "string" || typeof result.value.pdfName !== "string") {
+      return { ok: false, error: SERVICE_ERROR.invalid_output }
     }
     return {
       ok: true,
       value: {
         docx: docx.value,
         pdf: pdf.value,
-        docxName: value.docxName,
-        pdfName: value.pdfName,
+        docxName: result.value.docxName,
+        pdfName: result.value.pdfName,
       },
     }
   }
 
-  async function extract(request: {
+  async function convert(request: {
+    document: string
     name: string
-    base64: string
-  }): Promise<DocumentsResult<ExtractResponse>> {
-    const result = await post("/extract", request)
+  }): Promise<DocumentsResult<ConvertResponse>> {
+    const result = await post("/convert", request)
     if (!result.ok) return result
-    const markdown = result.value.markdown
-    if (typeof markdown !== "string") return { ok: false, error: errorText("invalid_output") }
-    return { ok: true, value: { markdown } }
+    const pdf = decode(result.value.pdf, "pdf", cap)
+    if (!pdf.ok) return pdf
+    if (typeof result.value.pdfName !== "string") {
+      return { ok: false, error: SERVICE_ERROR.invalid_output }
+    }
+    return { ok: true, value: { pdf: pdf.value, pdfName: result.value.pdfName } }
   }
 
-  return { fill, extract }
+  return { fill, convert }
 }

@@ -1,20 +1,15 @@
 # 14 — Deployment: compose stack, tool runtime, cutover
 
-**Status:** 2026-11-18. Implements the deployment half of issue #20 and the
-Python toolchain of issue #24: images,
+**Status:** 2026-11-18. Implements the deployment half of issue #20: images,
 `compose.yaml`, the agent tool runtime, resource guards, the atomic swap and the
 cutover note. Architecture: [`../architecture/03-auth-deployment.md`](../architecture/03-auth-deployment.md).
 Parity source: [`../research/opencode-web-gate-parity.md`](../research/opencode-web-gate-parity.md) gaps 3–7.
 
-The deployment slice was validated statically — by the `deploy/` invariant
-tests, by bundling the three entry points with the same esbuild command the
-Dockerfiles use, and by running the bundles directly with `node`. The Python
-additions are the exception: `deploy/Dockerfile.opencode` was built twice on
-2026-11-18 (before and after), the offline smoke test ran with `--network none`,
-and the measured size delta is recorded under
-[Python document tools](#python-document-tools). Neither a compose stack nor a
-production host was started from this worktree; the manual acceptance steps are
-listed at the end.
+Nothing in this slice was executed against a Docker daemon: no image was built
+and no container was started. Everything below is validated statically — by the
+`deploy/` invariant tests, by bundling the three entry points with the same
+esbuild command the Dockerfiles use, and by running the bundles directly with
+`node`. The manual acceptance steps are listed at the end.
 
 ## What ships
 
@@ -23,9 +18,9 @@ listed at the end.
 | BFF image | `deploy/Dockerfile.bff` | BFF + built SPA on one origin; the only application port |
 | Code host image | `deploy/Dockerfile.code-host` | OpenCode UI proxy on `code.<domain>` |
 | Artifact host image | `deploy/Dockerfile.artifact-host` | read-only byte server on `artifacts.<domain>` |
+| Documents image | `deploy/Dockerfile.documents` | Debian + LibreOffice for `.dotx` → DOCX/PDF; internal only, no published port (issue #46) |
 | Tool runtime | `deploy/code-host/tools.Dockerfile` | git, gh, ripgrep, node/pnpm, Docker CLI for agent work |
-| Document tools | `packages/python-tool` | stdio MCP server `openchat-documents`: DOCX/XLSX/PDF in, artifacts out |
-| Stack | `compose.yaml` | one project, six services, profiles for the optional three |
+| Stack | `compose.yaml` | one project, seven services, profiles for the optional three |
 | Swap | `deploy/swap.sh` | candidate validation, link swap, rollback, `--dry-run` |
 | Env template | `deploy/env.example` | host-only `.env` skeleton, every secret empty |
 | Host guards | `deploy/host/` | RAM watchdog, dind image GC, artifact-disk alert; systemd units + installer |
@@ -41,6 +36,7 @@ internet ──TLS──▶ edge proxy (owner's Caddy, not in this file)
                           artifacts volume (ro)
 bff ──backend──▶ opencode:4096              never published, Basic auth
 bff/code-host/toolbox ──backend──▶ …
+agent (opencode) ──backend──▶ documents:8099 never published, bearer token
 toolbox ──dind──▶ rootless dockerd:2375     profile only, internal network
 ```
 
@@ -183,154 +179,91 @@ user namespaces enabled (`newuidmap`/`newgidmap` present, `kernel.unprivileged_u
 on kernels that still gate it) and `fs.inotify.max_user_instances` raised, which
 Docker's own rootless documentation requires.
 
+### Python document toolchain
+
+The OpenCode image carries Python so the document tools work offline. The base
+is Alpine 3.24.4, whose repository has **Python 3.14.10** and no 3.13 package;
+the issue asked for 3.13, so this is the one owner-visible deviation.
+
+Three files are the contract:
+
+- `packages/python-env/requirements.lock` — the pip-installed half, exact `==`
+  pins, installed with `--no-deps`. It carries `markitdown 0.1.9` with the four
+  format extras (`docx`, `xlsx`, `pptx`, `pdf`), `python-docx 1.2.0`,
+  `reportlab 5.1.0` and their pure-Python closure (`magika 1.0.3`,
+  `mammoth 1.13.0`, `pdfminer.six 20260107`, `pdfplumber 0.11.10`,
+  `python-pptx 1.0.2`, `charset-normalizer`, `typing_extensions`, …).
+- `packages/python-env/requirements-dev.lock` — the native half for a
+  workstation, resolved from PyPI at the versions the Alpine packages provide.
+- `packages/python-env/apk-packages.txt` — the same native half as Alpine
+  packages, pinned to `py3-onnxruntime=1.24.4-r1`, `py3-pandas=3.0.3-r0`,
+  `py3-lxml=6.1.1-r0`, `py3-openpyxl=3.1.5-r1`, `py3-cryptography=47.0.0-r0`
+  and `py3-pillow=12.2.0-r0`. `onnxruntime` publishes no musllinux wheel, so
+  pip cannot provide it on Alpine at all; the apk packages also share their
+  libraries instead of vendoring a second copy.
+
+`markitdown` is mandatory and available two ways: the CLI is on `PATH`
+(`markitdown <file> > out.md`) and `read_document` calls its Python API for
+DOCX, XLSX, PPTX and PDF. The magika model is part of the wheel (3.1 MiB under
+`magika/models`), so the first conversion does no network call. The image
+proves that structurally: a build step runs with `--network=none`, creates a
+real DOCX/XLSX/PPTX/PDF, converts all four with both the CLI and
+`read_document.py`, and checks that a corrupt DOCX yields `parse_failed` with no
+traceback (`deploy/python-smoke.py`). The `all` extra is never requested — it
+would add audio/video transcription and Azure clients.
+
+Two deliberate omissions: `pypdfium2` (pdfplumber imports it only for its
+optional page renderer, which `read_document` never uses; the offline PDF
+conversion above covers the code path) and the `pandoc` binary (~150 MB, no
+consumer). `pypdf` went with the switch to markitdown.
+
+A `python-wheels` stage downloads the pip half once with
+`pip download --only-binary :all:` on the target architecture; the runtime
+installs the apk pins first, then the wheels with
+`--no-index --find-links /wheels --no-deps`, checks `python3 --version`, imports
+the whole set and resolves the `markitdown` CLI in the same `RUN`, then removes
+the wheelhouse, the pip cache, `py3-pip` and every `__pycache__`. No compiler
+exists in either stage.
+
+Measured on arm64: on a bare `alpine:3.24.4` (13,502,455 bytes) the same steps
+produce a 391,869,234-byte image, a **378,366,779-byte (378.4 MB / 360.8 MiB)
+delta** — the worst case, because a bare base shares none of the C libraries.
+In the real OpenCode image the Python step is a **268 MB layer**
+(`docker history`), because Node/git already provide `libssl`, `libstdc++` and
+the other shared objects the apk packages need. Both numbers are below the
++400 MB budget. Installed site-packages are 156.3 MiB:
+
+| Package | Installed |
+| --- | --- |
+| onnxruntime (+ 14.4 MiB shared library, 10.4 MiB openblas) | 34.0 MiB |
+| pandas (markitdown's xlsx extra) | 23.8 MiB |
+| numpy | 19.0 MiB |
+| sympy | 16.5 MiB |
+| pdfminer.six | 9.1 MiB |
+| reportlab | 4.7 MiB |
+| lxml | 4.2 MiB |
+| magika (incl. bundled model) | 3.3 MiB |
+| cryptography | 3.2 MiB |
+| python-pptx | 2.5 MiB |
+| python-docx | 2.3 MiB |
+| pillow | 2.0 MiB |
+| remainder (markitdown, mammoth, pdfplumber, requests, …) | 31.7 MiB |
+
+The markitdown family — markitdown, magika, onnxruntime, numpy, sympy and the
+shared libraries — is about 102 MB, plus 24 MB for pandas through the xlsx
+extra. That is the item to cut first if the budget ever tightens; dropping the
+`xlsx` extra (and the pandas path in `read_document`) would be the smallest
+functional loss.
+
+Development uses `pnpm run setup:python` (Node only, no new JS dependency;
+creates `.venv` from `python3` 3.12+, installs both locks with `--no-deps`,
+verifies the imports, refuses a venv whose major/minor differs from the host)
+and `pnpm run python:check` (offline; skips when `.venv` is absent). On Apple
+silicon the cp314 native wheels need macOS 14+; the download path was verified
+for `macosx_14_0_arm64` (45 wheels).
+
 The tool image is deliberately **not** the application image: it has a shell on
 purpose. Do not attach the BFF or the artifact host to `dind`.
-
-## Python document tools
-
-Issue #24: the agent produces DOCX, XLSX and PDF through typed tools, not
-`python -c`. The OpenCode image carries the interpreter and one pinned library
-set; `packages/python-tool` is the MCP server that exposes it.
-
-### Environment and images
-
-- **Versions.** `packages/python-env/requirements.in` names the five top-level
-  libraries with comments; `requirements.lock` is the resolved set, every line
-  `name==version`, no pre-releases and no URL/VCS references. The contract test
-  parses both files, so an unpinned or duplicate line fails `gates:fast`.
-- **Dev.** `pnpm run setup:python` creates `.venv` from `python3` (>= 3.12) and
-  installs the lock; it refuses to reuse a `.venv` whose major.minor differs
-  from the selected interpreter and tells the owner to remove it. `pnpm run
-  python:check` verifies an existing venv and prints a skip line when there is
-  none, so `gates:fast` needs no network. `.venv/` is git-ignored. The MCP
-  entry points `OPENCHAT_PYTHON` at `.venv/bin/python` in development.
-- **Production.** `deploy/Dockerfile.opencode` gains a `wheels` stage on the
-  same digest-pinned Alpine base: `pip3 download --only-binary :all:` resolves
-  the lock once for the build's target architecture (buildx runs the stage per
-  platform, so no `--platform` override is needed). The runtime stage installs
-  with `pip3 install --no-index --find-links /wheels` from a build-time bind
-  mount (the wheelhouse is never a layer), adds pip inside the same `RUN`,
-  purges it again (`apk del py3-pip`), then prints `python3 --version` and
-  imports all five libraries. There is no index, no network, no package manager
-  and no compiler in the final image; a missing musllinux wheel fails the
-  download stage instead of falling back to an sdist.
-- **Version deviation.** The base is Alpine **3.24.4**, whose `python3` package
-  is **3.14.10**; Alpine 3.24 has no 3.13 package, so the issue's 3.13 pin is
-  not installable there. All five libraries are pure Python or ship musllinux
-  wheels for cp314 (`python-docx`, `openpyxl`, `pypdf`, `reportlab`, `pillow`
-  plus `lxml`, `et_xmlfile`, `charset-normalizer`, `typing_extensions`), and the
-  document APIs used here are unchanged between 3.13 and 3.14. The development
-  venv follows whatever >= 3.12 interpreter the owner has; the lock pins the
-  libraries, not the interpreter patch level.
-
-### Size
-
-Measured on 2026-11-18 (arm64, Docker 29.9.2) with two local builds of
-`deploy/Dockerfile.opencode` — the pre-change file from `git show` and the
-changed one — so the numbers are the image, not an estimate:
-
-| Measure | Before | After | Delta |
-| --- | --- | --- | --- |
-| `docker image inspect --format '{{.Size}}'` | 583,018,286 B | 720,768,605 B | **137,750,319 B (137.8 MB)** |
-| `apk add … python3` layer | 74.5 MB | 117 MB | 42.5 MB |
-| offline install layer | — | 58.6 MB | 58.6 MB |
-
-The install layer is 51.8 MB of libraries plus the byte-compiled caches; pip is
-added and purged inside the same `RUN`, and the wheelhouse is a build mount, so
-neither is in the image. Per-package (`du -sb` of `site-packages`, installed one
-at a time, first install pays for the shared dependency):
-
-| Package | Bytes | Pulls in |
-| --- | --- | --- |
-| `python-docx` | 15,044,045 | `lxml`, `typing_extensions` |
-| `openpyxl` | 2,265,627 | `et_xmlfile` |
-| `pypdf` | 4,273,557 | — |
-| `reportlab` | 30,194,881 | `pillow` (`pillow.libs`), `charset-normalizer` |
-| `pillow` | 0 | already present from reportlab |
-| **total** | **51,778,110** | |
-
-Budget: +400 MB → **137.8 MB, 34 % of the budget**. The interpreter itself is
-32,773,867 B under `/usr/lib/python3.14` plus a 67,328 B binary.
-
-`markitdown` is **dropped**: base `markitdown==0.0.2` installs **317,277,174
-bytes** into a target directory on this base (its conversion stack duplicates
-readers the five libraries already provide), which would take the growth past
-the 400 MB budget. Its advertised `[docx,xlsx,pdf]` extras do not exist in
-0.0.2 (pip warns "does not provide the extra"), so the issue's extra syntax
-would not have changed the set. `read_document` produces Markdown directly from
-`python-docx`, `openpyxl` and `pypdf`. `pandas` is absent (no tool aggregates
-data frames) and `pandoc` is absent (the PDF path is reportlab; the binary is
-not needed and would add tens of MB).
-
-### The wrapper
-
-`packages/python-tool` is a stdio MCP server (`openchat-documents`) with
-exactly four tools: `docx_fill`, `xlsx_write`, `pdf_from_markdown`,
-`read_document`. Each one:
-
-1. validates its arguments in TypeScript (`src/validate.ts`) — title 120
-   characters, one input document at most 8 MiB decoded, 200 paragraphs,
-   10 sheets × 5000 rows × 100 typed cells, 200000 Markdown characters, and no
-   path: a document travels as base64, never as a file path;
-2. runs **one fixed script** from `packages/python-tool/python/` as a
-   subprocess (`src/runner.ts`): `python -I -B <script> <memory-mb>`, the
-   payload as JSON on stdin, cwd a fresh `mkdtemp` directory, a 30 s deadline,
-   a 256 MiB `RLIMIT_AS` applied inside the script, a minimal environment and a
-   stdout cap. The dir is removed on success and on every failure path;
-3. reads the declared output only from that temp dir (no symlink, no name with
-   `/` or `..`, at most 700,000 bytes) and maps every failure to a stable code
-   (`timeout`, `memory`, `crashed`, `invalid_output`, `python_missing`,
-   `macro_document`, …). stderr is classified, never returned: the model sees
-   one sentence, not a traceback. `read_document` reports XLSX formulas as
-   written, not the cached results an editor would show.
-
-**Storage.** A generated file is stored through the existing
-`POST /internal/artifacts` route as one artifact in the only format the store
-has — a self-contained HTML document — with the file bytes embedded as a
-base64 `data:` URL and the artifact id still the SHA-256 of that document. The
-700 KB raw cap keeps base64 plus the shell under the 1 MiB document limit. The
-missing piece is binary transport and a file card: they are issue #21 (the
-per-chat file store from #25 is in place, the artifact transport is not), and
-landing them changes only the sink in `src/tools.ts`, not the Python side or
-the tool contract. `read_document` stores nothing; it returns Markdown text
-(truncated at 200000 characters).
-
-### Owner step: the second MCP entry
-
-`deploy/remote/seed-config.sh` writes both entries into a fresh
-`opencode-config/opencode.json` (0600, never rewritten once the file exists):
-
-```jsonc
-"openchat-documents": {
-  "type": "local",
-  "command": [
-    "/opt/artifact-tool/node_modules/.bin/tsx",
-    "/opt/artifact-tool/packages/python-tool/src/index.ts"
-  ],
-  "enabled": true,
-  "environment": {
-    "OPENCHAT_BFF_URL": "{env:OPENCHAT_BFF_URL}",
-    "ARTIFACT_INTERNAL_TOKEN": "{env:ARTIFACT_INTERNAL_TOKEN}",
-    "OPENCHAT_PYTHON": "/usr/bin/python3"
-  }
-}
-```
-
-In development the command is `pnpm --filter @openchat/python-tool run start`
-and `OPENCHAT_PYTHON` points at `<repo>/.venv/bin/python`. An existing
-`opencode.json` from an earlier release is left untouched; add the entry by
-hand and restart OpenCode.
-
-### Tests
-
-| File | Covers |
-| --- | --- |
-| `packages/python-tool/test/validate.test.ts` | every tool's argument rules, size caps, base64 strictness, magic bytes, no paths |
-| `packages/python-tool/test/runner.test.ts` | fixed argv, JSON stdin, minimal env, output read, temp-dir cleanup on success/failure/timeout, every error-code mapping, traceback never in the message, symlink/traversal/oversize refusal |
-| `packages/python-tool/test/tools.test.ts` | the four-tool registry, validation stopping before the process, payload shape, artifact sink, card size and escaping |
-| `packages/python-tool/test/mcp.test.ts` | stdio protocol subset, four tools listed, unknown tool/method, notifications, framing |
-| `packages/python-tool/test/lock.test.ts` | every lock line `==`, no duplicates, no `--pre`/URL/VCS, `.in` resolved in the lock, markitdown absent |
-| `packages/python-tool/test/integration.test.ts` | opt-in: real scripts round-trip DOCX, XLSX and PDF; skips without Python >= 3.12 and the pinned imports |
 
 ## Deploy safety
 
@@ -646,13 +579,9 @@ While the tunnel is down:
 | `apps/server/test/deployment.test.ts` | compose service set; no `privileged: true`; only bff + artifact-host publish, loopback only, never 4096/8090; `TRUST_PROXY` off by default in compose and the env template; artifact volume `:ro` in the host and read-write only in the BFF; `read_only` + tmpfs for the three app services; `mem_limit`/`cpus`/`pids_limit`/log rotation/`restart` per service; a healthcheck per service; profiles on the optional three; artifact origin off `backend`; every secret an interpolation; empty secrets in the template; digest-pinned multi-stage images; frozen-lockfile installs; non-root `USER node` + tini + healthcheck; no install in the runtime stage; tool image toolchain and CLI; the docker CLI tarball verified against its release checksum before unpacking; no `.env` copied; swap-script shape |
 | `apps/server/test/swap.test.ts` | dry run mutates nothing and calls no docker; successful swap writes `current`; `previous` records the prior release; rerun is a no-op; rollback on an unhealthy candidate and on a failing `up`; version mismatch; version accepted in a spaced JSON body; degraded host accepted; usage errors exit 2; missing `.env` and an out-of-tree release are refused; no secret on a compose command line |
 | `apps/server/test/static.test.ts` | `WEB_DIST_DIR` parsing; shell/no-store; SPA fallback; immutable assets; missing asset is not the shell; reserved routes case- and slash-insensitive (`/API/info`, `//api/info`, `/healthz/`) and a build file named `api` unserved; assets and client routes still served; `/api`/`/healthz`/non-GET untouched; HEAD without body; traversal and malformed-escape refusal |
-| `packages/python-tool/test/*` | the Python toolchain: validators, subprocess guard, temp-dir cleanup, error mapping, artifact sink, MCP framing, pinned lock, opt-in real-script round trip |
 | `apps/server/test/host-guards.test.ts` | watchdog: one stop below `--low` with a 0600 state file, no second stop, one start above `--high` and state cleared, band silence, custom thresholds, missing/corrupt meminfo and missing compose exit 0 with no docker call, dry run, space-bearing stack path as single argv; dind GC: no prune when dind is down, exact one-shot prune command, dry run; artifact usage: 91 % warning and 50 % silence; install/uninstall files and systemctl calls, dry run; units have no `docker.service` ordering and no `OnFailure=`; the doc states the baseline, thresholds and unproven parts |
 
-## Manual acceptance
-
-Compose and host steps are still host work; the Python image build and its
-offline smoke test were run in this worktree (step 5).
+## Manual acceptance (not run here)
 
 1. `docker build -f deploy/Dockerfile.bff .` for all three images, then
    `docker compose config -q` with a filled `.env`.
@@ -662,12 +591,7 @@ offline smoke test were run in this worktree (step 5).
    `docker compose exec toolbox docker run --rm hello-world`.
 4. `deploy/swap.sh --dry-run`, then a real swap with a deliberately broken
    candidate to watch the rollback on the host.
-5. Python in the image, with the network off:
-   `docker run --rm --network none --entrypoint python3 openchat-opencode:local \
-   -c "import docx, openpyxl, pypdf, reportlab, PIL; print('ok')"`; then one
-   `docx_fill` → `read_document` and one `pdf_from_markdown` tool call through
-   the MCP entry.
-6. Install the host guards (`deploy/host/install.sh --stack-dir /opt/stacks/openchat`),
+5. Install the host guards (`deploy/host/install.sh --stack-dir /opt/stacks/openchat`),
    run each script once with `--dry-run`, then drop `MemAvailable` artificially
    and watch only `opencode` stop and return on the next high tick. The dind GC
    needs `--with-dind` and therefore the 5120 MiB gate; it remains unproven until

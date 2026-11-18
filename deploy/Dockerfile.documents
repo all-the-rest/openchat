@@ -1,10 +1,8 @@
-# Documents service (issue #46): fill .dotx/.docx templates, export PDF with
-# LibreOffice, and extract Markdown with markitdown. This is a glibc image:
-# markitdown's magika -> onnxruntime has no musllinux wheel for Python 3.14, so
-# it cannot live in the Alpine agent image. It carries no Node and no repo
-# checkout, publishes no port, and is reachable only on the internal `backend`
-# compose network. Build needs the index; the running container makes no
-# outbound request and installs nothing.
+# Documents service (issue #46): fill .dotx/.docx templates and export PDF with
+# LibreOffice. It exists only for what the Alpine agent image cannot do. It
+# carries no Node, no second Markdown extractor and no repo checkout, publishes no port, and is
+# reachable only on the internal `backend` compose network. Build needs the
+# index; the running container makes no outbound request and installs nothing.
 ARG BASE_IMAGE=python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 FROM ${BASE_IMAGE}
 
@@ -31,7 +29,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY apps/documents/requirements.lock /app/requirements.lock
 RUN pip install --no-cache-dir -r /app/requirements.lock \
- && python -c "import docxtpl, docx, markitdown, pypdf, PIL; print('documents deps ok')"
+ && python -c "import docxtpl, docx, pypdf, PIL, jinja2; print('documents deps ok')"
 
 COPY apps/documents/documents /app/documents
 

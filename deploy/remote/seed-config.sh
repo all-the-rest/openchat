@@ -2,12 +2,11 @@
 #
 # Seed the OpenCode MCP configuration once (issue #20).
 #
-# Two stdio MCP servers run inside the OpenCode container: the artifact tool
-# (`packages/artifact-tool`) and the document tools (`packages/python-tool`).
-# Both need the BFF URL and the shared bearer token, and the document tools also
-# need the image's interpreter path. Those values belong to the deployment, not
-# to a person, so the deploy script writes them once into the config volume
-# instead of asking the owner to hand-edit a file.
+# The artifact tool (`packages/artifact-tool`) runs as a stdio MCP server inside
+# the OpenCode container and needs two values: where the BFF is and the shared
+# bearer token. Both belong to the deployment, not to a person, so the deploy
+# script writes them once into the config volume instead of asking the owner to
+# hand-edit a file.
 #
 # `/opt/stacks/openchat/opencode-config/opencode.json` is created only when it
 # does not exist. An existing file is left byte-for-byte alone: the agent may
@@ -19,9 +18,7 @@
 # (the official image sets no user), so the container can read it while host
 # users other than root cannot. That removes the host-user exposure of the
 # token: it authorizes `POST /internal/artifacts` on the BFF, which is reachable
-# only from the compose `backend` network and is not published. The documents
-# MCP entry gets a second, independent token for the headless documents service
-# on the same network.
+# only from the compose `backend` network and is not published.
 #
 # No value is printed: the script names the path and the number of entries.
 
@@ -33,11 +30,10 @@ CONFIG_DIR=""
 DRY_RUN=0
 
 TOOL_DIR=/opt/artifact-tool/packages/artifact-tool
-DOCUMENT_DIR=/opt/artifact-tool/packages/python-tool
 TOOL_COMMAND_TSX=/opt/artifact-tool/node_modules/.bin/tsx
 TOOL_ENTRY=/opt/artifact-tool/packages/artifact-tool/src/index.ts
-DOCUMENT_ENTRY=/opt/artifact-tool/packages/python-tool/src/index.ts
-PYTHON=/usr/bin/python3
+PYTHON_TOOL_ENTRY=/opt/artifact-tool/packages/python-tool/src/index.ts
+PYTHON_BIN=/usr/bin/python3
 BFF_URL=http://bff:8787
 DOCUMENTS_URL=http://documents:8099
 WORKSPACE=/workspace
@@ -115,7 +111,7 @@ main() {
   [ -n "$documents_token" ] || die "$STACK_DIR/.env has no DOCUMENTS_TOKEN"
 
   if [ "$DRY_RUN" -eq 1 ]; then
-    note "would: write $file (0600) with two local MCP entries for $BFF_URL"
+    note "would: write $file (0600) with local MCP entries for $BFF_URL"
     return 0
   fi
 
@@ -134,14 +130,14 @@ main() {
         "ARTIFACT_INTERNAL_TOKEN": "$token"
       }
     },
-    "openchat-documents": {
+    "openchat-python": {
       "type": "local",
-      "command": ["$TOOL_COMMAND_TSX", "$DOCUMENT_ENTRY"],
+      "command": ["$TOOL_COMMAND_TSX", "$PYTHON_TOOL_ENTRY"],
       "enabled": true,
       "environment": {
         "OPENCHAT_BFF_URL": "$BFF_URL",
         "ARTIFACT_INTERNAL_TOKEN": "$token",
-        "OPENCHAT_PYTHON": "$PYTHON",
+        "OPENCHAT_PYTHON": "$PYTHON_BIN",
         "WORKSPACE_DIR": "$WORKSPACE",
         "DOCUMENTS_URL": "$DOCUMENTS_URL",
         "DOCUMENTS_TOKEN": "$documents_token"
@@ -153,8 +149,8 @@ JSON
   chmod 600 "$tmp"
   mv "$tmp" "$file"
 
-  note "config: wrote $file (0600, two local MCP entries for $BFF_URL); token not shown"
-  note "config: tools = $TOOL_DIR, $DOCUMENT_DIR, python = $PYTHON; re-check after an OpenCode config-schema upgrade"
+  note "config: wrote $file (0600, local MCP entries for $BFF_URL); token not shown"
+  note "config: tools = $TOOL_DIR and $PYTHON_TOOL_ENTRY; re-check after an OpenCode config-schema upgrade"
 }
 
 main "$@"

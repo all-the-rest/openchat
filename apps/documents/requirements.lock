@@ -1,53 +1,21 @@
 # Fully pinned runtime set for the documents service (issue #46).
 #
-# Resolved on python:3.13-slim (Debian trixie, glibc) with:
-#   pip install "markitdown[docx,pptx,xlsx,pdf]==0.1.9" \
-#     "docxtpl==0.20.2" "python-docx==1.2.0" "pypdf==7.1.1" "pillow==13.0.0"
+# Resolved on python:3.13-slim (Debian trixie, glibc) with
+#   pip install "docxtpl==0.20.2" "python-docx==1.2.0" "pypdf==7.1.1" "pillow==13.0.0"
 # and `pip freeze` on 2026-11-18. Every line is name==version; no pre-release,
 # URL, VCS or environment marker is allowed (tests/test_lock.py pins this).
 #
-# markitdown's `magika` dependency pulls onnxruntime + numpy here. That is the
-# reason markitdown lives in this Debian image and not in the Alpine agent image
-# (no musllinux wheel for Python 3.14). LibreOffice and the metric-compatible
-# fonts come from apt in deploy/Dockerfile.documents, not from this file.
-beautifulsoup4==4.15.0
-certifi==2026.10.23
-cffi==2.1.1
-charset-normalizer==3.5.2
-click==8.5.1
-cobble==0.1.4
-cryptography==50.0.2
-defusedxml==0.7.1
+# Deliberate omission: markitdown. The agent image ships it locally since
+# b01d695, so `read_document` reads DOCX/XLSX/PPTX/PDF/HTML offline. This
+# Debian container exists only for what the Alpine image cannot do: LibreOffice
+# DOCX->PDF and .dotx content-type rewriting. Adding markitdown here would pull
+# magika -> onnxruntime -> numpy/pandas again for a second copy of the same
+# code path. One format, one path.
 docxtpl==0.20.2
-et_xmlfile==2.0.0
-flatbuffers==25.12.19
-idna==3.20
 jinja2==3.1.6
 lxml==6.1.3
-magika==1.0.3
-mammoth==1.13.0
-markdownify==1.2.3
-markitdown==0.1.9
 markupsafe==3.0.4
-numpy==2.5.5
-onnxruntime==1.32.0
-openpyxl==3.1.5
-packaging==26.3
-pandas==3.1.1
-pdfminer.six==20260107
-pdfplumber==0.11.10
 pillow==13.0.0
-protobuf==7.36.2
-pycparser==3.12
 pypdf==7.1.1
-pypdfium2==5.15.2
-python-dateutil==4.0.0
 python-docx==1.2.0
-python-pptx==1.0.2
-requests==2.34.2
-six==1.17.0
-soupsieve==4.1.2
 typing-extensions==4.16.0
-tzdata==2026.6
-urllib3==2.8.0
-xlsxwriter==3.3.1

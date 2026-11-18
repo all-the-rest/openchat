@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import type { Hono } from "hono"
 import type { ArtifactWriteReceipt } from "@openchat/contracts"
+import { isArtifactId } from "@openchat/contracts/artifacts/id"
 import type { AppEnv } from "./app"
 import { ARTIFACT_CREATE_LIMIT, ARTIFACT_CREATE_WINDOW_MS, artifactsAvailable } from "./artifacts"
 import { ArtifactStore } from "./artifacts-store"
@@ -17,19 +18,23 @@ import { clientAddress } from "./middleware"
 import { FixedWindowThrottle } from "./throttle"
 
 /**
- * `POST /internal/artifacts`, the write path of the MCP tool. It sits outside
- * `/api/*` on purpose: the caller is a process next to OpenCode, not a browser
- * session, and the bearer token is the whole authentication. It writes through
- * the same `ArtifactStore` as the public route, so both share one layout, one
- * dedupe and one set of document rules.
+ * `POST /internal/artifacts`, the write path of the MCP tool, and
+ * `GET /internal/artifacts/:id`, the read half the Python tools use to fill a
+ * template or extract text. Both sit outside `/api/*` on purpose: the caller
+ * is a process next to OpenCode, not a browser session, and the bearer token
+ * is the whole authentication. Both write and read through the same
+ * `ArtifactStore` as the public routes, so one layout and one set of document
+ * rules cannot drift.
  */
 
 export const INTERNAL_ARTIFACTS_PATH = "/internal/artifacts"
+export const INTERNAL_ARTIFACT_READ_PATH = "/internal/artifacts/:id"
 
 /** Same fixed answers as the public route; no input is echoed. */
 const UNAVAILABLE_MESSAGE = "Artifact storage is not configured"
 const TOO_MANY_MESSAGE = "Too many artifacts"
 const INVALID_BODY_MESSAGE = "body must be a JSON object"
+const UNKNOWN_MESSAGE = "Artifact not found"
 
 export interface ArtifactInternalRouteDeps {
   config: EnvConfig
@@ -116,5 +121,31 @@ export function registerArtifactInternalRoute(
       bytes: result.artifact.bytes,
     }
     return c.json(receipt, 201)
+  })
+
+  /**
+   * The read half. Same token, no throttle: a fill reads one template per
+   * write and the budget belongs to writes. The stored bytes are returned
+   * verbatim as HTML; the tool extracts an embedded file payload from them.
+   */
+  app.get(INTERNAL_ARTIFACT_READ_PATH, async (c) => {
+    c.header("Cache-Control", "no-store")
+    if (!artifactsAvailable(config) || token.length === 0) {
+      return jsonError(c, 503, "artifacts_unavailable", UNAVAILABLE_MESSAGE)
+    }
+    if (!bearerMatches(c.req.header("authorization"), token)) {
+      return jsonError(c, 401, "unauthorized", "Authentication required")
+    }
+
+    const id = c.req.param("id") ?? ""
+    if (!isArtifactId(id)) {
+      return jsonError(c, 404, "artifacts_unknown", UNKNOWN_MESSAGE)
+    }
+    const bytes = await store.read(id)
+    if (!bytes) return jsonError(c, 404, "artifacts_unknown", UNKNOWN_MESSAGE)
+
+    c.header("Content-Type", "text/html; charset=utf-8")
+    c.header("X-Content-Type-Options", "nosniff")
+    return c.body(new Uint8Array(bytes))
   })
 }

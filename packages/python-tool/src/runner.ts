@@ -1,222 +1,282 @@
-import { constants } from "node:fs"
-import { lstat, mkdtemp, open, rm, writeFile } from "node:fs/promises"
-import { existsSync } from "node:fs"
+import { spawn } from "node:child_process"
+import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { basename, join } from "node:path"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { errorText, isErrorCode } from "./errors"
-import type { ErrorCode } from "./errors"
-import { runProcess } from "./process"
-import type { ProcessRunner } from "./process"
+import {
+  CHILD_OUTPUT_MAX_BYTES,
+  MAX_FILE_BYTES,
+  TOOL_TIMEOUT_MS,
+} from "./limits"
+import type { ToolName } from "./validate"
 
 /**
- * The subprocess guard: one fixed script from this package, a JSON request on
- * stdin, a throwaway temp dir as cwd, a deadline, a memory cap applied inside
- * the script and a result protocol on stdout. The dir is removed on success and
- * on every failure path. Nothing here accepts a path from the model.
+ * The process boundary. The script path is fixed by tool name, the request is
+ * JSON on stdin, there is no shell, the working directory is a fresh temporary
+ * directory, and the child gets a minimal environment (never the BFF token).
+ * A timeout kills the process group member and the directory is removed on
+ * every path, success or failure.
  */
 
-export const DEFAULT_TIMEOUT_MS = 30_000
-export const DEFAULT_MEMORY_MB = 256
-/** Raw output cap; base64 in one artifact stays below `ARTIFACT_MAX_BYTES`. */
-export const MAX_OUTPUT_BYTES = 700_000
-export const MAX_STDOUT_BYTES = 2_000_000
-
-const SCRIPT_NAMES = {
-  docx_fill: "output.docx",
-  xlsx_write: "output.xlsx",
-  pdf_from_markdown: "output.pdf",
-} as const
-
-export type PythonScript = keyof typeof SCRIPT_NAMES | "read_document"
-
-const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/
-
-export interface PythonRunRequest {
-  script: PythonScript
-  /** Tool metadata; the runner adds `input`/`output` itself. */
-  payload: Record<string, unknown>
-  /** At most one input file, under a fixed name chosen by the tool. */
-  files?: Record<string, Uint8Array>
-  /** Expected output file name; defaults to the script's fixed name. */
-  output?: string
+export interface PythonFile {
+  filename: string
+  mediaType: string
+  data: Buffer
 }
 
-export interface PythonRunDeps {
-  /** Interpreter command or absolute path (`OPENCHAT_PYTHON`). */
-  python: string
-  /** Injected for tests; defaults to `../python/` next to this module. */
-  scriptDir?: URL
-  /** Injected for tests; defaults to the real spawn. */
-  runProcess?: ProcessRunner
-  /** Injected for tests; defaults to the OS temp dir. */
+export type RunResult = { ok: true; value: PythonFile } | { ok: false; error: string }
+
+export interface SpawnOptions {
+  cwd: string
+  env: Record<string, string>
+  timeoutMs: number
+  /** The exact JSON written to stdin, before any shell could see it. */
+  input: string
+}
+
+export interface ProcessResult {
+  code: number | null
+  stdout: string
+  stderr: string
+  timedOut: boolean
+  failure?: "spawn" | "output"
+}
+
+export type SpawnFn = (
+  command: string,
+  args: string[],
+  options: SpawnOptions,
+) => Promise<ProcessResult>
+
+export interface RunnerOptions {
+  /** Defaults to `OPENCHAT_PYTHON` or `python3`. */
+  python?: string
+  /** Injected by tests; defaults to a real `spawn`. */
+  spawn?: SpawnFn
+  /** Injected by tests; defaults to the OS temporary directory. */
   tempRoot?: string
   timeoutMs?: number
-  memoryMb?: number
 }
 
-export interface PythonRunValue {
-  file?: { name: string; bytes: Uint8Array }
-  text?: string
+/** The two chat-file tools call the HTTP service, never a Python script. */
+export type PythonToolName = Exclude<ToolName, "documents_fill" | "documents_convert">
+
+export type PythonRunner = (
+  tool: PythonToolName,
+  input: Record<string, unknown>,
+) => Promise<RunResult>
+
+const SCRIPTS: Record<PythonToolName, string> = {
+  docx_fill: fileURLToPath(new URL("../python/docx_fill.py", import.meta.url)),
+  xlsx_write: fileURLToPath(new URL("../python/xlsx_write.py", import.meta.url)),
+  pdf_from_markdown: fileURLToPath(new URL("../python/pdf_from_markdown.py", import.meta.url)),
+  read_document: fileURLToPath(new URL("../python/read_document.py", import.meta.url)),
 }
 
-export type PythonRunResult =
-  | { ok: true; value: PythonRunValue }
-  | { ok: false; code: ErrorCode; message: string }
-
-export interface TempDir {
-  path: string
-  remove: () => Promise<void>
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_input: "input: the request could not be read",
+  library_missing: "python: the Python environment is incomplete; run pnpm run setup:python",
+  parse_failed: "parse: the document could not be read",
+  render_failed: "internal: the document could not be generated",
+  too_large: "size: the generated document exceeds the artifact limit",
+  unsupported: "unsupported: this file type cannot be read",
 }
 
-/** One private dir per run; `remove` is idempotent and never throws. */
-export async function createTempDir(root?: string): Promise<TempDir> {
-  const base = root ?? tmpdir()
-  const path = await mkdtemp(join(base, "openchat-python-"))
-  return {
-    path,
-    remove: async () => {
-      await rm(path, { recursive: true, force: true }).catch(() => undefined)
-    },
-  }
+const EXPECTED_EXTENSION: Record<PythonToolName, string> = {
+  docx_fill: ".docx",
+  xlsx_write: ".xlsx",
+  pdf_from_markdown: ".pdf",
+  read_document: ".md",
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function failure(code: ErrorCode): PythonRunResult {
-  return { ok: false, code, message: errorText(code) }
+function isBase64(value: string): boolean {
+  return value.length > 0 && value.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(value)
 }
 
-function scriptPath(deps: PythonRunDeps, script: PythonScript): string {
-  const dir = deps.scriptDir ?? new URL("../python/", import.meta.url)
-  return fileURLToPath(new URL(`${script}.py`, dir))
-}
-
-function safeName(value: unknown): value is string {
-  return typeof value === "string" && SAFE_NAME.test(value) && !value.includes("..")
-}
-
-/** The last non-empty stdout line, parsed as the one protocol object. */
-function parseProtocol(stdout: string): Record<string, unknown> | null {
-  const lines = stdout.split("\n").filter((line) => line.trim().length > 0)
-  const last = lines[lines.length - 1]
-  if (last === undefined) return null
-  try {
-    const parsed: unknown = JSON.parse(last)
-    return isRecord(parsed) ? parsed : null
-  } catch {
-    return null
+function fixedError(code: string | null): string {
+  if (code !== null && Object.hasOwn(ERROR_MESSAGES, code)) {
+    return ERROR_MESSAGES[code] ?? "internal: the document tool failed"
   }
+  return "internal: the document tool failed"
 }
 
-/**
- * Reads the declared output without following a link and without trusting its
- * size: the script can only write inside the temp dir, and a non-regular file
- * or an oversized one is a protocol violation, not a result.
- */
-async function readOutput(
-  dir: string,
-  name: string,
-): Promise<{ ok: true; bytes: Uint8Array } | { ok: false }> {
-  const path = join(dir, name)
-  if (basename(path) !== name) return { ok: false }
-  let stat
+/** Reads only the structured error code; stderr is never consulted. */
+function readErrorCode(stdout: string): string | null {
   try {
-    stat = await lstat(path)
-  } catch {
-    return { ok: false }
-  }
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_OUTPUT_BYTES) {
-    return { ok: false }
-  }
-  try {
-    const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
-    try {
-      const bytes = await handle.readFile()
-      if (bytes.byteLength > MAX_OUTPUT_BYTES) return { ok: false }
-      return { ok: true, bytes: new Uint8Array(bytes) }
-    } finally {
-      await handle.close()
+    const parsed: unknown = JSON.parse(stdout.trim())
+    if (isRecord(parsed) && parsed.ok === false && typeof parsed.code === "string") {
+      return parsed.code
     }
   } catch {
-    return { ok: false }
+    // Fall through to the fixed generic message.
   }
+  return null
 }
 
-export async function runPython(
-  request: PythonRunRequest,
-  deps: PythonRunDeps,
-): Promise<PythonRunResult> {
-  const path = scriptPath(deps, request.script)
-  if (!existsSync(path)) return failure("invalid_output")
-
-  const defaultOutput =
-    request.script === "read_document" ? undefined : SCRIPT_NAMES[request.script]
-  const output = request.output ?? defaultOutput
-  if (output !== undefined && !safeName(output)) return failure("invalid_output")
-
-  const files = Object.entries(request.files ?? {})
-  if (files.length > 1) return failure("invalid_output")
-  const input = files[0]
-  if (input && !safeName(input[0])) return failure("invalid_output")
-
-  const temp = await createTempDir(deps.tempRoot)
+function readSuccess(
+  stdout: string,
+  tool: PythonToolName,
+): { ok: true; value: PythonFile } | { ok: false; error: string } {
+  let parsed: unknown
   try {
-    if (input) await writeFile(join(temp.path, input[0]), input[1])
+    parsed = JSON.parse(stdout.trim()) as unknown
+  } catch {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  if (!isRecord(parsed) || parsed.ok !== true) {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  const { filename, mediaType, data } = parsed
+  if (typeof filename !== "string" || typeof mediaType !== "string" || typeof data !== "string") {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9._ -]{0,159}$/.test(filename)) {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  if (!filename.toLowerCase().endsWith(EXPECTED_EXTENSION[tool])) {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  if (!/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(mediaType)) {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  if (!isBase64(data)) {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  const bytes = Buffer.from(data, "base64")
+  if (bytes.byteLength === 0) {
+    return { ok: false, error: "internal: the document tool answered an unexpected body" }
+  }
+  if (bytes.byteLength > MAX_FILE_BYTES) {
+    return { ok: false, error: "size: the generated document exceeds the artifact limit" }
+  }
+  return { ok: true, value: { filename, mediaType, data: bytes } }
+}
 
-    const payload: Record<string, unknown> = { ...request.payload }
-    if (output !== undefined) payload.output = output
-    if (input) payload.input = input[0]
+function mapResult(result: ProcessResult, tool: PythonToolName): RunResult {
+  if (result.failure === "output") {
+    return { ok: false, error: "internal: the document tool produced too much output" }
+  }
+  if (result.failure === "spawn") {
+    return {
+      ok: false,
+      error: "python: the document tool could not start; run pnpm run setup:python",
+    }
+  }
+  if (result.timedOut) {
+    return {
+      ok: false,
+      error: `timeout: the document tool did not finish in ${TOOL_TIMEOUT_MS / 1000} s`,
+    }
+  }
+  if (result.code !== 0) {
+    return { ok: false, error: fixedError(readErrorCode(result.stdout)) }
+  }
+  return readSuccess(result.stdout, tool)
+}
 
-    const runner = deps.runProcess ?? runProcess
-    const outcome = await runner({
-      command: deps.python,
-      args: ["-I", "-B", path, String(deps.memoryMb ?? DEFAULT_MEMORY_MB)],
-      cwd: temp.path,
-      env: {
-        PATH: "/usr/local/bin:/usr/bin:/bin",
-        HOME: temp.path,
-        TMPDIR: temp.path,
-        PYTHONHASHSEED: "0",
-        PYTHONDONTWRITEBYTECODE: "1",
-        LANG: "C.UTF-8",
-        LC_ALL: "C.UTF-8",
-      },
-      input: JSON.stringify(payload),
-      timeoutMs: deps.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      maxStdoutBytes: MAX_STDOUT_BYTES,
+/** The real boundary: no shell, a byte cap on both streams, SIGKILL on timeout. */
+export function spawnProcess(
+  command: string,
+  args: string[],
+  options: SpawnOptions,
+): Promise<ProcessResult> {
+  return new Promise((resolve) => {
+    let stdout = ""
+    let stderr = ""
+    let timedOut = false
+    let failure: "spawn" | "output" | undefined
+    let settled = false
+
+    const child = spawn(command, args, {
+      cwd: options.cwd,
+      env: options.env,
+      stdio: ["pipe", "pipe", "pipe"],
     })
 
-    if (outcome.timedOut) return failure("timeout")
-    if (outcome.spawnFailed) return failure("python_missing")
-    if (outcome.stdoutOverflow) return failure("invalid_output")
-    if (outcome.status !== 0) {
-      // Best effort only: the traceback text is classified, never returned.
-      return failure(outcome.stderr.includes("MemoryError") ? "memory" : "crashed")
+    const finish = (code: number | null): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve({ code, stdout, stderr, timedOut, ...(failure ? { failure } : {}) })
     }
 
-    const protocol = parseProtocol(outcome.stdout)
-    if (!protocol) return failure("invalid_output")
-    if (protocol.ok !== true) {
-      const code = isErrorCode(protocol.code) ? protocol.code : "crashed"
-      return failure(code)
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill("SIGKILL")
+    }, options.timeoutMs)
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      if (stdout.length + chunk.length > CHILD_OUTPUT_MAX_BYTES) {
+        failure = "output"
+        child.kill("SIGKILL")
+        return
+      }
+      stdout += chunk.toString("utf8")
+    })
+    child.stderr.on("data", (chunk: Buffer) => {
+      if (stderr.length + chunk.length > CHILD_OUTPUT_MAX_BYTES) {
+        failure = "output"
+        child.kill("SIGKILL")
+        return
+      }
+      stderr += chunk.toString("utf8")
+    })
+    child.on("error", () => {
+      failure = "spawn"
+      finish(null)
+    })
+    child.on("close", (code) => finish(code))
+    child.stdin.on("error", () => {
+      // The child may exit before it reads; the exit code carries the reason.
+    })
+    child.stdin.end(options.input)
+  })
+}
+
+function childEnvironment(cwd: string): Record<string, string> {
+  return {
+    PATH: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
+    HOME: cwd,
+    TMPDIR: cwd,
+    PYTHONDONTWRITEBYTECODE: "1",
+    PYTHONIOENCODING: "utf-8",
+    PYTHONHASHSEED: "0",
+    PYTHONUTF8: "1",
+    LANG: "C.UTF-8",
+    LC_ALL: "C.UTF-8",
+  }
+}
+
+export function createRunner(options: RunnerOptions = {}): PythonRunner {
+  const python = options.python ?? process.env.OPENCHAT_PYTHON ?? "python3"
+  const spawnImpl = options.spawn ?? spawnProcess
+  const tempRoot = options.tempRoot ?? tmpdir()
+  const timeoutMs = options.timeoutMs ?? TOOL_TIMEOUT_MS
+
+  return async (tool, input) => {
+    let cwd: string
+    try {
+      cwd = await mkdtemp(join(tempRoot, "openchat-python-"))
+    } catch {
+      return { ok: false, error: "internal: the document tool could not create a workspace" }
     }
 
-    if (request.script === "read_document") {
-      if (typeof protocol.text !== "string") return failure("invalid_output")
-      return { ok: true, value: { text: protocol.text } }
+    try {
+      const result = await spawnImpl(python, [SCRIPTS[tool]], {
+        cwd,
+        env: childEnvironment(cwd),
+        timeoutMs,
+        input: JSON.stringify(input),
+      })
+      return mapResult(result, tool)
+    } catch {
+      return { ok: false, error: "internal: the document tool failed" }
+    } finally {
+      await rm(cwd, { recursive: true, force: true })
     }
-
-    const declared = protocol.file ?? output
-    if (!safeName(declared)) return failure("invalid_output")
-    const read = await readOutput(temp.path, declared)
-    if (!read.ok) return failure("invalid_output")
-    return { ok: true, value: { file: { name: declared, bytes: read.bytes } } }
-  } catch {
-    return failure("crashed")
-  } finally {
-    await temp.remove()
   }
 }

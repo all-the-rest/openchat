@@ -17,12 +17,3 @@ TOTAL_TIMEOUT_SECONDS = 45
 # A request thread that outlives this is abandoned, not left holding the lock.
 REQUEST_TIMEOUT_SECONDS = 60
 MAX_ZIP_ENTRIES = 5_000
-
-# Extensions accepted by /extract. The base markitdown package handles html,
-# txt, md, csv, json and zip; extras add docx, xlsx, pptx and pdf.
-EXTRACT_EXTENSIONS = frozenset(
-    {
-        ".csv", ".docx", ".html", ".htm", ".json", ".md", ".pdf",
-        ".pptx", ".txt", ".xlsx", ".xml", ".zip",
-    }
-)

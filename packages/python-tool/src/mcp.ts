@@ -1,28 +1,197 @@
 import { readFileSync } from "node:fs"
 import { createInterface } from "node:readline"
 import type { Readable, Writable } from "node:stream"
-import type { ToolSpec } from "./tools"
+import { TOOL_NAMES } from "./validate"
 
 /**
- * The MCP surface: one stdio server next to OpenCode. It answers the subset
- * OpenCode's client needs (`initialize`, `tools/list`, `tools/call`, `ping`)
- * as newline-delimited JSON-RPC. The registry is injected, so the protocol is
- * testable without a process and without Python.
+ * The MCP surface: one stdio server exposing the four document tools, newline
+ * delimited JSON-RPC. The protocol is intentionally the same small subset the
+ * artifact tool uses (`initialize`, `ping`, `tools/list`, `tools/call`); a
+ * tool error is a result, never a crash, and no argument is echoed back.
  */
 
-export const SERVER_NAME = "openchat-documents"
-
+export const SERVER_NAME = "openchat-python"
 export const PACKAGE_MANIFEST = new URL("../package.json", import.meta.url)
 export const FALLBACK_VERSION = "0.0.0-dev"
-
 export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
 export const DEFAULT_PROTOCOL_VERSION = "2025-06-18"
+
+const RETRY = "If the tool rejects the input, fix exactly what the message names and retry at most twice."
+
+export const DOCX_TOOL = {
+  name: "docx_fill",
+  title: "Create or fill a Word document",
+  description: [
+    "Create a DOCX from `paragraphs`, or fill an existing DOCX produced by this tool (`templateArtifactID`).",
+    "`values` replaces `{{name}}` placeholders in paragraphs, tables, headers and footers.",
+    "Pass exactly one of `paragraphs` and `templateArtifactID`. The result is stored as an artifact.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Artifact title, at most 120 characters." },
+      outputName: { type: "string", description: "Optional file name ending in .docx." },
+      paragraphs: {
+        type: "array",
+        items: { type: "string" },
+        description: "1–200 paragraphs; use {{key}} placeholders. Required without a template.",
+      },
+      templateArtifactID: {
+        type: "string",
+        description: "64-hex id of a .docx artifact produced by this tool. Required without paragraphs.",
+      },
+      values: {
+        type: "object",
+        additionalProperties: { type: "string" },
+        description: "Placeholder values, at most 64 entries.",
+      },
+    },
+    required: ["title"],
+    additionalProperties: false,
+  },
+} as const
+
+export const XLSX_TOOL = {
+  name: "xlsx_write",
+  title: "Write a spreadsheet",
+  description: [
+    "Write one XLSX sheet with typed cells. `rows` hold strings, numbers, booleans or null;",
+    "formulas are set explicitly with `formulas` ({ \"B2\": \"SUM(B1:B1)\" }).",
+    "A data cell starting with = is rejected; use the formulas map. The result is stored as an artifact.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Artifact title, at most 120 characters." },
+      outputName: { type: "string", description: "Optional file name ending in .xlsx." },
+      sheet: { type: "string", description: "Sheet name, at most 31 characters." },
+      headers: { type: "array", items: { type: "string" }, description: "1–50 column headers." },
+      rows: {
+        type: "array",
+        items: { type: "array", items: { type: ["string", "number", "boolean", "null"] } },
+        description: "At most 5000 rows; each row has exactly one cell per header.",
+      },
+      formulas: {
+        type: "object",
+        additionalProperties: { type: "string" },
+        description: "Cell reference to formula, e.g. {\"D2\": \"B2*C2\"}.",
+      },
+    },
+    required: ["title", "sheet", "headers", "rows"],
+    additionalProperties: false,
+  },
+} as const
+
+export const PDF_TOOL = {
+  name: "pdf_from_markdown",
+  title: "Create a PDF from Markdown",
+  description: [
+    "Render Markdown (headings, lists, paragraphs, fenced code) to a PDF with selectable text.",
+    "No fonts or resources are fetched; the result is stored as an artifact.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Artifact title, at most 120 characters." },
+      outputName: { type: "string", description: "Optional file name ending in .pdf." },
+      markdown: { type: "string", description: "Markdown source, at most 200 KiB." },
+    },
+    required: ["title", "markdown"],
+    additionalProperties: false,
+  },
+} as const
+
+export const READ_TOOL = {
+  name: "read_document",
+  title: "Read a document as Markdown",
+  description: [
+    "Extract Markdown from a DOCX, XLSX, PPTX, PDF or text artifact produced by this tool set.",
+    "Conversion uses the bundled markitdown converter; no model or font is downloaded.",
+    "The preview is returned in the result and the full text is stored as a .md artifact.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Optional title for the extracted Markdown artifact." },
+      sourceArtifactID: {
+        type: "string",
+        description: "64-hex id of a document artifact produced by this tool set.",
+      },
+    },
+    required: ["sourceArtifactID"],
+    additionalProperties: false,
+  },
+} as const
+
+export const DOCUMENTS_FILL_TOOL = {
+  name: "documents_fill",
+  title: "Fill an uploaded Word template and export a PDF",
+  description: [
+    "Fill a .docx/.dotx template that was uploaded into a chat, then write the filled DOCX and",
+    "its LibreOffice PDF back into the same chat's files folder. `templatePath` is relative:",
+    "`<sessionID>/files/<name>.docx|.dotx` under WORKSPACE_DIR/chats. Never pass an absolute path.",
+    "`values` may hold scalars and lists/maps for `{% for %}` loops. Macro-enabled files are rejected.",
+    "Both file names are returned; each file is also stored as a downloadable artifact card.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      templatePath: { type: "string", description: "Relative path <sessionID>/files/<name>.docx|.dotx" },
+      values: { type: "object", description: "Placeholder values; at most 64 keys." },
+      name: { type: "string", description: "Optional base name for the two outputs." },
+    },
+    required: ["templatePath", "values"],
+    additionalProperties: false,
+  },
+} as const
+
+export const DOCUMENTS_CONVERT_TOOL = {
+  name: "documents_convert",
+  title: "Export a chat DOCX as PDF",
+  description: [
+    "Convert a .docx in a chat's files folder to PDF with LibreOffice and write the PDF back",
+    "into that folder. `templatePath` is `<sessionID>/files/<name>.docx` relative to WORKSPACE_DIR/chats.",
+    "Never pass an absolute path. The PDF name is returned and stored as a downloadable card.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      templatePath: { type: "string", description: "Relative path <sessionID>/files/<name>.docx" },
+      name: { type: "string", description: "Optional base name for the PDF." },
+    },
+    required: ["templatePath"],
+    additionalProperties: false,
+  },
+} as const
+
+export const TOOLS = [
+  DOCX_TOOL,
+  XLSX_TOOL,
+  PDF_TOOL,
+  READ_TOOL,
+  DOCUMENTS_FILL_TOOL,
+  DOCUMENTS_CONVERT_TOOL,
+] as const
+
+export interface ToolCallResult {
+  text: string
+  isError: boolean
+}
+
+export type ToolHandler = (name: string, args: unknown) => Promise<ToolCallResult>
+
+export type JsonRpcId = string | number | null
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-/** A missing field, unreadable file or malformed JSON falls back to the placeholder. */
 export function readManifestVersion(manifest: URL = PACKAGE_MANIFEST): string {
   try {
     const parsed: unknown = JSON.parse(readFileSync(manifest, "utf8"))
@@ -37,31 +206,8 @@ export function readManifestVersion(manifest: URL = PACKAGE_MANIFEST): string {
 
 export const SERVER_VERSION = readManifestVersion()
 
-export interface ToolCallResult {
-  text: string
-  isError: boolean
-}
-
-export type ToolHandler = (name: string, args: unknown) => Promise<ToolCallResult>
-
-export type JsonRpcId = string | number | null
-
-export interface JsonRpcSuccess {
-  jsonrpc: "2.0"
-  id: JsonRpcId
-  result: unknown
-}
-
-export interface JsonRpcFailure {
-  jsonrpc: "2.0"
-  id: JsonRpcId
-  error: { code: number; message: string }
-}
-
-export type JsonRpcResponse = JsonRpcSuccess | JsonRpcFailure
-
-function failure(id: JsonRpcId, code: number, message: string): JsonRpcFailure {
-  return { jsonrpc: "2.0", id, error: { code, message } }
+function failure(id: JsonRpcId, code: number, message: string) {
+  return { jsonrpc: "2.0" as const, id, error: { code, message } }
 }
 
 function negotiateProtocol(requested: unknown): string {
@@ -78,24 +224,20 @@ function toolContent(result: ToolCallResult): unknown {
   }
 }
 
-/** One JSON-RPC message in, one answer or `null` out. Pure. */
-export async function handleRpc(
-  message: unknown,
-  tools: readonly ToolSpec[],
-  call: ToolHandler,
-): Promise<JsonRpcResponse | null> {
+function isKnownTool(name: unknown): name is (typeof TOOL_NAMES)[number] {
+  return typeof name === "string" && (TOOL_NAMES as readonly string[]).includes(name)
+}
+
+export async function handleRpc(message: unknown, call: ToolHandler): Promise<unknown> {
   if (!isRecord(message)) return failure(null, -32700, "Parse error")
 
   const rawId = message.id
   const id: JsonRpcId = typeof rawId === "string" || typeof rawId === "number" ? rawId : null
   const method = typeof message.method === "string" ? message.method : undefined
   if (!method) return failure(id, -32600, "Invalid Request")
-
-  // A notification never gets an answer, even when it is unknown or malformed.
   if (rawId === undefined) return null
 
   const params = isRecord(message.params) ? message.params : {}
-  const known = tools.find((tool) => tool.name === params.name)
 
   switch (method) {
     case "initialize":
@@ -111,11 +253,11 @@ export async function handleRpc(
     case "ping":
       return { jsonrpc: "2.0", id, result: {} }
     case "tools/list":
-      return { jsonrpc: "2.0", id, result: { tools } }
+      return { jsonrpc: "2.0", id, result: { tools: [...TOOLS] } }
     case "tools/call": {
-      if (!known) return failure(id, -32602, "Unknown tool")
+      if (!isKnownTool(params.name)) return failure(id, -32602, "Unknown tool")
       try {
-        const result = await call(known.name, isRecord(params.arguments) ? params.arguments : {})
+        const result = await call(params.name, isRecord(params.arguments) ? params.arguments : {})
         return { jsonrpc: "2.0", id, result: toolContent(result) }
       } catch {
         return {
@@ -130,11 +272,9 @@ export async function handleRpc(
   }
 }
 
-/** Reads one JSON-RPC message per line until the input closes. */
 export async function serveStdio(options: {
   input: Readable
   output: Writable
-  tools: readonly ToolSpec[]
   call: ToolHandler
 }): Promise<void> {
   const lines = createInterface({ input: options.input, crlfDelay: Infinity })
@@ -150,7 +290,7 @@ export async function serveStdio(options: {
       continue
     }
 
-    const response = await handleRpc(parsed, options.tools, options.call)
-    if (response) options.output.write(`${JSON.stringify(response)}\n`)
+    const response = await handleRpc(parsed, options.call)
+    if (response !== null) options.output.write(`${JSON.stringify(response)}\n`)
   }
 }

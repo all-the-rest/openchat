@@ -80,6 +80,7 @@ describe("app boundaries", () => {
     expect(APP_LIST.map((app) => app.dir).sort()).toEqual([
       "artifact-host",
       "code-host",
+      "documents",
       "server",
       "web",
     ])

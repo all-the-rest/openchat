@@ -1,519 +1,386 @@
-import { ARTIFACT_TITLE_MAX } from "@openchat/contracts"
+import {
+  MAX_CELL_CHARS,
+  MAX_FORMULAS,
+  MAX_HEADERS,
+  MAX_MARKDOWN_BYTES,
+  MAX_OUTPUT_NAME,
+  MAX_PARAGRAPHS,
+  MAX_ROWS,
+  MAX_TITLE,
+  MAX_VALUE_CHARS,
+  MAX_VALUES,
+} from "./limits"
+import type { DocumentsConvertInput, DocumentsFillInput } from "./validate-documents"
+import { validateDocumentsConvert, validateDocumentsFill } from "./validate-documents"
 
 /**
- * Argument validators for the four document tools.
- *
- * They run before any process starts, so a rejection costs no Python run and
- * carries one precise sentence the model can act on. No validator accepts a
- * filesystem path: byte inputs travel as base64 and are written by the runner
- * into its own temp dir under a fixed name.
+ * Argument validation for the four document tools. Every rejection is one
+ * short line with a field name, never a value and never a stack trace. The
+ * order is cheap shape first, then elements, then cross-field rules, so the
+ * model gets one decisive message per call.
  */
 
-/** Largest accepted template or input document, decoded. */
-export const MAX_DOCUMENT_BYTES = 8_388_608
-/** Paragraph list bounds for a DOCX built from scratch or filled. */
-export const MAX_PARAGRAPHS = 200
-export const MAX_PARAGRAPH_CHARS = 20_000
-export const MAX_DOCX_TEXT_CHARS = 200_000
-/** Placeholder map bounds. */
-export const MAX_VALUES = 100
-export const MAX_VALUE_CHARS = 2_000
-/** Spreadsheet bounds. */
-export const MAX_SHEETS = 10
-export const MAX_ROWS_PER_SHEET = 5_000
-export const MAX_CELLS_PER_ROW = 100
-export const MAX_CELL_CHARS = 5_000
-/** Markdown input for the PDF tool. */
-export const MAX_MARKDOWN_CHARS = 200_000
-/** Longest accepted output file name. */
-const MAX_NAME_CHARS = 120
-/** `chats/<session>/files/<name>` is short; anything longer is not a template. */
-export const MAX_TEMPLATE_PATH_CHARS = 300
-const OUTPUT_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _.-]{0,119}$/
+export const TOOL_NAMES = [
+  "docx_fill",
+  "xlsx_write",
+  "pdf_from_markdown",
+  "read_document",
+  "documents_fill",
+  "documents_convert",
+] as const
 
-const PLACEHOLDER_KEY = /^[A-Za-z0-9_.-]{1,64}$/
-const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/
-const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\ufffe\uffff]/
-const SHEET_NAME_FORBIDDEN = /[[\]:*?/\\]/
-const OUTPUT_EXTENSIONS = [".docx", ".xlsx", ".pdf"] as const
-
-export type Cell = string | number | boolean | null
-
-export interface SheetInput {
-  name: string
-  rows: Cell[][]
-}
+export type ToolName = (typeof TOOL_NAMES)[number]
 
 export interface DocxFillInput {
   title: string
-  paragraphs: string[]
-  /** Present when the caller fills an uploaded template instead of building one. */
-  template?: Uint8Array
+  outputName: string
+  paragraphs?: string[]
+  templateArtifactID?: string
   values: Record<string, string>
 }
 
 export interface XlsxWriteInput {
   title: string
-  sheets: SheetInput[]
+  outputName: string
+  sheet: string
+  headers: string[]
+  rows: Array<Array<string | number | boolean | null>>
+  formulas: Record<string, string>
 }
 
 export interface PdfFromMarkdownInput {
   title: string
+  outputName: string
   markdown: string
 }
 
-export type DocumentKind = "docx" | "xlsx" | "pdf"
-
 export interface ReadDocumentInput {
-  name: string
-  kind: DocumentKind
-  bytes: Uint8Array
+  sourceArtifactID: string
+  title?: string
 }
 
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
+export type ValidatedCall =
+  | { name: "docx_fill"; value: DocxFillInput }
+  | { name: "xlsx_write"; value: XlsxWriteInput }
+  | { name: "pdf_from_markdown"; value: PdfFromMarkdownInput }
+  | { name: "read_document"; value: ReadDocumentInput }
+  | { name: "documents_fill"; value: DocumentsFillInput }
+  | { name: "documents_convert"; value: DocumentsConvertInput }
 
-export interface DocumentsFillInput {
-  templatePath: string
-  values: Record<string, JsonValue>
-  name: string
-}
-
-export interface DocumentExtractInput {
-  name: string
-  bytes: Uint8Array
-}
-
-export type ValidationResult<T> =
-  | { ok: true; value: T }
+export type ValidationResult =
+  | { ok: true; value: ValidatedCall }
   | { ok: false; error: string }
 
-export function kib(bytes: number): number {
-  return Math.ceil(bytes / 1024)
-}
+type Field<T> = { ok: true; value: T } | { ok: false; error: string }
+
+const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/
+const ARTIFACT_ID = /^[0-9a-f]{64}$/
+const VALUE_KEY = /^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/
+const CELL_REFERENCE = /^[A-Z]{1,3}[1-9][0-9]{0,4}$/
+const OUTPUT_NAME = /^[A-Za-z0-9][A-Za-z0-9._ -]*$/
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-
-function validateTitle(value: unknown): ValidationResult<string> {
-  if (typeof value !== "string") return { ok: false, error: "title: must be a string" }
-  const title = value.trim()
-  if (title.length === 0) return { ok: false, error: "title: must not be empty" }
-  const length = [...title].length
-  if (length > ARTIFACT_TITLE_MAX) {
-    return { ok: false, error: `title: ${length} characters > ${ARTIFACT_TITLE_MAX}` }
-  }
-  return { ok: true, value: title }
+function bad(error: string): { ok: false; error: string } {
+  return { ok: false, error }
 }
 
-/**
- * Strict base64: the alphabet only, padded to a multiple of four, and capped
- * before decoding so a huge string cannot allocate a larger buffer first.
- */
-export function decodeBase64(
+function text(value: unknown): value is string {
+  return typeof value === "string" && !CONTROL_CHARACTERS.test(value)
+}
+
+function readTitle(value: unknown, required: boolean): Field<string | undefined> {
+  if (value === undefined || value === null) {
+    return required ? bad("title: must be a string") : { ok: true, value: undefined }
+  }
+  if (typeof value !== "string") return bad("title: must be a string")
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return bad("title: must not be empty")
+  if (CONTROL_CHARACTERS.test(trimmed)) return bad("title: contains a control character")
+  const length = [...trimmed].length
+  if (length > MAX_TITLE) return bad(`title: ${length} characters > ${MAX_TITLE}`)
+  return { ok: true, value: trimmed }
+}
+
+function stemOf(title: string): string {
+  const flattened = title
+    .replace(/[^A-Za-z0-9._ -]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[\s.]+/, "")
+  const capped = [...flattened].slice(0, MAX_OUTPUT_NAME - 8).join("").trim()
+  return capped.length > 0 ? capped : "document"
+}
+
+function readOutputName(
+  value: unknown,
+  title: string,
+  extension: string,
+): Field<string> {
+  if (value === undefined || value === null) {
+    return { ok: true, value: `${stemOf(title)}${extension}` }
+  }
+  if (typeof value !== "string") return bad("outputName: must be a string")
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return bad("outputName: must not be empty")
+  if (trimmed.length > MAX_OUTPUT_NAME) {
+    return bad(`outputName: ${trimmed.length} characters > ${MAX_OUTPUT_NAME}`)
+  }
+  if (!OUTPUT_NAME.test(trimmed)) return bad("outputName: use letters, digits, space, dot, dash or underscore")
+  if (!trimmed.toLowerCase().endsWith(extension)) {
+    return bad(`outputName: must end with ${extension}`)
+  }
+  return { ok: true, value: trimmed }
+}
+
+function readStringList(
   value: unknown,
   field: string,
-  maxBytes: number,
-): ValidationResult<Uint8Array> {
-  if (typeof value !== "string") return { ok: false, error: `${field}: must be a base64 string` }
-  if (value.length === 0) return { ok: false, error: `${field}: must not be empty` }
-  const maxEncoded = Math.ceil((maxBytes * 4) / 3) + 4
-  if (value.length > maxEncoded) {
-    return { ok: false, error: `${field}: larger than ${kib(maxBytes)} KiB` }
-  }
-  if (value.length % 4 !== 0 || !BASE64.test(value)) {
-    return { ok: false, error: `${field}: must be valid base64` }
-  }
-  const bytes = new Uint8Array(Buffer.from(value, "base64"))
-  if (bytes.byteLength === 0) return { ok: false, error: `${field}: must not be empty` }
-  if (bytes.byteLength > maxBytes) {
-    return { ok: false, error: `${field}: larger than ${kib(maxBytes)} KiB` }
-  }
-  return { ok: true, value: bytes }
-}
-
-function startsWith(bytes: Uint8Array, prefix: readonly number[]): boolean {
-  if (bytes.byteLength < prefix.length) return false
-  return prefix.every((byte, index) => bytes[index] === byte)
-}
-
-/** ZIP magic: every OOXML package starts with it. */
-const ZIP_PREFIX = [0x50, 0x4b, 0x03, 0x04]
-const PDF_PREFIX = [0x25, 0x50, 0x44, 0x46, 0x2d] // %PDF-
-
-function validateParagraphs(value: unknown): ValidationResult<string[]> {
-  if (value === undefined) return { ok: true, value: [] }
-  if (!Array.isArray(value)) return { ok: false, error: "paragraphs: must be an array of strings" }
-  if (value.length > MAX_PARAGRAPHS) {
-    return { ok: false, error: `paragraphs: ${value.length} entries > ${MAX_PARAGRAPHS}` }
-  }
-  const paragraphs: string[] = []
-  let totalCharacters = 0
-  for (const [index, entry] of value.entries()) {
-    if (typeof entry !== "string") {
-      return { ok: false, error: `paragraphs[${index}]: must be a string` }
+  min: number,
+  max: number,
+  maxChars: number,
+): Field<string[]> {
+  if (!Array.isArray(value)) return bad(`${field}: must be an array`)
+  if (value.length < min) return bad(`${field}: at least ${min} entr${min === 1 ? "y" : "ies"} required`)
+  if (value.length > max) return bad(`${field}: ${value.length} entries > ${max}`)
+  const result: string[] = []
+  for (let index = 0; index < value.length; index += 1) {
+    const item = value[index]
+    if (!text(item)) return bad(`${field}[${index}]: must be a plain string`)
+    if (item.length > maxChars) {
+      return bad(`${field}[${index}]: ${item.length} characters > ${maxChars}`)
     }
-    const characters = [...entry].length
-    if (characters > MAX_PARAGRAPH_CHARS) {
-      return {
-        ok: false,
-        error: `paragraphs[${index}]: longer than ${MAX_PARAGRAPH_CHARS} characters`,
-      }
-    }
-    if (CONTROL_CHARACTERS.test(entry)) {
-      return { ok: false, error: `paragraphs[${index}]: contains a control character` }
-    }
-    totalCharacters += characters
-    if (totalCharacters > MAX_DOCX_TEXT_CHARS) {
-      return { ok: false, error: `paragraphs: total text larger than ${MAX_DOCX_TEXT_CHARS} characters` }
-    }
-    paragraphs.push(entry)
-  }
-  return { ok: true, value: paragraphs }
-}
-
-function validateValues(value: unknown): ValidationResult<Record<string, string>> {
-  if (value === undefined) return { ok: true, value: {} }
-  if (!isRecord(value)) return { ok: false, error: "values: must be an object of strings" }
-  const entries = Object.entries(value)
-  if (entries.length > MAX_VALUES) {
-    return { ok: false, error: `values: ${entries.length} keys > ${MAX_VALUES}` }
-  }
-  const values: Record<string, string> = {}
-  for (const [key, entry] of entries) {
-    if (!PLACEHOLDER_KEY.test(key)) {
-      return {
-        ok: false,
-        error: `values.${key}: placeholder keys are letters, digits, dot, dash or underscore`,
-      }
-    }
-    if (typeof entry !== "string") {
-      return { ok: false, error: `values.${key}: must be a string` }
-    }
-    if ([...entry].length > MAX_VALUE_CHARS) {
-      return { ok: false, error: `values.${key}: longer than ${MAX_VALUE_CHARS} characters` }
-    }
-    if (CONTROL_CHARACTERS.test(entry)) {
-      return { ok: false, error: `values.${key}: contains a control character` }
-    }
-    values[key] = entry
-  }
-  return { ok: true, value: values }
-}
-
-export function validateDocxFill(input: unknown): ValidationResult<DocxFillInput> {
-  if (!isRecord(input)) {
-    return { ok: false, error: "input: expected an object with title and paragraphs or template" }
-  }
-  const title = validateTitle(input.title)
-  if (!title.ok) return title
-
-  const paragraphs = validateParagraphs(input.paragraphs)
-  if (!paragraphs.ok) return paragraphs
-  const values = validateValues(input.values)
-  if (!values.ok) return values
-
-  if (input.template === undefined || input.template === null) {
-    if (paragraphs.value.length === 0) {
-      return { ok: false, error: "input: pass paragraphs or a template" }
-    }
-    return { ok: true, value: { title: title.value, paragraphs: paragraphs.value, values: values.value } }
-  }
-
-  const template = decodeBase64(input.template, "template", MAX_DOCUMENT_BYTES)
-  if (!template.ok) return template
-  if (!startsWith(template.value, ZIP_PREFIX)) {
-    return { ok: false, error: "template: not a .docx package (ZIP magic missing)" }
-  }
-  return {
-    ok: true,
-    value: {
-      title: title.value,
-      paragraphs: paragraphs.value,
-      template: template.value,
-      values: values.value,
-    },
-  }
-}
-
-function validateSheetName(value: unknown, index: number): ValidationResult<string> {
-  if (typeof value !== "string") {
-    return { ok: false, error: `sheets[${index}].name: must be a string` }
-  }
-  const name = value.trim()
-  if (name.length === 0) return { ok: false, error: `sheets[${index}].name: must not be empty` }
-  if ([...name].length > 31) {
-    return { ok: false, error: `sheets[${index}].name: longer than 31 characters` }
-  }
-  if (SHEET_NAME_FORBIDDEN.test(name) || name.startsWith("'") || name.endsWith("'")) {
-    return {
-      ok: false,
-      error: `sheets[${index}].name: must not contain []:*?/\\ or start/end with an apostrophe`,
-    }
-  }
-  return { ok: true, value: name }
-}
-
-function validateCell(value: unknown, sheet: number, row: number, cell: number): ValidationResult<Cell> {
-  const at = `sheets[${sheet}].rows[${row}][${cell}]`
-  if (value === null || typeof value === "boolean") return { ok: true, value }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) return { ok: false, error: `${at}: must be a finite number` }
-    return { ok: true, value }
-  }
-  if (typeof value !== "string") {
-    return { ok: false, error: `${at}: must be a string, number, boolean or null` }
-  }
-  if ([...value].length > MAX_CELL_CHARS) {
-    return { ok: false, error: `${at}: longer than ${MAX_CELL_CHARS} characters` }
-  }
-  if (CONTROL_CHARACTERS.test(value)) {
-    return { ok: false, error: `${at}: contains a control character` }
-  }
-  return { ok: true, value }
-}
-
-export function validateXlsxWrite(input: unknown): ValidationResult<XlsxWriteInput> {
-  if (!isRecord(input)) {
-    return { ok: false, error: "input: expected an object with title and sheets" }
-  }
-  const title = validateTitle(input.title)
-  if (!title.ok) return title
-  if (!Array.isArray(input.sheets) || input.sheets.length === 0) {
-    return { ok: false, error: "sheets: must be a non-empty array" }
-  }
-  if (input.sheets.length > MAX_SHEETS) {
-    return { ok: false, error: `sheets: ${input.sheets.length} > ${MAX_SHEETS}` }
-  }
-
-  const seen = new Set<string>()
-  const sheets: SheetInput[] = []
-  for (const [sheetIndex, raw] of input.sheets.entries()) {
-    if (!isRecord(raw)) return { ok: false, error: `sheets[${sheetIndex}]: must be an object` }
-    const name = validateSheetName(raw.name, sheetIndex)
-    if (!name.ok) return name
-    if (seen.has(name.value.toLowerCase())) {
-      return { ok: false, error: `sheets[${sheetIndex}].name: duplicate sheet name` }
-    }
-    seen.add(name.value.toLowerCase())
-    if (!Array.isArray(raw.rows) || raw.rows.length === 0) {
-      return { ok: false, error: `sheets[${sheetIndex}].rows: must be a non-empty array` }
-    }
-    if (raw.rows.length > MAX_ROWS_PER_SHEET) {
-      return {
-        ok: false,
-        error: `sheets[${sheetIndex}].rows: ${raw.rows.length} > ${MAX_ROWS_PER_SHEET}`,
-      }
-    }
-    const rows: Cell[][] = []
-    for (const [rowIndex, rawRow] of raw.rows.entries()) {
-      if (!Array.isArray(rawRow) || rawRow.length === 0) {
-        return { ok: false, error: `sheets[${sheetIndex}].rows[${rowIndex}]: must be a non-empty array` }
-      }
-      if (rawRow.length > MAX_CELLS_PER_ROW) {
-        return {
-          ok: false,
-          error: `sheets[${sheetIndex}].rows[${rowIndex}]: ${rawRow.length} cells > ${MAX_CELLS_PER_ROW}`,
-        }
-      }
-      const cells: Cell[] = []
-      for (const [cellIndex, rawCell] of rawRow.entries()) {
-        const cell = validateCell(rawCell, sheetIndex, rowIndex, cellIndex)
-        if (!cell.ok) return cell
-        cells.push(cell.value)
-      }
-      rows.push(cells)
-    }
-    sheets.push({ name: name.value, rows })
-  }
-  return { ok: true, value: { title: title.value, sheets } }
-}
-
-export function validatePdfFromMarkdown(input: unknown): ValidationResult<PdfFromMarkdownInput> {
-  if (!isRecord(input)) {
-    return { ok: false, error: "input: expected an object with title and markdown" }
-  }
-  const title = validateTitle(input.title)
-  if (!title.ok) return title
-  if (typeof input.markdown !== "string") {
-    return { ok: false, error: "markdown: must be a string" }
-  }
-  if (input.markdown.trim().length === 0) {
-    return { ok: false, error: "markdown: must not be empty" }
-  }
-  if ([...input.markdown].length > MAX_MARKDOWN_CHARS) {
-    return { ok: false, error: `markdown: longer than ${MAX_MARKDOWN_CHARS} characters` }
-  }
-  if (CONTROL_CHARACTERS.test(input.markdown)) {
-    return { ok: false, error: "markdown: contains a control character" }
-  }
-  return { ok: true, value: { title: title.value, markdown: input.markdown } }
-}
-
-function documentKind(name: string): DocumentKind | null {
-  const lower = name.toLowerCase()
-  if (lower.endsWith(".docx")) return "docx"
-  if (lower.endsWith(".xlsx")) return "xlsx"
-  if (lower.endsWith(".pdf")) return "pdf"
-  return null
-}
-
-export function validateReadDocument(input: unknown): ValidationResult<ReadDocumentInput> {
-  if (!isRecord(input)) {
-    return { ok: false, error: "input: expected an object with name and base64" }
-  }
-  if (typeof input.name !== "string") return { ok: false, error: "name: must be a string" }
-  const name = input.name.trim()
-  if (name.length === 0) return { ok: false, error: "name: must not be empty" }
-  if ([...name].length > MAX_NAME_CHARS) {
-    return { ok: false, error: `name: longer than ${MAX_NAME_CHARS} characters` }
-  }
-  if (name.includes("/") || name.includes("\\") || name.startsWith(".") || name.includes("..")) {
-    return { ok: false, error: "name: must be one file name, not a path" }
-  }
-  if (CONTROL_CHARACTERS.test(name)) {
-    return { ok: false, error: "name: contains a control character" }
-  }
-  const kind = documentKind(name)
-  if (!kind) return { ok: false, error: `name: ${OUTPUT_EXTENSIONS.join(", ")} only` }
-
-  const bytes = decodeBase64(input.base64, "document", MAX_DOCUMENT_BYTES)
-  if (!bytes.ok) return bytes
-  if (kind === "pdf" && !startsWith(bytes.value, PDF_PREFIX)) {
-    return { ok: false, error: "document: not a PDF (%PDF- magic missing)" }
-  }
-  if (kind !== "pdf" && !startsWith(bytes.value, ZIP_PREFIX)) {
-    return { ok: false, error: `document: not a .${kind} package (ZIP magic missing)` }
-  }
-  return { ok: true, value: { name, kind, bytes: bytes.value } }
-}
-
-const MAX_VALUE_DEPTH = 4
-const MAX_ARRAY_ENTRIES = 200
-
-function validateJsonValue(value: unknown, at: string, depth: number): ValidationResult<JsonValue> {
-  if (depth > MAX_VALUE_DEPTH) return { ok: false, error: `${at}: nested too deeply` }
-  if (value === null || typeof value === "boolean") return { ok: true, value }
-  if (typeof value === "number") {
-    return Number.isFinite(value)
-      ? { ok: true, value }
-      : { ok: false, error: `${at}: must be a finite number` }
-  }
-  if (typeof value === "string") {
-    if ([...value].length > MAX_VALUE_CHARS) {
-      return { ok: false, error: `${at}: longer than ${MAX_VALUE_CHARS} characters` }
-    }
-    return CONTROL_CHARACTERS.test(value)
-      ? { ok: false, error: `${at}: contains a control character` }
-      : { ok: true, value }
-  }
-  if (Array.isArray(value)) {
-    if (value.length > MAX_ARRAY_ENTRIES) {
-      return { ok: false, error: `${at}: ${value.length} entries > ${MAX_ARRAY_ENTRIES}` }
-    }
-    const items: JsonValue[] = []
-    for (const [index, entry] of value.entries()) {
-      const item = validateJsonValue(entry, `${at}[${index}]`, depth + 1)
-      if (!item.ok) return item
-      items.push(item.value)
-    }
-    return { ok: true, value: items }
-  }
-  if (isRecord(value)) {
-    return validateStructuredValues(value, at, depth)
-  }
-  return { ok: false, error: `${at}: must be a JSON scalar, array or object` }
-}
-
-/** Placeholder values may be scalars or simple nested lists/maps for loops. */
-export function validateStructuredValues(
-  value: unknown,
-  at = "values",
-  depth = 0,
-): ValidationResult<Record<string, JsonValue>> {
-  if (value === undefined) return { ok: true, value: {} }
-  if (!isRecord(value)) return { ok: false, error: `${at}: must be an object` }
-  const entries = Object.entries(value)
-  if (entries.length > MAX_VALUES) {
-    return { ok: false, error: `${at}: ${entries.length} keys > ${MAX_VALUES}` }
-  }
-  const result: Record<string, JsonValue> = {}
-  for (const [key, entry] of entries) {
-    if (!PLACEHOLDER_KEY.test(key) || key.includes("..")) {
-      return { ok: false, error: `${at}.${key}: keys are letters, digits, dot, dash or underscore` }
-    }
-    const checked = validateJsonValue(entry, `${at}.${key}`, depth + 1)
-    if (!checked.ok) return checked
-    result[key] = checked.value
+    result.push(item)
   }
   return { ok: true, value: result }
 }
 
-export function validateDocumentsFill(input: unknown): ValidationResult<DocumentsFillInput> {
-  if (!isRecord(input)) {
-    return { ok: false, error: "input: expected templatePath, values and an optional name" }
-  }
-  if (typeof input.templatePath !== "string" || input.templatePath.trim().length === 0) {
-    return { ok: false, error: "templatePath: must be a non-empty string" }
-  }
-  const templatePath = input.templatePath.trim()
-  if ([...templatePath].length > MAX_TEMPLATE_PATH_CHARS) {
-    return { ok: false, error: `templatePath: longer than ${MAX_TEMPLATE_PATH_CHARS} characters` }
-  }
-  if (CONTROL_CHARACTERS.test(templatePath) || templatePath.includes("\u0000")) {
-    return { ok: false, error: "templatePath: contains a control character" }
-  }
-  if (templatePath.includes("..") || templatePath.includes("\\") || templatePath.startsWith("/")) {
-    return { ok: false, error: "templatePath: use a path inside WORKSPACE_DIR/chats" }
-  }
-  const segments = templatePath.split("/")
-  if (segments.length !== 3 || segments[1] !== "files") {
-    return { ok: false, error: "templatePath: expected chats/<sessionID>/files/<name>" }
-  }
-  if (!/\.(docx|dotx)$/i.test(templatePath)) {
-    return { ok: false, error: "templatePath: only .docx and .dotx templates are accepted" }
-  }
-  const values = validateStructuredValues(input.values)
-  if (!values.ok) return values
-  let name = "document"
-  if (input.name !== undefined) {
-    if (typeof input.name !== "string" || !OUTPUT_NAME_PATTERN.test(input.name)) {
-      return { ok: false, error: "name: letters, digits, space, dot, dash and underscore only" }
+function readValues(value: unknown): Field<Record<string, string>> {
+  if (value === undefined || value === null) return { ok: true, value: {} }
+  if (!isRecord(value)) return bad("values: must be an object")
+  const entries = Object.entries(value)
+  if (entries.length > MAX_VALUES) return bad(`values: ${entries.length} entries > ${MAX_VALUES}`)
+  const result: Record<string, string> = {}
+  for (const [key, item] of entries) {
+    if (!VALUE_KEY.test(key)) return bad(`values.${key}: use letters, digits, underscore, dot or dash`)
+    if (typeof item !== "string") return bad(`values.${key}: must be a string`)
+    if (!text(item)) return bad(`values.${key}: contains a control character`)
+    if (item.length > MAX_VALUE_CHARS) {
+      return bad(`values.${key}: ${item.length} characters > ${MAX_VALUE_CHARS}`)
     }
-    name = input.name
+    result[key] = item
   }
-  return { ok: true, value: { templatePath, values: values.value, name } }
+  return { ok: true, value: result }
 }
 
-const EXTRACT_EXTENSIONS = [
-  ".csv", ".docx", ".html", ".htm", ".json", ".md", ".pdf",
-  ".pptx", ".txt", ".xlsx", ".xml", ".zip",
-] as const
+function readCell(item: unknown, row: number, column: number): Field<string | number | boolean | null> {
+  if (item === null || typeof item === "boolean") return { ok: true, value: item }
+  if (typeof item === "number") {
+    if (!Number.isFinite(item)) return bad(`rows[${row}][${column}]: must be a finite number`)
+    return { ok: true, value: item }
+  }
+  if (typeof item === "string") {
+    if (!text(item)) return bad(`rows[${row}][${column}]: contains a control character`)
+    if (item.length > MAX_CELL_CHARS) {
+      return bad(`rows[${row}][${column}]: ${item.length} characters > ${MAX_CELL_CHARS}`)
+    }
+    if (item.startsWith("=")) {
+      return bad(`rows[${row}][${column}]: start = only through the formulas map`)
+    }
+    return { ok: true, value: item }
+  }
+  return bad(`rows[${row}][${column}]: must be a string, number, boolean or null`)
+}
 
-export function validateDocumentExtract(input: unknown): ValidationResult<DocumentExtractInput> {
-  if (!isRecord(input)) {
-    return { ok: false, error: "input: expected an object with name and base64" }
+function readRows(value: unknown, width: number): Field<Array<Array<string | number | boolean | null>>> {
+  if (!Array.isArray(value)) return bad("rows: must be an array")
+  if (value.length > MAX_ROWS) return bad(`rows: ${value.length} rows > ${MAX_ROWS}`)
+  const rows: Array<Array<string | number | boolean | null>> = []
+  for (let rowIndex = 0; rowIndex < value.length; rowIndex += 1) {
+    const row = value[rowIndex]
+    if (!Array.isArray(row)) return bad(`rows[${rowIndex}]: must be an array`)
+    if (row.length !== width) {
+      return bad(`rows[${rowIndex}]: expected ${width} cells, got ${row.length}`)
+    }
+    const cells: Array<string | number | boolean | null> = []
+    for (let column = 0; column < row.length; column += 1) {
+      const cell = readCell(row[column], rowIndex, column)
+      if (!cell.ok) return cell
+      cells.push(cell.value)
+    }
+    rows.push(cells)
   }
-  if (typeof input.name !== "string") return { ok: false, error: "name: must be a string" }
-  const name = input.name.trim()
-  if (name.length === 0 || [...name].length > MAX_NAME_CHARS) {
-    return { ok: false, error: `name: must be 1-${MAX_NAME_CHARS} characters` }
+  return { ok: true, value: rows }
+}
+
+function readFormulas(value: unknown): Field<Record<string, string>> {
+  if (value === undefined || value === null) return { ok: true, value: {} }
+  if (!isRecord(value)) return bad("formulas: must be an object")
+  const entries = Object.entries(value)
+  if (entries.length > MAX_FORMULAS) {
+    return bad(`formulas: ${entries.length} entries > ${MAX_FORMULAS}`)
   }
-  if (name.includes("/") || name.includes("\\") || name.startsWith(".") || name.includes("..")) {
-    return { ok: false, error: "name: must be one file name, not a path" }
+  const result: Record<string, string> = {}
+  for (const [reference, formula] of entries) {
+    if (!CELL_REFERENCE.test(reference)) return bad(`formulas.${reference}: not a cell reference`)
+    if (typeof formula !== "string" || formula.trim().length === 0) {
+      return bad(`formulas.${reference}: must be a non-empty string`)
+    }
+    if (formula.length > 200) return bad(`formulas.${reference}: longer than 200 characters`)
+    result[reference] = formula.trim()
   }
-  if (CONTROL_CHARACTERS.test(name)) return { ok: false, error: "name: contains a control character" }
-  if (!EXTRACT_EXTENSIONS.some((extension) => name.toLowerCase().endsWith(extension))) {
-    return { ok: false, error: `name: ${EXTRACT_EXTENSIONS.join(", ")} only` }
+  return { ok: true, value: result }
+}
+
+function readSheet(value: unknown): Field<string> {
+  if (typeof value !== "string") return bad("sheet: must be a string")
+  const name = value.trim()
+  if (name.length === 0) return bad("sheet: must not be empty")
+  if (name.length > 31) return bad("sheet: longer than 31 characters")
+  if (/[\\/?*[\]:]/.test(name)) return bad("sheet: must not contain \\ / ? * [ ] :")
+  if (name.startsWith("'") || name.endsWith("'")) return bad("sheet: must not start or end with '")
+  return { ok: true, value: name }
+}
+
+function readArtifactID(value: unknown, field: string): Field<string> {
+  if (typeof value !== "string" || !ARTIFACT_ID.test(value)) {
+    return bad(`${field}: expected 64 lowercase hex characters`)
   }
-  const bytes = decodeBase64(input.base64, "document", MAX_DOCUMENT_BYTES)
-  if (!bytes.ok) return bytes
-  return { ok: true, value: { name, bytes: bytes.value } }
+  return { ok: true, value }
+}
+
+function validateDocx(input: Record<string, unknown>): ValidationResult {
+  const title = readTitle(input.title, true)
+  if (!title.ok) return title
+  const hasTemplate = input.templateArtifactID !== undefined && input.templateArtifactID !== null
+  const hasParagraphs = input.paragraphs !== undefined && input.paragraphs !== null
+  if (hasTemplate === hasParagraphs) {
+    return bad("input: pass exactly one of paragraphs or templateArtifactID")
+  }
+
+  const outputName = readOutputName(input.outputName, title.value ?? "", ".docx")
+  if (!outputName.ok) return outputName
+  const values = readValues(input.values)
+  if (!values.ok) return values
+
+  if (hasTemplate) {
+    const templateArtifactID = readArtifactID(input.templateArtifactID, "templateArtifactID")
+    if (!templateArtifactID.ok) return templateArtifactID
+    return {
+      ok: true,
+      value: {
+        name: "docx_fill",
+        value: {
+          title: title.value ?? "",
+          outputName: outputName.value,
+          templateArtifactID: templateArtifactID.value,
+          values: values.value,
+        },
+      },
+    }
+  }
+
+  const paragraphs = readStringList(input.paragraphs, "paragraphs", 1, MAX_PARAGRAPHS, MAX_VALUE_CHARS)
+  if (!paragraphs.ok) return paragraphs
+  return {
+    ok: true,
+    value: {
+      name: "docx_fill",
+      value: {
+        title: title.value ?? "",
+        outputName: outputName.value,
+        paragraphs: paragraphs.value,
+        values: values.value,
+      },
+    },
+  }
+}
+
+function validateXlsx(input: Record<string, unknown>): ValidationResult {
+  const title = readTitle(input.title, true)
+  if (!title.ok) return title
+  const outputName = readOutputName(input.outputName, title.value ?? "", ".xlsx")
+  if (!outputName.ok) return outputName
+  const sheet = readSheet(input.sheet)
+  if (!sheet.ok) return sheet
+  const headers = readStringList(input.headers, "headers", 1, MAX_HEADERS, MAX_CELL_CHARS)
+  if (!headers.ok) return headers
+  const rows = readRows(input.rows, headers.value.length)
+  if (!rows.ok) return rows
+  const formulas = readFormulas(input.formulas)
+  if (!formulas.ok) return formulas
+
+  return {
+    ok: true,
+    value: {
+      name: "xlsx_write",
+      value: {
+        title: title.value ?? "",
+        outputName: outputName.value,
+        sheet: sheet.value,
+        headers: headers.value,
+        rows: rows.value,
+        formulas: formulas.value,
+      },
+    },
+  }
+}
+
+function validatePdf(input: Record<string, unknown>): ValidationResult {
+  const title = readTitle(input.title, true)
+  if (!title.ok) return title
+  const outputName = readOutputName(input.outputName, title.value ?? "", ".pdf")
+  if (!outputName.ok) return outputName
+  if (typeof input.markdown !== "string") return bad("markdown: must be a string")
+  if (input.markdown.trim().length === 0) return bad("markdown: must not be empty")
+  const bytes = Buffer.byteLength(input.markdown, "utf8")
+  if (bytes > MAX_MARKDOWN_BYTES) {
+    return bad(`markdown: ${Math.ceil(bytes / 1024)} KiB > ${MAX_MARKDOWN_BYTES / 1024} KiB`)
+  }
+  return {
+    ok: true,
+    value: {
+      name: "pdf_from_markdown",
+      value: { title: title.value ?? "", outputName: outputName.value, markdown: input.markdown },
+    },
+  }
+}
+
+function validateRead(input: Record<string, unknown>): ValidationResult {
+  const sourceArtifactID = readArtifactID(input.sourceArtifactID, "sourceArtifactID")
+  if (!sourceArtifactID.ok) return sourceArtifactID
+  const title = readTitle(input.title, false)
+  if (!title.ok) return title
+  return {
+    ok: true,
+    value: {
+      name: "read_document",
+      value: {
+        sourceArtifactID: sourceArtifactID.value,
+        ...(title.value === undefined ? {} : { title: title.value }),
+      },
+    },
+  }
+}
+
+export function validateTool(name: string, input: unknown): ValidationResult {
+  if (!isRecord(input)) return bad("input: expected an object")
+  switch (name) {
+    case "docx_fill":
+      return validateDocx(input)
+    case "xlsx_write":
+      return validateXlsx(input)
+    case "pdf_from_markdown":
+      return validatePdf(input)
+    case "read_document":
+      return validateRead(input)
+    case "documents_fill":
+      return validateDocumentsFill(input)
+    case "documents_convert":
+      return validateDocumentsConvert(input)
+    default:
+      return bad("input: unknown tool")
+  }
 }

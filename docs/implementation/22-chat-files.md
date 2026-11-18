@@ -132,9 +132,13 @@ the PO catalogue, and the compiled bundles are regenerated with
   background. The list reads once per chat open and after a delete.
 - A cleanup action for old chats: there is no chat deletion in the UI yet, and
   the boot audit deliberately never deletes.
-- An agent-facing tool that writes into `files/`. `ChatFilesStore.write(...,
-  origin: "agent")` is the path such a tool uses; the tool itself belongs to
-  the tool-surface slice.
+- A general-purpose agent-facing tool that writes arbitrary content into
+  `files/`. `ChatFilesStore.write(..., origin: "agent")` is the path such a tool
+  would use; the tool itself remains out of scope. The two document tools from
+  issue #46 (`documents_fill`, `documents_convert`) write only their own
+  generated DOCX/PDF into the same folder, with their own path and symlink
+  guards, and do not update `index.json` (the artifact cards are the download
+  surface). See [`25-documents.md`](25-documents.md).
 
 ## Deployment
 

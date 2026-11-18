@@ -22,7 +22,6 @@ from typing import Callable
 
 from .convert import docx_to_pdf
 from .errors import DocumentError, error_body
-from .extract import extract_markdown
 from .limits import (
     MAX_BODY_BYTES,
     MAX_KEY_CHARS,
@@ -36,11 +35,9 @@ from .render import render_template
 
 Render = Callable[[bytes, dict], bytes]
 Convert = Callable[[bytes, str], bytes]
-Extract = Callable[[bytes, str], str]
 
 STATUS = {
     "invalid_template": 400,
-    "unsupported_format": 400,
     "bad_request": 400,
     "macro_document": 400,
     "too_large": 413,
@@ -65,11 +62,9 @@ class Operations:
         self,
         render: Render | None = None,
         convert: Convert | None = None,
-        extract: Extract | None = None,
     ) -> None:
         self.render = render or render_template
         self.convert = convert or docx_to_pdf
-        self.extract = extract or extract_markdown
 
 
 class Service:
@@ -203,7 +198,7 @@ def make_handler(service: Service):
                 self.reply(401, error_body("unauthorized"))
                 return
             path = self.path.split("?", 1)[0]
-            if path not in ("/fill", "/convert", "/extract"):
+            if path not in ("/fill", "/convert"):
                 self.reply(404, error_body("not_found"))
                 return
             try:
@@ -251,13 +246,7 @@ def dispatch(service: Service, path: str, request: dict, workdir: str) -> dict:
             "pdfName": f"{name}.pdf",
         }
 
-    document = decode(request.get("base64"), "document", MAX_TEMPLATE_BYTES)
-    name = request.get("name")
-    if not isinstance(name, str) or not name or len(name) > MAX_NAME_CHARS:
-        raise DocumentError("bad_request", "name")
-    if CONTROL.search(name) or "/" in name or "\\" in name or name.startswith("."):
-        raise DocumentError("bad_request", "name")
-    return {"markdown": service.ops.extract(document, name)}
+    raise DocumentError("not_found")
 
 
 def serve(token: str, port: int, operations: Operations | None = None) -> None:

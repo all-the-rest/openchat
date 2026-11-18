@@ -24,11 +24,11 @@ describe("image build set", () => {
     expect(plain.status).toBe(0)
     expect(withDind.status).toBe(0)
     expect(plain.stdout).toContain(
-      "'build' 'bff' 'code-host' 'artifact-host' 'opencode'\n",
+      "'build' 'bff' 'code-host' 'artifact-host' 'documents' 'opencode'\n",
     )
     expect(plain.stdout).not.toContain("'toolbox'")
     expect(withDind.stdout).toContain(
-      "'build' 'bff' 'code-host' 'artifact-host' 'opencode' 'toolbox'",
+      "'build' 'bff' 'code-host' 'artifact-host' 'documents' 'opencode' 'toolbox'",
     )
   })
 

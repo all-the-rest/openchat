@@ -89,6 +89,9 @@ jobs:
             dockerfile: deploy/Dockerfile.code-host
           - image: artifact-host
             dockerfile: deploy/Dockerfile.artifact-host
+          # Headless LibreOffice service for .dotx -> DOCX/PDF (issue #46).
+          - image: documents
+            dockerfile: deploy/Dockerfile.documents
           # The derived OpenCode image: official 2.3.2 base plus git, ripgrep,
           # the Docker CLI and the artifact tool. Not a republish of upstream.
           - image: opencode

@@ -20,11 +20,10 @@ AUTH = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 TEMPLATE = base64.b64encode(b"PK\x03\x04template-bytes").decode("ascii")
 
 
-def fake_ops(render=None, convert=None, extract=None) -> Operations:
+def fake_ops(render=None, convert=None) -> Operations:
     return Operations(
         render=render or (lambda data, values: b"filled-docx"),
         convert=convert or (lambda data, workdir: b"%PDF-1.7\nfake-pdf"),
-        extract=extract or (lambda data, name: "# Extracted"),
     )
 
 
@@ -165,16 +164,18 @@ class ServerCase(unittest.TestCase):
         self.assertEqual(body["error"]["code"], "convert_failed")
         self.assertFalse(os.path.exists(seen[1]))
 
-    def test_convert_and_extract(self) -> None:
+    def test_convert(self) -> None:
         payload = json.dumps({"document": TEMPLATE, "name": "paper"}).encode()
         status, body = self.call("POST", "/convert", payload, AUTH)
         self.assertEqual(status, 200)
         self.assertEqual(body["pdfName"], "paper.pdf")
+        self.assertTrue(base64.b64decode(body["pdf"]).startswith(b"%PDF-"))
 
+    def test_extract_endpoint_is_gone(self) -> None:
         payload = json.dumps({"name": "slides.pptx", "base64": TEMPLATE}).encode()
         status, body = self.call("POST", "/extract", payload, AUTH)
-        self.assertEqual(status, 200)
-        self.assertEqual(body, {"markdown": "# Extracted"})
+        self.assertEqual(status, 404)
+        self.assertEqual(body["error"]["code"], "not_found")
 
     def test_unknown_endpoint_is_404(self) -> None:
         status, body = self.call("POST", "/shell", b"{}", AUTH)

@@ -10,7 +10,6 @@ MESSAGES = {
     "macro_document": "Macro-enabled documents are not supported",
     "too_large": "The document exceeds the size limit",
     "timeout": "The conversion ran longer than its limit and was stopped",
-    "unsupported_format": "This file type cannot be extracted",
     "bad_request": "The request body is invalid",
     "unauthorized": "Authentication required",
     "not_found": "Unknown endpoint",

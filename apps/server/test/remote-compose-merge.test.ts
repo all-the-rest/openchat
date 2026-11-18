@@ -103,10 +103,10 @@ describe("merged remote compose", () => {
   it("keeps the documents service internal, capped and token-authenticated", () => {
     const documents = SERVICES.documents
     expect(documents).toBeDefined()
-    expect(documents.mem_limit).toBe("1024m")
-    expect(documents.ports).toBeUndefined()
-    expect(Object.keys(documents.networks ?? {})).toEqual(["backend"])
-    expect(documents.environment?.DOCUMENTS_TOKEN).toMatch(/^\$\{DOCUMENTS_TOKEN:\?/)
+    expect(documents?.mem_limit).toBe("1024m")
+    expect(documents?.ports).toBeUndefined()
+    expect(Object.keys(documents?.networks ?? {})).toEqual(["backend"])
+    expect(documents?.environment?.DOCUMENTS_TOKEN).toMatch(/^\$\{DOCUMENTS_TOKEN:\?/)
   })
 
   it("builds every application image from this tree and only dind from upstream", () => {

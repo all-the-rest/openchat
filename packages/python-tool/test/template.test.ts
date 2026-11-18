@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
-import { readTemplate } from "../src/template"
+import { chatFilesDirectory, readTemplate, templateParts } from "../src/template"
 
 const created: string[] = []
 afterEach(() => {
@@ -20,7 +20,25 @@ function workspace(): string {
 }
 
 describe("template path guard", () => {
-  it("reads a template inside chats with its session and name", async () => {
+  it("accepts only a session/files/name shape", () => {
+    expect(templateParts("session-1/files/invoice.dotx")).toEqual({
+      sessionID: "session-1",
+      name: "invoice.dotx",
+    })
+    for (const path of [
+      "/etc/passwd",
+      "../a.dotx",
+      "session-1/files/../../a.dotx",
+      "session-1/a.dotx",
+      "session-1\\files\\a.dotx",
+      "session-1/files/nested/a.dotx",
+      "session-1/files/a.exe",
+    ]) {
+      expect(templateParts(path), path).toBeNull()
+    }
+  })
+
+  it("reads a template inside chats with no symlinks", async () => {
     const root = workspace()
     const result = await readTemplate(root, "session-1/files/invoice.dotx")
     expect(result.ok).toBe(true)
@@ -29,24 +47,17 @@ describe("template path guard", () => {
       expect(result.name).toBe("invoice.dotx")
       expect(Buffer.from(result.bytes).toString()).toContain("fake-dotx")
     }
+    expect(await chatFilesDirectory(root, "session-1")).not.toBeNull()
+    expect(await chatFilesDirectory(root, "../etc")).toBeNull()
   })
 
-  it("refuses absolute paths and traversal even when the file exists", async () => {
+  it("refuses a real file outside chats even when it exists", async () => {
     const root = workspace()
     const outside = join(root, "secret.dotx")
     writeFileSync(outside, Buffer.from("PK\x03\x04secret"))
-    for (const path of [
-      outside,
-      "/etc/passwd",
-      "../secret.dotx",
-      "session-1/files/../../secret.dotx",
-      "session-1/files/../../../secret.dotx",
-      "session-1/other/invoice.dotx",
-      "session-1/files/invoice.docx/../invoice.dotx",
-    ]) {
+    for (const path of [outside, "/etc/passwd", "../secret.dotx"]) {
       const result = await readTemplate(root, path)
       expect(result.ok, path).toBe(false)
-      if (!result.ok) expect(result.code).toBe("invalid_path")
     }
   })
 
@@ -66,15 +77,13 @@ describe("template path guard", () => {
     const root = workspace()
     const result = await readTemplate(root, "session-1/files/huge.docx")
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.code).toBe("too_large")
+    if (!result.ok) expect(result.error).toContain("8 MiB")
   })
 
-  it("returns invalid_path for a missing chat or file", async () => {
+  it("returns an error for a missing chat or file", async () => {
     const root = workspace()
     for (const path of ["missing/files/invoice.dotx", "session-1/files/missing.dotx"]) {
-      const result = await readTemplate(root, path)
-      expect(result.ok).toBe(false)
-      if (!result.ok) expect(result.code).toBe("invalid_path")
+      expect((await readTemplate(root, path)).ok).toBe(false)
     }
   })
 })
