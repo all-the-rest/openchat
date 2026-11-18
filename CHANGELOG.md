@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-11-18
+
+### Added
+
+- guard the host with a watchdog, dind GC and an artifact warning; install the host guards with --with-guards (#36, #43)
+- close the boot-gate hole and bound release retention (#43)
+
+### Changed
+
+- raise the test floor to the merged 1065 (#36, #37, #43)
+- give the artifact contract one owner (#43)
+
+### Fixed
+
+- show the expired artifact state and the tunnel-down state honestly (#37, #43)
+- bind the session key to the credential so a password change revokes; reject a parent segment or control character in --stack-dir (#43)
+
+### Documentation
+
+- write down the OpenCode upgrade policy and rollback path (#38)
+
 ## [2.0.0] - 2026-11-18
 
 ### Added
