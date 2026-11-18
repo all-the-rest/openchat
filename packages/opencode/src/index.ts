@@ -9,6 +9,9 @@ import type {
   ModelInfo,
   PermissionDecision,
   PermissionRequest,
+  ProviderFormAnswer,
+  ProviderInfo,
+  ProviderOAuthAttempt,
   Schedule,
   ScheduleEnds,
   SearchHit,
@@ -45,6 +48,34 @@ export interface CreateSessionInput {
   title?: string
   /** Absolute workspace directory; the browser never chooses this. */
   directory: string
+  /** Per-browser default applied at creation; ignored when unknown. */
+  model?: string
+  agent?: string
+}
+
+/** Kind of provider attempt the browser is polling. */
+export type ProviderOAuthStatus = "pending" | "complete" | "failed" | "expired"
+
+export interface ProviderKeyInput {
+  providerID: string
+  methodID?: string
+  /** Forwarded to the host exactly once; adapters must not retain it. */
+  key: string
+  answer?: ProviderFormAnswer
+  label?: string
+}
+
+export interface ProviderOAuthInput {
+  providerID: string
+  methodID: string
+  answer?: ProviderFormAnswer
+  label?: string
+}
+
+export interface ProviderAttemptInput {
+  providerID: string
+  attemptID: string
+  code?: string
 }
 
 export interface CreateScheduleInput {
@@ -107,6 +138,24 @@ export interface ChatBackend {
   interrupt(sessionID: string): Promise<void>
   listModels(): Promise<ModelInfo[]>
   listAgents(): Promise<AgentInfo[]>
+  /**
+   * Provider catalogue reduced to the first-run surface. A host without the
+   * integration API answers an empty list rather than failing the page.
+   */
+  listProviders(): Promise<ProviderInfo[]>
+  /** Stores and activates an API key; the credential never flows back. */
+  connectProviderKey(input: ProviderKeyInput): Promise<void>
+  /** Starts an OAuth/device attempt the browser polls. */
+  startProviderOAuth(input: ProviderOAuthInput): Promise<ProviderOAuthAttempt>
+  providerOAuthStatus(input: {
+    providerID: string
+    attemptID: string
+  }): Promise<ProviderOAuthStatus>
+  /** Completes a paste-code attempt; no-op for attempts the host runs itself. */
+  completeProviderOAuth(input: ProviderAttemptInput): Promise<void>
+  cancelProviderOAuth(input: { providerID: string; attemptID: string }): Promise<void>
+  /** Host-wide default; read-only because the API exposes no write. */
+  hostDefaultModel(): Promise<ModelInfo | null>
   /** Outstanding permission requests of a session, oldest first. */
   listPermissions(sessionID: string): Promise<PermissionRequest[]>
   /** Answers one request. Throws `not_found` for an unknown request id. */

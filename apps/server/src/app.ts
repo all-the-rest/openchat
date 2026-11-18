@@ -15,6 +15,7 @@ import {
   registerAuthentication,
   registerRequestGuards,
 } from "./middleware"
+import { PROVIDER_CONNECT_LIMIT, PROVIDER_CONNECT_WINDOW_MS } from "./providers"
 import { registerRoutes } from "./routes"
 import { SSE_HEARTBEAT_MS } from "./sse"
 import { FixedWindowThrottle, VerificationGate } from "./throttle"
@@ -52,6 +53,8 @@ export interface AppOptions {
   appsNow?: () => number
   /** App action throttle; tests inject a clock-bound instance. */
   appsActionThrottle?: FixedWindowThrottle
+  /** Provider connect throttle; tests inject a clock-bound instance. */
+  providerConnectThrottle?: FixedWindowThrottle
   /** Artifact creation throttle; tests inject a clock-bound instance. */
   artifactsThrottle?: FixedWindowThrottle
   /** Clock for signed artifact URLs; tests advance it. */
@@ -98,6 +101,12 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       limit: APPS_ACTION_LIMIT,
       windowMs: APPS_ACTION_WINDOW_MS,
     })
+  const providerConnectThrottle =
+    options.providerConnectThrottle ??
+    new FixedWindowThrottle({
+      limit: PROVIDER_CONNECT_LIMIT,
+      windowMs: PROVIDER_CONNECT_WINDOW_MS,
+    })
   const artifactsThrottle =
     options.artifactsThrottle ??
     new FixedWindowThrottle({
@@ -135,6 +144,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     codeStatusCacheMs: options.codeStatusCacheMs,
     codeNow: options.codeNow,
     appsActionThrottle,
+    providerConnectThrottle,
     appsProbe: options.appsProbe,
     appsCache: options.appsCache,
     appsCacheMs: options.appsCacheMs,

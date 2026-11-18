@@ -5,6 +5,7 @@ import { isFakeScenario } from "@openchat/opencode"
 import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
 import { loadWorkspaceEnv, type WorkspaceFileEnv } from "./env-workspace"
 import { loadCredentialEnv } from "./env-auth"
+import { read, readBoolean, readNumber, readPort, readSecret } from "./env-read"
 import { sttModelDir } from "./models"
 import { webDistDir } from "./static"
 
@@ -22,6 +23,11 @@ export interface EnvConfig extends WorkspaceFileEnv {
    * absent" state is reachable in a browser. A live host decides for itself.
    */
   FAKE_APPS: boolean
+  /**
+   * Fake mode only: `false` starts with no model, so the first-run onboarding
+   * is reachable in a browser without a real provider.
+   */
+  FAKE_MODELS: boolean
   OPENCODE_URL: string
   /** Built SPA directory served by the BFF; empty in development. */
   WEB_DIST_DIR: string
@@ -92,57 +98,6 @@ const MAX_CODE_TICKET_TTL_SECONDS = 60
  */
 const DICTATION_MAX_BYTES_CEILING = 104_857_600
 
-function read(source: Record<string, string | undefined>, key: string): string | undefined {
-  const value = source[key]
-  if (value === undefined) return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
-/** Secrets keep their exact characters; only an empty value counts as unset. */
-function readSecret(
-  source: Record<string, string | undefined>,
-  key: string,
-): string | undefined {
-  const value = source[key]
-  if (value === undefined || value.trim().length === 0) return undefined
-  return value
-}
-
-function readNumber(
-  source: Record<string, string | undefined>,
-  key: string,
-  fallback: number,
-  warn: (message: string) => void,
-): number {
-  const value = read(source, key)
-  if (!value) return fallback
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    warn(`${key} must be a positive integer; using the default`)
-    return fallback
-  }
-  return parsed
-}
-
-/**
- * A TCP port; anything outside `1..65535` would fail later inside `listen`.
- */
-function readPort(
-  source: Record<string, string | undefined>,
-  fallback: number,
-  warn: (message: string) => void,
-): number {
-  const value = read(source, "PORT")
-  if (!value) return fallback
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
-    warn("PORT must be an integer between 1 and 65535; using the default")
-    return fallback
-  }
-  return parsed
-}
-
 /**
  * Validates the upstream Code host. A typo must fail the boot, not silently
  * fall back to localhost: the app would otherwise talk to the wrong host.
@@ -170,14 +125,6 @@ function readOpencodeUrl(source: Record<string, string | undefined>): string {
   // trailing slash and any search/hash so the value equals what is used.
   const path = url.pathname.replace(/\/+$/, "")
   return path.length > 0 ? `${url.origin}${path}` : url.origin
-}
-
-function readBoolean(
-  source: Record<string, string | undefined>,
-  key: string,
-): boolean {
-  const value = read(source, key)?.toLowerCase()
-  return value === "1" || value === "true" || value === "on" || value === "yes"
 }
 
 /**
@@ -238,6 +185,12 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
   const fakeAppsValue = read(source, "FAKE_APPS")?.toLowerCase() ?? "on"
   if (fakeAppsValue !== "on" && fakeAppsValue !== "off") {
     warn("FAKE_APPS must be on or off; using on")
+  }
+
+  // `off` starts the fake without a model. Only `BACKEND_MODE=fake` reads it.
+  const fakeModelsValue = read(source, "FAKE_MODELS")?.toLowerCase() ?? "on"
+  if (fakeModelsValue !== "on" && fakeModelsValue !== "off") {
+    warn("FAKE_MODELS must be on or off; using on")
   }
 
   const credentials = loadCredentialEnv({
@@ -365,6 +318,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     BACKEND_MODE: backendMode,
     FAKE_SCENARIO: isFakeScenario(scenarioValue) ? scenarioValue : "default",
     FAKE_APPS: fakeAppsValue !== "off",
+    FAKE_MODELS: fakeModelsValue !== "off",
     OPENCODE_URL: readOpencodeUrl(source),
     WEB_DIST_DIR: webDistDir(source),
     OPENCODE_USERNAME: read(source, "OPENCODE_USERNAME") ?? "opencode",

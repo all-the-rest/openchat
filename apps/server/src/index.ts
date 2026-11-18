@@ -36,6 +36,7 @@ const backend: ChatBackend =
           scenario: config.FAKE_SCENARIO,
           workspace: config.WORKSPACE_DIR,
           appsAvailable: config.FAKE_APPS,
+          seedModels: config.FAKE_MODELS,
         }),
       )
 

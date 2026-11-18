@@ -1,4 +1,5 @@
 import { reportNetworkFailure, reportNetworkSuccess } from "../pwa/offline"
+import { providerEndpoints } from "./providers"
 import type {
   AppsResponse,
   ArtifactResponse,
@@ -26,12 +27,7 @@ import type {
   TranscriptionResponse,
 } from "@openchat/contracts"
 
-export interface ApiErrorBody {
-  error?: {
-    code?: unknown
-    message?: unknown
-  }
-}
+export interface ApiErrorBody { error?: { code?: unknown; message?: unknown } }
 
 /** Structured API failure, mirroring the BFF shape `{ error: { code, message } }`. */
 export class ApiError extends Error {
@@ -124,6 +120,7 @@ const artifactPath = (id: string) => `/api/artifacts/${encodeURIComponent(id)}`
 
 const schedulePath = (id: string) => `/api/schedules/${encodeURIComponent(id)}`
 
+
 /**
  * Raw bytes for a download. The app origin serves them, never the signed
  * artifact host, so no short-lived URL reaches the browser's download history.
@@ -146,6 +143,8 @@ async function requestBlob(path: string): Promise<Blob> {
 }
 
 export const api = {
+  ...providerEndpoints(request),
+
   me(): Promise<LoginResponse> {
     return request<LoginResponse>("/api/auth/me")
   },

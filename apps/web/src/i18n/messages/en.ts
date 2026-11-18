@@ -12,6 +12,7 @@ import { chat } from "./chat"
 import { code } from "./code"
 import { dictation } from "./dictation"
 import { files } from "./files"
+import { onboarding } from "./onboarding"
 import { pwa } from "./pwa"
 import { render } from "./render"
 import { search } from "./search"
@@ -28,6 +29,7 @@ export const messages = {
   ...chat,
   ...dictation,
   ...files,
+  ...onboarding,
   ...pwa,
   ...render,
   ...settings,

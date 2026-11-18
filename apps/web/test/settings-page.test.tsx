@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => ({
     apps: { available: false },
     artifacts: { available: true },
   })),
+  hostDefaultModel: vi.fn(async () => ({
+    model: { id: "gpt-x", name: "GPT X", providerID: "openai" },
+  })),
 }))
 
 vi.mock("../src/api/client", () => ({ api: mocks }))
@@ -56,6 +59,7 @@ describe("settings route", () => {
     expect(screen.getByTestId("status-host")).toHaveTextContent("Host reachable")
     expect(screen.getByTestId("status-dictation")).toHaveTextContent("Available")
     expect(screen.getByTestId("status-documents")).toHaveTextContent("Available")
+    expect(await screen.findByTestId("host-default-model")).toHaveTextContent("GPT X")
   })
 
   it("saves the language and the browser-wide model choice", async () => {

@@ -48,6 +48,14 @@ export interface TestServerOptions {
   appsCacheMs?: number
   appsNow?: () => number
   appsActionThrottle?: FixedWindowThrottle
+  /** Provider connect throttle; tests inject a clock-bound instance. */
+  providerConnectThrottle?: FixedWindowThrottle
+  /** Injected clock for the fake backend, e.g. OAuth attempt expiry. */
+  now?: () => number
+  /** Delay before a fake OAuth attempt completes. */
+  oauthDelayMs?: number
+  /** False starts the fake without a model (first-run onboarding). */
+  seedModels?: boolean
   /** Artifact creation throttle; tests inject a clock-bound instance. */
   artifactsThrottle?: FixedWindowThrottle
   artifactsNow?: () => number
@@ -85,6 +93,9 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
     appsAvailable: options.appsAvailable ?? config.FAKE_APPS,
     onAppAction: options.onAppAction,
     seedJobs: options.seedJobs,
+    now: options.now,
+    oauthDelayMs: options.oauthDelayMs,
+    seedModels: options.seedModels,
   })
   return {
     app: createApp({
@@ -101,6 +112,7 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
       appsCacheMs: options.appsCacheMs,
       appsNow: options.appsNow,
       appsActionThrottle: options.appsActionThrottle,
+      providerConnectThrottle: options.providerConnectThrottle,
       artifactsThrottle: options.artifactsThrottle,
       artifactsNow: options.artifactsNow,
       verify: options.verify,

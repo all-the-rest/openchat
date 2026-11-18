@@ -1,4 +1,4 @@
-import type { InfoResponse } from "@openchat/contracts"
+import type { InfoResponse, ModelInfo } from "@openchat/contracts"
 import { useEffect, useState } from "react"
 import { api } from "../api/client"
 import { AgentSelect, ModelSelect } from "../chat/CompletionPicker"
@@ -53,6 +53,9 @@ function ServerStatus({ info }: { info: InfoResponse | null }) {
 export function SettingsPage() {
   const t = useT()
   const [info, setInfo] = useState<InfoResponse | null>(null)
+  // `undefined` while loading, `"error"` when the read failed, `null` when the
+  // host reports no default.
+  const [hostDefault, setHostDefault] = useState<ModelInfo | null | "error" | undefined>(undefined)
 
   useEffect(() => {
     let active = true
@@ -62,6 +65,21 @@ export function SettingsPage() {
       },
       () => {
         if (active) setInfo(null)
+      },
+    )
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    void api.hostDefaultModel().then(
+      (value) => {
+        if (active) setHostDefault(value.model)
+      },
+      () => {
+        if (active) setHostDefault("error")
       },
     )
     return () => {
@@ -92,6 +110,20 @@ export function SettingsPage() {
         </section>
 
         <ServerStatus info={info} />
+
+        <section aria-label={t("settings.hostDefault")} data-testid="host-default">
+          <h2 className={HEADING}>{t("settings.hostDefault")}</h2>
+          <p data-testid="host-default-model" className="mt-2 text-sm">
+            {hostDefault === undefined
+              ? t("settings.loading")
+              : hostDefault === "error"
+                ? t("settings.hostDefaultUnavailable")
+                : hostDefault === null
+                  ? t("settings.hostDefaultUnset")
+                  : hostDefault.name}
+          </p>
+          <p className="mt-1 text-xs text-muted">{t("settings.hostDefaultHint")}</p>
+        </section>
       </div>
     </div>
   )

@@ -58,6 +58,16 @@ msgid "files.quota"
 msgstr "{used} of {total} used ({percent}%)"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.stepProvider"
+msgstr "1. Choose a provider and connection method"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.stepDetails"
+msgstr "2. Enter the provider details"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "update.title"
 msgstr "A new version is available"
@@ -121,6 +131,11 @@ msgstr "Answer complete"
 #: src/i18n/messages/chat.ts
 msgid "chat.permissionHint"
 msgstr "Answer this request before sending another message."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.keyLabel"
+msgstr "API key"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -223,6 +238,11 @@ msgid "composer.attachmentsLabel"
 msgstr "Attachments"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.codeLabel"
+msgstr "Authorization code"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.auto"
 msgstr "Auto"
@@ -271,6 +291,11 @@ msgstr "Cancel deletion"
 #: src/i18n/messages/dictation.ts
 msgid "dictation.cancel"
 msgstr "Cancel recording"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.cancel"
+msgstr "Cancel sign-in"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -323,6 +348,16 @@ msgid "session.loadFailed"
 msgstr "Chats could not be loaded."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.verify"
+msgstr "Check for models"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.verifying"
+msgstr "Checking…"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "nav.closeSidebar"
 msgstr "Close chat list"
@@ -358,6 +393,11 @@ msgid "render.errorCode"
 msgstr "Code: {code}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.completeCode"
+msgstr "Complete sign-in"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.status.completed"
 msgstr "Completed"
@@ -373,13 +413,28 @@ msgid "apps.connect"
 msgstr "Connect"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.connect"
+msgstr "Connect"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.connectServer"
 msgstr "Connect {server}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.title"
+msgstr "Connect a provider"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.ready"
+msgstr "Connected"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.connectedBadge"
 msgstr "Connected"
 
 #. js-lingui-explicit-id
@@ -388,9 +443,29 @@ msgid "search.status.connected"
 msgstr "Connected"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.noModelYet"
+msgstr "Connected, but the host still reports no model. Check the provider in OpenCode, then check again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.connected"
+msgstr "Connected. The host now offers a model."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.connecting"
+msgstr "Connecting…"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.connectionLost"
 msgstr "Connection lost — reconnecting…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.methodLabel"
+msgstr "Connection method"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -573,13 +648,13 @@ msgid "settings.documents"
 msgstr "Documents"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.done"
+#: src/i18n/messages/render.ts
+msgid "tool.status.success"
 msgstr "Done"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.success"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.done"
 msgstr "Done"
 
 #. js-lingui-explicit-id
@@ -653,11 +728,6 @@ msgid "auth.loginDescription"
 msgstr "Enter your username and password to open the workspace."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.error"
-msgstr "Error"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.error"
 msgstr "Error"
@@ -665,6 +735,11 @@ msgstr "Error"
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.error"
+msgstr "Error"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.error"
 msgstr "Error"
 
 #. js-lingui-explicit-id
@@ -704,6 +779,11 @@ msgstr "Focus Code"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
+msgid "settings.hostDefault"
+msgstr "Host default model"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
 msgid "settings.hostUnreachable"
 msgstr "Host not reachable"
 
@@ -718,13 +798,18 @@ msgid "artifacts.description"
 msgstr "HTML documents your agent has written. Each one runs sandboxed on a separate origin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.kind.image"
-msgstr "Image"
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.complete"
+msgstr "I have approved access"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.kind.image"
+msgstr "Image"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.kind.image"
 msgstr "Image"
 
 #. js-lingui-explicit-id
@@ -808,6 +893,11 @@ msgid "chat.loading"
 msgstr "Loading messages…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.loading"
+msgstr "Loading providers…"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.loading"
 msgstr "Loading tasks…"
@@ -815,6 +905,11 @@ msgstr "Loading tasks…"
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.loading"
+msgstr "Loading…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.loading"
 msgstr "Loading…"
 
 #. js-lingui-explicit-id
@@ -923,6 +1018,11 @@ msgid "dictation.error.noDevice"
 msgstr "No microphone was found. Connect an input device and try again."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.description"
+msgstr "No model is available yet. Connect a provider to start chatting."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.noResults"
 msgstr "No results for “{query}”."
@@ -968,9 +1068,24 @@ msgid "code.state.down"
 msgstr "Not reachable"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.fieldUnset"
+msgstr "Not set"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.hostDefaultUnset"
+msgstr "Not set"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.offline"
 msgstr "Offline"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.hostOnlyBadge"
+msgstr "on the host"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -998,6 +1113,11 @@ msgid "menu.trigger"
 msgstr "Open menu"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.open"
+msgstr "Open sign-in page"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "pwa.name"
 msgstr "OpenChat"
@@ -1016,6 +1136,11 @@ msgstr "OpenChat"
 #: src/i18n/messages/pwa.ts
 msgid "offline.hint"
 msgstr "OpenChat needs a connection to load chats and send messages. Reconnect to continue."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.hostDefaultHint"
+msgstr "OpenCode chooses this on the host. Change it in the OpenCode configuration; OpenChat only reads it."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -1051,6 +1176,11 @@ msgstr "Password"
 #: src/i18n/messages/chat.ts
 msgid "auth.passwordPlaceholder"
 msgstr "Password"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.codeHint"
+msgstr "Paste the code the provider shows after approval."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -1108,6 +1238,11 @@ msgid "tasks.schedules.prompt"
 msgstr "Prompt: {text}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.hostHint"
+msgstr "Providers the app cannot configure are added on the host with opencode auth login."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.statusQueued"
 msgstr "Queued"
@@ -1121,6 +1256,11 @@ msgstr "Queued"
 #: src/i18n/messages/chat.ts
 msgid "chat.inboxLabel"
 msgstr "Queued messages"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.verifyHint"
+msgstr "Reads the model catalogue again. Nothing is cached here."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1213,11 +1353,6 @@ msgid "tasks.action.resume"
 msgstr "Resume {title}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.retry"
-msgstr "Retry"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.retry"
 msgstr "Retry"
@@ -1253,6 +1388,11 @@ msgid "files.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.retry"
 msgstr "Retry"
@@ -1260,6 +1400,11 @@ msgstr "Retry"
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "host.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
@@ -1273,13 +1418,13 @@ msgid "tasks.create.ends"
 msgstr "Run once"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.running"
+#: src/i18n/messages/render.ts
+msgid "tool.status.running"
 msgstr "Running"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.running"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.running"
 msgstr "Running"
 
 #. js-lingui-explicit-id
@@ -1356,6 +1501,11 @@ msgstr "Sending is unavailable while offline. Reconnect to start a new prompt."
 #: src/i18n/messages/chat.ts
 msgid "chat.statusSubmitting"
 msgstr "Sending…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.keyHint"
+msgstr "Sent once to the host and never shown again."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
@@ -1443,6 +1593,11 @@ msgid "auth.loginFailed"
 msgstr "Sign-in failed. Try again."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.done"
+msgstr "Signed in."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.signedOut"
 msgstr "Signed out"
@@ -1468,6 +1623,11 @@ msgid "nav.skipToContent"
 msgstr "Skip to content"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.unknown"
+msgstr "Something went wrong. Try again."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.sources"
 msgstr "Sources"
@@ -1478,9 +1638,19 @@ msgid "dictation.start"
 msgstr "Start dictation"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.start"
+msgstr "Start sign-in"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.jobs.started"
 msgstr "Started: {when}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.starting"
+msgstr "Starting…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -1608,6 +1778,11 @@ msgid "code.mobileBody"
 msgstr "The Code interface is built for desktop. Open it in a new tab on this device."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.connect"
+msgstr "The connection did not succeed. The host gave no confirmation."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.downloadFailed"
 msgstr "The download failed. Try again."
@@ -1638,14 +1813,39 @@ msgid "code.downStatus"
 msgstr "The health probe got no answer from the Code host."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.hostDefaultUnavailable"
+msgstr "The host default could not be read."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.host"
 msgstr "The host did not answer."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.catalogue"
+msgstr "The host did not return its provider list. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.models"
+msgstr "The host did not return the model catalogue. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.noProviders"
+msgstr "The host reports no configurable provider. Use the host-side option below."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.modelUnavailable"
 msgstr "The local speech model is unavailable. Try again or use the server path."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.loadFailed"
+msgstr "The provider list could not be loaded."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1688,6 +1888,16 @@ msgid "search.failed"
 msgstr "The search failed."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.failed"
+msgstr "The sign-in did not complete. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.expired"
+msgstr "The sign-in expired. Start again."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.modelDownloadFailed"
 msgstr "The speech model could not be downloaded. Check the connection to this server and try again."
@@ -1716,6 +1926,11 @@ msgstr "The transcription service timed out. Try again."
 #: src/i18n/messages/settings.ts
 msgid "theme.label"
 msgstr "Theme"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.form"
+msgstr "These provider details were rejected. Check the fields and try again."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1753,6 +1968,21 @@ msgid "composer.attachmentTypeError"
 msgstr "This file type is not allowed."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.unsupported"
+msgstr "This method is not available in the app. Use the host-side option."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.hostOnly"
+msgstr "This method runs on the host. Run opencode auth login in a terminal on the server, then check again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.catalogEntry"
+msgstr "This provider is no longer offered by the host. Reload the list."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.unknownServer"
 msgstr "This server is no longer configured."
@@ -1781,6 +2011,16 @@ msgstr "Too many attempts. Try again in {seconds} s."
 #: src/i18n/messages/apps.ts
 msgid "apps.error.throttled"
 msgstr "Too many attempts. Try again shortly."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.throttledAfter"
+msgstr "Too many connection attempts. Try again in {seconds} s."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.throttled"
+msgstr "Too many connection attempts. Try again shortly."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1846,6 +2086,11 @@ msgstr "Version"
 #: src/i18n/messages/pwa.ts
 msgid "update.streamingHint"
 msgstr "Wait for the current answer to finish before reloading."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.pending"
+msgstr "Waiting for the provider…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts

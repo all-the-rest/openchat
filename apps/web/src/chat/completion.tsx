@@ -50,6 +50,11 @@ export interface CompletionValue extends Completion {
   agents: AgentInfo[]
   /** False until `/api/models` and `/api/agents` have both settled. */
   loaded: boolean
+  /**
+   * Re-reads the model catalogue through `/api/providers/status`. Used by the
+   * first-run card after a connection; throws when the host does not answer.
+   */
+  refreshModels: () => Promise<ModelInfo[]>
   setModel: (model: string | null) => void
   setAgent: (agent: string | null) => void
 }
@@ -92,6 +97,12 @@ export function CompletionProvider({ children, initial, catalogue }: CompletionP
     })
   }, [])
 
+  const refreshModels = useCallback(async () => {
+    const response = await api.providerStatus()
+    setModels(response.models)
+    return response.models
+  }, [])
+
   const setAgent = useCallback((agent: string | null) => {
     setChoice((current) => {
       const next = { ...current, agent }
@@ -101,8 +112,8 @@ export function CompletionProvider({ children, initial, catalogue }: CompletionP
   }, [])
 
   const value = useMemo<CompletionValue>(
-    () => ({ ...choice, models, agents, loaded, setModel, setAgent }),
-    [choice, models, agents, loaded, setModel, setAgent],
+    () => ({ ...choice, models, agents, loaded, refreshModels, setModel, setAgent }),
+    [choice, models, agents, loaded, refreshModels, setModel, setAgent],
   )
 
   return <CompletionContext.Provider value={value}>{children}</CompletionContext.Provider>

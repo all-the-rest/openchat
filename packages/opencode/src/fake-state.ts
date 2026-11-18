@@ -16,6 +16,9 @@ export interface RunState {
 export interface SessionState {
   info: SessionInfo
   messages: Message[]
+  /** Completion applied at creation; a later prompt can override it. */
+  model?: string
+  agent?: string
 }
 
 export interface QueuedPrompt {
@@ -54,4 +57,8 @@ export interface FakeBackendOptions {
   onAppAction?: (action: "connect" | "disconnect", name: string) => void
   /** Deterministic background jobs for the `/tasks` page. Empty by default. */
   seedJobs?: readonly BackgroundJob[]
+  /** False starts with no model, so first-run onboarding is reachable. */
+  seedModels?: boolean
+  /** How long a fake OAuth attempt stays pending. Defaults to 1 s. */
+  oauthDelayMs?: number
 }

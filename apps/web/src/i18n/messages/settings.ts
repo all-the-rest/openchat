@@ -25,5 +25,10 @@ export const settings = {
   "settings.documents": msg({ id: "settings.documents", message: "Documents" }),
   "settings.available": msg({ id: "settings.available", message: "Available" }),
   "settings.unavailable": msg({ id: "settings.unavailable", message: "Unavailable" }),
+  "settings.loading": msg({ id: "settings.loading", message: "Loading…" }),
   "settings.loadFailed": msg({ id: "settings.loadFailed", message: "Server status could not be loaded." }),
+  "settings.hostDefault": msg({ id: "settings.hostDefault", message: "Host default model" }),
+  "settings.hostDefaultUnset": msg({ id: "settings.hostDefaultUnset", message: "Not set" }),
+  "settings.hostDefaultUnavailable": msg({ id: "settings.hostDefaultUnavailable", message: "The host default could not be read." }),
+  "settings.hostDefaultHint": msg({ id: "settings.hostDefaultHint", message: "OpenCode chooses this on the host. Change it in the OpenCode configuration; OpenChat only reads it." }),
 } as const

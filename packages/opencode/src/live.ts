@@ -31,6 +31,15 @@ import { normalizePermissionRequest, replyHostPermission } from "./live-permissi
 import { createToolEventState, normalizeEvent } from "./live-events"
 import { mapScheduleError, normalizeJob, normalizeSchedule, scheduleWhen } from "./live-tasks"
 import { liveSearch } from "./live-search"
+import {
+  liveCancelOAuth,
+  liveCompleteOAuth,
+  liveConnectKey,
+  liveOAuthStatus,
+  liveProviders,
+  liveStartOAuth,
+} from "./live-providers"
+import type { ProviderAttemptInput, ProviderKeyInput, ProviderOAuthInput } from "./index"
 import { normalizeMessage, normalizeSession } from "./live-normalize"
 
 // The normalizers stay importable from this module; the BFF only needs the
@@ -96,9 +105,19 @@ export class LiveBackend implements ChatBackend {
   }
 
   async createSession(input: CreateSessionInput): Promise<SessionInfo> {
+    let model: { id: string; providerID: string } | null = null
+    if (input.model) {
+      if (!this.modelProviders) await this.listModels()
+      const providerID = this.modelProviders?.get(input.model)
+      // An unknown choice is ignored like in `applyCompletion`: the host keeps
+      // its own default instead of failing the new chat.
+      if (providerID) model = { id: input.model, providerID }
+    }
     const session = await this.client.session.create({
       location: { directory: input.directory },
       title: input.title ?? null,
+      model,
+      agent: input.agent ?? null,
     })
     return normalizeSession(session, input.directory)
   }
@@ -189,6 +208,37 @@ export class LiveBackend implements ChatBackend {
       name: agent.name,
       description: agent.description,
     }))
+  }
+
+  async listProviders() {
+    return liveProviders(this.client)
+  }
+
+  async connectProviderKey(input: ProviderKeyInput): Promise<void> {
+    await liveConnectKey(this.client, input)
+  }
+
+  async startProviderOAuth(input: ProviderOAuthInput) {
+    return liveStartOAuth(this.client, input)
+  }
+
+  async providerOAuthStatus(input: { providerID: string; attemptID: string }) {
+    return liveOAuthStatus(this.client, input.providerID, input.attemptID)
+  }
+
+  async completeProviderOAuth(input: ProviderAttemptInput): Promise<void> {
+    await liveCompleteOAuth(this.client, input)
+  }
+
+  async cancelProviderOAuth(input: { providerID: string; attemptID: string }): Promise<void> {
+    await liveCancelOAuth(this.client, input.providerID, input.attemptID)
+  }
+
+  async hostDefaultModel(): Promise<ModelInfo | null> {
+    const response = await this.client.model.default()
+    const model = response.data
+    if (!model) return null
+    return { id: model.modelID, name: model.name, providerID: model.providerID }
   }
 
   async listPermissions(sessionID: string): Promise<PermissionRequest[]> {

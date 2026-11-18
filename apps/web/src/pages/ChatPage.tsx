@@ -13,6 +13,7 @@ import { useChatSession } from "../chat/useChatSession"
 import { ErrorBanner } from "../components/ErrorBanner"
 import type { MessageKey } from "../i18n"
 import { useT } from "../i18n/provider"
+import { FirstRunGate } from "../onboarding/FirstRunGate"
 
 interface ChatLocationState {
   pendingPrompt?: unknown
@@ -106,15 +107,17 @@ export function ChatPage() {
           ) : null}
           <PermissionCard value={permission} />
 
-          <Composer
-            onSend={chat.send}
-            onStop={() => void chat.stop()}
-            running={chat.running}
-            disabled={permission.pending}
-            draftKey={sessionId}
-            sessionID={sessionId}
-            onAttachmentsChanged={refreshFiles}
-          />
+          <FirstRunGate>
+            <Composer
+              onSend={chat.send}
+              onStop={() => void chat.stop()}
+              running={chat.running}
+              disabled={permission.pending}
+              draftKey={sessionId}
+              sessionID={sessionId}
+              onAttachmentsChanged={refreshFiles}
+            />
+          </FirstRunGate>
 
           <p
             role="status"

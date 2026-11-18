@@ -38,6 +38,7 @@ import { registerCatalogRoutes, registerPermissionRoutes } from "./completion-ro
 import { registerAppsRoutes } from "./apps"
 import { AppsCache, probeApps } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
+import { registerProviderRoutes } from "./providers"
 import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
 import { registerArtifactInternalRoute } from "./artifacts-internal"
 import { registerChatFilesRoutes } from "./chat-files"
@@ -76,6 +77,8 @@ export interface RouteDeps {
   codeNow?: () => number
   /** Connect/disconnect throttle, per client address. */
   appsActionThrottle: FixedWindowThrottle
+  /** Provider connect attempts, per client address. */
+  providerConnectThrottle: FixedWindowThrottle
   /** Injected for tests; the default reads `backend.listApps`. */
   appsProbe?: AppsProbe
   /** Pre-built cache, shared by `/api/apps` and `/api/info`. */
@@ -221,6 +224,8 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     const session = await backend.createSession({
       title: parsed.data.title,
       directory: config.WORKSPACE_DIR,
+      model: parsed.data.model,
+      agent: parsed.data.agent,
     })
     return c.json(session satisfies SessionInfo)
   })
@@ -294,6 +299,11 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerAuthRoutes(app, deps)
   registerInfoRoutes(app, deps, appsCache)
   registerCatalogRoutes(app, deps.backend)
+  registerProviderRoutes(app, {
+    backend: deps.backend,
+    config: deps.config,
+    connectThrottle: deps.providerConnectThrottle,
+  })
   registerSessionRoutes(app, deps)
   registerPermissionRoutes(app, deps.backend)
   registerCodeRoutes(app, {
