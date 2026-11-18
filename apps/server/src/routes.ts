@@ -1,11 +1,13 @@
 import type { Hono } from "hono"
 import type { ChatBackend } from "@openchat/opencode"
+import { PINNED_OPENCODE_VERSION } from "@openchat/opencode"
 import {
   createSessionRequestSchema,
   loginRequestSchema,
   promptRequestSchema,
 } from "@openchat/contracts"
 import type {
+  CodeSurfaceInfo,
   DictationInfo,
   InfoResponse,
   InboxResponse,
@@ -30,6 +32,8 @@ import {
   readJson,
 } from "./http"
 import { clientAddress } from "./middleware"
+import { registerCodeRoutes } from "./code"
+import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
 import type { FixedWindowThrottle } from "./throttle"
 import { SSE_RETRY_FRAME } from "./sse"
@@ -45,6 +49,11 @@ export interface RouteDeps {
   sttTimeoutMs: number
   /** SSE keepalive interval; injectable so tests need not wait 15 s. */
   sseHeartbeatMs: number
+  /** Ticket mint throttle, per client address. */
+  codeTicketThrottle: FixedWindowThrottle
+  codeProbe?: CodeProbe
+  codeStatusCacheMs?: number
+  codeNow?: () => number
 }
 
 function sseHeaders(): Record<string, string> {
@@ -118,6 +127,10 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
         maxSeconds: config.DICTATION_MAX_SECONDS,
         maxBytes: config.DICTATION_MAX_BYTES,
       } satisfies DictationInfo,
+      code: {
+        configured: Boolean(config.CODE_HOST_ORIGIN),
+        expectedVersion: PINNED_OPENCODE_VERSION,
+      } satisfies CodeSurfaceInfo,
     } satisfies InfoResponse)
   })
 }
@@ -267,6 +280,13 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerAuthRoutes(app, deps)
   registerInfoRoutes(app, deps)
   registerSessionRoutes(app, deps)
+  registerCodeRoutes(app, {
+    config: deps.config,
+    ticketThrottle: deps.codeTicketThrottle,
+    probe: deps.codeProbe,
+    statusCacheMs: deps.codeStatusCacheMs,
+    now: deps.codeNow,
+  })
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
   registerEventRoute(app, deps)

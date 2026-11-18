@@ -83,6 +83,36 @@ export interface InfoResponse {
   agents: AgentInfo[]
   scenario: string
   dictation: DictationInfo
+  code: CodeSurfaceInfo
+}
+
+/**
+ * Code surface availability, delivered with `/api/info` so the client can
+ * hide the switch without a second request.
+ */
+export interface CodeSurfaceInfo {
+  /** False when the deployment has no Code host; the UI must hide the switch. */
+  configured: boolean
+  /** The `@opencode/client` version the BFF pins, e.g. "2.3.0". */
+  expectedVersion: string
+}
+
+/** Result of `GET /api/code/ticket`: a single-use entry URL. */
+export interface CodeTicketResponse {
+  /** Absolute Code-host URL with the single-use ticket and the `next` path. */
+  url: string
+}
+
+/** Result of `GET /api/code/status`: reachability and version match. */
+export interface CodeStatusResponse {
+  configured: boolean
+  /** Whether the Code host answered its `/__health` probe. */
+  reachable: boolean
+  /** The Code host's upstream version, when reachable. */
+  version?: string
+  expectedVersion: string
+  /** `version === expectedVersion`; false when unreachable. */
+  matches: boolean
 }
 
 /** Dictation availability and the limits the composer must respect. */

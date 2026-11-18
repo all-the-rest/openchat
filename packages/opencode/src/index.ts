@@ -86,3 +86,10 @@ export { FakeBackend } from "./fake"
 export type { FakeBackendOptions } from "./fake"
 export { LiveBackend } from "./live"
 export type { LiveBackendOptions } from "./live"
+
+/**
+ * The `@opencode/client` version this BFF builds against. The Code surface
+ * compares it with the Code host's upstream version and warns on a mismatch.
+ * `test/pinned-version.test.ts` fails when this drifts from the manifest.
+ */
+export const PINNED_OPENCODE_VERSION = "2.3.0"

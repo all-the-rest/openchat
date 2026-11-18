@@ -27,6 +27,12 @@ export interface EnvConfig {
   STT_API_KEY: string
   DICTATION_MAX_SECONDS: number
   DICTATION_MAX_BYTES: number
+  /** Empty when the deployment has no Code host (surface off). */
+  CODE_HOST_ORIGIN: string
+  /** Shared with the Code host; empty when the surface is not configured. */
+  CODE_TICKET_SECRET: string
+  CODE_TICKET_TTL_SECONDS: number
+  CODE_STATUS_TIMEOUT_MS: number
 }
 
 export interface LoadEnvOptions {
@@ -43,6 +49,10 @@ const DEFAULT_TTL_SECONDS = 604_800
 const DEFAULT_OPENCODE_URL = "http://127.0.0.1:4096"
 const DEFAULT_DICTATION_MAX_SECONDS = 120
 const DEFAULT_DICTATION_MAX_BYTES = 26_214_400
+const DEFAULT_CODE_TICKET_TTL_SECONDS = 60
+const DEFAULT_CODE_STATUS_TIMEOUT_MS = 2_000
+/** Matches `MAX_TICKET_TTL_SECONDS` in `@openchat/code-ticket`. */
+const MAX_CODE_TICKET_TTL_SECONDS = 60
 /**
  * Upper bound for a single upload. The route buffers the audio in memory, so a
  * misconfigured gigabyte cap must not become an OOM. 100 MiB leaves ample room
@@ -121,6 +131,36 @@ function readBoolean(
 }
 
 /**
+ * The Code host origin is optional: an empty value means the surface is not
+ * configured and the UI hides its switch. When set it must be a bare origin,
+ * because it is both the ticket audience and the base of the entry URL. The
+ * rules mirror `apps/code-host/src/env.ts`; the value is never echoed.
+ */
+function readCodeHostOrigin(source: Record<string, string | undefined>): string {
+  const raw = read(source, "CODE_HOST_ORIGIN")
+  if (!raw) return ""
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    throw new Error("CODE_HOST_ORIGIN must be an absolute http(s) origin")
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("CODE_HOST_ORIGIN must use http or https")
+  }
+  if (url.username || url.password) {
+    throw new Error("CODE_HOST_ORIGIN must not embed credentials")
+  }
+  if (url.search || url.hash) {
+    throw new Error("CODE_HOST_ORIGIN must not carry a query or fragment")
+  }
+  if (url.pathname !== "/" && url.pathname !== "") {
+    throw new Error("CODE_HOST_ORIGIN must be an origin without a path")
+  }
+  return url.origin
+}
+
+/**
  * Reads and validates process configuration. Warnings are printed once at
  * boot and never contain credentials.
  */
@@ -148,6 +188,44 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
   let secret = read(source, "SESSION_SECRET")
   const cookieSecure = readBoolean(source, "COOKIE_SECURE")
   const allowInsecureCookie = readBoolean(source, "ALLOW_INSECURE_COOKIE")
+  const production = source.NODE_ENV === "production"
+
+  const codeHostOrigin = readCodeHostOrigin(source)
+  let codeTicketSecret = readSecret(source, "CODE_TICKET_SECRET")
+  let codeTicketTtl = readNumber(
+    source,
+    "CODE_TICKET_TTL_SECONDS",
+    DEFAULT_CODE_TICKET_TTL_SECONDS,
+    warn,
+  )
+  if (codeTicketTtl > MAX_CODE_TICKET_TTL_SECONDS) {
+    if (production) {
+      throw new Error(
+        `CODE_TICKET_TTL_SECONDS must not exceed ${MAX_CODE_TICKET_TTL_SECONDS} seconds ` +
+          "when NODE_ENV=production",
+      )
+    }
+    warn(
+      `CODE_TICKET_TTL_SECONDS is above the ${MAX_CODE_TICKET_TTL_SECONDS} s ceiling; ` +
+        "using the ceiling",
+    )
+    codeTicketTtl = MAX_CODE_TICKET_TTL_SECONDS
+  }
+  if (codeHostOrigin) {
+    if (production && new URL(codeHostOrigin).protocol !== "https:") {
+      throw new Error("CODE_HOST_ORIGIN must use https when NODE_ENV=production")
+    }
+    if (!codeTicketSecret) {
+      if (production) {
+        throw new Error(
+          "CODE_TICKET_SECRET must be set when CODE_HOST_ORIGIN is configured " +
+            "and NODE_ENV=production",
+        )
+      }
+      codeTicketSecret = randomBytes(32).toString("base64url")
+      warn("CODE_TICKET_SECRET is unset; generated an ephemeral secret for this boot")
+    }
+  }
 
   if (source.NODE_ENV === "production") {
     // Refusals name the variable only; a secret value must never reach a log.
@@ -215,5 +293,14 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
       warn,
     ),
     DICTATION_MAX_BYTES: dictationMaxBytes,
+    CODE_HOST_ORIGIN: codeHostOrigin,
+    CODE_TICKET_SECRET: codeTicketSecret ?? "",
+    CODE_TICKET_TTL_SECONDS: codeTicketTtl,
+    CODE_STATUS_TIMEOUT_MS: readNumber(
+      source,
+      "CODE_STATUS_TIMEOUT_MS",
+      DEFAULT_CODE_STATUS_TIMEOUT_MS,
+      warn,
+    ),
   }
 }

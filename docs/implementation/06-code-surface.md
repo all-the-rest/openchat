@@ -223,3 +223,86 @@ loopback ports.
 - No WebSocket upgrade tunneling (see above).
 - The deploy-time browser check that the real OpenCode shell frames correctly
   remains an operational step; the header path is covered by tests.
+
+## BFF endpoints
+
+**Status:** 2026-11-18. This section supersedes the "Not implemented" notes
+above about a missing mint endpoint and missing rate limiting; both now exist
+in `apps/server/src/code.ts`. The UI, deep links and the frame are still later
+slices.
+
+Both routes sit behind the existing `/api/*` authentication middleware and
+answer `401` without a session.
+
+### `GET /api/code/ticket?next=<path>`
+
+Mints one single-use ticket with `@openchat/code-ticket` and returns the entry
+URL for the Code host.
+
+```json
+{ "url": "https://code.example.com/__auth?ticket=…&next=%2Fworkspace%2Fx" }
+```
+
+- Unconfigured deployment (`CODE_HOST_ORIGIN` empty): `404
+  {"error":"code_not_configured"}`. Nothing is minted and nothing is logged.
+- Throttled per client address with `FixedWindowThrottle`: 20 mints in a fixed
+  60 s window; the 21st answers `429` with `Retry-After`, like login.
+- Claims: `sub` is the authenticated user, `codeHost` is `CODE_HOST_ORIGIN`,
+  `exp` uses `CODE_TICKET_TTL_SECONDS` and `jti` is fresh per request.
+- `Cache-Control: no-store`. The ticket appears only in this response body; it
+  is never logged, stored or echoed elsewhere.
+
+`next` is sanitised to a path on the Code host: non-empty, starts with `/`, not
+`//`, no backslash, no control bytes and no scheme-like prefix; anything else
+becomes `/`. **Division of responsibility:** the BFF sanitises as defence in
+depth, the Code host re-validates the value (including its percent-decoding
+structural check) and is authoritative. The BFF deliberately does not duplicate
+the host's decoding check.
+
+### `GET /api/code/status`
+
+Probes the Code host's `/__health` server-side and compares its version with
+`PINNED_OPENCODE_VERSION` from `@opencode/client` (exported by
+`packages/opencode`).
+
+```json
+{ "configured": true, "reachable": true, "version": "2.3.0",
+  "expectedVersion": "2.3.0", "matches": true }
+```
+
+- Unconfigured: `200 {configured:false, reachable:false,
+  expectedVersion, matches:false}` without any probe.
+- Reachable with `{ok:true, version}`: `reachable:true`, `version` set and
+  `matches: version === expectedVersion`. A mismatch warns, never blocks.
+- Any failure — transport error, non-2xx, timeout, malformed body — is
+  `reachable:false`, `matches:false`, `version` omitted. The response never
+  contains a ticket, the secret or upstream error text.
+- The result is cached in memory for 10 s (`CODE_STATUS_CACHE_MS`, injectable),
+  so a polling UI cannot hammer the Code host. `Cache-Control: no-store`.
+
+### `InfoResponse.code`
+
+`/api/info` now carries `code: { configured, expectedVersion }`. The UI reads it
+from the single info response and hides the Chat | Code switch when
+`configured` is false, without an extra request.
+
+### Environment additions
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CODE_HOST_ORIGIN` | empty | Code host origin and ticket audience. Empty disables the surface. When set it must be a bare `http(s)` origin (no path, query, fragment or credentials) and `https:` in production. |
+| `CODE_TICKET_SECRET` | generated in development | Shared ticket key. Required in production when `CODE_HOST_ORIGIN` is set; a development boot warns and generates an ephemeral one. |
+| `CODE_TICKET_TTL_SECONDS` | `60` | Mint TTL. Ceiling 60: development clamps with a warning, production refuses. |
+| `CODE_STATUS_TIMEOUT_MS` | `2000` | `/__health` probe deadline; positive integer. |
+
+Warnings and refusals name the variable only, never a value.
+
+### Tests
+
+| File | Covers |
+| --- | --- |
+| `apps/server/test/code.test.ts` | auth on both routes, unconfigured ticket/status/info, absolute URL and encoded `next`, `readTicket` claims (`sub`, `codeHost`, `exp` within TTL), `next` sanitisation table, fresh `jti` per mint, no ticket in status or logs, 21st mint `429` and window reset, matching/mismatching/unreachable/malformed/timeout status, 10 s probe cache and `/api/info` reporting. |
+| `apps/server/test/env.test.ts` | origin validation, development secret generation, production refusal without a secret, https requirement, TTL clamp and refusal, timeout parsing. |
+| `packages/opencode/test/pinned-version.test.ts` | `PINNED_OPENCODE_VERSION` against the package manifest and the installed `@opencode/client`. |
+
+No test calls a real network host; the probe is injected.

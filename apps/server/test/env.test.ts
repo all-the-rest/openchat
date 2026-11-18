@@ -255,3 +255,139 @@ describe("production hardening", () => {
     expect(warnings.some((warning) => warning.includes("ALLOW_INSECURE_COOKIE"))).toBe(true)
   })
 })
+
+describe("Code surface env", () => {
+  const productionCode = {
+    NODE_ENV: "production",
+    BACKEND_MODE: "live",
+    OPENCODE_PASSWORD: "opencode-secret",
+    SESSION_SECRET: "a".repeat(32),
+    COOKIE_SECURE: "1",
+    OPENCHAT_PASSWORD: "app-secret",
+    CODE_HOST_ORIGIN: "https://code.example.com",
+    CODE_TICKET_SECRET: "code-ticket-secret",
+  }
+
+  it("defaults to an unconfigured surface without warnings", () => {
+    const warnings: string[] = []
+    const config = loadEnv({ source: {}, warn: (message) => warnings.push(message) })
+
+    expect(config.CODE_HOST_ORIGIN).toBe("")
+    expect(config.CODE_TICKET_SECRET).toBe("")
+    expect(config.CODE_TICKET_TTL_SECONDS).toBe(60)
+    expect(config.CODE_STATUS_TIMEOUT_MS).toBe(2000)
+    expect(warnings.some((warning) => warning.includes("CODE_"))).toBe(false)
+  })
+
+  it("reads a bare origin, the secret, TTL and timeout", () => {
+    const config = loadEnv({
+      source: {
+        CODE_HOST_ORIGIN: "https://code.example.com/",
+        CODE_TICKET_SECRET: "code-ticket-secret",
+        CODE_TICKET_TTL_SECONDS: "45",
+        CODE_STATUS_TIMEOUT_MS: "500",
+      },
+      warn: () => {},
+    })
+
+    expect(config.CODE_HOST_ORIGIN).toBe("https://code.example.com")
+    expect(config.CODE_TICKET_SECRET).toBe("code-ticket-secret")
+    expect(config.CODE_TICKET_TTL_SECONDS).toBe(45)
+    expect(config.CODE_STATUS_TIMEOUT_MS).toBe(500)
+  })
+
+  it("fails the boot for an origin that is not a bare http(s) origin", () => {
+    const invalid = [
+      "https://code.example.com/api",
+      "https://code.example.com/?token=abc",
+      "https://code.example.com/#fragment",
+      "https://owner:secret@code.example.com",
+      "ftp://code.example.com",
+      "not a url",
+    ]
+    for (const value of invalid) {
+      let message = ""
+      try {
+        loadEnv({ source: { CODE_HOST_ORIGIN: value }, warn: () => {} })
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error)
+      }
+      expect(message).toContain("CODE_HOST_ORIGIN")
+      expect(message).not.toContain(value)
+      expect(message).not.toContain("secret@")
+    }
+  })
+
+  it("generates an ephemeral ticket secret in development and warns", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: { CODE_HOST_ORIGIN: "http://127.0.0.1:8090" },
+      warn: (message) => warnings.push(message),
+    })
+
+    expect(config.CODE_TICKET_SECRET.length).toBeGreaterThanOrEqual(32)
+    const text = warnings.join("\n")
+    expect(text).toContain("CODE_TICKET_SECRET")
+    expect(text).not.toContain("127.0.0.1")
+  })
+
+  it("refuses a production boot without a ticket secret", () => {
+    let message = ""
+    try {
+      loadEnv({
+        source: { ...productionCode, CODE_TICKET_SECRET: undefined },
+        warn: () => {},
+      })
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error)
+    }
+    expect(message).toContain("CODE_TICKET_SECRET")
+    expect(message).not.toContain("code.example.com")
+  })
+
+  it("requires https for the origin in production", () => {
+    expect(() =>
+      loadEnv({
+        source: { ...productionCode, CODE_HOST_ORIGIN: "http://code.example.com" },
+        warn: () => {},
+      }),
+    ).toThrow(/CODE_HOST_ORIGIN.*https/)
+  })
+
+  it("boots production with a secure origin and secret", () => {
+    const config = loadEnv({ source: productionCode, warn: () => {} })
+    expect(config.CODE_HOST_ORIGIN).toBe("https://code.example.com")
+    expect(config.CODE_TICKET_SECRET).toBe("code-ticket-secret")
+  })
+
+  it("clamps the TTL to 60 s in development and refuses it in production", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: { CODE_TICKET_TTL_SECONDS: "120" },
+      warn: (message) => warnings.push(message),
+    })
+    expect(config.CODE_TICKET_TTL_SECONDS).toBe(60)
+    const text = warnings.join("\n")
+    expect(text).toContain("CODE_TICKET_TTL_SECONDS")
+    expect(text).not.toContain("120")
+
+    expect(() =>
+      loadEnv({
+        source: { ...productionCode, CODE_TICKET_TTL_SECONDS: "120" },
+        warn: () => {},
+      }),
+    ).toThrow(/CODE_TICKET_TTL_SECONDS/)
+  })
+
+  it("falls back from an invalid status timeout without echoing the value", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: { CODE_STATUS_TIMEOUT_MS: "not-a-number" },
+      warn: (message) => warnings.push(message),
+    })
+    expect(config.CODE_STATUS_TIMEOUT_MS).toBe(2000)
+    const text = warnings.join("\n")
+    expect(text).toContain("CODE_STATUS_TIMEOUT_MS")
+    expect(text).not.toContain("not-a-number")
+  })
+})

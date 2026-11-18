@@ -1,6 +1,8 @@
 import { Hono } from "hono"
 import { BackendError } from "@openchat/opencode"
 import type { ChatBackend } from "@openchat/opencode"
+import type { CodeProbe } from "./code"
+import { CODE_TICKET_LIMIT, CODE_TICKET_WINDOW_MS } from "./code"
 import type { EnvConfig } from "./env"
 import { jsonError } from "./http"
 import {
@@ -27,6 +29,14 @@ export interface AppOptions {
   sttTimeoutMs?: number
   /** SSE keepalive interval in milliseconds; tests shorten it. */
   sseHeartbeatMs?: number
+  /** Code host health probe; injected so tests never touch the network. */
+  codeProbe?: CodeProbe
+  /** Status cache lifetime in milliseconds; tests shorten it. */
+  codeStatusCacheMs?: number
+  /** Clock for the status cache; tests advance it. */
+  codeNow?: () => number
+  /** Ticket throttle; tests inject a clock-bound instance. */
+  codeTicketThrottle?: FixedWindowThrottle
 }
 
 export interface AppVariables {
@@ -52,6 +62,12 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     limit: PROMPT_LIMIT,
     windowMs: PROMPT_WINDOW_MS,
   })
+  const codeTicketThrottle =
+    options.codeTicketThrottle ??
+    new FixedWindowThrottle({
+      limit: CODE_TICKET_LIMIT,
+      windowMs: CODE_TICKET_WINDOW_MS,
+    })
   const app = new Hono<AppEnv>()
 
   app.onError((error, c) => {
@@ -76,6 +92,10 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     promptThrottle,
     sttTimeoutMs: options.sttTimeoutMs ?? STT_TIMEOUT_MS,
     sseHeartbeatMs: options.sseHeartbeatMs ?? SSE_HEARTBEAT_MS,
+    codeTicketThrottle,
+    codeProbe: options.codeProbe,
+    codeStatusCacheMs: options.codeStatusCacheMs,
+    codeNow: options.codeNow,
   })
 
   return app
