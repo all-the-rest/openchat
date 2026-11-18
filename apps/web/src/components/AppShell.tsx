@@ -15,7 +15,7 @@ const WIDE_QUERY = "(min-width: 1024px)"
 
 export function AppShell() {
   const t = useT()
-  const { surface } = useSurface()
+  const { surface, appsAvailable } = useSurface()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const wide = useMediaQuery(WIDE_QUERY)
   const drawerRef = useRef<HTMLDivElement>(null)
@@ -108,7 +108,10 @@ export function AppShell() {
           }`}
         >
           {wide || sidebarOpen ? (
-            <SessionSidebar onNavigate={() => setSidebarOpen(false)} />
+            <SessionSidebar
+              onNavigate={() => setSidebarOpen(false)}
+              appsAvailable={appsAvailable === true}
+            />
           ) : null}
         </div>
       )}

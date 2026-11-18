@@ -212,6 +212,37 @@ describe("search page", () => {
     ])
   })
 
+  it("links an app hit to /apps and keeps its kind and status line", async () => {
+    mocks.search.mockResolvedValue(
+      response({
+        available: ["chats", "workspace", "web", "apps"],
+        groups: [
+          {
+            source: "apps",
+            state: "ok",
+            total: 1,
+            hits: [
+              {
+                source: "apps",
+                id: "app-server-github",
+                title: "GitHub",
+                app: "github",
+                appKind: "server",
+                status: "needs_auth",
+              },
+            ],
+          },
+        ],
+      }),
+    )
+    renderSearch("/search?scope=all&q=alpha")
+
+    const link = await screen.findByRole("link", { name: /GitHub/ })
+    expect(link).toHaveAttribute("href", "/apps")
+    expect(link).toHaveTextContent("MCP server")
+    expect(link).toHaveTextContent("Needs auth")
+  })
+
   it("renders hits of a failed group", async () => {
     mocks.search.mockResolvedValue(
       response({

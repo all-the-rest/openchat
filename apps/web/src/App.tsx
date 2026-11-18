@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom"
+import { AppsPage } from "./apps/AppsPage"
 import { AuthProvider, useAuth } from "./auth/provider"
 import { AppShell } from "./components/AppShell"
 import { EventStreamProvider } from "./api/events"
@@ -47,6 +48,24 @@ export function CodeRoute() {
     )
   }
   return <CodePage />
+}
+
+/**
+ * `/apps` is unavailable unless `/api/info` reports an app surface; a direct
+ * visit falls back to chat, exactly like an unconfigured `/code`.
+ */
+export function AppsRoute() {
+  const { appsAvailable } = useSurface()
+
+  if (appsAvailable === false) return <Navigate to="/" replace />
+  if (appsAvailable !== true) {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <span className="loading loading-spinner loading-md" aria-hidden="true" />
+      </div>
+    )
+  }
+  return <AppsPage />
 }
 
 function BootScreen() {
@@ -107,6 +126,7 @@ function AppRoutes() {
         <Route path="/c/:sessionId/:messageId" element={<ChatPage />} />
         <Route path="/code" element={<CodeRoute />} />
         <Route path="/code/*" element={<CodeRoute />} />
+        <Route path="/apps" element={<AppsRoute />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

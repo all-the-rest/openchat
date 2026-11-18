@@ -1,4 +1,5 @@
 import type {
+  AppsResponse,
   CodeStatusResponse,
   CodeTicketResponse,
   CreateSessionRequest,
@@ -24,17 +25,27 @@ export interface ApiErrorBody {
 export class ApiError extends Error {
   readonly status: number
   readonly code: string | undefined
+  /** Seconds from a `Retry-After` header, when the BFF sent one. */
+  readonly retryAfter: number | undefined
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, retryAfter?: number) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.code = code
+    this.retryAfter = retryAfter
   }
 
   get isUnauthorized(): boolean {
     return this.status === 401
   }
+}
+
+/** Only a delta-seconds `Retry-After` is meaningful for the UI. */
+function parseRetryAfter(response: Response): number | undefined {
+  const header = response.headers.get("retry-after")?.trim()
+  if (!header || !/^\d+$/.test(header)) return undefined
+  return Number(header)
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -47,7 +58,7 @@ async function parseError(response: Response): Promise<ApiError> {
   } catch {
     // Non-JSON error bodies keep the status text.
   }
-  return new ApiError(response.status, message, code)
+  return new ApiError(response.status, message, code, parseRetryAfter(response))
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -86,6 +97,9 @@ function unwrapList<T>(value: unknown, key: string): T[] {
 
 const sessionPath = (sessionID: string) => `/api/sessions/${encodeURIComponent(sessionID)}`
 
+/** Server names come from the host, so they are encoded like any path segment. */
+const appPath = (name: string) => `/api/apps/${encodeURIComponent(name)}`
+
 export const api = {
   me(): Promise<LoginResponse> {
     return request<LoginResponse>("/api/auth/me")
@@ -117,6 +131,27 @@ export const api = {
 
   codeStatus(): Promise<CodeStatusResponse> {
     return request<CodeStatusResponse>("/api/code/status")
+  },
+
+  /** The workspace's MCP servers and skills, plus the capability flag. */
+  apps(): Promise<AppsResponse> {
+    return request<AppsResponse>("/api/apps")
+  },
+
+  /** Asks the host to connect a server; the BFF replies with 204 and no body. */
+  connectApp(name: string): Promise<void> {
+    return request<void>(`${appPath(name)}/connect`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    })
+  },
+
+  /** Asks the host to disconnect a server; the BFF replies with 204 and no body. */
+  disconnectApp(name: string): Promise<void> {
+    return request<void>(`${appPath(name)}/disconnect`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    })
   },
 
   async listSessions(): Promise<SessionInfo[]> {

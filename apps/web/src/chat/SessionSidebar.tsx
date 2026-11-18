@@ -1,14 +1,21 @@
 import { useState } from "react"
 import { NavLink, useNavigate } from "react-router-dom"
 import { useAuth } from "../auth/provider"
-import { PlusIcon, SearchIcon } from "../components/icons"
+import { AppsIcon, PlusIcon, SearchIcon } from "../components/icons"
 import { LocaleSelect, ThemeToggle } from "../components/controls"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useI18n, useT } from "../i18n/provider"
 import { relativeTime } from "../lib/format"
 import { useSessions } from "./sessions"
 
-export function SessionSidebar({ onNavigate }: { onNavigate?: () => void }) {
+export function SessionSidebar({
+  onNavigate,
+  appsAvailable = false,
+}: {
+  onNavigate?: () => void
+  /** From `/api/info`; the entry stays hidden when the host has no app surface. */
+  appsAvailable?: boolean
+}) {
   const t = useT()
   const { locale } = useI18n()
   const auth = useAuth()
@@ -70,7 +77,7 @@ export function SessionSidebar({ onNavigate }: { onNavigate?: () => void }) {
       ) : null}
 
       <nav aria-label={t("nav.main")} className="mt-4 flex min-h-0 flex-1 flex-col">
-        <div className="px-2 pb-2">
+        <div className="flex flex-col gap-0.5 px-2 pb-2">
           <NavLink
             to="/search?scope=all"
             data-testid="nav-search"
@@ -84,6 +91,21 @@ export function SessionSidebar({ onNavigate }: { onNavigate?: () => void }) {
             <SearchIcon className="size-4" />
             {t("nav.search")}
           </NavLink>
+          {appsAvailable ? (
+            <NavLink
+              to="/apps"
+              data-testid="nav-apps"
+              onClick={() => onNavigate?.()}
+              className={({ isActive }) =>
+                `flex items-center gap-2 rounded-row px-2 py-1.5 text-sm ${
+                  isActive ? "bg-selected text-base-content" : "text-secondary hover:bg-hover"
+                }`
+              }
+            >
+              <AppsIcon className="size-4" />
+              {t("nav.apps")}
+            </NavLink>
+          ) : null}
         </div>
         <h2 className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted">
           {t("nav.chats")}

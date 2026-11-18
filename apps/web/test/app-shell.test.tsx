@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -143,5 +143,34 @@ describe("sidebar drawer", () => {
     newChat.focus()
     expect(newChat).toHaveFocus()
     expect(drawer.contains(newChat)).toBe(true)
+  })
+})
+
+describe("sidebar apps entry", () => {
+  it("links to /apps when the host reports an app surface", async () => {
+    stubViewport(true)
+    mocks.info.mockResolvedValue({
+      code: { configured: true, expectedVersion: "2.3.0" },
+      apps: { available: true },
+    })
+    renderShell()
+
+    const nav = screen.getByRole("navigation", { name: "Main navigation" })
+    expect(await within(nav).findByTestId("nav-apps")).toHaveAttribute("href", "/apps")
+  })
+
+  it("hides the entry when the host has no app surface", async () => {
+    stubViewport(true)
+    mocks.info.mockResolvedValue({
+      code: { configured: true, expectedVersion: "2.3.0" },
+      apps: { available: false },
+    })
+    renderShell()
+
+    await waitFor(() => expect(mocks.info).toHaveBeenCalled())
+    // Let the provider store the answer before asserting the entry stays gone.
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(screen.getByTestId("nav-search")).toBeInTheDocument()
+    expect(screen.queryByTestId("nav-apps")).toBeNull()
   })
 })

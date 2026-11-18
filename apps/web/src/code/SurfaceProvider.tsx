@@ -21,6 +21,11 @@ import {
 export interface SurfaceValue {
   /** `null` until `/api/info` answered; false hides the switch entirely. */
   configured: boolean | null
+  /**
+   * `apps.available` from the same `/api/info` response; `null` until it
+   * answered. False hides the `/apps` entry and redirects the route home.
+   */
+  appsAvailable: boolean | null
   /** The surface the current route belongs to. */
   surface: Surface
   /** The persisted choice, used only to restore `/` on a fresh load. */
@@ -35,14 +40,16 @@ export interface SurfaceValue {
 const SurfaceContext = createContext<SurfaceValue | null>(null)
 
 /**
- * Reads `code.configured` from the single `/api/info` response and owns the
- * Chat | Code shortcut. A failed info call means "not configured": the switch
- * stays hidden and `/code` redirects home.
+ * Reads `code.configured` and `apps.available` from the single `/api/info`
+ * response and owns the Chat | Code shortcut. A failed info call means "not
+ * configured": the switch and the apps entry stay hidden and their routes
+ * redirect home.
  */
 export function SurfaceProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [configured, setConfigured] = useState<boolean | null>(null)
+  const [appsAvailable, setAppsAvailable] = useState<boolean | null>(null)
   const [stored, setStored] = useState<Surface>(() => readSurface())
 
   useEffect(() => {
@@ -50,9 +57,15 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         const info = await api.info()
-        if (mounted) setConfigured(info?.code?.configured === true)
+        if (mounted) {
+          setConfigured(info?.code?.configured === true)
+          setAppsAvailable(info?.apps?.available === true)
+        }
       } catch {
-        if (mounted) setConfigured(false)
+        if (mounted) {
+          setConfigured(false)
+          setAppsAvailable(false)
+        }
       }
     })()
     return () => {
@@ -105,8 +118,8 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
   }, [configured, toggle])
 
   const value = useMemo<SurfaceValue>(
-    () => ({ configured, surface, stored, setSurface, choose, toggle }),
-    [configured, surface, stored, setSurface, choose, toggle],
+    () => ({ configured, appsAvailable, surface, stored, setSurface, choose, toggle }),
+    [configured, appsAvailable, surface, stored, setSurface, choose, toggle],
   )
 
   return <SurfaceContext.Provider value={value}>{children}</SurfaceContext.Provider>

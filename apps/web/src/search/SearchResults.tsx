@@ -20,6 +20,16 @@ function HitRow({ hit }: { hit: SearchHit }) {
   const snippet = hit.snippet ? (
     <span className="line-clamp-2 text-xs text-secondary">{hit.snippet}</span>
   ) : null
+  const appLine = hit.app ? (
+    <span className="truncate text-xs text-muted">
+      {hit.appKind === "skill"
+        ? t("search.kindSkill")
+        : hit.appKind === "tool"
+          ? t("search.kindTool")
+          : t("search.kindServer")}
+      {hit.status ? ` · ${statusLabel ? t(statusLabel) : hit.status}` : ""}
+    </span>
+  ) : null
 
   if (hit.source === "chats" && hit.sessionID) {
     // The ids come from the host; encode them so a stray character in an id
@@ -60,8 +70,22 @@ function HitRow({ hit }: { hit: SearchHit }) {
     )
   }
 
-  // Workspace and app hits stay informational until #11 (file view) and #15
-  // (tool run) exist.
+  // An app hit points at the one surface where its status can be acted on.
+  if (hit.source === "apps") {
+    return (
+      <Link
+        to="/apps"
+        data-search-result
+        className="flex flex-col gap-0.5 rounded-row border border-subtle bg-surface px-3 py-2 hover:bg-hover"
+      >
+        {title}
+        {snippet}
+        {appLine}
+      </Link>
+    )
+  }
+
+  // Workspace hits stay informational until #11 (file view) exists.
   return (
     <div
       data-search-result
@@ -73,16 +97,7 @@ function HitRow({ hit }: { hit: SearchHit }) {
       {hit.path && hit.path !== hit.title ? (
         <span className="truncate text-xs text-muted">{hit.path}</span>
       ) : null}
-      {hit.app ? (
-        <span className="truncate text-xs text-muted">
-          {hit.appKind === "skill"
-            ? t("search.kindSkill")
-            : hit.appKind === "tool"
-              ? t("search.kindTool")
-              : t("search.kindServer")}
-          {hit.status ? ` · ${statusLabel ? t(statusLabel) : hit.status}` : ""}
-        </span>
-      ) : null}
+      {appLine}
     </div>
   )
 }
