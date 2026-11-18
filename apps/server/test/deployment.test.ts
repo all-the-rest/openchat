@@ -173,11 +173,11 @@ describe("compose stack boundaries", () => {
 
   it("keeps every required secret an interpolation, not a value", () => {
     const secretKeys = [
-      "OPENCHAT_PASSWORD",
       "SESSION_SECRET",
       "OPENCODE_PASSWORD",
       "CODE_TICKET_SECRET",
       "ARTIFACT_SIGNING_KEY",
+      "ARTIFACT_INTERNAL_TOKEN",
     ]
     for (const key of secretKeys) {
       const assignments = [...COMPOSE.matchAll(new RegExp(`^\\s*${key}: (.*)$`, "gm"))]
@@ -186,6 +186,11 @@ describe("compose stack boundaries", () => {
         expect(assignment[1], `${key} must come from .env`).toMatch(/^\$\{[A-Z_]+:\?/)
       }
     }
+
+    // The login credential is one of two shapes; the server refuses a boot with
+    // neither, so an empty pair fails at start rather than at the first login.
+    expect(service("bff")).toContain("OPENCHAT_PASSWORD: ${OPENCHAT_PASSWORD:-}")
+    expect(service("bff")).toContain("OPENCHAT_PASSWORD_HASH: ${OPENCHAT_PASSWORD_HASH:-}")
 
     // Optional secrets are still references, never literals.
     expect(COMPOSE).toMatch(/^\s*STT_API_KEY: \$\{STT_API_KEY:-\}$/m)
@@ -196,12 +201,71 @@ describe("compose stack boundaries", () => {
   })
 
   it("keeps the env template secret-free", () => {
-    for (const key of ["OPENCHAT_PASSWORD", "SESSION_SECRET", "OPENCODE_PASSWORD", "CODE_TICKET_SECRET", "ARTIFACT_SIGNING_KEY", "STT_API_KEY"]) {
+    for (const key of ["OPENCHAT_PASSWORD", "OPENCHAT_PASSWORD_HASH", "SESSION_SECRET", "OPENCODE_PASSWORD", "CODE_TICKET_SECRET", "ARTIFACT_SIGNING_KEY", "ARTIFACT_INTERNAL_TOKEN", "STT_API_KEY"]) {
       expect(ENV_TEMPLATE, `${key} must stay empty in the template`).toMatch(
         new RegExp(`^${key}=$`, "m"),
       )
     }
     expect(ENV_TEMPLATE).toMatch(/^APP_ORIGIN=https:\/\//m)
+  })
+})
+
+const REMOTE_COMPOSE = readFileSync(join(ROOT, "deploy/remote/compose.yaml"), "utf8")
+const REMOTE_SERVICES = serviceBlocks(REMOTE_COMPOSE)
+
+describe("remote overlay storage", () => {
+  function remote(name: string): string {
+    const block = REMOTE_SERVICES.get(name)
+    if (block === undefined) throw new Error(`deploy/remote/compose.yaml has no service ${name}`)
+    return block
+  }
+
+  it("bind-mounts the artifact disk read-only in the host and read-write only in the BFF", () => {
+    expect(remote("bff")).toMatch(/^\s*- \/opt\/stacks\/openchat\/disks\/artifacts:\/artifacts$/m)
+    expect(remote("artifact-host")).toMatch(
+      /^\s*- \/opt\/stacks\/openchat\/disks\/artifacts:\/artifacts:ro$/m,
+    )
+
+    const writers = [...REMOTE_SERVICES]
+      .filter(([, block]) => block.includes("/opt/stacks/openchat/disks/artifacts:"))
+      .map(([name]) => name)
+      .sort()
+    expect(writers).toEqual(["artifact-host", "bff"])
+  })
+
+  it("shares the workspace read-write with OpenCode and the toolbox, read-only with the BFF", () => {
+    expect(remote("bff")).toMatch(/^\s*- \/opt\/stacks\/openchat\/disks\/workspace:\/workspace:ro$/m)
+    for (const name of ["opencode", "toolbox"]) {
+      expect(remote(name), `${name} needs the workspace`).toMatch(
+        /^\s*- \/opt\/stacks\/openchat\/disks\/workspace:\/workspace$/m,
+      )
+    }
+    expect(remote("code-host")).not.toContain("disks/workspace")
+  })
+
+  it("caps the rootless daemon's storage with its own disk image", () => {
+    expect(remote("dind")).toMatch(
+      /^\s*- \/opt\/stacks\/openchat\/disks\/dind:\/home\/rootless\/\.local\/share\/docker$/m,
+    )
+    const others = [...REMOTE_SERVICES].filter(
+      ([name, block]) => name !== "dind" && block.includes("disks/dind"),
+    )
+    expect(others).toEqual([])
+  })
+
+  it("gives the artifact token to the BFF and the tool's host, and to nothing else", () => {
+    const tokenHolders = [...SERVICES]
+      .filter(([, block]) => block.includes("ARTIFACT_INTERNAL_TOKEN"))
+      .map(([name]) => name)
+      .sort()
+    expect(tokenHolders).toEqual(["bff", "opencode"])
+
+    expect(service("opencode")).toContain("OPENCHAT_BFF_URL: ${OPENCHAT_BFF_URL:-http://bff:8787}")
+    expect(service("opencode")).toContain("ARTIFACT_INTERNAL_TOKEN: ${ARTIFACT_INTERNAL_TOKEN:?")
+    expect(service("bff")).toContain("ARTIFACT_INTERNAL_TOKEN: ${ARTIFACT_INTERNAL_TOKEN:?")
+    // Distinct secrets: the signing key signs URLs, the token authorizes writes.
+    expect(ENV_TEMPLATE).toMatch(/^ARTIFACT_SIGNING_KEY=$/m)
+    expect(ENV_TEMPLATE).toMatch(/^ARTIFACT_INTERNAL_TOKEN=$/m)
   })
 })
 

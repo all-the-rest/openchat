@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
@@ -49,12 +49,14 @@ describe("release workflow", () => {
     expect(text).toContain("needs: [version, gates]")
   })
 
-  it("builds the three images for amd64 and arm64 with provenance and an SBOM", () => {
+  it("builds every Dockerfile the stack references for amd64 and arm64", () => {
     const text = workflow()
     for (const dockerfile of [
       "deploy/Dockerfile.bff",
       "deploy/Dockerfile.code-host",
       "deploy/Dockerfile.artifact-host",
+      "deploy/Dockerfile.opencode",
+      "deploy/code-host/tools.Dockerfile",
     ]) {
       expect(text).toContain(dockerfile)
     }
@@ -62,6 +64,29 @@ describe("release workflow", () => {
     expect(text).toContain("provenance: true")
     expect(text).toContain("sbom: true")
     expect(text).toContain("docker/setup-buildx-action@v3")
+  })
+
+  it("lists every compose build file and no file that does not exist", () => {
+    const text = workflow()
+    const root = join(import.meta.dirname, "..", "..", "..")
+    const matrix = [...text.matchAll(/^\s+dockerfile: (\S+)$/gm)].flatMap((match) =>
+      match[1] === undefined ? [] : [match[1]],
+    )
+    expect(matrix.length).toBeGreaterThanOrEqual(5)
+    for (const file of matrix) {
+      expect(existsSync(join(root, file)), `${file} must exist`).toBe(true)
+    }
+
+    const compose = ["compose.yaml", "deploy/remote/compose.yaml"]
+      .map((file) => readFileSync(join(root, file), "utf8"))
+      .join("\n")
+    const referenced = [...compose.matchAll(/^\s+dockerfile: (\S+)$/gm)].flatMap((match) =>
+      match[1] === undefined ? [] : [match[1]],
+    )
+    expect(referenced.length).toBeGreaterThanOrEqual(5)
+    for (const file of referenced) {
+      expect(matrix, `${file} must be in the release matrix`).toContain(file)
+    }
   })
 
   it("tags the GHCR coordinates with the version and latest", () => {

@@ -1,0 +1,133 @@
+# Remote overlay for the owner's VPS (issue #20, docs/implementation/20-remote-deploy.md).
+#
+# Apply it on top of the committed stack, never instead of it:
+#
+#   docker compose -f compose.yaml -f deploy/remote/compose.yaml config
+#
+# It changes three things and nothing else:
+#
+#   1. `edge` is the host's existing external `webnet` network. The host Caddy
+#      container (not this stack) terminates TLS and is the only public
+#      listener; nothing here publishes to the internet.
+#   2. Every image comes from the local build of this source tree. There is no
+#      registry in the loop yet (GHCR is an owner step), so the tag is the short
+#      commit sha the deploy script exports as OPENCHAT_TAG.
+#   3. Storage is bounded. Memory gets a per-service limit that fits beside the
+#      predecessor stack, and the three large directories are mounted from ext4
+#      images the deploy script creates, mounts and size-caps (artifacts 2 GiB,
+#      workspace 4 GiB, dind 4 GiB). Without `--with-dind` the last one is
+#      mounted but unused.
+#
+# The loopback `ports:` entries from the base file stay: they are the
+# validation path `deploy/swap.sh` probes, and 127.0.0.1 is not reachable from
+# outside the host.
+#
+# Profiles are untouched. The deploy script exports COMPOSE_PROFILES=opencode
+# (plus `,tools,dind` with --with-dind), which is what makes `opencode` start
+# with the application services.
+
+name: openchat
+
+services:
+  bff:
+    image: openchat-bff:${OPENCHAT_TAG:-local}
+    # The BFF is the availability-critical process: it owns the login, the SSE
+    # stream and every /api route. It keeps its share while OpenCode is capped.
+    mem_limit: 512m
+    mem_reservation: 192m
+    environment:
+      # The in-stack service always wins; a stale OPENCODE_URL in .env cannot
+      # point the BFF at the predecessor's instance by accident.
+      OPENCODE_URL: http://opencode:4096
+    networks:
+      # The alias is the DNS name the host Caddyfile uses (`openchat-bff:8787`);
+      # the Compose service name alone would resolve as `bff`.
+      edge:
+        aliases:
+          - openchat-bff
+      backend: {}
+      artifacts: {}
+    volumes:
+      # Bind mounts replace the named volumes by target path. A loopback ext4
+      # image is the only hard size cap Docker cannot express on XFS/noquota
+      # with the containerd snapshotter (`storage_opt` is unavailable there).
+      - /opt/stacks/openchat/disks/artifacts:/artifacts
+      - /opt/stacks/openchat/disks/workspace:/workspace:ro
+
+  code-host:
+    image: openchat-code-host:${OPENCHAT_TAG:-local}
+    mem_limit: 256m
+    mem_reservation: 96m
+    environment:
+      OPENCODE_URL: http://opencode:4096
+    networks:
+      edge:
+        aliases:
+          - openchat-code-host
+      backend: {}
+
+  artifact-host:
+    image: openchat-artifact-host:${OPENCHAT_TAG:-local}
+    mem_limit: 128m
+    mem_reservation: 48m
+    networks:
+      edge:
+        aliases:
+          - openchat-artifact-host
+      artifacts: {}
+    volumes:
+      - /opt/stacks/openchat/disks/artifacts:/artifacts:ro
+
+  opencode:
+    # The derived image: the official 2.3.2 base plus git, ripgrep, the Docker
+    # CLI and the artifact tool. Built here, never pulled as `latest` (1.x).
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.opencode
+    image: openchat-opencode:${OPENCHAT_TAG:-local}
+    # 1536 MiB, not 1280: the Code surface is the reason this stack exists, and
+    # the predecessor's own OpenCode instance is the box's largest tenant today.
+    # See the memory budget in the runbook before lowering it.
+    mem_limit: 1536m
+    mem_reservation: 768m
+    environment:
+      # The artifact tool's writes go through the BFF on `backend`.
+      OPENCHAT_BFF_URL: http://bff:8787
+      # The CLI is in the image because agents build with it. Without the dind
+      # profile the socket is simply absent and `docker` reports a connection
+      # error instead of reaching the host daemon.
+      DOCKER_HOST: ${OPENCODE_DOCKER_HOST:-tcp://dind:2375}
+    networks:
+      backend: {}
+      dind: {}
+    volumes:
+      - /opt/stacks/openchat/disks/workspace:/workspace
+      # Bind mount, not the named volume: the deploy script seeds the one MCP
+      # entry there once, and the agent may keep editing the file afterwards.
+      # The official image runs as root with `HOME=/root`.
+      - /opt/stacks/openchat/opencode-config:/root/.config/opencode
+
+  toolbox:
+    image: openchat-tools:${OPENCHAT_TAG:-local}
+    mem_limit: 512m
+    mem_reservation: 192m
+    networks:
+      backend: {}
+      dind: {}
+    volumes:
+      - /opt/stacks/openchat/disks/workspace:/workspace
+
+  dind:
+    # Memory, not CPU, is the binding constraint for the rootless daemon: the
+    # image layer store and build cache live in RAM until they are written.
+    mem_limit: 1024m
+    mem_reservation: 512m
+    volumes:
+      - /opt/stacks/openchat/disks/dind:/home/rootless/.local/share/docker
+
+networks:
+  # The host Caddy container already runs on this network and owns 80/443.
+  # `external: true` means Compose never creates or removes it.
+  edge:
+    external: true
+    name: webnet

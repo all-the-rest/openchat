@@ -206,9 +206,12 @@ $STACK_DIR/
 2. Optional `pull`/`build` of the candidate images.
 3. `current` points at the candidate, then `up -d --wait` reconciles the stack.
 4. Validation: `/healthz` must answer `200 {"ok":true}` within `--timeout`, then
-   `/api/info` must answer `200`. **A degraded host is allowed**: OpenCode being
-   unreachable yields `200` with `host.reachable: false` and is not a failed
-   deploy ([`10-host-status.md`](10-host-status.md)). `--expect-version` adds a
+   `/api/info` must answer `200` or `401`. The probe sends no credential: `401`
+   proves the route exists and the session guard runs, which is what a deploy
+   needs to know; `5xx`, `404` and a dead socket fail the candidate. With `200`
+   a degraded host is allowed — OpenCode being unreachable yields `200` with
+   `host.reachable: false` and is not a failed deploy
+   ([`10-host-status.md`](10-host-status.md)). `--expect-version` adds a
    `/healthz` version check for a client/server skew check.
 5. On any failure the script restores `current` to the previous release and
    recreates it, then re-validates; a failed rollback exits non-zero with a
