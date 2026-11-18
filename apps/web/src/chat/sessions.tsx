@@ -27,11 +27,23 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const hostReachable = useSurfaceOrNull()?.hostReachable ?? null
+  /**
+   * Sessions this tab created. A list request that started before the create
+   * resolves afterwards and would otherwise drop the new row from the sidebar
+   * (the host does not know it yet in that answer).
+   */
+  const createdHere = useRef(new Set<string>())
 
   const refresh = useCallback(async () => {
     try {
       const list = await api.listSessions()
-      setSessions(list)
+      setSessions((current) => {
+        const known = new Set(list.map((session) => session.id))
+        const pending = current.filter(
+          (session) => createdHere.current.has(session.id) && !known.has(session.id),
+        )
+        return pending.length === 0 ? list : [...pending, ...list]
+      })
       setFailed(false)
     } catch {
       setFailed(true)
@@ -55,6 +67,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   const create = useCallback(async () => {
     const session = await api.createSession({})
+    createdHere.current.add(session.id)
     setSessions((current) => [session, ...current.filter((entry) => entry.id !== session.id)])
     return session
   }, [])
