@@ -5,11 +5,12 @@ import type { AuthSettings } from "./auth"
 import type { AppEnv } from "./app"
 import type { EnvConfig } from "./env"
 import { jsonError, payloadTooLarge } from "./http"
-import { MAX_BODY_BYTES } from "./limits"
+import { ARTIFACT_BODY_MAX_BYTES, MAX_BODY_BYTES } from "./limits"
 import { TRANSCRIBE_PATH } from "./transcribe"
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
 const LOGOUT_PATH = "/api/auth/logout"
+const ARTIFACTS_PATH = "/api/artifacts"
 
 function requestHost(c: Context): string | undefined {
   const header = c.req.header("host")?.trim()
@@ -90,6 +91,18 @@ function lastForwardedEntry(header: string | undefined): string | undefined {
 }
 
 /**
+ * Declared-body cap per path. An artifact document may be 1 MiB, far above the
+ * generic JSON cap, so that one route gets its own ceiling; the route enforces
+ * the document limit itself. Dictation uploads are capped by
+ * `DICTATION_MAX_BYTES` inside the route, which streams and aborts at the cap.
+ */
+function bodyCap(pathname: string): number {
+  if (pathname === TRANSCRIBE_PATH) return Number.POSITIVE_INFINITY
+  if (pathname === ARTIFACTS_PATH) return ARTIFACT_BODY_MAX_BYTES
+  return MAX_BODY_BYTES
+}
+
+/**
  * Per-client bucket key. The socket address comes from the node adapter; the
  * forwarding headers are client-controlled, so they are only read when the
  * operator explicitly sets `TRUST_PROXY=1`. The deployment must run exactly one
@@ -133,14 +146,8 @@ export function registerRequestGuards(app: Hono<AppEnv>): void {
       return jsonError(c, 415, "unsupported_media_type", "Content-Type must be application/json")
     }
     const declared = declaredContentLength(c)
-    // Dictation uploads are capped by DICTATION_MAX_BYTES inside the route,
-    // which reads the stream and aborts at the cap.
-    if (
-      c.req.path !== TRANSCRIBE_PATH &&
-      declared !== undefined &&
-      declared > MAX_BODY_BYTES
-    ) {
-      return payloadTooLarge(c)
+    if (declared !== undefined && declared > bodyCap(c.req.path)) {
+      return payloadTooLarge(c, bodyCap(c.req.path))
     }
     await next()
   })

@@ -4,6 +4,7 @@ import type { ChatBackend } from "@openchat/opencode"
 import { APPS_ACTION_LIMIT, APPS_ACTION_WINDOW_MS } from "./apps"
 import { AppsCache } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
+import { ARTIFACT_CREATE_LIMIT, ARTIFACT_CREATE_WINDOW_MS } from "./artifacts"
 import type { CodeProbe } from "./code"
 import { CODE_TICKET_LIMIT, CODE_TICKET_WINDOW_MS } from "./code"
 import type { EnvConfig } from "./env"
@@ -50,6 +51,10 @@ export interface AppOptions {
   appsNow?: () => number
   /** App action throttle; tests inject a clock-bound instance. */
   appsActionThrottle?: FixedWindowThrottle
+  /** Artifact creation throttle; tests inject a clock-bound instance. */
+  artifactsThrottle?: FixedWindowThrottle
+  /** Clock for signed artifact URLs; tests advance it. */
+  artifactsNow?: () => number
 }
 
 export interface AppVariables {
@@ -87,6 +92,12 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       limit: APPS_ACTION_LIMIT,
       windowMs: APPS_ACTION_WINDOW_MS,
     })
+  const artifactsThrottle =
+    options.artifactsThrottle ??
+    new FixedWindowThrottle({
+      limit: ARTIFACT_CREATE_LIMIT,
+      windowMs: ARTIFACT_CREATE_WINDOW_MS,
+    })
   const app = new Hono<AppEnv>()
 
   app.onError((error, c) => {
@@ -120,6 +131,8 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     appsCache: options.appsCache,
     appsCacheMs: options.appsCacheMs,
     appsNow: options.appsNow,
+    artifactsThrottle,
+    artifactsNow: options.artifactsNow,
   })
 
   return app
