@@ -19,6 +19,11 @@ export interface AuthSettings {
   /** bcrypt hash (`$2a$`, `$2b$` or `$2y$`); empty for a plaintext deployment. */
   passwordHash: string
   secret: string
+  /**
+   * Cookie-signing key derived once per boot from `secret` and the credential.
+   * Never the raw secret, and never the credential itself.
+   */
+  signingKey: string
   ttlSeconds: number
   secureCookie: boolean
 }
@@ -30,8 +35,38 @@ export function constantTimeEqual(left: string, right: string): boolean {
   return timingSafeEqual(digestLeft, digestRight)
 }
 
-function sign(payload: string, secret: string): string {
-  return createHmac("sha256", secret).update(payload).digest("base64url")
+/**
+ * Domain separator for the derived cookie key. Changing it invalidates every
+ * issued cookie, so it is versioned rather than renamed on a whim.
+ */
+const SIGNING_KEY_LABEL = "openchat-session-key-v1"
+
+/**
+ * Derives the cookie-signing key from `SESSION_SECRET` and the configured
+ * credential (bcrypt hash, or the plaintext password where that is configured).
+ * `SESSION_SECRET` is the HMAC key, the credential is the message, so the
+ * resulting key never equals the secret and the bcrypt hash is not recoverable
+ * from it.
+ *
+ * Because the cookie signature depends on the credential, changing the password
+ * invalidates every cookie minted against the old one without a session store.
+ * Rotating `SESSION_SECRET` still invalidates everything.
+ *
+ * Called from `authSettings`, which runs once per boot: not on the request path.
+ * Basic mode sets no cookie, so the key is unused there, but deriving it keeps
+ * both modes on one code path.
+ */
+export function deriveSigningKey(
+  settings: Pick<AuthSettings, "secret" | "password" | "passwordHash">,
+): string {
+  const credential = settings.passwordHash || settings.password
+  return createHmac("sha256", settings.secret)
+    .update(`${SIGNING_KEY_LABEL}\u0000${credential}`)
+    .digest("base64url")
+}
+
+function sign(payload: string, key: string): string {
+  return createHmac("sha256", key).update(payload).digest("base64url")
 }
 
 export function createSessionValue(
@@ -40,7 +75,7 @@ export function createSessionValue(
 ): string {
   const expires = Math.floor(now / 1000) + settings.ttlSeconds
   const payload = `${settings.user}.${expires}`
-  return `${payload}.${sign(payload, settings.secret)}`
+  return `${payload}.${sign(payload, settings.signingKey)}`
 }
 
 /** Returns the user for a valid, unexpired cookie; otherwise `null`. */
@@ -58,7 +93,7 @@ export function readSessionValue(
   const user = payload.slice(0, expirySeparator)
   const expires = Number(payload.slice(expirySeparator + 1))
   if (!Number.isInteger(expires) || expires * 1000 <= now) return null
-  if (!constantTimeEqual(signature, sign(payload, settings.secret))) return null
+  if (!constantTimeEqual(signature, sign(payload, settings.signingKey))) return null
   if (!constantTimeEqual(user, settings.user)) return null
   return user
 }
@@ -81,6 +116,12 @@ export function sessionCookie(settings: AuthSettings, now = Date.now()): string 
   return `${name}=${createSessionValue(settings, now)}; ${cookieAttributes(settings, settings.ttlSeconds)}`
 }
 
+/**
+ * Clears the cookie in this browser only. There is no server-side session
+ * store, so a copied value keeps working until its TTL — but a password change
+ * (or a `SESSION_SECRET` rotation) changes the derived signing key and
+ * invalidates every cookie minted before it.
+ */
 export function clearSessionCookie(settings: AuthSettings): string {
   return `${sessionCookieName(settings)}=; ${cookieAttributes(settings, 0)}`
 }

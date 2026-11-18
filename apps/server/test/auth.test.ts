@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { basicHeader, json, login, makeServer, makeConfig } from "./helpers"
 import { SERVER_VERSION, createApp } from "../src/app"
+import { deriveSigningKey } from "../src/auth"
+import { authSettings } from "../src/middleware"
 import { FakeBackend } from "@openchat/opencode"
 
 describe("healthz", () => {
@@ -200,6 +202,80 @@ describe("bcrypt password hash", () => {
         error: { code: "invalid_credentials", message: "Invalid user or password" },
       })
     }
+  })
+})
+
+describe("credential-bound session key", () => {
+  /**
+   * Same password as `PASSWORD_HASH`, different salt: both verify
+   * `secret-password`, so a cookie rejected across the two hashes is
+   * revocation, not a login that would fail anyway.
+   */
+  const ROTATED_PASSWORD_HASH =
+    "$2b$04$OCLI8Vi2JpKJ.A60UjwIkeIuzIOf74xTTlYUIULhAuj.NO9S1mb4S"
+
+  function hashServer(hash: string, secret = "test-secret-test-secret-test-secret") {
+    return makeServer({
+      env: {
+        OPENCHAT_PASSWORD: undefined,
+        OPENCHAT_PASSWORD_HASH: hash,
+        SESSION_SECRET: secret,
+      },
+    })
+  }
+
+  it("rejects a cookie minted against the previous password hash", async () => {
+    const before = hashServer(PASSWORD_HASH)
+    const cookie = await login(before)
+    const accepted = await before.app.request("/api/auth/me", { headers: { cookie } })
+    expect(accepted.status).toBe(200)
+
+    const after = hashServer(ROTATED_PASSWORD_HASH)
+    const rejected = await after.app.request("/api/auth/me", { headers: { cookie } })
+    expect(rejected.status).toBe(401)
+
+    // The rotated hash still logs in, so the 401 above is revocation.
+    const fresh = await login(after)
+    const freshMe = await after.app.request("/api/auth/me", {
+      headers: { cookie: fresh },
+    })
+    expect(freshMe.status).toBe(200)
+  })
+
+  it("rejects a cookie when SESSION_SECRET rotates", async () => {
+    const before = hashServer(PASSWORD_HASH, "first-secret-first-secret-first-secret")
+    const cookie = await login(before)
+    const after = hashServer(PASSWORD_HASH, "second-secret-second-secret-second-secret")
+    const rejected = await after.app.request("/api/auth/me", { headers: { cookie } })
+    expect(rejected.status).toBe(401)
+  })
+
+  it("keeps a copied cookie valid after logout (accepted residual)", async () => {
+    const server = makeServer()
+    const cookie = await login(server)
+    const logout = await server.app.request("/api/auth/logout", {
+      method: "POST",
+      headers: { cookie },
+    })
+    expect(logout.status).toBe(204)
+
+    // Logout is client-side only: no server-side session store exists, so this
+    // value survives until the TTL or a credential change.
+    const replay = await server.app.request("/api/auth/me", { headers: { cookie } })
+    expect(replay.status).toBe(200)
+  })
+
+  it("derives a key that is neither the secret nor the credential", () => {
+    const config = makeConfig()
+    const settings = authSettings(config)
+    expect(settings.signingKey).not.toBe(config.SESSION_SECRET)
+    // base64url of one SHA-256 digest, so a 60-character bcrypt hash cannot
+    // appear in it.
+    expect(settings.signingKey).toHaveLength(43)
+    expect(deriveSigningKey(settings)).toBe(settings.signingKey)
+    expect(deriveSigningKey({ ...settings, password: "another-password" })).not.toBe(
+      settings.signingKey,
+    )
   })
 })
 
