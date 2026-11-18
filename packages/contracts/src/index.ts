@@ -12,6 +12,7 @@ export * from "./permissions"
 export * from "./stt-model"
 export * from "./transcript"
 export * from "./tasks"
+export * from "./turn-policy"
 
 export interface SessionInfo {
   id: string
