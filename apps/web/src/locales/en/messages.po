@@ -53,6 +53,11 @@ msgid "chat.permissionTool"
 msgstr "{tool} requests:"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextUsage"
+msgstr "{used} / {limit} ({percent}%)"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.quota"
 msgstr "{used} of {total} used ({percent}%)"
@@ -228,6 +233,11 @@ msgid "apps.auto"
 msgstr "Auto"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionAuto"
+msgstr "Automatic"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.available"
 msgstr "Available"
@@ -281,6 +291,11 @@ msgstr "Cancelled"
 #: src/i18n/messages/shell.ts
 msgid "surface.chat"
 msgstr "Chat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.menuLabel"
+msgstr "Chat actions"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -358,6 +373,26 @@ msgid "render.errorCode"
 msgstr "Code: {code}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactNow"
+msgstr "Compact now"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionFailed"
+msgstr "Compaction failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionEnded"
+msgstr "Compaction finished"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionStarted"
+msgstr "Compaction started"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.status.completed"
 msgstr "Completed"
@@ -391,6 +426,21 @@ msgstr "Connected"
 #: src/i18n/messages/chat.ts
 msgid "chat.connectionLost"
 msgstr "Connection lost — reconnecting…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextCompactionFailedNotice"
+msgstr "Context compaction failed; sending your message anyway."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextUsageUnknown"
+msgstr "Context usage unknown"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextCompactedNotice"
+msgstr "Context was compacted before sending your message."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -573,13 +623,13 @@ msgid "settings.documents"
 msgstr "Documents"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.done"
+#: src/i18n/messages/render.ts
+msgid "tool.status.success"
 msgstr "Done"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.success"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.done"
 msgstr "Done"
 
 #. js-lingui-explicit-id
@@ -653,11 +703,6 @@ msgid "auth.loginDescription"
 msgstr "Enter your username and password to open the workspace."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.error"
-msgstr "Error"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.error"
 msgstr "Error"
@@ -665,6 +710,11 @@ msgstr "Error"
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.error"
+msgstr "Error"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.error"
 msgstr "Error"
 
 #. js-lingui-explicit-id
@@ -718,13 +768,13 @@ msgid "artifacts.description"
 msgstr "HTML documents your agent has written. Each one runs sandboxed on a separate origin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.kind.image"
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.image"
 msgstr "Image"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.kind.image"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.kind.image"
 msgstr "Image"
 
 #. js-lingui-explicit-id
@@ -826,6 +876,11 @@ msgstr "Loading…"
 #: src/i18n/messages/shell.ts
 msgid "nav.main"
 msgstr "Main navigation"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionManual"
+msgstr "Manual"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1213,11 +1268,6 @@ msgid "tasks.action.resume"
 msgstr "Resume {title}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.retry"
-msgstr "Retry"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.retry"
 msgstr "Retry"
@@ -1263,6 +1313,16 @@ msgid "host.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionRetry"
+msgstr "Retry compaction"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.retry"
 msgstr "Retry transcription"
@@ -1273,13 +1333,13 @@ msgid "tasks.create.ends"
 msgstr "Run once"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.running"
+#: src/i18n/messages/render.ts
+msgid "tool.status.running"
 msgstr "Running"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.running"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.running"
 msgstr "Running"
 
 #. js-lingui-explicit-id
@@ -1508,6 +1568,16 @@ msgid "tasks.kind.subagent"
 msgstr "Subagent"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactNowHint"
+msgstr "Summarise older turns to free context."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionSummaryLabel"
+msgstr "Summary"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "surface.label"
 msgstr "Surface"
@@ -1608,6 +1678,11 @@ msgid "code.mobileBody"
 msgstr "The Code interface is built for desktop. Open it in a new tab on this device."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactFailed"
+msgstr "The conversation could not be compacted."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.downloadFailed"
 msgstr "The download failed. Try again."
@@ -1636,6 +1711,11 @@ msgstr "The frame never finished loading. Open Code in a new tab instead."
 #: src/i18n/messages/code.ts
 msgid "code.downStatus"
 msgstr "The health probe got no answer from the Code host."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextUsageHint"
+msgstr "The host compacts automatically at 100% minus its configured buffer (35% in the seeded configuration)."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts

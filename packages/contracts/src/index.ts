@@ -2,10 +2,12 @@ import { z } from "zod"
 
 import type { AppsSurfaceInfo } from "./apps"
 import type { ArtifactsSurfaceInfo } from "./artifacts"
+import type { PromptNotice } from "./compaction"
 import type { ToolPart } from "./transcript"
 
 export * from "./apps"
 export * from "./artifacts"
+export * from "./compaction"
 export * from "./files"
 export * from "./artifacts/caps"
 export * from "./permissions"
@@ -25,6 +27,10 @@ export interface ModelInfo {
   id: string
   name: string
   providerID: string
+  /** The host's context window in tokens; absent when the host reports none. */
+  contextLimit?: number
+  /** True for the host's default chat model; at most one entry carries it. */
+  default?: boolean
 }
 
 export interface AgentInfo {
@@ -177,6 +183,11 @@ export interface PromptResponse {
   messageID: string
   /** True when the prompt was accepted into the queue of a running session. */
   queued?: boolean
+  /**
+   * Synthetic notices about what happened before the prompt was admitted.
+   * They are stable keys, so the client renders them through i18n.
+   */
+  notices?: PromptNotice[]
 }
 
 export interface PromptRequest {
@@ -230,6 +241,12 @@ export const EVENT = {
   inboxDeliveryChanged: "session.inbox.delivery.changed",
   interrupted: "session.interrupted",
   usageUpdated: "session.usage.updated",
+  usageRecorded: "session.usage.recorded",
+  retryScheduled: "session.retry.scheduled",
+  compactionStarted: "session.compaction.started",
+  compactionDelta: "session.compaction.delta",
+  compactionEnded: "session.compaction.ended",
+  compactionFailed: "session.compaction.failed",
   permissionAsked: "permission.asked",
   permissionReplied: "permission.replied",
   error: "session.error",

@@ -1,8 +1,16 @@
-import type { BackgroundJob, EventEnvelope, PermissionDecision, Schedule } from "@openchat/contracts"
+import type {
+  BackgroundJob,
+  CompactionOutcome,
+  EventEnvelope,
+  PermissionDecision,
+  Schedule,
+  SessionContext,
+} from "@openchat/contracts"
 import { BackendError } from "./errors"
 import type {
   AppsSnapshot,
   ChatBackend,
+  CompactOptions,
   CreateScheduleInput,
   CreateSessionInput,
   PromptInput,
@@ -133,6 +141,16 @@ export class FakeHostSwitch implements ChatBackend {
   async search(input: SearchInput): Promise<SearchOutcome> {
     this.guard()
     return this.backend.search(input)
+  }
+
+  async sessionContext(sessionID: string): Promise<SessionContext> {
+    this.guard()
+    return this.backend.sessionContext(sessionID)
+  }
+
+  async compact(sessionID: string, options?: CompactOptions): Promise<CompactionOutcome> {
+    this.guard()
+    return this.backend.compact(sessionID, options)
   }
 
   async listSchedules(sessionID: string): Promise<Schedule[]> {

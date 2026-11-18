@@ -53,6 +53,11 @@ msgid "chat.permissionTool"
 msgstr "{tool} möchte:"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextUsage"
+msgstr "{used} / {limit} ({percent} %)"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.quota"
 msgstr "{used} von {total} belegt ({percent} %)"
@@ -228,6 +233,11 @@ msgid "apps.auto"
 msgstr "Auto"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionAuto"
+msgstr "Automatisch"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.available"
 msgstr "Verfügbar"
@@ -281,6 +291,11 @@ msgstr "Abgebrochen"
 #: src/i18n/messages/shell.ts
 msgid "surface.chat"
 msgstr "Chat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.menuLabel"
+msgstr "Chat-Aktionen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -358,6 +373,26 @@ msgid "render.errorCode"
 msgstr "Code: {code}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactNow"
+msgstr "Jetzt komprimieren"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionFailed"
+msgstr "Komprimierung fehlgeschlagen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionEnded"
+msgstr "Komprimierung abgeschlossen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionStarted"
+msgstr "Komprimierung gestartet"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.status.completed"
 msgstr "Abgeschlossen"
@@ -391,6 +426,21 @@ msgstr "Verbunden"
 #: src/i18n/messages/chat.ts
 msgid "chat.connectionLost"
 msgstr "Verbindung unterbrochen – neuer Versuch läuft…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextCompactionFailedNotice"
+msgstr "Die Kontextkomprimierung ist fehlgeschlagen; deine Nachricht wird trotzdem gesendet."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextUsageUnknown"
+msgstr "Kontextnutzung unbekannt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextCompactedNotice"
+msgstr "Der Kontext wurde vor dem Senden deiner Nachricht komprimiert."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -573,14 +623,14 @@ msgid "settings.documents"
 msgstr "Dokumente"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.done"
-msgstr "Erledigt"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.success"
 msgstr "Fertig"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.done"
+msgstr "Erledigt"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -653,11 +703,6 @@ msgid "auth.loginDescription"
 msgstr "Gib deinen Benutzernamen und dein Passwort ein, um den Arbeitsplatz zu öffnen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.error"
-msgstr "Fehler"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.error"
 msgstr "Fehler"
@@ -665,6 +710,11 @@ msgstr "Fehler"
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.error"
+msgstr "Fehler"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.error"
 msgstr "Fehler"
 
 #. js-lingui-explicit-id
@@ -718,13 +768,13 @@ msgid "artifacts.description"
 msgstr "HTML-Dokumente, die dein Agent geschrieben hat. Jedes läuft in einer Sandbox auf einer eigenen Origin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.kind.image"
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.kind.image"
 msgstr "Bild"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.kind.image"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.kind.image"
 msgstr "Bild"
 
 #. js-lingui-explicit-id
@@ -826,6 +876,11 @@ msgstr "Wird geladen…"
 #: src/i18n/messages/shell.ts
 msgid "nav.main"
 msgstr "Hauptnavigation"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionManual"
+msgstr "Manuell"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1213,11 +1268,6 @@ msgid "tasks.action.resume"
 msgstr "{title} fortsetzen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.retry"
-msgstr "Erneut versuchen"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.retry"
 msgstr "Erneut versuchen"
@@ -1263,6 +1313,16 @@ msgid "host.retry"
 msgstr "Erneut versuchen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.retry"
+msgstr "Erneut versuchen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionRetry"
+msgstr "Komprimierung wiederholen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.retry"
 msgstr "Transkription erneut versuchen"
@@ -1273,13 +1333,13 @@ msgid "tasks.create.ends"
 msgstr "Einmal ausführen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/tasks.ts
-msgid "tasks.status.running"
+#: src/i18n/messages/render.ts
+msgid "tool.status.running"
 msgstr "Läuft"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/render.ts
-msgid "tool.status.running"
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.running"
 msgstr "Läuft"
 
 #. js-lingui-explicit-id
@@ -1508,6 +1568,16 @@ msgid "tasks.kind.subagent"
 msgstr "Subagent"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactNowHint"
+msgstr "Ältere Turns zusammenfassen, um Kontext freizugeben."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionSummaryLabel"
+msgstr "Zusammenfassung"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "surface.label"
 msgstr "Oberfläche"
@@ -1608,6 +1678,11 @@ msgid "code.mobileBody"
 msgstr "Die Code-Oberfläche ist für den Desktop gedacht. Öffne sie auf diesem Gerät in einem neuen Tab."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactFailed"
+msgstr "Die Unterhaltung konnte nicht komprimiert werden."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.downloadFailed"
 msgstr "Der Download ist fehlgeschlagen. Versuch es erneut."
@@ -1636,6 +1711,11 @@ msgstr "Der Frame wurde nie fertig geladen. Öffne Code stattdessen in einem neu
 #: src/i18n/messages/code.ts
 msgid "code.downStatus"
 msgstr "Die Statusprüfung hat keine Antwort vom Code-Host erhalten."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextUsageHint"
+msgstr "Der Host komprimiert automatisch bei 100 % minus seinem konfigurierten Puffer (35 % in der ausgelieferten Konfiguration)."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts

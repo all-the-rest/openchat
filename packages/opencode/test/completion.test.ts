@@ -20,7 +20,13 @@ describe("completion catalogue and forwarding", () => {
   it("exposes a non-empty fake catalogue", async () => {
     const backend = new FakeBackend()
     expect(await backend.listModels()).toEqual([
-      { id: "fake/echo", name: "Fake Echo", providerID: "fake" },
+      {
+        id: "fake/echo",
+        name: "Fake Echo",
+        providerID: "fake",
+        contextLimit: 200_000,
+        default: true,
+      },
     ])
     expect(await backend.listAgents()).toEqual([
       { id: "build", name: "Build", description: "Deterministic scenario runner" },

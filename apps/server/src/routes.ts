@@ -47,7 +47,8 @@ import { registerSearchRoute } from "./search"
 import { registerFakeControlsRoutes } from "./fake-controls"
 import { registerFakeHostRoute } from "./fake-host-route"
 import type { FixedWindowThrottle, VerificationGate } from "./throttle"
-import { SSE_RETRY_FRAME } from "./sse"
+import { COMPACTION_WAIT_MS, ContextSoftCap } from "./context-cap"
+import { registerEventRoute } from "./events-route"
 import { registerTranscribeRoute } from "./transcribe"
 import { localModelAvailable } from "./models"
 import { registerTasksRoutes } from "./tasks"
@@ -88,15 +89,8 @@ export interface RouteDeps {
   artifactsThrottle: FixedWindowThrottle
   /** Injected clock for signed artifact URLs. */
   artifactsNow?: () => number
-}
-
-function sseHeaders(): Record<string, string> {
-  return {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  }
+  /** How long a prompt waits for a compaction decision; tests shorten it. */
+  compactionWaitMs?: number
 }
 
 function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
@@ -211,6 +205,11 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
 
 function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   const { config, backend, promptThrottle } = deps
+  const softCap = new ContextSoftCap({
+    backend,
+    cap: config.CHAT_CONTEXT_SOFT_CAP,
+    waitMs: deps.compactionWaitMs ?? COMPACTION_WAIT_MS,
+  })
 
   app.get("/api/sessions", async (c) => {
     const sessions = await backend.listSessions()
@@ -258,6 +257,9 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     // Count accepted submissions only; a rejected body must not consume the
     // caller's budget.
     promptThrottle.record(address)
+    // The soft cap runs before admission: at/over the cap and idle, one
+    // compaction is requested and awaited. A failure only adds a notice.
+    const decision = await softCap.admit(c.req.param("id"))
     // Spec 03: one active run per session. A second send is queued rather than
     // rejected, so the BFF defaults to the queue delivery mode.
     const result = await backend.prompt(c.req.param("id"), {
@@ -268,6 +270,7 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     })
     const response: PromptResponse = { ok: true, messageID: result.messageID }
     if (result.queued) response.queued = true
+    if (decision.notice) response.notices = [decision.notice]
     return c.json(response)
   })
 
@@ -287,67 +290,13 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     await backend.interrupt(c.req.param("id"))
     return c.json({ ok: true })
   })
-}
 
-function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
-  const { backend, sseHeartbeatMs } = deps
-
-  app.get("/api/events", (c) => {
-    const lifecycle = new AbortController()
-    const encoder = new TextEncoder()
-    const subscription = backend.subscribe(lifecycle.signal)
-    let heartbeat: ReturnType<typeof setInterval> | undefined
-    let finished = false
-
-    const cleanup = () => {
-      if (finished) return
-      finished = true
-      if (heartbeat !== undefined) clearInterval(heartbeat)
-      lifecycle.abort()
-    }
-
-    const onAbort = () => cleanup()
-    c.req.raw.signal.addEventListener("abort", onAbort, { once: true })
-    if (c.req.raw.signal.aborted) cleanup()
-
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        const write = (chunk: string) => {
-          controller.enqueue(encoder.encode(chunk))
-        }
-        const pump = async () => {
-          try {
-            write(`${SSE_RETRY_FRAME}\n\n`)
-            heartbeat = setInterval(() => {
-              try {
-                write(": heartbeat\n\n")
-              } catch {
-                cleanup()
-              }
-            }, sseHeartbeatMs)
-            for await (const event of subscription) {
-              write(`data: ${JSON.stringify(event)}\n\n`)
-            }
-          } catch {
-            // The client went away or the backend stopped; closing is enough.
-          } finally {
-            cleanup()
-            c.req.raw.signal.removeEventListener("abort", onAbort)
-            try {
-              controller.close()
-            } catch {
-              // Already closed by the consumer.
-            }
-          }
-        }
-        void pump()
-      },
-      cancel() {
-        cleanup()
-      },
-    })
-
-    return new Response(body, { headers: sseHeaders() })
+  // Manual compaction. The host rejects a streaming session with `conflict`,
+  // which `createApp` maps to 409; the transcript then renders the failure
+  // event and offers a retry.
+  app.post("/api/sessions/:id/compact", async (c) => {
+    const outcome = await backend.compact(c.req.param("id"), { reason: "manual" })
+    return c.json({ ok: true, status: outcome.status })
   })
 }
 
@@ -393,7 +342,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
   registerTasksRoutes(app, { backend: deps.backend })
-  registerEventRoute(app, deps)
+  registerEventRoute(app, { backend: deps.backend, sseHeartbeatMs: deps.sseHeartbeatMs })
   // Fake mode only; the live adapter has no outage switch to expose.
   if (deps.config.BACKEND_MODE === "fake") {
     if (deps.backend instanceof FakeHostSwitch) registerFakeHostRoute(app, deps.backend)

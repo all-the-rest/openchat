@@ -19,7 +19,13 @@ describe("catalogue routes", () => {
     const models = await server.app.request("/api/models", { headers: { cookie } })
     expect(models.status).toBe(200)
     expect(await json<ModelInfo[]>(models)).toEqual([
-      { id: "fake/echo", name: "Fake Echo", providerID: "fake" },
+      {
+        id: "fake/echo",
+        name: "Fake Echo",
+        providerID: "fake",
+        contextLimit: 200_000,
+        default: true,
+      },
     ])
 
     const agents = await server.app.request("/api/agents", { headers: { cookie } })

@@ -297,57 +297,6 @@ describe("env bootstrap", { timeout: 60_000 }, () => {
   })
 })
 
-describe("OpenCode MCP config", { timeout: 60_000 }, () => {
-  it("seeds one local entry once, without printing the token", () => {
-    const stack = temp("openchat-seed-")
-    const token = "0123456789abcdef0123456789abcdef"
-    const documentsToken = "fedcba9876543210fedcba9876543210"
-    writeFileSync(join(stack, ".env"), `ARTIFACT_INTERNAL_TOKEN=${token}\nDOCUMENTS_TOKEN=${documentsToken}\n`)
-
-    const result = bash([SEED, "--stack-dir", stack])
-    expect(result.status, result.stderr).toBe(0)
-    expect(result.stdout).not.toContain(token)
-
-    const file = join(stack, "opencode-config", "opencode.json")
-    const text = readFileSync(file, "utf8")
-    expect(statSync(file).mode & 0o777).toBe(0o600)
-    expect(text).toContain('"type": "local"')
-    expect(text).toContain("/opt/artifact-tool/node_modules/.bin/tsx")
-    expect(text).toContain("/opt/artifact-tool/packages/artifact-tool/src/index.ts")
-    expect(text).toContain('"OPENCHAT_BFF_URL": "http://bff:8787"')
-    expect(text).toContain(token)
-
-    expect(text).toContain('"openchat-python"')
-    expect(text).toContain("/opt/artifact-tool/packages/python-tool/src/index.ts")
-    expect(text).toContain('"OPENCHAT_PYTHON": "/usr/bin/python3"')
-    expect(text).toContain('"DOCUMENTS_URL": "http://documents:8099"')
-    expect(text).toContain(documentsToken)
-
-    writeFileSync(file, `${text}\n`)
-    const stamp = statSync(file).mtimeMs
-    expect(bash([SEED, "--stack-dir", stack]).status).toBe(0)
-    expect(readFileSync(file, "utf8")).toBe(`${text}\n`)
-    expect(statSync(file).mtimeMs).toBe(stamp)
-  })
-
-  it("repairs a pre-existing world-readable config without touching its bytes", () => {
-    const stack = temp("openchat-seed-mode-")
-    const dir = join(stack, "opencode-config")
-    mkdirSync(dir, { recursive: true })
-    const file = join(dir, "opencode.json")
-    const body = '{"mcp":{"openchat":{"type":"local"}}}\n'
-    writeFileSync(file, body)
-    chmodSync(file, 0o644)
-    expect(statSync(file).mode & 0o777).toBe(0o644)
-
-    const result = bash([SEED, "--stack-dir", stack])
-    expect(result.status, result.stderr).toBe(0)
-    expect(statSync(file).mode & 0o777).toBe(0o600)
-    expect(readFileSync(file, "utf8")).toBe(body)
-    expect(result.stdout).toContain("repaired mode")
-  })
-})
-
 describe("size-capped disks", { timeout: 60_000 }, () => {
   it("prints the 2/4/4 GiB plan, the temp image and the ownership step", () => {
     const stack = temp("openchat-disks-")

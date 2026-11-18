@@ -12,6 +12,7 @@ import type {
   SessionMessageAssistantTool,
   SessionMessageInfo,
 } from "@opencode/client"
+import { normalizeUsage } from "./live-compaction"
 
 export function textPartID(messageID: string, kind: "text" | "reasoning", index: number): string {
   return `${messageID}_${kind}_${index}`
@@ -119,7 +120,7 @@ export function normalizeMessage(info: SessionMessageInfo, sessionID = ""): Mess
     }
   }
   if (info.type === "assistant") {
-    return {
+    const message: Message = {
       id: info.id,
       sessionID,
       role: "assistant",
@@ -127,6 +128,9 @@ export function normalizeMessage(info: SessionMessageInfo, sessionID = ""): Mess
       created: info.time.created,
       status: assistantStatus(info),
     }
+    const usage = normalizeUsage(info.tokens)
+    if (usage) message.usage = usage
+    return message
   }
   if (info.type === "system") {
     return {

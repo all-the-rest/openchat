@@ -3,6 +3,8 @@ import type {
   AppSkill,
   AppServer,
   BackgroundJob,
+  CompactionOutcome,
+  CompactionReason,
   EventEnvelope,
   InboxEntry,
   Message,
@@ -14,6 +16,7 @@ import type {
   SearchHit,
   SearchSource,
   ServerInfo,
+  SessionContext,
   SessionInfo,
 } from "@openchat/contracts"
 
@@ -72,6 +75,22 @@ export interface SearchOutcome {
   failed: SearchSource[]
 }
 
+/** One compaction call; the caller decides whether to wait for its end. */
+export interface CompactOptions {
+  /**
+   * Idempotency key. A repeated id must not compact the session twice, so a
+   * retried request and a racing one resolve to the first outcome.
+   */
+  id?: string
+  /**
+   * How long to wait for `session.compaction.ended` or `.failed`. Omitted or
+   * zero returns as soon as the host accepted the request.
+   */
+  waitMs?: number
+  /** Why the caller asked. The host decides its own reason in live mode. */
+  reason?: CompactionReason
+}
+
 /** MCP servers and skills of the workspace, as one read of the host. */
 export interface AppsSnapshot {
   servers: AppServer[]
@@ -126,6 +145,16 @@ export interface ChatBackend {
   disconnectApp(name: string): Promise<void>
   /** Grouped multi-source search; only `input.sources` are queried. */
   search(input: SearchInput): Promise<SearchOutcome>
+  /**
+   * Last reported token usage of a session and whether a run is active. One
+   * host read, so a compaction decision cannot race two separate calls.
+   */
+  sessionContext(sessionID: string): Promise<SessionContext>
+  /**
+   * Requests compaction. Throws `conflict` while the session is streaming or a
+   * compaction is already pending, and `not_found` for an unknown session.
+   */
+  compact(sessionID: string, options?: CompactOptions): Promise<CompactionOutcome>
   /** Schedules of one session; the host API requires a session id. */
   listSchedules(sessionID: string): Promise<Schedule[]>
   createSchedule(input: CreateScheduleInput): Promise<Schedule>
@@ -140,6 +169,7 @@ export interface ChatBackend {
 export { isFakeScenario, resolveScenario } from "./scenarios"
 export { FakeBackend } from "./fake"
 export type { FakeBackendOptions, RecordedPrompt } from "./fake"
+export type { CompactionRecord } from "./fake-compaction"
 export { FakeHostSwitch } from "./fake-host"
 export { LiveBackend } from "./live"
 export type { LiveBackendOptions } from "./live"
