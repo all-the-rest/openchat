@@ -22,6 +22,9 @@ function settings(overrides: Partial<AuthSettings> = {}): AuthSettings {
     password: "",
     passwordHash: HASH,
     secret: "0123456789abcdef0123456789abcdef",
+    // These tests never sign a cookie; the field exists so the fixture is a
+    // complete `AuthSettings`.
+    signingKey: "test-signing-key",
     ttlSeconds: 3600,
     secureCookie: false,
     ...overrides,

@@ -1,6 +1,6 @@
 import type { Context } from "hono"
 import type { Hono } from "hono"
-import { authenticate } from "./auth"
+import { authenticate, deriveSigningKey } from "./auth"
 import type { AuthSettings } from "./auth"
 import type { AppEnv } from "./app"
 import type { EnvConfig } from "./env"
@@ -125,7 +125,7 @@ export function clientAddress(c: Context<AppEnv>, trustProxy: boolean): string {
 }
 
 export function authSettings(config: EnvConfig): AuthSettings {
-  return {
+  const settings: Omit<AuthSettings, "signingKey"> = {
     mode: config.AUTH_MODE,
     user: config.OPENCHAT_USER,
     password: config.OPENCHAT_PASSWORD,
@@ -134,6 +134,8 @@ export function authSettings(config: EnvConfig): AuthSettings {
     ttlSeconds: config.SESSION_TTL_SECONDS,
     secureCookie: config.COOKIE_SECURE,
   }
+  // Derived here, once per boot: bcrypt stays off the session-read path.
+  return { ...settings, signingKey: deriveSigningKey(settings) }
 }
 
 /**
