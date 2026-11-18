@@ -331,6 +331,16 @@ install_caddy() {
     --fragment "$RELEASE/caddy.openchat"
 }
 
+# BuildKit grew ~5.4 GiB per deploy on this host (#44) and the builder is shared
+# with the other stacks, so keep a 4 GiB working set instead of wiping it. A
+# failed prune must not fail a deploy that already swapped.
+prune_build_cache() {
+  step "trim the shared build cache"
+  if ! remote "docker builder prune -f --keep-storage 4GB"; then
+    note "warning: build cache prune failed; the deploy is unaffected"
+  fi
+}
+
 summarize() {
   note ""
   note "deployed: tag $TAG, release ${RELEASE#"$STACK_DIR"/}"
@@ -361,6 +371,7 @@ do_deploy() {
   render_release
   swap_release
   install_caddy
+  prune_build_cache
   summarize
 
   [ "$DRY_RUN" -eq 1 ] && note "dry run: nothing was synced, built, started, mounted or reloaded"

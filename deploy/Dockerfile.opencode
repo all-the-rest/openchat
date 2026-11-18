@@ -49,10 +49,11 @@ COPY packages/contracts/package.json ./packages/contracts/package.json
 COPY packages/opencode/package.json ./packages/opencode/package.json
 COPY packages/artifact-tool/package.json ./packages/artifact-tool/package.json
 
-# The tool, its workspace dependencies and its dev dependency `tsx` (the
-# runtime command); `--frozen-lockfile` turns manifest drift into a build
-# failure.
-RUN pnpm install --frozen-lockfile --filter @openchat/artifact-tool...
+# The tool, its workspace dependencies and `tsx` (the runtime command, a
+# regular dependency so the production install keeps it); `--frozen-lockfile`
+# turns manifest drift into a build failure, `--prod` keeps vitest, jsdom and
+# the TypeScript toolchain out of the shipped image.
+RUN pnpm install --frozen-lockfile --prod --filter @openchat/artifact-tool...
 
 COPY tsconfig.base.json ./
 COPY packages/artifact-tool ./packages/artifact-tool

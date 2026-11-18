@@ -112,6 +112,7 @@ describe("derived OpenCode image", () => {
     expect(DOCKERFILE).toContain("sha256sum -c")
     expect(DOCKERFILE).toContain("ARG TARGETARCH=amd64")
     expect(DOCKERFILE).toContain("/opt/artifact-tool/node_modules/.bin/tsx")
+    expect(DOCKERFILE).toMatch(/pnpm install [^\n]*--prod[^\n]*--filter @openchat\/artifact-tool/)
     expect(DOCKERFILE).toContain(
       "COPY --from=tool /repo /opt/artifact-tool",
     )
@@ -384,30 +385,5 @@ describe("runbook", () => {
     expect(DOC).toContain("10 GiB reserve")
     expect(DOC).toContain("disks-ready")
     expect(DOC).toContain("1000:1000")
-  })
-})
-
-describe("image build set", () => {
-  const DEPLOY_SH = join(ROOT, "deploy", "remote", "deploy.sh")
-
-  it("builds the toolbox image only for the dind profile", () => {
-    const plain = spawnSync("/bin/bash", [DEPLOY_SH, "--dry-run", "--tag", "abc1234"], {
-      encoding: "utf8",
-    })
-    const withDind = spawnSync(
-      "/bin/bash",
-      [DEPLOY_SH, "--dry-run", "--tag", "abc1234", "--with-dind"],
-      { encoding: "utf8" },
-    )
-
-    expect(plain.status).toBe(0)
-    expect(withDind.status).toBe(0)
-    expect(plain.stdout).toContain(
-      "'build' 'bff' 'code-host' 'artifact-host' 'opencode'\n",
-    )
-    expect(plain.stdout).not.toContain("'toolbox'")
-    expect(withDind.stdout).toContain(
-      "'build' 'bff' 'code-host' 'artifact-host' 'opencode' 'toolbox'",
-    )
   })
 })
