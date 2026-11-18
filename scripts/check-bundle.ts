@@ -62,6 +62,7 @@ export interface ManifestChunk {
   isDynamicEntry?: boolean
   imports?: string[]
   dynamicImports?: string[]
+  assets?: string[]
 }
 
 export type Manifest = Record<string, ManifestChunk>
@@ -199,6 +200,29 @@ export function violations(root: string): Violation[] {
         file: route,
         reason: "first-paint route must stay in the eager entry chunk",
       })
+    }
+  }
+
+  // Issue #47: the speech worker is a lazy asset and its ONNX runtime must
+  // never be inlined into the first-paint JavaScript.
+  if (entry !== undefined) {
+    if (!(entry.assets ?? []).some((asset) => /local-worker-.*\.js$/.test(asset))) {
+      found.push({
+        bytes: 0,
+        file: "assets/local-worker-*.js",
+        reason: "speech worker must be a lazy asset of the entry",
+      })
+    }
+    const entryPath = join(distDir, entry.file)
+    if (existsSync(entryPath)) {
+      const source = readFileSync(entryPath, "utf8")
+      if (/onnxruntime|@huggingface\/transformers/.test(source)) {
+        found.push({
+          bytes: 0,
+          file: entry.file,
+          reason: "model runtime must not enter the entry chunk",
+        })
+      }
     }
   }
 

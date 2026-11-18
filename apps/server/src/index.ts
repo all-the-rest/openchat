@@ -9,6 +9,7 @@ import { INTERNAL_ARTIFACTS_PATH } from "./artifacts-internal"
 import { reportChatFileOrphans } from "./chat-files-audit"
 import { isChatFilesUploadPath } from "./chat-files-paths"
 import { loadEnv } from "./env"
+import { serveModelFile } from "./models"
 import { ARTIFACT_BODY_MAX_BYTES, MAX_BODY_BYTES } from "./limits"
 import { pumpResponseBody } from "./pump"
 import { serveStatic } from "./static"
@@ -92,6 +93,19 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   for (const [name, value] of Object.entries(request.headers)) {
     if (value === undefined) continue
     headers.set(name, Array.isArray(value) ? value.join(", ") : value)
+  }
+
+  // Pinned model weights are answered before the SPA so a `/models/...` miss
+  // is a real 404 and never serves the shell. Nothing leaves this directory.
+  if (url.pathname.startsWith("/models/")) {
+    const modelResponse = await serveModelFile(
+      config.STT_MODEL_DIR,
+      new Request(url, { method, headers }),
+    )
+    if (modelResponse) {
+      await writeWebResponse(response, modelResponse)
+      return
+    }
   }
 
   if (staticDir) {

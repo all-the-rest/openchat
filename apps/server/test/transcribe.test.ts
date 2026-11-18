@@ -364,7 +364,13 @@ describe("POST /api/transcribe", () => {
     const info = await json<{ dictation: DictationInfo }>(
       await enabled.app.request("/api/info", { headers: { cookie } }),
     )
-    expect(info.dictation).toEqual({ enabled: true, maxSeconds: 90, maxBytes: 2048 })
+    expect(info.dictation).toEqual({
+      enabled: true,
+      maxSeconds: 90,
+      maxBytes: 2048,
+      local: { available: false, model: "whisper-base" },
+      server: { available: true },
+    })
 
     const disabled = makeServer({ env: { STT_URL: undefined } })
     const disabledCookie = await login(disabled)
@@ -376,6 +382,8 @@ describe("POST /api/transcribe", () => {
       enabled: false,
       maxSeconds: 120,
       maxBytes: 26_214_400,
+      local: { available: false, model: "whisper-base" },
+      server: { available: false },
     })
   })
 })

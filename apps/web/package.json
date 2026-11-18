@@ -16,6 +16,7 @@
     "i18n:check": "node scripts/check-catalogs.ts"
   },
   "dependencies": {
+    "@huggingface/transformers": "4.3.2",
     "@lingui/core": "^6.12.0",
     "@lingui/react": "^6.12.0",
     "@openchat/contracts": "workspace:*",

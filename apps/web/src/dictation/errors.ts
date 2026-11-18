@@ -12,6 +12,9 @@ export type DictationErrorCode =
   | "failed"
   | "empty_transcript"
   | "network"
+  | "model_unavailable"
+  | "model_download_failed"
+  | "out_of_memory"
 
 export const ERROR_MESSAGE_KEYS: Record<DictationErrorCode, MessageKey> = {
   permission: "dictation.error.permission",
@@ -23,6 +26,27 @@ export const ERROR_MESSAGE_KEYS: Record<DictationErrorCode, MessageKey> = {
   failed: "dictation.error.failed",
   empty_transcript: "dictation.error.empty",
   network: "dictation.error.network",
+  model_unavailable: "dictation.error.modelUnavailable",
+  model_download_failed: "dictation.error.modelDownloadFailed",
+  out_of_memory: "dictation.error.outOfMemory",
+}
+
+const LOCAL_CODES: readonly DictationErrorCode[] = [
+  "model_unavailable",
+  "model_download_failed",
+  "out_of_memory",
+  "empty_transcript",
+  "unsupported",
+]
+
+/** Worker failures carry a stable code; a stack trace never reaches the UI. */
+export function mapLocalError(error: unknown): DictationErrorCode {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = String((error as { code: unknown }).code)
+    const match = LOCAL_CODES.find((candidate) => candidate === code)
+    if (match) return match
+  }
+  return "failed"
 }
 
 function nameOf(error: unknown): string {

@@ -2,8 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { DictationInfo } from "@openchat/contracts"
 import { api } from "../api/client"
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_SECONDS } from "./config"
-import { mapCaptureError, mapTranscribeError, type DictationErrorCode } from "./errors"
+import {
+  mapCaptureError,
+  mapLocalError,
+  mapTranscribeError,
+  type DictationErrorCode,
+} from "./errors"
 import { formatBytes, formatDuration, pickMimeType } from "./format"
+import type { LocalProgress } from "./local-protocol"
+import { useLocalDictation } from "./useLocalDictation"
 import {
   attachMeter,
   clearTimer,
@@ -15,6 +22,7 @@ import {
 } from "./recorder"
 
 export type DictationStatus = "idle" | "requesting" | "recording" | "transcribing" | "error"
+export type DictationPath = "local" | "server"
 
 export interface DictationNotice {
   kind: "time" | "size"
@@ -24,29 +32,35 @@ export interface DictationNotice {
 
 export interface UseDictationOptions {
   config: DictationInfo | null | undefined
-  /** BCP-47 tag sent as `?language=`; the STT service may ignore it. */
+  /** BCP-47 tag sent as `?language=`; the local pipeline uses it too. */
   language: string
   onTranscript(text: string): void
 }
 
 export interface DictationController {
   enabled: boolean
+  /** Which path is active; the UI labels it explicitly. */
+  path: DictationPath
+  serverAvailable: boolean
+  consentPending: boolean
+  progress: LocalProgress | null
   status: DictationStatus
   elapsedMs: number
   /** Normalized RMS level, 0 … 1. */
   level: number
   error: DictationErrorCode | null
   notice: DictationNotice | null
-  /** Pointer press; starts recording inside the gesture. */
   press(): void
-  /** Pointer release; a short press keeps recording, a long press stops. */
   release(): void
-  /** Keyboard toggle (Enter/Space) and a click that did not start capture. */
   toggle(): void
   stop(): void
   cancel(): void
   retry(): void
   dismiss(): void
+  chooseLocal(): void
+  chooseServer(): void
+  decline(): void
+  forgetModel(): Promise<void>
 }
 
 /** A press shorter than this keeps recording hands-free instead of stopping. */
@@ -76,6 +90,7 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
 
   onTranscriptRef.current = onTranscript
   languageRef.current = language
+  const local = useLocalDictation(config)
   const enabled = Boolean(config?.enabled)
   limitsRef.current = {
     maxSeconds: config?.maxSeconds && config.maxSeconds > 0 ? config.maxSeconds : DEFAULT_MAX_SECONDS,
@@ -92,10 +107,26 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
       lastBlobRef.current = blob
       updateStatus("transcribing")
       setError(null)
+      let usedLocal = local.path === "local"
       try {
-        const result = await api.transcribe(blob, { language: languageRef.current })
+        let text = ""
+        if (usedLocal) {
+          try {
+            text = (await local.run(blob, languageRef.current)).text.trim()
+          } catch (failure) {
+            if (!local.serverAvailable) throw failure
+            // A broken model must never leave a silent microphone: switch to
+            // the server path and retry the same bytes once.
+            usedLocal = false
+            local.switchToServer()
+            const result = await api.transcribe(blob, { language: languageRef.current })
+            text = typeof result?.text === "string" ? result.text.trim() : ""
+          }
+        } else {
+          const result = await api.transcribe(blob, { language: languageRef.current })
+          text = typeof result?.text === "string" ? result.text.trim() : ""
+        }
         if (!mountedRef.current) return
-        const text = typeof result?.text === "string" ? result.text.trim() : ""
         if (text.length === 0) {
           lastBlobRef.current = null
           setError("empty_transcript")
@@ -107,15 +138,14 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
         onTranscriptRef.current(text)
       } catch (failure) {
         if (!mountedRef.current) return
-        const code = mapTranscribeError(failure)
-        // A 422 means this audio has no words in it; retrying the same bytes
-        // can only return 422 again, so the retry records anew.
+        const code = usedLocal ? mapLocalError(failure) : mapTranscribeError(failure)
+        // Empty audio cannot become non-empty on retry; recording anew can.
         if (code === "empty_transcript") lastBlobRef.current = null
         setError(code)
         updateStatus("error")
       }
     },
-    [updateStatus],
+    [local, updateStatus],
   )
 
   const stopSession = useCallback(
@@ -143,11 +173,7 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
       const elapsed = Date.now() - session.startedAt
       setElapsedMs(elapsed)
       if (session.analyser) setLevel(readLevel(session.analyser))
-      if (
-        !session.limitHit &&
-        session.recorder.state === "recording" &&
-        elapsed >= limits.maxSeconds * 1000
-      ) {
+      if (!session.limitHit && session.recorder.state === "recording" && elapsed >= limits.maxSeconds * 1000) {
         session.limitHit = true
         setNotice({ kind: "time", value: formatDuration(limits.maxSeconds * 1000) })
         stopSession(session)
@@ -157,7 +183,7 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
   )
 
   const begin = useCallback(async () => {
-    if (!enabled) return
+    if (!enabled || local.consentPending) return
     const token = ++tokenRef.current
     stopRequestedRef.current = false
     setError(null)
@@ -173,7 +199,6 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
       updateStatus("error")
       return
     }
-
     let stream: MediaStream
     try {
       stream = await mediaDevices.getUserMedia({ audio: true })
@@ -189,7 +214,6 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
       if (token === tokenRef.current && mountedRef.current) updateStatus("idle")
       return
     }
-
     let recorder: MediaRecorder
     try {
       recorder = new MediaRecorder(stream, { mimeType })
@@ -244,8 +268,6 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
       if (sessionRef.current === session) sessionRef.current = null
       if (!mountedRef.current) return
       if (session.discard) {
-        // A replacement capture may already be running; it owns the clock and
-        // the status now.
         if (sessionRef.current === null) {
           setLevel(0)
           setElapsedMs(0)
@@ -277,7 +299,7 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
     attachMeter(session)
     session.timer = window.setInterval(() => tick(session), TICK_MS)
     updateStatus("recording")
-  }, [enabled, send, stopSession, tick, updateStatus])
+  }, [enabled, local.consentPending, send, stopSession, tick, updateStatus])
 
   const press = useCallback(() => {
     if (!enabled) return
@@ -307,6 +329,7 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
     pressedAtRef.current = 0
     stopRequestedRef.current = false
     lastBlobRef.current = null
+    local.cancel()
     const session = sessionRef.current
     sessionRef.current = null
     if (session) {
@@ -318,7 +341,7 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
     setError(null)
     setNotice(null)
     updateStatus("idle")
-  }, [updateStatus])
+  }, [local.cancel, updateStatus])
 
   const toggle = useCallback(() => {
     if (!enabled) return
@@ -352,8 +375,7 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
     if (statusRef.current === "error") updateStatus("idle")
   }, [updateStatus])
 
-  // Escape cancels the recording before menus or the field see the key (spec 04).
-  const cancelling = status === "recording" || status === "requesting"
+  const cancelling = status === "recording" || status === "requesting" || local.consentPending
   useEffect(() => {
     if (!cancelling) return
     const handleEscape = (event: KeyboardEvent) => {
@@ -366,7 +388,6 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
     return () => window.removeEventListener("keydown", handleEscape, true)
   }, [cancelling, cancel])
 
-  // Leaving the composer must not leave the microphone open.
   useEffect(() => {
     mountedRef.current = true
     return () => {
@@ -383,6 +404,10 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
 
   return {
     enabled,
+    path: local.path,
+    serverAvailable: local.serverAvailable,
+    consentPending: local.consentPending,
+    progress: local.progress,
     status,
     elapsedMs,
     level,
@@ -395,5 +420,9 @@ export function useDictation({ config, language, onTranscript }: UseDictationOpt
     cancel,
     retry,
     dismiss,
+    chooseLocal: local.chooseLocal,
+    chooseServer: local.chooseServer,
+    decline: local.decline,
+    forgetModel: local.forgetModel,
   }
 }

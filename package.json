@@ -10,6 +10,8 @@
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "test:e2e": "pnpm --filter @openchat/web run test:e2e",
+    "stt:fetch": "node scripts/stt-fetch.ts",
+    "stt:smoke": "node scripts/stt-smoke.ts",
     "release:version": "node scripts/release.ts version",
     "release:bump": "node scripts/release.ts bump",
     "release:changelog": "node scripts/release.ts changelog",
@@ -20,5 +22,9 @@
   "engines": {
     "node": ">=24",
     "pnpm": ">=11"
+  },
+  "devDependencies": {
+    "@huggingface/transformers": "4.3.2",
+    "@openchat/contracts": "workspace:*"
   }
 }

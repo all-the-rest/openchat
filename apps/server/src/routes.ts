@@ -1,4 +1,5 @@
 import type { Hono } from "hono"
+import { STT_MODEL_ID } from "@openchat/contracts"
 import type { ChatBackend } from "@openchat/opencode"
 import { FakeHostSwitch, SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
 import {
@@ -46,6 +47,7 @@ import { registerFakeHostRoute } from "./fake-host-route"
 import type { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { SSE_RETRY_FRAME } from "./sse"
 import { registerTranscribeRoute } from "./transcribe"
+import { localModelAvailable } from "./models"
 
 /** Fixed `Retry-After` for a login rejected by the concurrency gate. */
 export const LOGIN_BUSY_RETRY_AFTER_SECONDS = 1
@@ -160,6 +162,10 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
   const { config, backend } = deps
 
   app.get("/api/info", async (c) => {
+    // A partial or absent model set disables the on-device path without ever
+    // hiding the microphone when the server STT is configured.
+    const localAvailable = await localModelAvailable(config.STT_MODEL_DIR)
+    const serverAvailable = Boolean(config.STT_URL)
     // The host may be unreachable (a dead tunnel is a normal operating state),
     // so the three host calls settle independently: one answer proves the host
     // is up, and a failed fragment degrades instead of failing the page load.
@@ -184,9 +190,11 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
       agents: agents.status === "fulfilled" ? agents.value : [],
       scenario: config.BACKEND_MODE === "fake" ? config.FAKE_SCENARIO : "live",
       dictation: {
-        enabled: Boolean(config.STT_URL),
+        enabled: serverAvailable || localAvailable,
         maxSeconds: config.DICTATION_MAX_SECONDS,
         maxBytes: config.DICTATION_MAX_BYTES,
+        local: { available: localAvailable, model: STT_MODEL_ID },
+        server: { available: serverAvailable },
       } satisfies DictationInfo,
       code: {
         configured: Boolean(config.CODE_HOST_ORIGIN),
