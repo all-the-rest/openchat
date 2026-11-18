@@ -203,7 +203,9 @@ describe("runSmoke", () => {
     const result = await runSmoke({
       baseUrl,
       password: "secret",
-      streamMs: 50,
+      // The window starts before the request, so it has to cover connect +
+      // first chunk; 50 ms was enough on an idle machine and not under load.
+      streamMs: 500,
       requireLive: false,
     })
 
