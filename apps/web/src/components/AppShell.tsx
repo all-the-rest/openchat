@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Outlet } from "react-router-dom"
 import { SidebarToggle } from "../components/controls"
+import { HostStatusBanner } from "../components/HostStatusBanner"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
 import { SessionSidebar } from "../chat/SessionSidebar"
@@ -141,6 +142,10 @@ export function AppShell() {
             </span>
           </div>
         )}
+
+        {/* A dead host is a shell state: the banner sits on every protected
+            route, directly under the bar (or at the top on the Code surface). */}
+        <HostStatusBanner />
 
         <a
           href="#main-content"

@@ -6,6 +6,11 @@ export const de: Record<MessageKey, string> = {
   "app.tagline": "Ein Arbeitsplatz für deinen Agenten.",
   "app.loading": "Wird geladen…",
 
+  "host.unreachable": "OpenCode-Host nicht erreichbar",
+  "host.unreachableHint":
+    "Die App läuft, aber der OpenCode-Host hat nicht geantwortet. Versuch es erneut, sobald der Tunnel wieder steht.",
+  "host.retry": "Erneut versuchen",
+
   "nav.skipToContent": "Zum Inhalt springen",
   "nav.openSidebar": "Chatliste öffnen",
   "nav.closeSidebar": "Chatliste schließen",

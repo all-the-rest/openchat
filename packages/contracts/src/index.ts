@@ -83,8 +83,22 @@ export interface ServerInfo {
   workspace: string
 }
 
+/**
+ * State of the OpenCode host behind the BFF, not of the BFF itself: the BFF
+ * answering at all proves that it is up, so only the host can be down.
+ *
+ * `reachable` is false when every host call failed. A host that answered one
+ * call is up, so a partial failure keeps `reachable: true` and reports the
+ * failed fragments as empty (`server: null`, `models: []`, `agents: []`).
+ */
+export interface HostStatus {
+  reachable: boolean
+}
+
 export interface InfoResponse {
-  server: ServerInfo
+  host: HostStatus
+  /** `null` when the host did not answer its info call. */
+  server: ServerInfo | null
   models: ModelInfo[]
   agents: AgentInfo[]
   scenario: string
