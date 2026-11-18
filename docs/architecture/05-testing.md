@@ -89,11 +89,6 @@ One implementation of the `ChatBackend` port, no HTTP:
   leaves the partial text.
 - Deterministic: fixed ids, fixed timestamps from a seeded clock, no `Date.now`
   in assertions.
-- `seedSubagents: true` (the fake BFF sets it) seeds one deterministic pair:
-  `ses_subagent_parent` with the title "Quarterly report review" and the child
-  `ses_subagent_child` ("Agent: check the figures", `parentID` set). Both carry
-  a finished turn, so the nested sidebar, the back link and the E2E subagent
-  spec run without a live host.
 
 ## Fake STT
 
@@ -117,8 +112,6 @@ One implementation of the `ChatBackend` port, no HTTP:
 - `retries: 0` in local runs and CI: parallelism must be stable without reruns.
 - Playwright starts the BFF with `BACKEND_MODE=fake` and a fixed `FAKE_SCENARIO`.
 - The browser never needs an OpenCode process, a model key or network access.
-  The seeded subagent pair keeps the nested sidebar and the back link in the
-  same fake backend for `subagents.spec.ts`.
 - Permissions and forms are scripted events, so approval flows are testable.
 - Artifact tests use a local artifact host on a second port with the real CSP
   and sandbox; the iframe still runs untrusted HTML.
