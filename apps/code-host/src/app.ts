@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { readTicket } from "@openchat/code-ticket"
+import { isCrossOriginWrite } from "./csrf"
 import type { EnvConfig } from "./env"
 import { basicAuthorization, clientAddress } from "./http"
 import { safeNext } from "./next"
@@ -8,10 +9,10 @@ import { proxyRequest } from "./proxy"
 import type { ProxyConfig } from "./proxy"
 import { TicketReplayCache } from "./replay"
 import {
-  CODE_SESSION_COOKIE,
   parseCookies,
   readSessionValue,
   sessionCookie,
+  sessionCookieName,
 } from "./session"
 
 export interface AppOptions {
@@ -61,6 +62,17 @@ function pageResponse(config: EnvConfig, status: 200 | 401, reason?: string): Re
 function unauthorized(config: EnvConfig): Response {
   return new Response(JSON.stringify({ error: "code_session_required" }), {
     status: 401,
+    headers: jsonHeaders(),
+  })
+}
+
+/**
+ * Local answer for a cross-origin state change. Built here so no upstream byte
+ * (redirect target, challenge, error text) can reach the browser.
+ */
+function crossOriginForbidden(): Response {
+  return new Response(JSON.stringify({ error: "cross_origin_forbidden" }), {
+    status: 403,
     headers: jsonHeaders(),
   })
 }
@@ -154,10 +166,19 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
   app.get("/__sign-in", (c) => pageResponse(config, 200))
 
   // Everything else, `/api/*` included, needs the Code session cookie. The
-  // ticket exchange above is the only way to obtain one.
+  // ticket exchange above is the only way to obtain one. Unsafe methods must
+  // carry browser same-origin evidence first: `SameSite=Lax` is site-scoped,
+  // so a sibling origin on the same registrable domain would otherwise drive
+  // OpenCode with the owner's session.
   app.all("*", async (c) => {
+    if (isCrossOriginWrite(c.req.raw, config.CODE_HOST_ORIGIN)) {
+      // Never log the origin or the cookie, only the attribution.
+      log(`cross-origin request rejected (${clientAddress(c.req.raw, c.env?.remoteAddress, config.TRUST_PROXY)})`)
+      return crossOriginForbidden()
+    }
     const cookies = parseCookies(c.req.header("cookie") ?? null)
-    const sub = readSessionValue(cookies[CODE_SESSION_COOKIE], settings, now())
+    const name = sessionCookieName(settings)
+    const sub = readSessionValue(cookies[name], settings, now())
     if (!sub) {
       if (!wantsHtml(c.req.raw)) return unauthorized(config)
       return pageResponse(config, 401)

@@ -1,10 +1,11 @@
 import { basicAuthorization } from "./http"
 
 /**
- * Symbol carrying the ordered `Content-Security-Policy` values. `Headers`
- * cannot represent two policies (it joins them with `, `, which is not a
- * valid CSP combination), so the node adapter writes them as separate lines.
- * Exported for the adapter and the tests; never serialised by Hono itself.
+ * Symbol carrying the ordered `Content-Security-Policy` values. A CSP header
+ * value is a comma-separated policy list in CSP3, so a joined value is legal
+ * and equivalent; the symbol exists so a GET can write the nicer two-line
+ * form. `Headers` itself only exposes the joined value, which is what HEAD
+ * writes. Exported for the adapter and the tests.
  */
 export const CSP_POLICIES = Symbol("openchat.csp-policies")
 
@@ -26,6 +27,9 @@ const DROPPED_INBOUND = new Set([
   "host",
   "expect",
   "upgrade",
+  // Upstream CORS behaviour must not depend on the browser's origin, and
+  // OpenCode has no business seeing which page embedded the frame.
+  "origin",
 ])
 
 export type Logger = (message: string) => void
@@ -96,6 +100,13 @@ function responseParts(upstream: Response, pathname: string, appOrigin: string):
     if (lower === "set-cookie") return
     if (lower === "authorization") return
     if (lower === "x-frame-options") return
+    // An upstream redirect must not become an open redirect on the Code host
+    // origin, and a Basic challenge must not raise the native dialog there.
+    if (lower === "location") return
+    if (lower === "www-authenticate") return
+    // Pin the CORS surface shut: no readable cross-origin path for the
+    // owner's session, whatever a future upstream sends by default.
+    if (lower.startsWith("access-control-")) return
     if (lower === "content-security-policy") {
       policies.push(value)
       return
@@ -106,8 +117,8 @@ function responseParts(upstream: Response, pathname: string, appOrigin: string):
   })
 
   // Restriction only: upstream's policy stays byte-identical and the extra
-  // header can narrow it, never widen it. `Headers` joins multiple values
-  // with `, `, so the node adapter reads the original list from the symbol.
+  // value can narrow it, never widen it. Two comma-separated policies in one
+  // header are equivalent; the symbol keeps the separate lines for GET.
   policies.push(`frame-ancestors ${appOrigin}`)
   for (const policy of policies) headers.append("content-security-policy", policy)
 

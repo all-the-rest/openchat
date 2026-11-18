@@ -9,7 +9,7 @@ import { loadEnv } from "../src/env"
 import type { EnvConfig } from "../src/env"
 import { createNodeServer } from "../src/node"
 import { TicketReplayCache } from "../src/replay"
-import { createSessionValue } from "../src/session"
+import { createSessionValue, sessionCookieName } from "../src/session"
 
 export const TICKET_SECRET = "test-ticket-secret-test-ticket-secret"
 export const OPENCODE_PASSWORD = "opencode-test-password"
@@ -63,16 +63,13 @@ export function ticketFor(
 }
 
 export function cookieFor(config: EnvConfig, now = Date.now()): string {
-  const value = createSessionValue(
-    {
-      secret: config.CODE_TICKET_SECRET,
-      ttlSeconds: config.CODE_SESSION_TTL_SECONDS,
-      secureCookie: config.COOKIE_SECURE,
-    },
-    "owner",
-    now,
-  )
-  return `oc_code=${value}`
+  const settings = {
+    secret: config.CODE_TICKET_SECRET,
+    ttlSeconds: config.CODE_SESSION_TTL_SECONDS,
+    secureCookie: config.COOKIE_SECURE,
+  }
+  const value = createSessionValue(settings, "owner", now)
+  return `${sessionCookieName(settings)}=${value}`
 }
 
 export function sessionCookieValue(response: Response): string {

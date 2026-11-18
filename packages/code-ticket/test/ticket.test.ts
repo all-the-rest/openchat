@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import {
+  MAX_TICKET_CLOCK_SKEW_SECONDS,
   MAX_TICKET_TTL_SECONDS,
   TICKET_VERSION,
   mintTicket,
@@ -108,6 +109,18 @@ describe("readTicket", () => {
     expect(read(token, { now: NOW + 9_000 })).not.toBeNull()
     expect(read(token, { now: NOW + 10_000 })).toBeNull()
     expect(read(token, { now: NOW + 60_000 })).toBeNull()
+  })
+
+  it("rejects an exp beyond the TTL ceiling plus the clock-skew allowance", () => {
+    const nowSeconds = Math.floor(NOW / 1000)
+    const claims = (exp: number) =>
+      forge(encode({ sub: "owner", codeHost: CODE_HOST, exp, jti: "id" }))
+    const ceiling = nowSeconds + MAX_TICKET_TTL_SECONDS + MAX_TICKET_CLOCK_SKEW_SECONDS
+
+    expect(read(claims(ceiling))).not.toBeNull()
+    expect(read(claims(ceiling + 1))).toBeNull()
+    // A hand-rolled signer with the right secret cannot buy a long-lived token.
+    expect(read(claims(nowSeconds + 86_400))).toBeNull()
   })
 
   it("rejects a ticket bound to another Code host", () => {

@@ -239,3 +239,93 @@ describe("production hardening", () => {
     expect(text).not.toContain("600")
   })
 })
+
+describe("bounds and deployment warnings", () => {
+  function production(overrides: Record<string, string | undefined> = {}) {
+    return {
+      NODE_ENV: "production",
+      CODE_TICKET_SECRET: "production-ticket-secret-production",
+      OPENCODE_PASSWORD: "production-opencode-password",
+      APP_ORIGIN: "https://code.example.com",
+      CODE_HOST_ORIGIN: "https://code.example.com",
+      COOKIE_SECURE: "1",
+      ...overrides,
+    }
+  }
+
+  it("rejects a PORT outside 1..65535 and keeps the boundary value", () => {
+    const warnings: string[] = []
+    const zero = loadEnv({ source: source({ PORT: "0" }), warn: (m) => warnings.push(m) })
+    expect(zero.PORT).toBe(8090)
+    expect(warnings.join("\n")).toContain("PORT")
+
+    const tooHigh = loadEnv({
+      source: source({ PORT: "99999" }),
+      warn: (m) => warnings.push(m),
+    })
+    expect(tooHigh.PORT).toBe(8090)
+    expect(warnings.join("\n")).not.toContain("99999")
+
+    const boundary = loadEnv({ source: source({ PORT: "65535" }), warn: () => {} })
+    expect(boundary.PORT).toBe(65_535)
+  })
+
+  it("caps CODE_SESSION_TTL_SECONDS at 30 days without echoing the value", () => {
+    const warnings: string[] = []
+    const capped = loadEnv({
+      source: source({ CODE_SESSION_TTL_SECONDS: "2592001" }),
+      warn: (m) => warnings.push(m),
+    })
+    expect(capped.CODE_SESSION_TTL_SECONDS).toBe(2_592_000)
+    const text = warnings.join("\n")
+    expect(text).toContain("CODE_SESSION_TTL_SECONDS")
+    expect(text).not.toContain("2592001")
+
+    const boundary = loadEnv({
+      source: source({ CODE_SESSION_TTL_SECONDS: "2592000" }),
+      warn: () => {},
+    })
+    expect(boundary.CODE_SESSION_TTL_SECONDS).toBe(2_592_000)
+  })
+
+  it("warns about a non-loopback bind in production but still boots", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: production({ HOST: "0.0.0.0" }),
+      warn: (m) => warnings.push(m),
+    })
+    expect(config.HOST).toBe("0.0.0.0")
+    const text = warnings.join("\n")
+    expect(text).toContain("HOST is not a loopback address")
+    expect(text).toContain("reverse proxy")
+    expect(text).not.toContain("0.0.0.0")
+  })
+
+  it("stays quiet about a loopback bind in production", () => {
+    const warnings: string[] = []
+    loadEnv({ source: production({ HOST: "::1" }), warn: (m) => warnings.push(m) })
+    expect(warnings.join("\n")).not.toContain("HOST is not a loopback address")
+  })
+
+  it("warns when the app and the Code host do not share a hostname", () => {
+    const warnings: string[] = []
+    loadEnv({
+      source: source({
+        APP_ORIGIN: "https://chat.example.com",
+        CODE_HOST_ORIGIN: "https://code.example.com",
+      }),
+      warn: (m) => warnings.push(m),
+    })
+    expect(warnings.join("\n")).toContain("registrable domain")
+
+    const same: string[] = []
+    loadEnv({
+      source: source({
+        APP_ORIGIN: "https://code.example.com",
+        CODE_HOST_ORIGIN: "https://code.example.com",
+      }),
+      warn: (m) => same.push(m),
+    })
+    expect(same.join("\n")).not.toContain("registrable domain")
+  })
+})

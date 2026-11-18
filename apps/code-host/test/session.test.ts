@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest"
 import { loadEnv } from "../src/env"
 import {
   CODE_SESSION_COOKIE,
+  SECURE_CODE_SESSION_COOKIE,
   clearSessionCookie,
   createSessionValue,
   parseCookies,
   readSessionValue,
   sessionCookie,
+  sessionCookieName,
 } from "../src/session"
 
 const SECRET = "session-test-secret-session-test-secret"
@@ -69,18 +71,27 @@ describe("session cookie", () => {
     expect(cookie).not.toContain("Secure")
   })
 
-  it("adds Secure when configured and keeps it host-only", () => {
+  it("adds Secure when configured, switches to __Host- and keeps it host-only", () => {
     const cookie = sessionCookie(settings({ secureCookie: true }), "owner", NOW)
+    expect(cookie.startsWith(`${SECURE_CODE_SESSION_COOKIE}=v1.`)).toBe(true)
     expect(cookie).toContain("; Secure")
+    expect(cookie).toContain("Path=/")
     expect(cookie.toLowerCase()).not.toContain("domain")
+  })
+
+  it("uses one name per configuration", () => {
+    expect(sessionCookieName({ secureCookie: false })).toBe(CODE_SESSION_COOKIE)
+    expect(sessionCookieName({ secureCookie: true })).toBe(SECURE_CODE_SESSION_COOKIE)
+    expect(SECURE_CODE_SESSION_COOKIE.startsWith("__Host-")).toBe(true)
   })
 
   it("clears with Max-Age=0 and the same flags", () => {
     const cookie = clearSessionCookie(settings({ secureCookie: true }))
-    expect(cookie.startsWith(`${CODE_SESSION_COOKIE}=;`)).toBe(true)
+    expect(cookie.startsWith(`${SECURE_CODE_SESSION_COOKIE}=;`)).toBe(true)
     expect(cookie).toContain("Max-Age=0")
     expect(cookie).toContain("HttpOnly")
     expect(cookie).toContain("Secure")
+    expect(cookie.toLowerCase()).not.toContain("domain")
   })
 })
 

@@ -18,6 +18,13 @@ export const TICKET_VERSION = "v1"
  */
 export const MAX_TICKET_TTL_SECONDS = 60
 
+/**
+ * Clock-skew allowance at read time. The minting process may sit on another
+ * host, so a ticket read a few seconds "too early" is not hostile; anything
+ * beyond the mint ceiling plus this allowance was not produced by this design.
+ */
+export const MAX_TICKET_CLOCK_SKEW_SECONDS = 60
+
 /** Bytes of randomness in a generated `jti` (base64url encodes 24 as 32 chars). */
 const JTI_BYTES = 24
 
@@ -122,9 +129,10 @@ export function mintTicket(options: MintTicketOptions): string {
 
 /**
  * Verifies a ticket and returns its claims, or `null` for anything that is
- * malformed, tampered with, expired, or bound to another Code host. The
- * signature is checked before the claims are parsed, and the whole function
- * never throws on hostile input.
+ * malformed, tampered with, expired, bound to another Code host, or claiming a
+ * lifetime beyond the mint ceiling plus a clock-skew allowance. The signature
+ * is checked before the claims are parsed, and the whole function never throws
+ * on hostile input.
  */
 export function readTicket(token: string, options: ReadTicketOptions): TicketClaims | null {
   try {
@@ -146,7 +154,14 @@ export function readTicket(token: string, options: ReadTicketOptions): TicketCla
     if (!claims) return null
 
     const now = options.now ?? Date.now()
-    if (claims.exp <= Math.floor(now / 1000)) return null
+    const nowSeconds = Math.floor(now / 1000)
+    if (claims.exp <= nowSeconds) return null
+    // The ceiling is enforced at mint and at read: a second signer or a
+    // hand-rolled token cannot buy a year-long ticket (and a year-long replay
+    // entry) just because it knows the secret.
+    if (claims.exp > nowSeconds + MAX_TICKET_TTL_SECONDS + MAX_TICKET_CLOCK_SKEW_SECONDS) {
+      return null
+    }
     if (!constantTimeEqual(claims.codeHost, options.codeHost)) return null
     return claims
   } catch {

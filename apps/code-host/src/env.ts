@@ -35,6 +35,11 @@ const DEFAULT_APP_ORIGIN = "http://127.0.0.1:8787"
 const DEFAULT_TICKET_TTL_SECONDS = 60
 const DEFAULT_SESSION_TTL_SECONDS = 43_200
 
+/** 30 days. A longer `Max-Age` is a session token with no practical expiry. */
+const MAX_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
+
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "[::1]", "localhost"])
+
 function read(source: Record<string, string | undefined>, key: string): string | undefined {
   const value = source[key]
   if (value === undefined) return undefined
@@ -74,6 +79,26 @@ function readBoolean(
 ): boolean {
   const value = read(source, key)?.toLowerCase()
   return value === "1" || value === "true" || value === "on" || value === "yes"
+}
+
+/** A TCP port; anything outside `1..65535` would fail later inside `listen`. */
+function readPort(
+  source: Record<string, string | undefined>,
+  fallback: number,
+  warn: (message: string) => void,
+): number {
+  const value = read(source, "PORT")
+  if (!value) return fallback
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+    warn("PORT must be an integer between 1 and 65535; using the default")
+    return fallback
+  }
+  return parsed
+}
+
+function isLoopbackHost(host: string): boolean {
+  return LOOPBACK_HOSTS.has(host.toLowerCase()) || host.startsWith("127.")
 }
 
 /**
@@ -169,12 +194,45 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
   )
   const appOrigin = loadOrigin(source, "APP_ORIGIN", DEFAULT_APP_ORIGIN, warn, production)
 
+  // The frame depends on a shared registrable domain: with third-party
+  // cookies blocked, a cross-site frame cannot complete the exchange. Same
+  // hostname (the development defaults) is enough; anything else needs the
+  // operator's attention, so say so at boot.
+  if (new URL(appOrigin).hostname !== new URL(codeHostOrigin).hostname) {
+    warn(
+      "APP_ORIGIN and CODE_HOST_ORIGIN have different hostnames; the Code frame needs a shared registrable domain or a browser that accepts third-party cookies",
+    )
+  }
+
+  const host = read(source, "HOST") ?? DEFAULT_HOST
+  if (production && !isLoopbackHost(host)) {
+    // Warn, do not refuse: a container bind is legitimate when the only route
+    // in is the reverse proxy, but the listener itself is plaintext and the
+    // exchange puts the ticket in a `Location` header.
+    warn(
+      "HOST is not a loopback address in production; the listener carries the ticket in a Location header and must sit behind the reverse proxy",
+    )
+  }
+
   let ticketTtl = readNumber(
     source,
     "CODE_TICKET_TTL_SECONDS",
     DEFAULT_TICKET_TTL_SECONDS,
     warn,
   )
+
+  let sessionTtl = readNumber(
+    source,
+    "CODE_SESSION_TTL_SECONDS",
+    DEFAULT_SESSION_TTL_SECONDS,
+    warn,
+  )
+  if (sessionTtl > MAX_SESSION_TTL_SECONDS) {
+    warn(
+      `CODE_SESSION_TTL_SECONDS is above ${MAX_SESSION_TTL_SECONDS}; using ${MAX_SESSION_TTL_SECONDS}`,
+    )
+    sessionTtl = MAX_SESSION_TTL_SECONDS
+  }
 
   if (production) {
     // Refusals name the variable only; a value must never reach a log.
@@ -219,8 +277,8 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
   }
 
   return {
-    HOST: read(source, "HOST") ?? DEFAULT_HOST,
-    PORT: readNumber(source, "PORT", DEFAULT_PORT, warn),
+    HOST: host,
+    PORT: readPort(source, DEFAULT_PORT, warn),
     OPENCODE_URL: readOpencodeUrl(source),
     OPENCODE_USERNAME: read(source, "OPENCODE_USERNAME") ?? "opencode",
     OPENCODE_PASSWORD: configuredPassword ?? "",
@@ -228,12 +286,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     APP_ORIGIN: appOrigin,
     CODE_TICKET_SECRET: secret,
     CODE_TICKET_TTL_SECONDS: ticketTtl,
-    CODE_SESSION_TTL_SECONDS: readNumber(
-      source,
-      "CODE_SESSION_TTL_SECONDS",
-      DEFAULT_SESSION_TTL_SECONDS,
-      warn,
-    ),
+    CODE_SESSION_TTL_SECONDS: sessionTtl,
     COOKIE_SECURE: cookieSecure,
     ALLOW_INSECURE_COOKIE: allowInsecureCookie,
     TRUST_PROXY: readBoolean(source, "TRUST_PROXY"),

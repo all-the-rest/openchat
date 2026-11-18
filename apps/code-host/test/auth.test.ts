@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { APP_ORIGIN, makeApp, sessionCookieValue, ticketFor } from "./helpers"
+import { APP_ORIGIN, cookieFor, makeApp, sessionCookieValue, ticketFor } from "./helpers"
 
 const NOW = 1_700_000_000_000
+
+function flipLast(value: string): string {
+  return value.slice(0, -1) + (value.endsWith("A") ? "B" : "A")
+}
 
 function authPath(ticket: string, next = "/"): string {
   return `/__auth?ticket=${encodeURIComponent(ticket)}&next=${encodeURIComponent(next)}`
@@ -30,8 +34,40 @@ describe("ticket exchange", () => {
 
     expect(response.status).toBe(302)
     const cookie = sessionCookieValue(response)
+    expect(cookie.startsWith("__Host-oc_code=v1.")).toBe(true)
+    expect(cookie).toContain("Path=/")
     expect(cookie).toContain("; Secure")
     expect(cookie.toLowerCase()).not.toContain("domain")
+  })
+
+  it("does not accept its own ticket as a session cookie", async () => {
+    const { app, config } = makeApp()
+    const response = await app.request("/api/session", {
+      headers: { cookie: `oc_code=${ticketFor(config)}` },
+    })
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ error: "code_session_required" })
+  })
+
+  it("does not accept a session value as a ticket", async () => {
+    const { app, config } = makeApp()
+    const value = cookieFor(config).slice("oc_code=".length)
+    const response = await app.request(authPath(value))
+    expect(response.status).toBe(401)
+    expect(response.headers.getSetCookie()).toEqual([])
+  })
+
+  it("verifies before claiming, so a forged jti cannot burn the real ticket", async () => {
+    const { app, config, replay } = makeApp()
+    const real = ticketFor(config, { jti: "fixed-jti" })
+    const [version, payload, signature] = real.split(".") as [string, string, string]
+    const forged = `${version}.${payload}.${flipLast(signature)}`
+
+    expect((await app.request(authPath(forged))).status).toBe(401)
+    // If claim ran before readTicket, the forged jti would be recorded here
+    // and the genuine ticket below would be rejected as a replay.
+    expect(replay.size).toBe(0)
+    expect((await app.request(authPath(real))).status).toBe(302)
   })
 
   it("rejects a replayed ticket without setting a cookie", async () => {

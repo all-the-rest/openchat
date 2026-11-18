@@ -24,32 +24,6 @@ function track<T extends { close(): Promise<void> }>(value: T): T {
   return value
 }
 
-describe("authentication gate", () => {
-  it("never reaches upstream for an unauthenticated navigation", async () => {
-    const upstream = track(
-      await startUpstream((_request, response) => {
-        response.setHeader("content-type", "text/html")
-        response.end("<html>leaked shell</html>")
-      }),
-    )
-    const { app } = makeApp({ OPENCODE_URL: upstream.url })
-
-    const response = await app.request("/", { headers: { accept: "text/html" } })
-    expect(response.status).toBe(401)
-    expect(await response.text()).toContain("Sign in to Open Code")
-    expect(upstream.requests).toHaveLength(0)
-  })
-
-  it("rejects an expired or forged session cookie", async () => {
-    const { app, config } = makeApp()
-    const expired = await app.request("/api/session", {
-      headers: { cookie: cookieFor(config, Date.now() - 90_000_000) },
-    })
-    expect(expired.status).toBe(401)
-    expect(await expired.json()).toEqual({ error: "code_session_required" })
-  })
-})
-
 describe("proxy response", () => {
   it("returns the upstream shell for a valid cookie", async () => {
     const upstream = track(
@@ -88,6 +62,74 @@ describe("proxy response", () => {
     const policies = rawHeaderValues(raw.rawHeaders, "content-security-policy")
     expect(policies).toEqual([upstreamPolicy, `frame-ancestors ${APP_ORIGIN}`])
     expect(raw.headers["x-frame-options"]).toBeUndefined()
+  })
+
+  it("keeps both policies joined in one line on HEAD", async () => {
+    const upstreamPolicy = "default-src 'self'; frame-src 'self' blob:"
+    const upstream = track(
+      await startUpstream((_request, response) => {
+        response.setHeader("content-type", "text/html; charset=utf-8")
+        response.setHeader("content-security-policy", upstreamPolicy)
+        response.end("<html>shell</html>")
+      }),
+    )
+    const host = track(await startCodeHost({ OPENCODE_URL: upstream.url }))
+    const raw = await rawRequest(host.origin, "/", {
+      method: "HEAD",
+      headers: { cookie: cookieFor(host.config), accept: "text/html" },
+    })
+
+    // HEAD loses the symbol through Hono's GET dispatch, so the adapter writes
+    // the joined value: a legal CSP3 policy list, equivalent to two lines.
+    const policies = rawHeaderValues(raw.rawHeaders, "content-security-policy")
+    expect(policies).toEqual([`${upstreamPolicy}, frame-ancestors ${APP_ORIGIN}`])
+  })
+
+  it("drops an upstream redirect and a Basic challenge", async () => {
+    const upstream = track(
+      await startUpstream((_request, response) => {
+        response.writeHead(302, {
+          location: "https://evil.test/x",
+          "www-authenticate": 'Basic realm="Secure Area"',
+          "content-type": "text/html",
+        })
+        response.end("<html>redirect</html>")
+      }),
+    )
+    const { app, config } = makeApp({ OPENCODE_URL: upstream.url })
+
+    const response = await app.request("/", {
+      headers: { cookie: cookieFor(config), accept: "text/html" },
+    })
+    expect(response.status).toBe(302)
+    expect(response.headers.get("location")).toBeNull()
+    expect(response.headers.get("www-authenticate")).toBeNull()
+  })
+
+  it("drops upstream CORS headers and never forwards the inbound origin", async () => {
+    const upstream = track(
+      await startUpstream((request, response) => {
+        response.setHeader("content-type", "application/json")
+        response.setHeader("access-control-allow-origin", "https://evil.test")
+        response.setHeader("access-control-allow-credentials", "true")
+        response.setHeader("access-control-expose-headers", "*")
+        response.end(JSON.stringify({ origin: request.headers.origin ?? null }))
+      }),
+    )
+    const { app, config } = makeApp({ OPENCODE_URL: upstream.url })
+
+    const response = await app.request("/api/session", {
+      headers: {
+        cookie: cookieFor(config),
+        origin: "https://app.openchat.test",
+        "sec-fetch-site": "same-origin",
+      },
+    })
+    expect(response.status).toBe(200)
+    expect(response.headers.get("access-control-allow-origin")).toBeNull()
+    expect(response.headers.get("access-control-allow-credentials")).toBeNull()
+    expect(response.headers.get("access-control-expose-headers")).toBeNull()
+    expect(await response.json()).toEqual({ origin: null })
   })
 
   it("injects Basic auth, strips cookies and never echoes credentials or upstream cookies", async () => {

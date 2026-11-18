@@ -43,6 +43,63 @@ function requestHeaders(request: IncomingMessage): Headers {
   return headers
 }
 
+type DrainResult = "drain" | "closed"
+
+/**
+ * Waits for `drain`, but gives up when the peer goes away first. A client that
+ * stops reading and disconnects never drains, so waiting only for `drain`
+ * would leave the handler, the web `Response` and the upstream reader reachable
+ * until the process exits.
+ */
+function waitForDrain(response: ServerResponse): Promise<DrainResult> {
+  if (response.destroyed || response.writableEnded) return Promise.resolve("closed")
+  return new Promise<DrainResult>((resolve) => {
+    const settle = (result: DrainResult) => {
+      response.off("drain", onDrain)
+      response.off("close", onClose)
+      response.off("error", onClose)
+      resolve(result)
+    }
+    const onDrain = () => settle("drain")
+    const onClose = () => settle("closed")
+    response.once("drain", onDrain)
+    response.once("close", onClose)
+    response.once("error", onClose)
+  })
+}
+
+/**
+ * Pumps a web response body into the node response without buffering. A
+ * teardown (client disconnect) cancels the reader instead of ending a dead
+ * response, and the loop re-checks `destroyed` after every awaited wait.
+ */
+export async function pumpResponseBody(
+  body: ReadableStream<Uint8Array>,
+  response: ServerResponse,
+): Promise<void> {
+  const reader = body.getReader()
+  let closed = response.destroyed
+  try {
+    while (!closed) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (response.destroyed) {
+        closed = true
+        break
+      }
+      if (!response.write(Buffer.from(value))) {
+        closed = (await waitForDrain(response)) === "closed"
+      }
+    }
+  } finally {
+    if (closed || response.destroyed) {
+      await reader.cancel().catch(() => {})
+    } else {
+      response.end()
+    }
+  }
+}
+
 async function handleRequest(
   app: Hono<AppEnv>,
   request: IncomingMessage,
@@ -88,20 +145,5 @@ async function handleRequest(
     return
   }
 
-  const reader = webResponse.body.getReader()
-  try {
-    while (true) {
-      if (response.destroyed) {
-        await reader.cancel().catch(() => {})
-        break
-      }
-      const { done, value } = await reader.read()
-      if (done) break
-      if (!response.write(Buffer.from(value))) {
-        await new Promise<void>((resolve) => response.once("drain", resolve))
-      }
-    }
-  } finally {
-    if (!response.destroyed) response.end()
-  }
+  await pumpResponseBody(webResponse.body, response)
 }

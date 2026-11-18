@@ -33,7 +33,7 @@ app (BFF)                    Code host                        OpenCode
    │ mintTicket(sub, codeHost)  │                                │
    │──── redirect ─────────────▶│ GET /__auth?ticket=…&next=/    │
    │                            │ readTicket + claim(jti)        │
-   │                            │ 302 + Set-Cookie: oc_code      │
+   │                            │ 302 + Set-Cookie: session      │
    │◀─────── 302 ───────────────│                                │
    │                            │ GET / (cookie)                 │
    │                            │──── Authorization: Basic ─────▶│
@@ -45,12 +45,15 @@ app (BFF)                    Code host                        OpenCode
    `{ sub, codeHost, exp, jti }`; `exp` is epoch seconds and the TTL is at most
    60 s. The signature covers `v1.<claims>`, so the version cannot be swapped.
 2. The iframe/host navigates to `/__auth?ticket=…&next=<path>`. The token is
-   verified before anything else: constant-time HMAC compare, expiry, and an
-   exact `codeHost` audience match. Hostile input returns `null`, never throws.
+   verified before anything else: constant-time HMAC compare, expiry, a ceiling
+   of `exp ≤ now + 60 s + 60 s skew` (so the mint limit is enforced by the
+   receiver too), and an exact `codeHost` audience match. Hostile input returns
+   `null`, never throws.
 3. Only after verification does the process-local `jti` cache claim the ticket
    (`readTicket` runs first, then `claim`). A second redemption is a 401 and
    sets no cookie.
-4. On success the host sets `oc_code`, a host-only cookie with an HMAC-signed
+4. On success the host sets the session cookie (`__Host-oc_code` when secure,
+   plain `oc_code` in development), a host-only cookie with an HMAC-signed
    `{ sub, exp }` payload (key derived from `CODE_TICKET_SECRET`), and
    redirects to `next`.
 5. Every other request — shell, `/api/*`, assets — requires that cookie and is
@@ -64,17 +67,42 @@ Anything else falls back to `/` instead of failing the sign-in.
 ## Session cookie
 
 ```
-oc_code=v1.<base64url({sub,exp})>.<HMAC>; Path=/; HttpOnly; SameSite=Lax; Max-Age=<ttl>[; Secure]
+__Host-oc_code=v1.<base64url({sub,exp})>.<HMAC>; Path=/; HttpOnly; SameSite=Lax; Max-Age=<ttl>; Secure
 ```
 
+- **Name.** `__Host-oc_code` when `COOKIE_SECURE` is on, the plain `oc_code`
+  in development. The gate reads exactly one name — the one matching the
+  configuration, never both — so a sibling subdomain that sets
+  `Domain=example.com; oc_code=…` cannot shadow the real cookie. `__Host-`
+  also makes browsers reject a cookie with a `Domain` attribute at all.
 - Host-only: **no `Domain` attribute**, so the cookie is never sent to the app
   or the artifact origin.
 - `Secure` only when `COOKIE_SECURE` is on; production refuses a boot with it
   off unless `ALLOW_INSECURE_COOKIE=1` is set explicitly.
-- `SameSite=Lax` is enough because the ticket exchange is a top-level
-  redirect, including inside the frame.
+- `SameSite=Lax` keeps the cookie on the top-level ticket redirect, including
+  inside the frame. It is **not** a CSRF control: it is site-scoped, not
+  origin-scoped, so a sibling origin on the same registrable domain receives
+  the cookie on a cross-origin `POST`.
 - The cookie signing key is `HMAC-SHA256(CODE_TICKET_SECRET,
   "openchat:code-session")`, so tickets and cookies do not share a key.
+
+### Cross-origin writes
+
+The gate rejects an unsafe method (`POST`, `PUT`, `PATCH`, `DELETE`) before it
+reads the cookie or touches upstream when either
+
+- `Sec-Fetch-Site` is present and is not `same-origin`, or
+- `Origin` is present and is not `CODE_HOST_ORIGIN`.
+
+A request with neither header is allowed: `curl` and server-to-server clients
+never sent one, and a browser always sends `Origin` on those methods, so a page
+cannot omit it to bypass the check. The 403 is
+`{"error":"cross_origin_forbidden"}` with `no-store`, built locally so no
+upstream byte can reach the browser; the log line carries the client
+attribution only. Reads stay allowed — without CORS the browser cannot read the
+response, and the embedded SPA needs them. `CODE_HOST_ORIGIN` must be the
+origin the browser actually uses, scheme and port included, or legitimate
+writes are rejected.
 
 Replay detection lives in `apps/code-host/src/replay.ts`: a bounded map
 (10 000 entries) keyed by `jti`, pruned at `exp` on every claim. It is
@@ -86,17 +114,17 @@ audience must pin the replica.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `HOST` | `127.0.0.1` | Bind address. Never expose the listener without the reverse proxy. |
-| `PORT` | `8090` | Listener port. |
+| `HOST` | `127.0.0.1` | Bind address. Never expose the listener without the reverse proxy; production warns when it is not loopback. |
+| `PORT` | `8090` | Listener port, integer `1..65535`; anything else warns and falls back to the default. |
 | `OPENCODE_URL` | `http://127.0.0.1:4096` | Upstream OpenCode base URL; may carry a path, never credentials. |
 | `OPENCODE_USERNAME` | `opencode` | Basic-auth username for upstream. |
 | `OPENCODE_PASSWORD` | none | Basic-auth password for upstream. Required in production; never logged. |
-| `CODE_HOST_ORIGIN` | `http://127.0.0.1:8090` | Public origin of this host; also the ticket audience. Required and `https:` in production. |
+| `CODE_HOST_ORIGIN` | `http://127.0.0.1:8090` | Public origin of this host; also the ticket audience and the CSRF `Origin` target. Required and `https:` in production. |
 | `APP_ORIGIN` | `http://127.0.0.1:8787` | App origin; the only allowed `frame-ancestors` and the `postMessage` target. Required and `https:` in production. |
 | `CODE_TICKET_SECRET` | ephemeral, generated | HMAC key for tickets and the derived cookie key. Required in production; a development boot warns and generates one. |
 | `CODE_TICKET_TTL_SECONDS` | `60` | Configured ticket lifetime. Hard ceiling 60; development clamps with a warning, production refuses a larger value. |
-| `CODE_SESSION_TTL_SECONDS` | `43200` | Code session cookie lifetime (12 h). |
-| `COOKIE_SECURE` | off | Adds `Secure` to `oc_code`. Required in production unless explicitly opted out. |
+| `CODE_SESSION_TTL_SECONDS` | `43200` | Code session cookie lifetime (12 h). Capped at 30 days with a warning. |
+| `COOKIE_SECURE` | off | Adds `Secure` and switches the cookie to `__Host-oc_code`. Required in production unless explicitly opted out. |
 | `ALLOW_INSECURE_COOKIE` | off | Explicit production opt-out from `COOKIE_SECURE=1`. |
 | `TRUST_PROXY` | off | Trust `X-Forwarded-For`/`X-Real-IP` for the client label in failure logs. Leave off for a direct connection. |
 
@@ -106,13 +134,16 @@ embedded credentials. Warnings and refusals name variables only, never values.
 A production boot refuses when `CODE_TICKET_SECRET` or `OPENCODE_PASSWORD` is
 missing, when either origin is missing or not `https:`, when `COOKIE_SECURE`
 is off without `ALLOW_INSECURE_COOKIE=1`, or when
-`CODE_TICKET_TTL_SECONDS > 60`.
+`CODE_TICKET_TTL_SECONDS > 60`. It warns — without refusing — when `HOST` is
+not loopback (the listener is plaintext and the exchange puts the ticket in a
+`Location`) and when `APP_ORIGIN` and `CODE_HOST_ORIGIN` have different
+hostnames (see deployment notes).
 
 ## Header policy
 
 | Header | Behaviour |
 | --- | --- |
-| `Content-Security-Policy` | Upstream's policy is forwarded byte-identical. A **second** header `frame-ancestors <APP_ORIGIN>` is appended. Two policies only narrow; replacing upstream's policy could widen it. |
+| `Content-Security-Policy` | Upstream's policy values are forwarded unchanged. A **second** policy `frame-ancestors <APP_ORIGIN>` is appended (two header lines on `GET`, one joined policy list on `HEAD`; see below). Two policies only narrow; replacing upstream's policy could widen it. |
 | `X-Frame-Options` | Dropped; `frame-ancestors` is the control. |
 | `X-Content-Type-Options` | `nosniff`, always. |
 | `Referrer-Policy` | `no-referrer`, always. |
@@ -121,16 +152,22 @@ is off without `ALLOW_INSECURE_COOKIE=1`, or when
 | `Cache-Control` (`/assets/*`) | Upstream's value is kept, usually `public, max-age=31536000, immutable`. |
 | `Cache-Control` (SSE) | `no-cache, no-transform`. |
 | `X-Accel-Buffering` (SSE) | `no`. |
-| `Set-Cookie` (upstream) | Dropped. `oc_code` is the only cookie the browser may see. |
-| Inbound `Authorization`, `Cookie`, `Host` | Stripped before forwarding. The proxy injects its own Basic credential. |
+| `Set-Cookie` (upstream) | Dropped. The configured `oc_code`/`__Host-oc_code` is the only cookie the browser may see. |
+| `Location` (upstream) | Dropped. An upstream redirect must not become an open redirect on the Code host origin. |
+| `WWW-Authenticate` (upstream) | Dropped. A wrong upstream password must not raise a native Basic dialog on the Code host origin and invite the owner to store the credential there. |
+| `Access-Control-*` (upstream) | Dropped, so a future upstream CORS default cannot turn the Code host into a readable cross-origin path for the owner's session. |
+| Inbound `Authorization`, `Cookie`, `Host`, `Origin` | Stripped before forwarding. The proxy injects its own Basic credential and upstream has no business seeing the embedding origin. |
 | Hop-by-hop headers | `connection`, `keep-alive`, `transfer-encoding`, `te`, `trailer`, `upgrade`, `proxy-*` and anything named by `Connection`, in both directions. |
 | Upstream `Authorization` | Also stripped from the response, so a misbehaving upstream cannot echo the credential to the client. |
 
-Two CSP values cannot live in one header (the `Headers` API joins duplicates
-with `, `, which is not a valid CSP list), so the proxy carries the ordered
-values on a symbol and the node adapter writes them as separate header lines.
-OpenCode 2.3 sends exactly one policy; if a future version sends several, they
-are forwarded as one joined value plus the appended policy.
+A `Content-Security-Policy` header value is a comma-separated policy list in
+CSP3, so the appended `frame-ancestors` is a valid second policy whether it
+arrives as a second line or joined into one. The security property — a second
+policy can only narrow, never widen — holds either way. The node adapter writes
+the upstream value and the appended policy as two lines on `GET`; that is a
+nicety, not the mechanism. `HEAD` goes through Hono's `GET` dispatch, which
+loses the symbol, so it legitimately writes one joined line
+(`default-src …; …, frame-ancestors …`). Both shapes are asserted.
 
 The `/assets/*` exception is deliberate. Content-hashed filenames are
 immutable, carry nothing user-specific and are the bulk of the shell boot; a
@@ -146,7 +183,11 @@ nothing is buffered. The node adapter pumps response chunks with
 `response.write` and flushes headers before the body, so the first SSE frame
 reaches the browser while upstream still holds the connection open. The
 adapter's `close` handler aborts the lifecycle signal, which cancels the
-upstream fetch when the browser goes away.
+upstream fetch when the browser goes away. Backpressure is waited on only
+while `write` reports it, and that wait races `close`/`error` on the response
+and re-checks `destroyed`; a client that stops reading and disconnects
+therefore cancels the reader and settles the handler instead of pinning it
+until process exit.
 
 `accept-encoding: identity` is sent upstream: a compressed body would make the
 proxy re-declare the wrong `content-length`. If an upstream ignores that and
@@ -161,10 +202,10 @@ message.
 
 | Route | Auth | Behaviour |
 | --- | --- | --- |
-| `GET /__auth` | ticket | Verify, claim once, set `oc_code`, 302 to `next`; 401 page otherwise. |
+| `GET /__auth` | ticket | Verify, claim once, set the session cookie, 302 to `next`; 401 page otherwise. |
 | `GET /__health` | none | 200 `{"ok":true,"version":"…"}` from upstream `/api/info` (Basic auth, 2 s timeout), 502 `{"ok":false}` otherwise. No secret or upstream error text. |
 | `GET /__sign-in` | none | The sign-in page. |
-| everything else | `oc_code` | Proxy to `OPENCODE_URL`, `/api/*` included. |
+| everything else | `oc_code` | Proxy to `OPENCODE_URL`, `/api/*` included. Unsafe methods additionally need same-origin evidence (403 otherwise). |
 
 A 401 is HTML for a navigation (`Accept: text/html` or
 `Sec-Fetch-Mode: navigate`, outside `/api/*`) and
@@ -173,8 +214,37 @@ A 401 is HTML for a navigation (`Accept: text/html` or
 `{ type: "openchat:code-state", state: "unauthenticated" }` with
 `targetOrigin` set to `APP_ORIGIN` — never `"*"`.
 
+A 403 for a cross-origin write is always the small JSON body
+`{"error":"cross_origin_forbidden"}` with `no-store`, whatever the `Accept`
+header; it is a security answer, not a page, and it is built before the cookie
+is read.
+
 `/__health` is unauthenticated on purpose: the app needs a cheap liveness probe
-before it has a session. It reveals the upstream version only.
+before it has a session. It reveals the upstream version only and is the only
+unauthenticated route that reaches upstream.
+
+## Deployment notes
+
+- **The ticket is a bearer credential in a URL.** `/__auth?ticket=…` lands in
+  the TLS proxy's access log. The value is single-use and valid for 60 s, but
+  it is still a credential: redact the query string at the proxy or keep those
+  logs at a restricted retention. The Code host itself never logs the token.
+- **`/__auth` needs its own rate limit.** The BFF limits minting; a redeemer
+  reaches the Code host directly, so the exchange must sit behind a per-IP
+  request/failure limit in the deployment proxy (or a later host-side counter).
+- **The frame needs a shared registrable domain.** `chat.example.com` framing
+  `code.example.com` works because both are `example.com`. With third-party
+  cookies blocked, a cross-*site* frame cannot complete the exchange, so a
+  deployment on two unrelated domains needs a browser policy that accepts
+  third-party cookies. The boot warns when the two hostnames differ.
+- **The listener belongs behind the reverse proxy.** It speaks plaintext HTTP
+  and the exchange answers with the ticket in a `Location`; production warns
+  when `HOST` is not loopback.
+- **The sign-in page is a recorded i18n exception.** Pages served by the Code
+  host are outside the app's i18n catalogue (`apps/web/src/i18n`), so the 401
+  page carries fixed English text and `lang="en"`. The app UI still follows
+  `en`/`de`. Translating the host pages would need their own catalogue and the
+  language in the URL; that is deliberately out of scope.
 
 ## Thrown-away alternatives
 
@@ -204,13 +274,15 @@ loopback ports.
 
 | File | Covers |
 | --- | --- |
-| `packages/code-ticket/test/ticket.test.ts` | round trip, unique `jti`, TTL ceiling and refusal, wrong secret/audience/version, expiry boundary, tampered payload and signature, malformed input, bad signed claims. |
-| `apps/code-host/test/env.test.ts` | defaults and warnings, explicit values, origin and URL validation, TTL clamp, every production refusal, no value in a warning. |
-| `apps/code-host/test/auth.test.ts` | ticket single use, expired/tampered/wrong-audience/missing, cookie flags (incl. `Secure` and no `Domain`), open-redirect fallbacks, failure log without a token, sign-in page and both 401 shapes. |
-| `apps/code-host/test/session.test.ts` | cookie round trip, wrong secret, expiry, tampering, attributes, clear-cookie, cookie parsing. |
+| `packages/code-ticket/test/ticket.test.ts` | round trip, unique `jti`, TTL ceiling at mint and at read (incl. the clock-skew boundary and a hand-rolled long `exp`), refusal, wrong secret/audience/version, expiry boundary, tampered payload and signature, malformed input, bad signed claims. |
+| `apps/code-host/test/env.test.ts` | defaults and warnings, explicit values, origin and URL validation, ticket TTL clamp, `PORT` bounds, session TTL cap, non-loopback production warning, hostname-mismatch warning, every production refusal, no value in a warning. |
+| `apps/code-host/test/auth.test.ts` | ticket single use, expired/tampered/wrong-audience/missing, cookie flags and both names (incl. `Secure`, no `Domain`), ticket-as-cookie and cookie-as-ticket separation, verify-before-claim ordering (forged `jti` does not burn the real ticket), open-redirect fallbacks, failure log without a token, sign-in page and both 401 shapes. |
+| `apps/code-host/test/gate.test.ts` | boundary table over five paths × GET/HEAD/POST/OPTIONS with zero upstream requests, expired cookie, `/__health` as the only unauthenticated reach, JSON 401 for `/api/*` with `Accept: text/html`, CSRF rejection for every unsafe method with cross-site evidence, same-origin and absent evidence proxied, cross-site reads still proxied, rejection log without origin or cookie, one accepted cookie name per configuration, address-charset log hygiene. |
+| `apps/code-host/test/node.test.ts` | the response pump settles and cancels the reader when `write()` reports backpressure and the client emits `close`, resumes after `drain` and ends, and cancels immediately on an already-destroyed response. |
+| `apps/code-host/test/session.test.ts` | cookie round trip, wrong secret, expiry, tampering, attributes and both names, clear-cookie, cookie parsing. |
 | `apps/code-host/test/replay.test.ts` | first-claim wins, per-`jti` independence, expiry pruning, bounded growth. |
-| `apps/code-host/test/proxy.test.ts` | gate before upstream, shell body, two CSP lines with byte-identical upstream policy, no `X-Frame-Options`, Basic injection, stripped cookies and echoed credential, `no-store` on `/api/*`, asset cache exception, POST body and query forwarding, 502 without detail, SSE first chunk while upstream is open. |
-| `apps/code-host/test/health.test.ts` | version probe, Basic header, 401/malformed/unreachable upstream, no error text. |
+| `apps/code-host/test/proxy.test.ts` | shell body, two CSP lines with byte-identical upstream policy, one joined CSP line on `HEAD`, no `X-Frame-Options`, dropped upstream `Location`/`WWW-Authenticate`/`Access-Control-*`, no inbound `Origin`, Basic injection, stripped cookies and echoed credential, `no-store` on `/api/*`, asset cache exception, POST body and query forwarding, 502 without detail, SSE first chunk while upstream is open. |
+| `apps/code-host/test/health.test.ts` | version probe, Basic header, 401/malformed/unreachable upstream, timeout, no error text. |
 
 ## Not implemented in this slice
 
@@ -218,8 +290,9 @@ loopback ports.
   BFF slice will call.
 - No UI: the Chat | Code switch, slim bar, `/code/*` deep links and the
   embedding frame are later slices.
-- No rate limiting on ticket minting or the exchange. The architecture lists
-  it; it belongs with the BFF mint endpoint and the deployment proxy.
+- No rate limiting on ticket minting or the exchange in this slice. The mint
+  limit now lives in the BFF (`apps/server/src/code.ts`); the `/__auth`
+  exchange limit still belongs in the deployment proxy (see deployment notes).
 - No WebSocket upgrade tunneling (see above).
 - The deploy-time browser check that the real OpenCode shell frames correctly
   remains an operational step; the header path is covered by tests.
