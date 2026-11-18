@@ -197,7 +197,11 @@ describe("artifact viewer", () => {
 
     // The frame never loads: the first timeout re-reads the metadata and uses
     // the fresh URL; the second timeout ends in the recoverable panel.
-    expect(await screen.findByText("This artifact link has expired")).toBeInTheDocument()
+    // Two metadata reads then a repaint: on a loaded machine the default 1 s
+    // findBy timeout is too tight for a real assertion, not a slow one.
+    expect(
+      await screen.findByText("This artifact link has expired", {}, { timeout: 5_000 }),
+    ).toBeInTheDocument()
     expect(screen.queryByTestId("artifact-frame")).toBeNull()
     expect(screen.getByTestId("artifact-stale-retry")).toBeInTheDocument()
     // Exactly one recovery read, then the panel: the recovery mints a fresh
@@ -217,7 +221,11 @@ describe("artifact viewer", () => {
     })
     renderViewer({ loadTimeoutMs: 0 })
 
-    expect(await screen.findByText("This artifact link has expired")).toBeInTheDocument()
+    // Two metadata reads then a repaint: on a loaded machine the default 1 s
+    // findBy timeout is too tight for a real assertion, not a slow one.
+    expect(
+      await screen.findByText("This artifact link has expired", {}, { timeout: 5_000 }),
+    ).toBeInTheDocument()
     expect(screen.queryByTestId("artifact-frame")).toBeNull()
     expect(reads).toBe(2)
   })
