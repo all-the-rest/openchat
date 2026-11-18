@@ -104,12 +104,13 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
     choose(surface === "code" ? "chat" : "code")
   }, [choose, surface])
 
-  // Cmd/Ctrl+Shift+O is the browser's bookmark manager; the surface owns it.
+  // Cmd/Ctrl+Shift+M toggles the mode ("M" for mode). Cmd+M minimizes the
+  // window and the Shift chord is free; Shift+O belongs to new chat (spec 09).
   useEffect(() => {
     if (configured !== true) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.altKey) return
-      if (event.key.toLowerCase() !== "o") return
+      if (event.key.toLowerCase() !== "m") return
       event.preventDefault()
       toggle()
     }

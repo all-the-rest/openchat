@@ -171,21 +171,23 @@ describe("surface switch", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/")
   })
 
-  it("toggles with Cmd/Ctrl+Shift+O and ignores other key shapes", async () => {
+  it("toggles with Cmd/Ctrl+Shift+M and ignores other key shapes", async () => {
     renderSwitch("/")
     await waitFor(() => expect(screen.getByTestId("surface-switch")).toBeInTheDocument())
 
+    fireEvent.keyDown(window, { key: "m", metaKey: true, shiftKey: true })
+    expect(screen.getByTestId("location")).toHaveTextContent("/code")
+
+    fireEvent.keyDown(window, { key: "m", shiftKey: true })
+    fireEvent.keyDown(window, { key: "m", metaKey: true })
+    fireEvent.keyDown(window, { key: "Escape", metaKey: true, shiftKey: true })
+    fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true })
+    fireEvent.keyDown(window, { key: "m", metaKey: true, shiftKey: true, altKey: true })
+    // The old chord belongs to new chat (spec 09) and must not toggle.
     fireEvent.keyDown(window, { key: "o", metaKey: true, shiftKey: true })
     expect(screen.getByTestId("location")).toHaveTextContent("/code")
 
-    fireEvent.keyDown(window, { key: "o", shiftKey: true })
-    fireEvent.keyDown(window, { key: "o", metaKey: true })
-    fireEvent.keyDown(window, { key: "Escape", metaKey: true, shiftKey: true })
-    fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true })
-    fireEvent.keyDown(window, { key: "o", metaKey: true, shiftKey: true, altKey: true })
-    expect(screen.getByTestId("location")).toHaveTextContent("/code")
-
-    fireEvent.keyDown(window, { key: "o", ctrlKey: true, shiftKey: true })
+    fireEvent.keyDown(window, { key: "m", ctrlKey: true, shiftKey: true })
     expect(screen.getByTestId("location")).toHaveTextContent("/")
   })
 
@@ -197,7 +199,7 @@ describe("surface switch", () => {
     await waitFor(() => expect(screen.getByText("chat home")).toBeInTheDocument())
     expect(screen.queryByTestId("surface-switch")).toBeNull()
 
-    fireEvent.keyDown(window, { key: "o", metaKey: true, shiftKey: true })
+    fireEvent.keyDown(window, { key: "m", metaKey: true, shiftKey: true })
     expect(screen.getByTestId("location")).toHaveTextContent("/")
   })
 })

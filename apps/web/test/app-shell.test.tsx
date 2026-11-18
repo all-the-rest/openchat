@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import type { ReactNode } from "react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { SurfaceProvider } from "../src/code/SurfaceProvider"
+import { SurfaceProvider, useSurface } from "../src/code/SurfaceProvider"
 import { AppShell } from "../src/components/AppShell"
 import { I18nProvider } from "../src/i18n/provider"
 import { ThemeProvider } from "../src/theme/provider"
@@ -56,12 +57,19 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderShell() {
+/** Shows the info-driven state that decides whether the entry renders. */
+function AvailabilityProbe() {
+  const { appsAvailable } = useSurface()
+  return <output data-testid="apps-availability">{String(appsAvailable)}</output>
+}
+
+function renderShell(probe?: ReactNode) {
   return render(
     <ThemeProvider initialTheme="dark">
       <I18nProvider initialLocale="en">
         <MemoryRouter initialEntries={["/"]}>
           <SurfaceProvider>
+            {probe}
             <Routes>
               <Route element={<AppShell />}>
                 <Route index element={<p>main content</p>} />
@@ -165,11 +173,13 @@ describe("sidebar apps entry", () => {
       code: { configured: true, expectedVersion: "2.3.0" },
       apps: { available: false },
     })
-    renderShell()
+    renderShell(<AvailabilityProbe />)
 
-    await waitFor(() => expect(mocks.info).toHaveBeenCalled())
-    // Let the provider store the answer before asserting the entry stays gone.
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    // Wait for the info-driven state itself; only a settled answer makes
+    // "the entry is still absent" meaningful.
+    await waitFor(() =>
+      expect(screen.getByTestId("apps-availability")).toHaveTextContent("false"),
+    )
     expect(screen.getByTestId("nav-search")).toBeInTheDocument()
     expect(screen.queryByTestId("nav-apps")).toBeNull()
   })

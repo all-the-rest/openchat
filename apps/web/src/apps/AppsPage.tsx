@@ -43,9 +43,14 @@ export function AppsPage() {
       setStatus("ready")
     } catch {
       if (!alive.current) return
-      // A refresh keeps the row on screen; the banner explains why it may be stale.
-      if (silent) setBanner({ key: "apps.error.host" })
-      else setStatus("error")
+      if (silent) {
+        // The action succeeded but the outcome is unknown: the banner is the
+        // whole story, so a success notice from before the read must go.
+        setNotice(null)
+        setBanner({ key: "apps.error.host" })
+      } else {
+        setStatus("error")
+      }
     }
   }, [])
 

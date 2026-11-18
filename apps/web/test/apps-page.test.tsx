@@ -164,10 +164,10 @@ describe("apps page", () => {
     expect(screen.queryByRole("region", { name: "Tools" })).toBeNull()
   })
 
-  it("connects with the encoded name, re-reads the host and shows the new status", async () => {
+  it("connects with a host-valid name, re-reads the host and shows the new status", async () => {
     const user = userEvent.setup()
     fixture.servers = [
-      server({ name: "git hub", title: "GitHub", status: "failed", error: "Needs a token" }),
+      server({ name: "github", title: "GitHub", status: "failed", error: "Needs a token" }),
     ]
     renderPage()
 
@@ -178,7 +178,7 @@ describe("apps page", () => {
       ([url, init]) =>
         String(url).endsWith("/connect") && (init as RequestInit | undefined)?.method === "POST",
     )
-    expect(String(post?.[0])).toBe("/api/apps/git%20hub/connect")
+    expect(String(post?.[0])).toBe("/api/apps/github/connect")
     expect(await screen.findByText("Connected")).toBeInTheDocument()
     expect(screen.getByTestId("apps-notice")).toHaveTextContent("GitHub connected.")
   })
@@ -198,6 +198,28 @@ describe("apps page", () => {
     expect(String(post?.[0])).toBe("/api/apps/github/disconnect")
     expect(await screen.findByText("Pending")).toBeInTheDocument()
     expect(screen.getByTestId("apps-notice")).toHaveTextContent("github disconnected.")
+  })
+
+  it("clears the success notice when the refresh after an action fails", async () => {
+    const user = userEvent.setup()
+    fixture.servers = [
+      server({ name: "github", status: "failed", error: "Needs a token" }),
+    ]
+    let failRefresh = false
+    appsRead = () => (failRefresh ? error(502, "apps_unavailable") : json(fixture))
+    renderPage()
+
+    const connect = await screen.findByRole("button", { name: "Connect github" })
+    failRefresh = true
+    await user.click(connect)
+
+    // The action succeeded but its re-read did not: the outcome is unknown, so
+    // the banner is the whole story and the row keeps the last known status.
+    expect(await screen.findByText("The host did not answer.")).toBeInTheDocument()
+    expect(screen.getByTestId("apps-notice")).toBeEmptyDOMElement()
+    expect(screen.queryByText("github connected.")).toBeNull()
+    expect(within(rowOf("github")).getByText("Failed")).toBeInTheDocument()
+    expect(within(rowOf("github")).getByRole("button", { name: "Connect github" })).toBeEnabled()
   })
 
   it("disables the action button while its request runs", async () => {

@@ -85,7 +85,7 @@ export const de: Record<MessageKey, string> = {
   "search.resultCount": "{count} gefunden für \u201e{query}\u201c.",
 
   "apps.title": "Apps",
-  "apps.description": "MCP-Server und Skills dieses Workspace. Der Status kommt vom Host.",
+  "apps.description": "MCP-Server und Skills dieses Workspaces. Der Status kommt vom Host.",
   "apps.servers": "Server",
   "apps.skills": "Skills",
   "apps.loading": "Apps werden geladen\u2026",

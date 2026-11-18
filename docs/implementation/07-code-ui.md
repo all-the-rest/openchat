@@ -44,10 +44,11 @@ Spec: [`../spec/13-code-surface.md`](../spec/13-code-surface.md). Architecture:
   Client-side arrivals at `/` (Back, a link) keep their own history key and
   stay in chat. That is the only place the stored value changes the route; a
   deep link or a chat URL always wins.
-- **Shortcut.** `Cmd/Ctrl+Shift+O` toggles. It is registered only when
+- **Shortcut.** `Cmd/Ctrl+Shift+M` toggles ("M" for mode; `Cmd+M` minimizes
+  the window, so the Shift chord is free). It is registered only when
   `code.configured === true`, ignores `Alt`, other keys and other modifier
-  combinations, and calls `preventDefault` because the same chord opens the
-  browser's bookmark manager.
+  combinations, and calls `preventDefault`. `Cmd/Ctrl+Shift+O` no longer
+  toggles: spec 09 reserves it for new chat.
 - **Unconfigured.** `code.configured === false` (or a failed `/api/info`) means
   the switch renders nothing, the shortcut does nothing and `CodeRoute`
   redirects a direct `/code` visit to `/`. While the info request is in flight
@@ -222,11 +223,13 @@ navigates to `/c/<id>` and hands the text over as the pending prompt.
   not enforced by the app; the Code host's own `frame-ancestors` is the frame
   boundary that actually applies. A deployment can add a CSP at the reverse
   proxy, but this app does not ship one.
-- **Open question: the shortcut is claimed twice.** Spec 09 binds
-  `Cmd/Ctrl+Shift+O` to *new chat*, spec 13 binds it to the surface switch.
-  This implementation follows spec 13 because new chat is not bound yet; the
-  specs must be reconciled before the next slice adds the chord. Owner call,
-  spec not edited here.
+- **Resolved: the shortcut was claimed twice.** Spec 09 binds
+  `Cmd/Ctrl+Shift+O` to *new chat*, spec 13 bound it to the surface switch.
+  Owner decision (2026-11-18): new chat keeps a shortcut of its own (`Shift+N`,
+  not implemented in this slice) and the surface toggle moved to
+  `Cmd/Ctrl+Shift+M`. `docs/spec/09-accessibility.md` still lists
+  `Cmd/Ctrl+Shift+O` as new chat and needs `Shift+N`; that file is owner-owned
+  and was not edited here.
 - **Open question: no mobile overflow menu.** Spec 02 wants the mobile switch
   in an overflow menu; v1 has no overflow menu (see the deviation above). The
   owner decides whether v1 gains one or the spec follows the implementation.
@@ -315,7 +318,7 @@ notice. PNGs stay out of git; `ui-review/` is ignored.
 
 | File | Covers |
 | --- | --- |
-| `test/code-surface.test.tsx` | switch renders with `aria-pressed` and follows the route; storage round trip; `/` restores Code; shortcut toggles and ignores other keys; hidden and inert when unconfigured; app bar (`role="banner"`) and sidebar absent on `/code`; sidebar navigation stores `chat`; helper tables (route mapping, malformed/denied storage, deep-link mapping). |
+| `test/code-surface.test.tsx` | switch renders with `aria-pressed` and follows the route; storage round trip; `/` restores Code; `Cmd/Ctrl+Shift+M` toggles while `Shift+O` and other key shapes do not; hidden and inert when unconfigured; app bar (`role="banner"`) and sidebar absent on `/code`; sidebar navigation stores `chat`; helper tables (route mapping, malformed/denied storage, deep-link mapping). |
 | `test/code-page.test.tsx` | deep-link suffix reaches the ticket call; root `next`; frame `src`, `title`, `allow`; distinct new-tab ticket; loading state and `load`; ticket failure has its own title/body, no version line and a "Sign-in failed" bar, then Retry; unreachable status with expected version; mismatch warning without blocking; foreign-origin message ignored, Code-host origin signs out, sign-in re-mints; blocked timeout; a frame that fired `load` stays Connected past the timeout and mounted; offline; mobile notice; narrow bar says "Desktop only" and never Loading/Blocked; reload re-mints and keeps one switch; `Escape` focus reaches the bar and its visible outline class; unconfigured `/code` redirect. |
 | `test/drafts.test.tsx` | per-session set/get/clear, empty write removes, missing session/storage; Composer survives a remount, keeps a failed draft, clears on success, reloads the draft when the key changes; a landing prompt survives a Chat → Code → Chat switch under `openchat.draft.new`; a landing send creates the session and the landing draft is already gone when the new route runs, with no draft for the new session id. |
 | `test/app-shell.test.tsx` | existing drawer behaviour with the switch inside the app bar. |
