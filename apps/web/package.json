@@ -10,9 +10,14 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:screenshots": "playwright test -c playwright.screenshots.config.ts"
+    "test:screenshots": "playwright test -c playwright.screenshots.config.ts",
+    "i18n:extract": "lingui extract --clean",
+    "i18n:compile": "node scripts/compile-catalogs.ts",
+    "i18n:check": "node scripts/check-catalogs.ts"
   },
   "dependencies": {
+    "@lingui/core": "^6.12.0",
+    "@lingui/react": "^6.12.0",
     "@openchat/contracts": "workspace:*",
     "highlight.js": "^11.12.0",
     "katex": "^0.19.1",
@@ -27,6 +32,9 @@
     "remark-math": "^6.0.0"
   },
   "devDependencies": {
+    "@lingui/cli": "^6.12.0",
+    "@lingui/format-po": "^6.12.0",
+    "@lingui/vite-plugin": "^6.12.0",
     "@openchat/code-ticket": "workspace:*",
     "@playwright/test": "^1.65.1",
     "@tailwindcss/vite": "^4.3.5",

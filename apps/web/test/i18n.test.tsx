@@ -1,9 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
-import { translate } from "../src/i18n"
-import { de } from "../src/i18n/messages/de"
-import { en } from "../src/i18n/messages/en"
+import { catalogs, translate, type MessageKey } from "../src/i18n"
 import { I18nProvider, useI18n, useT } from "../src/i18n/provider"
 
 function Probe() {
@@ -13,6 +11,7 @@ function Probe() {
     <div>
       <h1>{t("landing.heading")}</h1>
       <p>{t("composer.hint")}</p>
+      <p>{t("search.groupCount", { count: 3 })}</p>
       <button type="button" onClick={() => setLocale(locale === "en" ? "de" : "en")}>
         switch
       </button>
@@ -22,11 +21,11 @@ function Probe() {
 
 describe("i18n", () => {
   it("keeps the English and German key sets identical", () => {
-    expect(Object.keys(de).sort()).toEqual(Object.keys(en).sort())
+    expect(Object.keys(catalogs.de).sort()).toEqual(Object.keys(catalogs.en).sort())
   })
 
   it("never returns a raw key for any catalog entry", () => {
-    for (const key of Object.keys(en) as (keyof typeof en)[]) {
+    for (const key of Object.keys(catalogs.en) as MessageKey[]) {
       expect(translate("en", key)).not.toBe(key)
       expect(translate("de", key)).not.toBe(key)
     }
@@ -42,14 +41,16 @@ describe("i18n", () => {
 
     expect(screen.getByRole("heading")).toHaveTextContent("What do you want to work on?")
     expect(document.documentElement.lang).toBe("en")
+    expect(screen.getByText("3 found")).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "switch" }))
 
     expect(screen.getByRole("heading")).toHaveTextContent("Woran möchtest du arbeiten?")
     expect(document.documentElement.lang).toBe("de")
+    expect(screen.getByText("3 gefunden")).toBeInTheDocument()
 
     const body = document.body.textContent ?? ""
-    for (const key of Object.keys(en)) {
+    for (const key of Object.keys(catalogs.en)) {
       expect(body).not.toContain(key)
     }
   })
@@ -57,5 +58,17 @@ describe("i18n", () => {
   it("interpolates named placeholders", () => {
     expect(translate("en", "render.errorCode", { code: "rate_limit" })).toBe("Code: rate_limit")
     expect(translate("de", "render.errorCode", { code: "rate_limit" })).toBe("Code: rate_limit")
+    expect(translate("en", "search.groupCount", { count: 2 })).toBe("2 found")
+    expect(translate("de", "search.groupCount", { count: 2 })).toBe("2 gefunden")
+  })
+
+  it("accepts the documented locale prop as the initial locale", () => {
+    render(
+      <I18nProvider locale="de">
+        <Probe />
+      </I18nProvider>,
+    )
+    expect(screen.getByRole("heading")).toHaveTextContent("Woran möchtest du arbeiten?")
+    expect(document.documentElement.lang).toBe("de")
   })
 })

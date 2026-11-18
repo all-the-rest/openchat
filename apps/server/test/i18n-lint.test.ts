@@ -115,4 +115,42 @@ describe("lint-i18n gate", () => {
     const result = lint(root)
     expect(result.status).toBe(0)
   })
+
+  it("allows text owned by Lingui components, including nested markup", () => {
+    const root = fixture({
+      "src/Component.tsx": [
+        "export function C() {",
+        "  return (",
+        "    <p>",
+        '      <Trans id="greeting">Hello <strong>there</strong></Trans>',
+        "    </p>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+    })
+    const result = lint(root)
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain("no literal UI strings")
+  })
+
+  it("still flags a literal next to a Lingui component", () => {
+    const root = fixture({
+      "src/Component.tsx": [
+        "export function C() {",
+        "  return (",
+        "    <div>",
+        '      <Trans id="greeting">Hello there</Trans>',
+        "      <p>Still hard-coded</p>",
+        "    </div>",
+        "  )",
+        "}",
+        "",
+      ].join("\n"),
+    })
+    const result = lint(root)
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("Still hard-coded")
+    expect(result.stderr).not.toContain("Hello there")
+  })
 })

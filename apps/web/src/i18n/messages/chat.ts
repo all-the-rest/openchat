@@ -1,0 +1,63 @@
+/**
+ * Sign-in, chat list, transcript and composer.
+ *
+ * Explicit ids keep the public `t("key")` API stable; the German text lives in
+ * `src/locales/de/messages.po`.
+ */
+import { msg } from "@lingui/core/macro"
+
+export const chat = {
+  "auth.loginTitle": msg({ id: "auth.loginTitle", message: "Sign in" }),
+  "auth.loginDescription": msg({ id: "auth.loginDescription", message: "Enter your password to open the workspace." }),
+  "auth.passwordLabel": msg({ id: "auth.passwordLabel", message: "Password" }),
+  "auth.passwordPlaceholder": msg({ id: "auth.passwordPlaceholder", message: "Password" }),
+  "auth.signIn": msg({ id: "auth.signIn", message: "Sign in" }),
+  "auth.signingIn": msg({ id: "auth.signingIn", message: "Signing in…" }),
+  "auth.signOut": msg({ id: "auth.signOut", message: "Sign out" }),
+  "auth.invalidPassword": msg({ id: "auth.invalidPassword", message: "Wrong password. Try again." }),
+  "auth.loginFailed": msg({ id: "auth.loginFailed", message: "Sign-in failed. Try again." }),
+  "auth.bootFailed": msg({ id: "auth.bootFailed", message: "The app could not reach the server." }),
+  "auth.retry": msg({ id: "auth.retry", message: "Retry" }),
+
+  "session.untitled": msg({ id: "session.untitled", message: "Untitled" }),
+  "session.listLabel": msg({ id: "session.listLabel", message: "Chat sessions" }),
+  "session.empty": msg({ id: "session.empty", message: "No chats yet." }),
+  "session.loading": msg({ id: "session.loading", message: "Loading chats…" }),
+  "session.loadFailed": msg({ id: "session.loadFailed", message: "Chats could not be loaded." }),
+  "session.createFailed": msg({ id: "session.createFailed", message: "Could not create a chat." }),
+
+  "landing.heading": msg({ id: "landing.heading", message: "What do you want to work on?" }),
+  "landing.description": msg({ id: "landing.description", message: "Send a message to start a new chat." }),
+
+  "chat.transcript": msg({ id: "chat.transcript", message: "Chat transcript" }),
+  "chat.youSaid": msg({ id: "chat.youSaid", message: "You said" }),
+  "chat.assistantSaid": msg({ id: "chat.assistantSaid", message: "Assistant answer" }),
+  "chat.empty": msg({ id: "chat.empty", message: "Start the conversation." }),
+  "chat.loading": msg({ id: "chat.loading", message: "Loading messages…" }),
+  "chat.loadFailed": msg({ id: "chat.loadFailed", message: "Messages could not be loaded." }),
+  "chat.retry": msg({ id: "chat.retry", message: "Retry" }),
+  "chat.sendFailed": msg({ id: "chat.sendFailed", message: "Your message could not be sent." }),
+  "chat.stopFailed": msg({ id: "chat.stopFailed", message: "The run could not be stopped." }),
+  "chat.connectionLost": msg({ id: "chat.connectionLost", message: "Connection lost — reconnecting…" }),
+  "chat.reconnected": msg({ id: "chat.reconnected", message: "Reconnected" }),
+  "chat.dismiss": msg({ id: "chat.dismiss", message: "Dismiss" }),
+  "chat.statusReady": msg({ id: "chat.statusReady", message: "Ready" }),
+  "chat.statusSubmitting": msg({ id: "chat.statusSubmitting", message: "Sending…" }),
+  "chat.statusStreaming": msg({ id: "chat.statusStreaming", message: "Assistant is responding…" }),
+  "chat.statusStopped": msg({ id: "chat.statusStopped", message: "Stopped" }),
+  "chat.statusError": msg({ id: "chat.statusError", message: "Failed" }),
+  "chat.statusQueued": msg({ id: "chat.statusQueued", message: "Queued" }),
+  "chat.queuedHint": msg({ id: "chat.queuedHint", message: "Your message is queued until the current run finishes." }),
+  "chat.continue": msg({ id: "chat.continue", message: "Continue" }),
+  "chat.retryLast": msg({ id: "chat.retryLast", message: "Retry" }),
+  "chat.answerComplete": msg({ id: "chat.answerComplete", message: "Answer complete" }),
+  "chat.copied": msg({ id: "chat.copied", message: "Copied to clipboard" }),
+  "chat.copyMessage": msg({ id: "chat.copyMessage", message: "Copy message" }),
+  "chat.jumpToLatest": msg({ id: "chat.jumpToLatest", message: "Jump to latest message" }),
+
+  "composer.label": msg({ id: "composer.label", message: "Message" }),
+  "composer.placeholder": msg({ id: "composer.placeholder", message: "Send a message…" }),
+  "composer.send": msg({ id: "composer.send", message: "Send" }),
+  "composer.stop": msg({ id: "composer.stop", message: "Stop response" }),
+  "composer.hint": msg({ id: "composer.hint", message: "Enter sends, Shift+Enter adds a line" }),
+} as const

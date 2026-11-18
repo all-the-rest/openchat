@@ -1,0 +1,1153 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-18 14:26+0100\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.groupCount"
+msgstr "{count} found"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.resultCount"
+msgstr "{count} found for “{query}”."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.action.connectDone"
+msgstr "{server} connected."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.action.disconnectDone"
+msgstr "{server} disconnected."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.meta"
+msgstr "{size} · {date}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "app.tagline"
+msgstr "A workspace for your agent."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.emptyBody"
+msgstr "An artifact appears here once the agent writes one with the app tool."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.answerComplete"
+msgstr "Answer complete"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "menu.label"
+msgstr "App menu"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.title"
+msgstr "Apps"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.sourceApps"
+msgstr "Apps"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.apps"
+msgstr "Apps"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.unavailable"
+msgstr "Apps are not available in this deployment."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.loadFailed"
+msgstr "Apps could not be loaded."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.viewerTitle"
+msgstr "Artifact"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.missingTitle"
+msgstr "Artifact not available"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.title"
+msgstr "Artifacts"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.listLabel"
+msgstr "Artifacts"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.artifacts"
+msgstr "Artifacts"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.loadFailed"
+msgstr "Artifacts could not be loaded."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.assistantSaid"
+msgstr "Assistant answer"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.statusStreaming"
+msgstr "Assistant is responding…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.lastSource"
+msgstr "At least one source must stay selected."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.auto"
+msgstr "Auto"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.status.available"
+msgstr "Available"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.back"
+msgstr "Back to artifacts"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.cancel"
+msgstr "Cancel recording"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "surface.chat"
+msgstr "Chat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.listLabel"
+msgstr "Chat sessions"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.sessionsLabel"
+msgstr "Chat sessions"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.transcript"
+msgstr "Chat transcript"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.sourceChats"
+msgstr "Chats"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.chats"
+msgstr "Chats"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.loadFailed"
+msgstr "Chats could not be loaded."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.closeSidebar"
+msgstr "Close chat list"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.code"
+msgstr "Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "surface.code"
+msgstr "Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.downTitle"
+msgstr "Code host unreachable"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.mobileTitle"
+msgstr "Code needs a larger screen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.barLabel"
+msgstr "Code surface controls"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.errorCode"
+msgstr "Code: {code}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.connect"
+msgstr "Connect"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.connectServer"
+msgstr "Connect {server}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.state.ready"
+msgstr "Connected"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.status.connected"
+msgstr "Connected"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.connectionLost"
+msgstr "Connection lost — reconnecting…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.continue"
+msgstr "Continue"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.copied"
+msgstr "Copied"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.copied"
+msgstr "Copied to clipboard"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.copyCode"
+msgstr "Copy code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.copyMessage"
+msgstr "Copy message"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.createFailed"
+msgstr "Could not create a chat."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.state.narrow"
+msgstr "Desktop only"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "language.de"
+msgstr "Deutsch"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.status.disabled"
+msgstr "Disabled"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.disabledNote"
+msgstr "Disabled in the host configuration."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.disconnect"
+msgstr "Disconnect"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.disconnectServer"
+msgstr "Disconnect {server}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.dismiss"
+msgstr "Dismiss"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "tool.status.success"
+msgstr "Done"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.download"
+msgstr "Download"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.downloading"
+msgstr "Downloading…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.elapsed"
+msgstr "Elapsed {duration}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.state.blocked"
+msgstr "Embedding blocked"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "language.en"
+msgstr "English"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.hint"
+msgstr "Enter sends, Shift+Enter adds a line"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.loginDescription"
+msgstr "Enter your password to open the workspace."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.error"
+msgstr "Error"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "tool.status.error"
+msgstr "Error"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.exitPresent"
+msgstr "Exit present"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.statusError"
+msgstr "Failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.status.failed"
+msgstr "Failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.focusFrame"
+msgstr "Focus Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.description"
+msgstr "HTML documents your agent has written. Each one runs sandboxed on a separate origin."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.toolInput"
+msgstr "Input"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.level"
+msgstr "Input level"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "language.label"
+msgstr "Interface language"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.missingBody"
+msgstr "It may have been deleted. The list shows what is still stored."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.jumpToLatest"
+msgstr "Jump to latest message"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.loading"
+msgstr "Loading apps…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.viewerLoading"
+msgstr "Loading artifact…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.loading"
+msgstr "Loading artifacts…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.loading"
+msgstr "Loading chats…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.loading"
+msgstr "Loading messages…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.state.loading"
+msgstr "Loading…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "app.loading"
+msgstr "Loading…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.main"
+msgstr "Main navigation"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.kindServer"
+msgstr "MCP server"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.description"
+msgstr "MCP servers and skills of this workspace. Status comes from the host."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.label"
+msgstr "Message"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.loadFailed"
+msgstr "Messages could not be loaded."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.permission"
+msgstr "Microphone access was denied. Allow the microphone in your browser settings and try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.status.needsAuth"
+msgstr "Needs auth"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.newChat"
+msgstr "New chat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.openNewTabShort"
+msgstr "New tab"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.emptyTitle"
+msgstr "No artifacts yet"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.empty"
+msgstr "No chats yet."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.ticketTitle"
+msgstr "No Code sign-in ticket"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.noServers"
+msgstr "No MCP servers are configured."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.noDevice"
+msgstr "No microphone was found. Connect an input device and try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.noResults"
+msgstr "No results for “{query}”."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.noSkills"
+msgstr "No skills are available."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.noSources"
+msgstr "No source is available for this query."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.empty"
+msgstr "No speech was recognized. Try recording again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.unavailable"
+msgstr "not configured"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.groupDisabled"
+msgstr "Not configured"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.state.down"
+msgstr "Not reachable"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.state.offline"
+msgstr "Offline"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.description"
+msgstr "One query across chats, workspace, web and apps."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.open"
+msgstr "Open {title}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.openSidebar"
+msgstr "Open chat list"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.openNewTab"
+msgstr "Open Code in a new tab"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "menu.trigger"
+msgstr "Open menu"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "app.name"
+msgstr "OpenChat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "host.unreachable"
+msgstr "OpenCode host not reachable"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.frameTitle"
+msgstr "OpenCode workspace"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.opensInNewTab"
+msgstr "opens in a new tab"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.opensInNewTab"
+msgstr "opens in a new tab"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.toolOutput"
+msgstr "Output"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.passwordLabel"
+msgstr "Password"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.passwordPlaceholder"
+msgstr "Password"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.status.pending"
+msgstr "Pending"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.present"
+msgstr "Present"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.presentRegion"
+msgstr "Presented artifact"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.statusQueued"
+msgstr "Queued"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "tool.status.queued"
+msgstr "Queued"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.statusReady"
+msgstr "Ready"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.reasoning"
+msgstr "Reasoning"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.reasoningStreaming"
+msgstr "Reasoning in progress"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.reconnected"
+msgstr "Reconnected"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.recording"
+msgstr "Recording"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.limit.time"
+msgstr "Recording stopped at the {duration} limit."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.limit.size"
+msgstr "Recording stopped at the {size} limit."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.reload"
+msgstr "Reload"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.reload"
+msgstr "Reload"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.mermaidLoading"
+msgstr "Rendering diagram…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.requesting"
+msgstr "Requesting microphone…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.retryLast"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "host.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.retry"
+msgstr "Retry transcription"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "tool.status.running"
+msgstr "Running"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.autoHint"
+msgstr "Runs automatically when relevant"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.title"
+msgstr "Search"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.search"
+msgstr "Search"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.placeholder"
+msgstr "Search chats, files, web and apps"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.groupFailed"
+msgstr "Search failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.label"
+msgstr "Search term"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.send"
+msgstr "Send"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "landing.description"
+msgstr "Send a message to start a new chat."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.placeholder"
+msgstr "Send a message…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.statusSubmitting"
+msgstr "Sending…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.servers"
+msgstr "Servers"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.showFull"
+msgstr "Show full"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.showLess"
+msgstr "Show less"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.loginTitle"
+msgstr "Sign in"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.signIn"
+msgstr "Sign in"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.signIn"
+msgstr "Sign in to Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.signedOutTitle"
+msgstr "Sign in to open Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.signOut"
+msgstr "Sign out"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.state.ticket"
+msgstr "Sign-in failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.loginFailed"
+msgstr "Sign-in failed. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.state.signedOut"
+msgstr "Signed out"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.signingIn"
+msgstr "Signing in…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.kindSkill"
+msgstr "Skill"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.skills"
+msgstr "Skills"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.skipToContent"
+msgstr "Skip to content"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.sources"
+msgstr "Sources"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.start"
+msgstr "Start dictation"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.empty"
+msgstr "Start the conversation."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.stop"
+msgstr "Stop recording"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.stop"
+msgstr "Stop response"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.statusStopped"
+msgstr "Stopped"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "surface.label"
+msgstr "Surface"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "theme.toggleToDark"
+msgstr "Switch to dark theme"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "theme.toggleToLight"
+msgstr "Switch to light theme"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.error.failed"
+msgstr "The action failed."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.ticketBody"
+msgstr "The app could not create a sign-in ticket. The ticket limit may be exhausted; wait a minute and try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.bootFailed"
+msgstr "The app could not reach the server."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.errorBody"
+msgstr "The app could not read this artifact. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "host.unreachableHint"
+msgstr "The app is running, but the OpenCode host did not answer. Retry once the tunnel is back."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.errorTitle"
+msgstr "The artifact could not be loaded"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.staleBody"
+msgstr "The artifact host refused the link. Reload to request a fresh one."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.refreshFailed"
+msgstr "The artifact link could not be refreshed. Reload to get a fresh one."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.signedOutBody"
+msgstr "The Code host has no session in this browser. Signing in mints a fresh ticket."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.versionMismatch"
+msgstr "The Code host runs OpenCode {version}; this app supports major version {expected}."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.blockedTitle"
+msgstr "The Code interface could not be embedded"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.mobileBody"
+msgstr "The Code interface is built for desktop. Open it in a new tab on this device."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.downloadFailed"
+msgstr "The download failed. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.blockedBody"
+msgstr "The frame never finished loading. Open Code in a new tab instead."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.downStatus"
+msgstr "The health probe got no answer from the Code host."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.error.host"
+msgstr "The host did not answer."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.failed"
+msgstr "The recording could not be transcribed. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.tooLarge"
+msgstr "The recording is too large. Record a shorter message."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.errorUnknown"
+msgstr "The request failed."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.stopFailed"
+msgstr "The run could not be stopped."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.failed"
+msgstr "The search failed."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.network"
+msgstr "The transcription service could not be reached. Check your connection and try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.unavailable"
+msgstr "The transcription service is unavailable. Try again later."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.timeout"
+msgstr "The transcription service timed out. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "theme.label"
+msgstr "Theme"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.expectedVersion"
+msgstr "This app is built for OpenCode major version {version}."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.staleTitle"
+msgstr "This artifact link has expired"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.error.unsupported"
+msgstr "This browser cannot record audio in a format the service accepts. Try a different browser."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.retryable"
+msgstr "This error can be retried."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.error.unknownServer"
+msgstr "This server is no longer configured."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.disabledHint"
+msgstr "This source is not configured on the host and was not queried."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.wrap"
+msgstr "Toggle line wrapping"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.error.throttledAfter"
+msgstr "Too many attempts. Try again in {seconds} s."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/apps.ts
+msgid "apps.error.throttled"
+msgstr "Too many attempts. Try again shortly."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.kindTool"
+msgstr "Tool"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/dictation.ts
+msgid "dictation.transcribing"
+msgstr "Transcribing…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.prompt"
+msgstr "Type a search term."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/render.ts
+msgid "render.unknownPart"
+msgstr "Unsupported content: {type}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.untitled"
+msgstr "Untitled"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.sourceWeb"
+msgstr "Web"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.webHint"
+msgstr "Web is searched when you press Enter."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "landing.heading"
+msgstr "What do you want to work on?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/search.ts
+msgid "search.sourceWorkspace"
+msgstr "Workspace"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.invalidPassword"
+msgstr "Wrong password. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/code.ts
+msgid "code.offlineBody"
+msgstr "You are offline. Code is not shown from cache; reconnect and reload."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.youSaid"
+msgstr "You said"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.sendFailed"
+msgstr "Your message could not be sent."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.queuedHint"
+msgstr "Your message is queued until the current run finishes."

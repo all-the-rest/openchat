@@ -1,3 +1,4 @@
+import { I18nProvider as LinguiI18nProvider } from "@lingui/react"
 import {
   createContext,
   useCallback,
@@ -8,6 +9,7 @@ import {
   type ReactNode,
 } from "react"
 import {
+  getI18n,
   LOCALE_STORAGE_KEY,
   resolveLocale,
   translate,
@@ -28,10 +30,14 @@ export interface I18nProviderProps {
   children: ReactNode
   /** Test and bootstrap override; falls back to the persisted setting. */
   initialLocale?: Locale
+  /** Alias for `initialLocale`, for the documented `<I18nProvider locale>` form. */
+  locale?: Locale
 }
 
-export function I18nProvider({ children, initialLocale }: I18nProviderProps) {
-  const [locale, setLocaleState] = useState<Locale>(() => initialLocale ?? resolveLocale())
+export function I18nProvider({ children, initialLocale, locale: localeProp }: I18nProviderProps) {
+  const [locale, setLocaleState] = useState<Locale>(
+    () => localeProp ?? initialLocale ?? resolveLocale(),
+  )
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next)
@@ -46,14 +52,18 @@ export function I18nProvider({ children, initialLocale }: I18nProviderProps) {
     document.documentElement.lang = locale
   }, [locale])
 
-  const t = useCallback(
-    (key: MessageKey, vars?: MessageVars) => translate(locale, key, vars),
+  const t = useMemo<(key: MessageKey, vars?: MessageVars) => string>(
+    () => (key, vars) => translate(locale, key, vars),
     [locale],
   )
 
   const value = useMemo<I18nValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t])
 
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
+  return (
+    <I18nContext.Provider value={value}>
+      <LinguiI18nProvider i18n={getI18n(locale)}>{children}</LinguiI18nProvider>
+    </I18nContext.Provider>
+  )
 }
 
 export function useI18n(): I18nValue {
