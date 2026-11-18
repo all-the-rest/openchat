@@ -208,6 +208,17 @@ describe.skipIf(IS_WINDOWS)("deploy/swap.sh", () => {
     expect(readlinkSync(join(test.stack, "current"))).toBe("releases/r1")
   })
 
+  it("accepts a healthz report with spaces around the JSON separators", () => {
+    const test = fixture()
+    const result = test.run(["--release", test.release("r1"), "--expect-version", "9.9.9"], {
+      STUB_BODY: '{ "ok" : true, "version" : "9.9.9", "reachable" : true }',
+    })
+
+    expect(result.status).toBe(0)
+    expect(readlinkSync(join(test.stack, "current"))).toBe("releases/r1")
+    expect(result.stdout).toContain("host reachable")
+  })
+
   it("accepts a degraded host as a valid deployment", () => {
     const test = fixture()
     const result = test.run(["--release", test.release("r1")], {

@@ -9,8 +9,10 @@ mkdirSync(join(dist, "assets"), { recursive: true })
 mkdirSync(join(dist, "nested"), { recursive: true })
 writeFileSync(join(dist, "index.html"), "<!doctype html><div id=root></div>")
 writeFileSync(join(dist, "assets", "app-abc123.js"), "export const ready = true\n")
+writeFileSync(join(dist, "assets", "app.js"), "export const app = true\n")
 writeFileSync(join(dist, "assets", "app-abc123.css"), "body{margin:0}\n")
 writeFileSync(join(dist, "favicon.svg"), "<svg></svg>")
+writeFileSync(join(dist, "api"), "a build file must never shadow the API\n")
 writeFileSync(join(dist, "nested", "index.html"), "<!doctype html><p>nested</p>")
 writeFileSync(join(dist, "secret.txt"), "not reachable from outside")
 writeFileSync(join(tmpdir(), "openchat-static-sibling.txt"), "sibling")
@@ -80,6 +82,36 @@ describe("serveStatic", () => {
     expect(await get("/healthz")).toBeUndefined()
     expect(await get("/", "POST")).toBeUndefined()
     expect(await get("/assets/app-abc123.js", "DELETE")).toBeUndefined()
+  })
+
+  it("keeps a reserved route out of the shell whatever the spelling", async () => {
+    // `dist/api` exists in the fixture: a file of that name must not shadow the
+    // API even when URL spelling differs from the canonical path.
+    const reserved = [
+      "/api",
+      "/api/info",
+      "//api/info",
+      "/API/info",
+      "/Api",
+      "/HealthZ",
+      "/healthz/",
+    ]
+    for (const path of reserved) {
+      expect(await get(path), `${path} must fall through to the API`).toBeUndefined()
+    }
+  })
+
+  it("still serves assets and SPA routes once the first segment is not reserved", async () => {
+    const asset = await get("/assets/app.js")
+    expect(asset?.status).toBe(200)
+    expect(asset?.headers.get("content-type")).toBe("text/javascript; charset=utf-8")
+    expect(await asset?.text()).toContain("export const app = true")
+
+    for (const path of ["/workspace/ses_123", "/settings/profile"]) {
+      const response = await get(path)
+      expect(response?.status, `${path} is a client route`).toBe(200)
+      expect(await response?.text()).toContain("id=root")
+    }
   })
 
   it("answers HEAD with headers and no body", async () => {

@@ -98,6 +98,16 @@ describe("compose stack boundaries", () => {
     }
   })
 
+  it("defaults TRUST_PROXY off because the BFF is published on loopback", () => {
+    for (const name of ["bff", "code-host"]) {
+      expect(service(name), `${name} must not trust forwarding headers by default`).toMatch(
+        /^ {6}TRUST_PROXY: \$\{TRUST_PROXY:-0\}$/m,
+      )
+    }
+    expect(ENV_TEMPLATE).toMatch(/^TRUST_PROXY=0$/m)
+    expect(ENV_TEMPLATE).not.toMatch(/^TRUST_PROXY=1$/m)
+  })
+
   it("keeps OpenCode and the Code host unpublished", () => {
     expect(service("opencode")).not.toMatch(/^ {4}ports:/m)
     expect(service("code-host")).not.toMatch(/^ {4}ports:/m)
@@ -277,6 +287,14 @@ describe("image invariants", () => {
     expect(IMAGES.tools).toMatch(/^HEALTHCHECK /m)
     expect(IMAGES.tools).not.toMatch(/^\s*privileged:/m)
     expect(IMAGES.tools).not.toMatch(/--privileged/)
+  })
+
+  it("verifies the docker CLI tarball against the release checksum before unpacking", () => {
+    expect(IMAGES.tools).toContain("${tarball}.sha256")
+    expect(IMAGES.tools).toContain('sha256sum -c "${tarball}.sha256"')
+    expect(IMAGES.tools.indexOf("sha256sum -c")).toBeLessThan(
+      IMAGES.tools.indexOf("tar -xz"),
+    )
   })
 
   it("never copies a .env or a secret into an image", () => {

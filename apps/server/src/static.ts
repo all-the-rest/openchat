@@ -10,8 +10,8 @@ import { extname, resolve, sep } from "node:path"
  * `WEB_DIST_DIR` names an existing build.
  *
  * The shell itself is public: `/login` and the app boot are part of the SPA and
- * the API enforces authentication. Anything below `/api/` and `/healthz` never
- * reaches this module.
+ * the API enforces authentication. Anything that names the API or `/healthz`
+ * as its first segment never reaches the filesystem.
  */
 
 /** Environment variable naming the built SPA directory. Empty disables it. */
@@ -22,9 +22,8 @@ const IMMUTABLE_PREFIX = "/assets/"
 const IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 const SHELL_CACHE = "no-store"
 
-/** Paths the application owns; a file of the same name must not shadow them. */
-const RESERVED_PREFIX = "/api/"
-const RESERVED_PATHS = new Set(["/healthz", "/api"])
+/** First segments the application owns; a file of that name must not shadow them. */
+const RESERVED_SEGMENTS = new Set(["api", "healthz"])
 
 const CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -78,6 +77,19 @@ function cacheControl(pathname: string): string {
   return pathname.startsWith(IMMUTABLE_PREFIX) ? IMMUTABLE_CACHE : SHELL_CACHE
 }
 
+/**
+ * The first non-empty path segment, lower-cased. `//API/info`, `/Api` and
+ * `/healthz/` all name a reserved route: repeated leading slashes and casing are
+ * URL spelling, not a different resource. Only this check folds case; the
+ * filesystem lookup below still uses the exact decoded path.
+ */
+function firstSegment(pathname: string): string {
+  for (const segment of pathname.split("/")) {
+    if (segment.length > 0) return segment.toLowerCase()
+  }
+  return ""
+}
+
 async function readFileOrUndefined(path: string): Promise<Buffer | undefined> {
   try {
     const info = await stat(path)
@@ -114,7 +126,8 @@ function fileWithin(distDir: string, pathname: string): string | undefined {
 /**
  * Answers a `GET`/`HEAD` from the build, or `undefined` so the caller can fall
  * through to the application (API routes, JSON 404). Only `GET`/`HEAD` are
- * considered, and the API prefix is never resolved against the filesystem.
+ * considered, and a reserved first segment is never resolved against the
+ * filesystem.
  */
 export async function serveStatic(
   options: WebDistOptions,
@@ -129,8 +142,7 @@ export async function serveStatic(
     return undefined
   }
 
-  if (RESERVED_PATHS.has(pathname)) return undefined
-  if (pathname.startsWith(RESERVED_PREFIX)) return undefined
+  if (RESERVED_SEGMENTS.has(firstSegment(pathname))) return undefined
 
   const target = fileWithin(options.distDir, pathname)
   if (target === undefined) return undefined

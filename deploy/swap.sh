@@ -181,6 +181,15 @@ cleanup() {
   fi
 }
 
+# The probes read one HTTP body; JSON does not require compact separators, so
+# every check runs against the body with whitespace removed. The needle is a
+# fixed string, so a dotted version is compared literally, not as a pattern.
+body_has() {
+  local body
+  body=$(tr -d '[:space:]' < "$PROBE_BODY_FILE")
+  grep -qF -- "$1" <<<"$body"
+}
+
 # Waits for `/healthz`, then checks `/api/info`. A degraded host (OpenCode
 # unreachable) still answers 200 with `host.reachable: false` and is allowed: the
 # app being up is what a swap validates, not the upstream.
@@ -190,7 +199,7 @@ check_release() {
 
   while :; do
     probe "$PROBE_URL/healthz"
-    if [ "$PROBE_CODE" = "200" ] && grep -q '"ok":true' "$PROBE_BODY_FILE"; then
+    if [ "$PROBE_CODE" = "200" ] && body_has '"ok":true'; then
       break
     fi
     if [ "$SECONDS" -ge "$deadline" ]; then
@@ -201,7 +210,7 @@ check_release() {
     sleep 2
   done
 
-  if [ -n "$EXPECT_VERSION" ] && grep -qF "\"version\":\"$EXPECT_VERSION\"" "$PROBE_BODY_FILE"; then
+  if [ -n "$EXPECT_VERSION" ] && body_has "\"version\":\"$EXPECT_VERSION\""; then
     version_hit=1
   fi
 
@@ -216,7 +225,7 @@ check_release() {
     return 1
   fi
 
-  if grep -q '"reachable":true' "$PROBE_BODY_FILE"; then
+  if body_has '"reachable":true'; then
     note "validation: app up, host reachable"
   else
     note "validation: app up, host unreachable (degraded, allowed)"
