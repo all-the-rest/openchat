@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto"
 import { join } from "node:path"
 import type { FakeScenario } from "@openchat/contracts"
 import { isFakeScenario } from "@openchat/opencode"
+import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
 
 export type BackendMode = "fake" | "live"
 export type AuthMode = "session" | "basic"
@@ -68,10 +69,6 @@ const MIN_CODE_STATUS_TIMEOUT_MS = 100
 const MAX_CODE_STATUS_TIMEOUT_MS = 10_000
 /** Matches `MAX_TICKET_TTL_SECONDS` in `@openchat/code-ticket`. */
 const MAX_CODE_TICKET_TTL_SECONDS = 60
-/** An HMAC key below this has too little entropy to be worth a signature. */
-const MIN_ARTIFACT_SIGNING_KEY_LENGTH = 32
-/** Default artifact directory inside the workspace. */
-const ARTIFACT_DIR_NAME = ".openchat-artifacts"
 /**
  * Upper bound for a single upload. The route buffers the audio in memory, so a
  * misconfigured gigabyte cap must not become an OOM. 100 MiB leaves ample room
@@ -198,34 +195,6 @@ function readCodeHostOrigin(source: Record<string, string | undefined>): string 
 }
 
 /**
- * The artifact host base URL is optional: empty means the surface is not
- * configured and the UI hides it. A path is allowed (a deployment may mount
- * the host under a prefix), a trailing slash is dropped because the signed URL
- * appends `/a/<id>`. The value is never echoed.
- */
-function readArtifactHostUrl(source: Record<string, string | undefined>): string {
-  const raw = read(source, "ARTIFACT_HOST_URL")
-  if (!raw) return ""
-  let url: URL
-  try {
-    url = new URL(raw)
-  } catch {
-    throw new Error("ARTIFACT_HOST_URL must be an absolute http(s) URL")
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("ARTIFACT_HOST_URL must use http or https")
-  }
-  if (url.username || url.password) {
-    throw new Error("ARTIFACT_HOST_URL must not embed credentials")
-  }
-  if (url.search || url.hash) {
-    throw new Error("ARTIFACT_HOST_URL must not carry a query or fragment")
-  }
-  const path = url.pathname.replace(/\/+$/, "")
-  return path.length > 0 ? `${url.origin}${path}` : url.origin
-}
-
-/**
  * Reads and validates process configuration. Warnings are printed once at
  * boot and never contain credentials.
  */
@@ -299,28 +268,15 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     }
   }
 
-  // The artifact surface needs both halves. One alone is a half-configured
-  // deployment, not a boot failure: the server hides the surface and says why.
-  const artifactHostUrl = readArtifactHostUrl(source)
-  const artifactSigningKey = readSecret(source, "ARTIFACT_SIGNING_KEY") ?? ""
-  if (
-    artifactSigningKey.length > 0 &&
-    artifactSigningKey.length < MIN_ARTIFACT_SIGNING_KEY_LENGTH
-  ) {
-    // A short key still signs, so a typo would only weaken every URL silently.
-    throw new Error(
-      `ARTIFACT_SIGNING_KEY must be at least ${MIN_ARTIFACT_SIGNING_KEY_LENGTH} characters`,
-    )
-  }
-  if (artifactHostUrl && !artifactSigningKey) {
-    warn("ARTIFACT_SIGNING_KEY is unset; the artifact surface stays hidden")
-  }
-  if (!artifactHostUrl && artifactSigningKey) {
-    warn("ARTIFACT_HOST_URL is unset; the artifact surface stays hidden")
-  }
-  if (artifactHostUrl && production && new URL(artifactHostUrl).protocol !== "https:") {
-    throw new Error("ARTIFACT_HOST_URL must use https when NODE_ENV=production")
-  }
+  // The artifact surface needs both halves; `loadArtifactEnv` validates them
+  // together and warns when a deployment configured only one.
+  const artifacts = loadArtifactEnv(
+    {
+      hostUrl: read(source, "ARTIFACT_HOST_URL"),
+      signingKey: readSecret(source, "ARTIFACT_SIGNING_KEY"),
+    },
+    { production, warn },
+  )
   const workspaceDir = read(source, "WORKSPACE_DIR") ?? process.cwd()
 
   if (source.NODE_ENV === "production") {
@@ -414,8 +370,8 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     CODE_TICKET_SECRET: codeTicketSecret ?? "",
     CODE_TICKET_TTL_SECONDS: codeTicketTtl,
     CODE_STATUS_TIMEOUT_MS: codeStatusTimeoutMs,
-    ARTIFACT_HOST_URL: artifactHostUrl,
-    ARTIFACT_SIGNING_KEY: artifactSigningKey,
+    ARTIFACT_HOST_URL: artifacts.hostUrl,
+    ARTIFACT_SIGNING_KEY: artifacts.signingKey,
     ARTIFACTS_DIR: read(source, "ARTIFACTS_DIR") ?? join(workspaceDir, ARTIFACT_DIR_NAME),
   }
 }

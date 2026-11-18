@@ -80,6 +80,7 @@ describe("contracts", () => {
       dictation: { enabled: false, maxSeconds: 60, maxBytes: 1 },
       code: { configured: false, expectedVersion: "2.3.0" },
       apps: { available: false },
+      artifacts: { available: false },
     }
 
     expect(info.host.reachable).toBe(false)
