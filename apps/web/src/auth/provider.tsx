@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react"
 import { api, ApiError } from "../api/client"
+import { clearLastUser, readLastUser, writeLastUser } from "./last-user"
+import { getOfflineSnapshot } from "../pwa/offline"
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated" | "error"
 
@@ -29,12 +31,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("loading")
     try {
       const me = await api.me()
+      writeLastUser(me.user)
       setUser(me.user)
       setStatus("authenticated")
     } catch (error) {
       if (error instanceof ApiError && error.isUnauthorized) {
+        clearLastUser()
         setUser(null)
         setStatus("unauthenticated")
+        return
+      }
+      // Offline with a remembered name: render the read-only shell so the
+      // offline banner and disabled composer explain the state. The cookie
+      // still gates every API call when the connection returns.
+      const remembered = getOfflineSnapshot() ? readLastUser() : null
+      if (remembered) {
+        setUser(remembered)
+        setStatus("authenticated")
         return
       }
       setStatus("error")
@@ -47,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (user: string, password: string) => {
     const result = await api.login(user, password)
+    writeLastUser(result.user)
     setUser(result.user)
     setStatus("authenticated")
   }, [])
@@ -57,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // The client state is cleared regardless; the cookie may already be gone.
     } finally {
+      clearLastUser()
       setUser(null)
       setStatus("unauthenticated")
     }

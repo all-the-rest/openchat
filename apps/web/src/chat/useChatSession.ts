@@ -5,6 +5,7 @@ import { api } from "../api/client"
 import { useEventStream } from "../api/events"
 import { useSurfaceOrNull } from "../code/SurfaceProvider"
 import { createID } from "../lib/ids"
+import { setStreamActive } from "../pwa/stream-guard"
 import { applyEvent, isTerminalEvent } from "../state/fold"
 import { applyInboxEvent } from "./inbox"
 
@@ -243,6 +244,11 @@ export function useChatSession(sessionID: string): ChatSessionValue {
 
   const running = submitting || streaming
   runningRef.current = running
+  // The shell's update notice reads this to withhold reload while answering.
+  useEffect(() => {
+    setStreamActive(running)
+    return () => setStreamActive(false)
+  }, [running])
   const canRetry = messages.some((message) => message.role === "user")
 
   return {

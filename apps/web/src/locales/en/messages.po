@@ -43,6 +43,16 @@ msgid "files.quota"
 msgstr "{used} of {total} used ({percent}%)"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "update.title"
+msgstr "A new version is available"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "pwa.description"
+msgstr "A self-hosted workspace for your agent, available offline."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "app.tagline"
 msgstr "A workspace for your agent."
@@ -383,6 +393,12 @@ msgid "apps.disconnectServer"
 msgstr "Disconnect {server}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "install.dismiss"
+msgstr "Dismiss"
+
+#. js-lingui-explicit-id
+
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftDismiss"
 msgstr "Dismiss"
@@ -498,6 +514,16 @@ msgid "dictation.level"
 msgstr "Input level"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "install.install"
+msgstr "Install"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "install.hint"
+msgstr "Install OpenChat on this device for quick access."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
 msgid "language.label"
 msgstr "Interface language"
@@ -511,6 +537,11 @@ msgstr "It may have been deleted. The list shows what is still stored."
 #: src/i18n/messages/chat.ts
 msgid "chat.jumpToLatest"
 msgstr "Jump to latest message"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "update.dismiss"
+msgstr "Later"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -688,9 +719,24 @@ msgid "menu.trigger"
 msgstr "Open menu"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "pwa.name"
+msgstr "OpenChat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "pwa.shortName"
+msgstr "OpenChat"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "app.name"
 msgstr "OpenChat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "offline.hint"
+msgstr "OpenChat needs a connection to load chats and send messages. Reconnect to continue."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -812,6 +858,16 @@ msgstr "Reload"
 msgid "composer.attachmentRemove"
 msgstr "Remove {name}"
 
+#: src/i18n/messages/pwa.ts
+msgid "update.reload"
+msgstr "Reload to update"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "update.hint"
+msgstr "Reload when you are ready. Nothing changes until you do."
+
+
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.mermaidLoading"
@@ -931,6 +987,11 @@ msgstr "Send a message to start a new chat."
 #: src/i18n/messages/chat.ts
 msgid "composer.placeholder"
 msgstr "Send a message…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "offline.composerHint"
+msgstr "Sending is unavailable while offline. Reconnect to start a new prompt."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1313,6 +1374,11 @@ msgid "auth.userLabel"
 msgstr "Username"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "update.streamingHint"
+msgstr "Wait for the current answer to finish before reloading."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.sourceWeb"
 msgstr "Web"
@@ -1336,6 +1402,11 @@ msgstr "Workspace"
 #: src/i18n/messages/chat.ts
 msgid "auth.invalidCredentials"
 msgstr "Wrong username or password. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "offline.title"
+msgstr "You are offline"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts

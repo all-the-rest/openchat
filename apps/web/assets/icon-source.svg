@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Single clean-room source for every generated icon. One geometric chat
+       bubble on the brand surface (spec 08: color-bg-app / color-accent). No
+       text, no third-party artwork. The owner may replace this file and rerun
+       `pnpm run icons` to regenerate the committed PNG set. -->
+  <rect id="surface" width="1024" height="1024" rx="220" fill="#0f1115"/>
+  <path d="M 250 380 Q 250 290 340 290 L 684 290 Q 774 290 774 380 L 774 600 Q 774 680 684 680 L 440 680 L 330 770 L 330 680 Q 250 680 250 600 Z" fill="#4f8cff"/>
+  <circle cx="390" cy="485" r="34" fill="#0f1115"/>
+  <circle cx="512" cy="485" r="34" fill="#0f1115"/>
+  <circle cx="634" cy="485" r="34" fill="#0f1115"/>
+</svg>

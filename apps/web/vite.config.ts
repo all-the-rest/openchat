@@ -1,6 +1,11 @@
+import { createHash } from "node:crypto"
+import { readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import lingui from "@lingui/vite-plugin"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
+import type { Plugin } from "vite"
 import { defineConfig } from "vitest/config"
 
 const BFF_TARGET = process.env.OPENCHAT_BFF_TARGET ?? "http://localhost:8787"
@@ -15,8 +20,47 @@ const BFF_TARGET = process.env.OPENCHAT_BFF_TARGET ?? "http://localhost:8787"
 const HIGHLIGHT_MODULES =
   /[\\/]node_modules[\\/](?:\.pnpm[\\/])?(?:highlight\.js|lowlight)(?:@|[\\/])/
 
+const WEB_DIR = dirname(fileURLToPath(import.meta.url))
+const DIST_DIR = join(WEB_DIR, "dist")
+const SW_SOURCE = join(WEB_DIR, "public", "sw.js")
+
+/**
+ * Injects a content-derived version and the exact precache list into the
+ * hand-written service worker. Hashing the build manifest means the same source
+ * always produces the same version; any asset change produces a new one, which
+ * is the signal the in-app "reload to update" notice watches for.
+ */
+function serviceWorkerVersion(): Plugin {
+  return {
+    name: "openchat-sw-version",
+    apply: "build",
+    closeBundle() {
+      const manifestPath = join(DIST_DIR, ".vite", "manifest.json")
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<
+        string,
+        { file: string }
+      >
+      const assets = [...new Set(Object.values(manifest).map((chunk) => `/${chunk.file}`))].sort()
+      const icons = readdirSync(join(WEB_DIR, "public", "icons"))
+        .filter((name) => name.endsWith(".png"))
+        .map((name) => `/icons/${name}`)
+        .sort()
+      const precache = [...new Set(["/", "/index.html", "/manifest.webmanifest", ...icons, ...assets])]
+      const version = createHash("sha256").update(JSON.stringify(manifest)).digest("hex").slice(0, 12)
+
+      let source = readFileSync(SW_SOURCE, "utf8")
+      source = source.replace('const VERSION = "dev"', `const VERSION = ${JSON.stringify(version)}`)
+      source = source.replace(/const PRECACHE = \[[^\]]*\]/, `const PRECACHE = ${JSON.stringify(precache)}`)
+      if (!source.includes(`const VERSION = "${version}"`) || source.includes('"dev"')) {
+        throw new Error("service worker version injection failed: placeholders not found")
+      }
+      writeFileSync(join(DIST_DIR, "sw.js"), source)
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), lingui({ macroTransform: true })],
+  plugins: [react(), tailwindcss(), lingui({ macroTransform: true }), serviceWorkerVersion()],
   build: {
     // `scripts/check-bundle.ts` reads the manifest to tell the eager route
     // shell apart from lazily imported route and renderer chunks.

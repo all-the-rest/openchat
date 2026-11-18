@@ -3,6 +3,9 @@ import { Outlet } from "react-router-dom"
 import { AppBarMenu } from "../components/AppBarMenu"
 import { SidebarToggle } from "../components/controls"
 import { HostStatusBanner } from "../components/HostStatusBanner"
+import { InstallHint } from "../components/InstallHint"
+import { OfflineBanner } from "../components/OfflineBanner"
+import { UpdateNotice } from "../components/UpdateNotice"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
 import { SessionSidebar } from "../chat/SessionSidebar"
@@ -146,9 +149,13 @@ export function AppShell() {
           </div>
         )}
 
-        {/* A dead host is a shell state: the banner sits on every protected
-            route, directly under the bar (or at the top on the Code surface). */}
+        {/* PWA shell state sits on every protected route, directly under the
+            bar (or at the top on the Code surface): connection first, then the
+            host, then the deployment and install notices. */}
+        <OfflineBanner />
         <HostStatusBanner />
+        <UpdateNotice />
+        <InstallHint />
 
         <a
           href="#main-content"

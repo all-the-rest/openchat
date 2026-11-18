@@ -18,6 +18,7 @@ import {
   HOST_STATUS_BFF_PORT,
   HOST_STATUS_WEB_PORT,
 } from "./e2e/host-status-fixture"
+import { PWA_ORIGIN, PWA_PORT } from "./e2e/pwa-fixture"
 
 const WEB_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(WEB_DIR, "..", "..")
@@ -143,6 +144,23 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 60_000,
       env: { OPENCHAT_BFF_TARGET: HOST_STATUS_BFF_ORIGIN },
+    },
+    {
+      // PWA specs need a production build: the SW is injected and served by the
+      // BFF from apps/web/dist, on one origin together with the fake API.
+      command: "pnpm --filter @openchat/web build && pnpm --filter @openchat/server start",
+      cwd: REPO_ROOT,
+      url: `${PWA_ORIGIN}/healthz`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        PORT: String(PWA_PORT),
+        WEB_DIST_DIR: join(REPO_ROOT, "apps", "web", "dist"),
+        BACKEND_MODE: "fake",
+        OPENCHAT_PASSWORD: "test-password",
+        SESSION_SECRET: "test-secret",
+        WORKSPACE_DIR,
+      },
     },
     {
       // Stub Code host: redeems the real tickets the BFF mints, so the switch,
