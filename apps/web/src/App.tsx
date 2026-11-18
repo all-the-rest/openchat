@@ -54,13 +54,13 @@ function ProtectedShell() {
 
   return (
     <SurfaceProvider>
-      <SessionsProvider>
-        <EventStreamProvider>
-          <CompletionProvider>
+      <CompletionProvider>
+        <SessionsProvider>
+          <EventStreamProvider>
             <AppShell />
-          </CompletionProvider>
-        </EventStreamProvider>
-      </SessionsProvider>
+          </EventStreamProvider>
+        </SessionsProvider>
+      </CompletionProvider>
     </SurfaceProvider>
   )
 }

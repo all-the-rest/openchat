@@ -1,7 +1,12 @@
 import type { Hono } from "hono"
 import type { ChatBackend } from "@openchat/opencode"
 import { permissionReplyRequestSchema } from "@openchat/contracts"
-import type { AgentInfo, ModelInfo, PermissionsResponse } from "@openchat/contracts"
+import type {
+  AgentInfo,
+  HostDefaultModelResponse,
+  ModelInfo,
+  PermissionsResponse,
+} from "@openchat/contracts"
 import type { AppEnv } from "./app"
 import {
   BODY_TOO_LARGE,
@@ -15,6 +20,20 @@ import {
 /** The model and agent catalogues the browser pickers render. */
 export function registerCatalogRoutes(app: Hono<AppEnv>, backend: ChatBackend): void {
   app.get("/api/models", async (c) => c.json(await backend.listModels() satisfies ModelInfo[]))
+  // Read-only: the host-wide default is configuration, never a write target.
+  app.get("/api/models/default", async (c) => {
+    c.header("Cache-Control", "no-store")
+    try {
+      return c.json({ model: await backend.hostDefaultModel() } satisfies HostDefaultModelResponse)
+    } catch {
+      return jsonError(
+        c,
+        502,
+        "model_default_unavailable",
+        "The host default model could not be read",
+      )
+    }
+  })
   app.get("/api/agents", async (c) => c.json(await backend.listAgents() satisfies AgentInfo[]))
 }
 

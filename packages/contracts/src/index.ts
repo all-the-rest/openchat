@@ -12,6 +12,7 @@ export * from "./files"
 export * from "./memory"
 export * from "./artifacts/caps"
 export * from "./permissions"
+export * from "./providers"
 export * from "./stt-model"
 export * from "./transcript"
 export * from "./tasks"
@@ -258,6 +259,9 @@ export interface InboxResponse {
 
 export interface CreateSessionRequest {
   title?: string
+  /** Per-browser default applied when the session is created. */
+  model?: string
+  agent?: string
 }
 
 /** Event names the fake backend and the live adapter normalize to. */
@@ -352,6 +356,8 @@ export const promptRequestSchema = z.object({
 
 export const createSessionRequestSchema = z.object({
   title: z.string().min(1).max(120).optional(),
+  model: z.string().min(1).max(200).optional(),
+  agent: z.string().min(1).max(200).optional(),
 })
 
 export const loginRequestSchema = z.object({

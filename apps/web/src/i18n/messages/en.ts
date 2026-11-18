@@ -13,6 +13,7 @@ import { code } from "./code"
 import { dictation } from "./dictation"
 import { files } from "./files"
 import { memory } from "./memory"
+import { onboarding } from "./onboarding"
 import { palette } from "./palette"
 import { pwa } from "./pwa"
 import { render } from "./render"
@@ -31,6 +32,7 @@ export const messages = {
   ...dictation,
   ...files,
   ...memory,
+  ...onboarding,
   ...palette,
   ...pwa,
   ...render,

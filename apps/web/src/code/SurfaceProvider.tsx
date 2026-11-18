@@ -32,6 +32,11 @@ export interface SurfaceValue {
    */
   artifactsAvailable: boolean | null
   /**
+   * `host.models.length > 0` from the same `/api/info` response; `null` until
+   * it answered. False with an empty catalogue is the first-run state.
+   */
+  modelsAvailable: boolean | null
+  /**
    * `host.reachable` from `/api/info`; `null` until it answered. False means
    * the app is up but the OpenCode host behind it did not answer.
    */
@@ -65,6 +70,7 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
   const [configured, setConfigured] = useState<boolean | null>(null)
   const [appsAvailable, setAppsAvailable] = useState<boolean | null>(null)
   const [artifactsAvailable, setArtifactsAvailable] = useState<boolean | null>(null)
+  const [modelsAvailable, setModelsAvailable] = useState<boolean | null>(null)
   const [hostReachable, setHostReachable] = useState<boolean | null>(null)
   const [stored, setStored] = useState<Surface>(() => readSurface())
   // StrictMode runs the mount effect twice and retries can overlap; only the
@@ -79,12 +85,14 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
       setConfigured(info?.code?.configured === true)
       setAppsAvailable(info?.apps?.available === true)
       setArtifactsAvailable(info?.artifacts?.available === true)
+      setModelsAvailable(Array.isArray(info?.models) && info.models.length > 0)
       setHostReachable(info?.host?.reachable !== false)
     } catch {
       if (current !== request.current) return
       setConfigured(false)
       setAppsAvailable(false)
       setArtifactsAvailable(false)
+      setModelsAvailable(false)
       setHostReachable(false)
     }
   }, [])
@@ -143,6 +151,7 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
       configured,
       appsAvailable,
       artifactsAvailable,
+      modelsAvailable,
       hostReachable,
       surface,
       stored,
@@ -155,6 +164,7 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
       configured,
       appsAvailable,
       artifactsAvailable,
+      modelsAvailable,
       hostReachable,
       surface,
       stored,

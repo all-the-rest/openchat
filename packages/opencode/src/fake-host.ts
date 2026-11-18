@@ -118,6 +118,49 @@ export class FakeHostSwitch implements ChatBackend {
     return this.backend.listAgents()
   }
 
+  async listProviders(): ReturnType<ChatBackend["listProviders"]> {
+    this.guard()
+    return this.backend.listProviders()
+  }
+
+  async connectProviderKey(...args: Parameters<ChatBackend["connectProviderKey"]>): Promise<void> {
+    this.guard()
+    return this.backend.connectProviderKey(...args)
+  }
+
+  async startProviderOAuth(
+    ...args: Parameters<ChatBackend["startProviderOAuth"]>
+  ): ReturnType<ChatBackend["startProviderOAuth"]> {
+    this.guard()
+    return this.backend.startProviderOAuth(...args)
+  }
+
+  async providerOAuthStatus(
+    ...args: Parameters<ChatBackend["providerOAuthStatus"]>
+  ): ReturnType<ChatBackend["providerOAuthStatus"]> {
+    this.guard()
+    return this.backend.providerOAuthStatus(...args)
+  }
+
+  async completeProviderOAuth(
+    ...args: Parameters<ChatBackend["completeProviderOAuth"]>
+  ): Promise<void> {
+    this.guard()
+    return this.backend.completeProviderOAuth(...args)
+  }
+
+  async cancelProviderOAuth(
+    ...args: Parameters<ChatBackend["cancelProviderOAuth"]>
+  ): Promise<void> {
+    this.guard()
+    return this.backend.cancelProviderOAuth(...args)
+  }
+
+  async hostDefaultModel(): ReturnType<ChatBackend["hostDefaultModel"]> {
+    this.guard()
+    return this.backend.hostDefaultModel()
+  }
+
   async listPermissions(sessionID: string) {
     this.guard()
     return this.backend.listPermissions(sessionID)

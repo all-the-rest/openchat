@@ -31,6 +31,11 @@ export interface EnvConfig extends WorkspaceFileEnv {
    * absent" state is reachable in a browser. A live host decides for itself.
    */
   FAKE_APPS: boolean
+  /**
+   * Fake mode only: `false` starts with no model, so the first-run onboarding
+   * is reachable in a browser without a real provider.
+   */
+  FAKE_MODELS: boolean
   OPENCODE_URL: string
   /** Built SPA directory served by the BFF; empty in development. */
   WEB_DIST_DIR: string
@@ -202,6 +207,12 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     warn("FAKE_APPS must be on or off; using on")
   }
 
+  // `off` starts the fake without a model. Only `BACKEND_MODE=fake` reads it.
+  const fakeModelsValue = read(source, "FAKE_MODELS")?.toLowerCase() ?? "on"
+  if (fakeModelsValue !== "on" && fakeModelsValue !== "off") {
+    warn("FAKE_MODELS must be on or off; using on")
+  }
+
   const credentials = loadCredentialEnv({
     password: readSecret(source, "OPENCHAT_PASSWORD"),
     passwordHash: readSecret(source, "OPENCHAT_PASSWORD_HASH"),
@@ -334,6 +345,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     BACKEND_MODE: backendMode,
     FAKE_SCENARIO: isFakeScenario(scenarioValue) ? scenarioValue : "default",
     FAKE_APPS: fakeAppsValue !== "off",
+    FAKE_MODELS: fakeModelsValue !== "off",
     OPENCODE_URL: readOpencodeUrl(source),
     WEB_DIST_DIR: webDistDir(source),
     OPENCODE_USERNAME: read(source, "OPENCODE_USERNAME") ?? "opencode",

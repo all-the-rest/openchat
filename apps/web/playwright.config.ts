@@ -32,6 +32,11 @@ import {
   LOCAL_STT_MODEL_DIR,
   LOCAL_STT_WEB_PORT,
 } from "./e2e/local-stt-fixture"
+import {
+  ONBOARDING_BFF_ORIGIN,
+  ONBOARDING_BFF_PORT,
+  ONBOARDING_WEB_PORT,
+} from "./e2e/onboarding-fixture"
 import { PWA_ORIGIN, PWA_PORT } from "./e2e/pwa-fixture"
 
 const WEB_DIR = dirname(fileURLToPath(import.meta.url))
@@ -193,6 +198,31 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 60_000,
       env: { OPENCHAT_BFF_TARGET: HOST_STATUS_BFF_ORIGIN },
+    },
+    {
+      // First-run stack: a deterministic host that starts without a model, so
+      // the onboarding card is reachable without a real provider.
+      command: "pnpm --filter @openchat/server start",
+      cwd: REPO_ROOT,
+      url: `${ONBOARDING_BFF_ORIGIN}/healthz`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        PORT: String(ONBOARDING_BFF_PORT),
+        BACKEND_MODE: "fake",
+        FAKE_MODELS: "off",
+        OPENCHAT_PASSWORD: "test-password",
+        SESSION_SECRET: "test-secret",
+        WORKSPACE_DIR,
+      },
+    },
+    {
+      command: `pnpm --filter @openchat/web dev --port ${ONBOARDING_WEB_PORT} --strictPort`,
+      cwd: REPO_ROOT,
+      url: `http://localhost:${ONBOARDING_WEB_PORT}`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: { OPENCHAT_BFF_TARGET: ONBOARDING_BFF_ORIGIN },
     },
     {
       // PWA specs need a production build: the SW is injected and served by the

@@ -27,7 +27,9 @@ import type {
   SearchOutcome,
 } from "./index"
 import { FakeAppInventory } from "./fake-apps"
-import { FAKE_MODELS, recordPrompt } from "./fake-completion"
+import { recordPrompt } from "./fake-completion"
+import { FakeIntegrations } from "./fake-integrations"
+import type { FakeProviderRecord } from "./fake-integrations"
 import { FakeTaskStore } from "./fake-tasks"
 import { FakeCompaction } from "./fake-compaction"
 import { FakeEvents } from "./fake-events"
@@ -56,6 +58,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private readonly disabledSources: readonly SearchSource[]
   private readonly failingSources: readonly SearchSource[]
   private readonly apps: FakeAppInventory
+  private readonly integrations: FakeIntegrations
   private readonly onAppAction?: (action: "connect" | "disconnect", name: string) => void
   private readonly events: FakeEvents
   private readonly permissions: FakePermissions
@@ -71,6 +74,11 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
     this.disabledSources = options.disabledSources ?? []
     this.failingSources = options.failingSources ?? []
     this.apps = new FakeAppInventory({ available: options.appsAvailable })
+    this.integrations = new FakeIntegrations({
+      now: this.clock,
+      seedModels: options.seedModels,
+      oauthDelayMs: options.oauthDelayMs,
+    })
     this.onAppAction = options.onAppAction
     this.events = new FakeEvents(this.clock)
     this.compaction = new FakeCompaction({
@@ -129,7 +137,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
       id: this.events.nextID("ses"), title: input.title?.trim() ?? "",
       directory: input.directory, created, updated: created,
     }
-    this.sessions.set(info.id, { info, messages: [] })
+    this.sessions.set(info.id, { info, messages: [], model: input.model, agent: input.agent })
     this.events.emit(EVENT.sessionCreated, info.id, {
       sessionID: info.id, title: info.title, directory: info.directory,
     }, true)
@@ -200,8 +208,39 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
     this.runner.interrupt(sessionID)
   }
 
-  async listModels(): Promise<ModelInfo[]> {
-    return FAKE_MODELS.map(clone)
+  async listModels(): Promise<ModelInfo[]> { return this.integrations.models() }
+
+  async listProviders() { return this.integrations.providers() }
+
+  async connectProviderKey(input: Parameters<ChatBackend["connectProviderKey"]>[0]): Promise<void> {
+    this.integrations.connectKey(input)
+  }
+
+  async startProviderOAuth(input: Parameters<ChatBackend["startProviderOAuth"]>[0]) {
+    return this.integrations.startOAuth(input)
+  }
+
+  async providerOAuthStatus(input: { providerID: string; attemptID: string }) {
+    return this.integrations.oauthStatus(input.attemptID)
+  }
+
+  async completeProviderOAuth(input: {
+    providerID: string
+    attemptID: string
+    code?: string
+  }): Promise<void> {
+    this.integrations.completeOAuth(input.attemptID)
+  }
+
+  async cancelProviderOAuth(input: { providerID: string; attemptID: string }): Promise<void> {
+    this.integrations.cancelOAuth(input.attemptID)
+  }
+
+  async hostDefaultModel(): Promise<ModelInfo | null> { return this.integrations.defaultModel() }
+
+  /** Fake-mode probe: key connects and OAuth counters; never the secret. */
+  recordedProviders(): FakeProviderRecord {
+    return this.integrations.recorded()
   }
 
   async listAgents(): Promise<AgentInfo[]> {
@@ -220,6 +259,12 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   ): Promise<void> {
     this.requireSession(sessionID)
     this.permissions.reply(sessionID, requestID, decision)
+  }
+
+  /** Fake-mode probe: the completion a session was created with. */
+  sessionCompletion(sessionID: string): { model?: string; agent?: string } {
+    const session = this.requireSession(sessionID)
+    return { model: session.model, agent: session.agent }
   }
 
   /** Fake-mode probe: the last accepted prompt, including model and agent. */

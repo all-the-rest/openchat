@@ -1,12 +1,14 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Composer } from "../chat/Composer"
+import { CompletionPickers } from "../chat/CompletionPicker"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
 import { NEW_DRAFT_KEY, clearDraft } from "../chat/drafts"
 import { useSessions } from "../chat/sessions"
 import { ChatHero } from "../components/ChatHero"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useT } from "../i18n/provider"
+import { FirstRunGate } from "../onboarding/FirstRunGate"
 
 export function LandingPage() {
   const t = useT()
@@ -42,14 +44,18 @@ export function LandingPage() {
 
         <ConnectionNotice />
 
-        <Composer
-          onSend={send}
-          onStop={() => undefined}
-          running={false}
-          disabled={creating}
-          draftKey={NEW_DRAFT_KEY}
-          autoFocus
-        />
+        <CompletionPickers />
+
+        <FirstRunGate>
+          <Composer
+            onSend={send}
+            onStop={() => undefined}
+            running={false}
+            disabled={creating}
+            draftKey={NEW_DRAFT_KEY}
+            autoFocus
+          />
+        </FirstRunGate>
       </div>
     </div>
   )

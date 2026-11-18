@@ -1,3 +1,4 @@
+import { providerEndpoints } from "./providers"
 import type {
   AppsResponse,
   ArtifactResponse,
@@ -51,6 +52,8 @@ const artifactPath = (id: string) => `/api/artifacts/${encodeURIComponent(id)}`
 const schedulePath = (id: string) => `/api/schedules/${encodeURIComponent(id)}`
 
 export const api = {
+  ...providerEndpoints(request),
+
   me(): Promise<LoginResponse> {
     return request<LoginResponse>("/api/auth/me")
   },
