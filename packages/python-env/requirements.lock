@@ -1,0 +1,21 @@
+# Resolved, fully pinned Python set for the typed document tools (issue #24).
+#
+# Resolved on the Alpine 3.24.4 / Python 3.14.10 musllinux base with
+# `pip download --only-binary :all:`: every package below ships a musllinux
+# wheel for this interpreter, so neither the development venv nor the image
+# needs a compiler. Regenerate by editing requirements.in and resolving on the
+# same base; never add an unpinned line (`lock.test.ts` rejects it).
+#
+# Top-level (requirements.in):
+python-docx==1.2.0
+openpyxl==3.1.5
+pypdf==7.1.1
+reportlab==5.1.0
+pillow==13.0.0
+#
+# Transitive, pinned because the image install is offline and must resolve to
+# exactly these wheels:
+charset-normalizer==3.5.2
+et_xmlfile==2.0.0
+lxml==6.1.3
+typing_extensions==4.16.0

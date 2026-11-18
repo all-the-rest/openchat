@@ -18,6 +18,7 @@ export const PACKAGES = [
   "packages/code-ticket",
   "packages/contracts",
   "packages/opencode",
+  "packages/python-tool",
 ]
 
 const created: string[] = []
@@ -78,6 +79,7 @@ const NAMES: Record<string, string> = {
   "packages/code-ticket": "@openchat/code-ticket",
   "packages/contracts": "@openchat/contracts",
   "packages/opencode": "@openchat/opencode",
+  "packages/python-tool": "@openchat/python-tool",
 }
 
 export const CHANGELOG = `# Changelog

@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/tool.ts"
+    ".": "./src/tool.ts",
+    "./bff": "./src/bff.ts",
+    "./env": "./src/env.ts",
+    "./shell": "./src/shell.ts"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
