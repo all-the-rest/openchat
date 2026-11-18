@@ -7,9 +7,16 @@ import { createApp } from "./app"
 import { loadEnv } from "./env"
 import { MAX_BODY_BYTES } from "./limits"
 import { pumpResponseBody } from "./pump"
+import { serveStatic, webDistDir } from "./static"
 import { TRANSCRIBE_PATH } from "./transcribe"
 
 const config = loadEnv()
+/**
+ * Built SPA directory. Empty in development, where Vite serves the shell; set
+ * to `/app/web` in the image. Static files are answered before the API app so
+ * a request never pays for the Hono dispatch or the JSON body reader.
+ */
+const staticDir = webDistDir()
 
 const backend: ChatBackend =
   config.BACKEND_MODE === "live"
@@ -44,6 +51,28 @@ function respondPayloadTooLarge(response: ServerResponse): void {
   )
 }
 
+/**
+ * Writes a `Response` onto the node response: headers first, then the body
+ * streamed rather than buffered. Shared by the static path and the API app so
+ * both keep the same set-cookie and pumping behaviour.
+ */
+async function writeWebResponse(response: ServerResponse, webResponse: Response): Promise<void> {
+  response.statusCode = webResponse.status
+  for (const [name, value] of webResponse.headers) {
+    if (name.toLowerCase() === "set-cookie") continue
+    response.setHeader(name, value)
+  }
+  const cookies = webResponse.headers.getSetCookie()
+  if (cookies.length > 0) response.setHeader("set-cookie", cookies)
+
+  if (!webResponse.body) {
+    response.end()
+    return
+  }
+
+  await pumpResponseBody(webResponse.body, response)
+}
+
 async function handleRequest(request: IncomingMessage, response: ServerResponse) {
   const lifecycle = new AbortController()
   response.on("close", () => lifecycle.abort())
@@ -57,6 +86,17 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   for (const [name, value] of Object.entries(request.headers)) {
     if (value === undefined) continue
     headers.set(name, Array.isArray(value) ? value.join(", ") : value)
+  }
+
+  if (staticDir) {
+    const staticResponse = await serveStatic(
+      { distDir: staticDir },
+      new Request(url, { method, headers }),
+    )
+    if (staticResponse) {
+      await writeWebResponse(response, staticResponse)
+      return
+    }
   }
 
   let webRequest: Request
@@ -111,20 +151,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     remoteAddress: request.socket.remoteAddress,
   })
 
-  response.statusCode = webResponse.status
-  for (const [name, value] of webResponse.headers) {
-    if (name.toLowerCase() === "set-cookie") continue
-    response.setHeader(name, value)
-  }
-  const cookies = webResponse.headers.getSetCookie()
-  if (cookies.length > 0) response.setHeader("set-cookie", cookies)
-
-  if (!webResponse.body) {
-    response.end()
-    return
-  }
-
-  await pumpResponseBody(webResponse.body, response)
+  await writeWebResponse(response, webResponse)
 }
 
 const server = createServer((request, response) => {
