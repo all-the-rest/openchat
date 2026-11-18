@@ -5,6 +5,8 @@ import type {
   InboxEntry,
   Message,
   ModelInfo,
+  PermissionDecision,
+  PermissionRequest,
   ServerInfo,
   SessionInfo,
 } from "@openchat/contracts"
@@ -21,6 +23,8 @@ import type {
 import { EventQueue } from "./events"
 import { BackendError } from "./errors"
 import { liveAppAction, liveApps } from "./live-apps"
+import { applyCompletion } from "./live-model"
+import { normalizePermissionRequest, replyHostPermission } from "./live-permissions"
 import { createToolEventState, normalizeEvent } from "./live-events"
 import { liveSearch } from "./live-search"
 import { normalizeMessage, normalizeSession } from "./live-normalize"
@@ -61,6 +65,8 @@ export class LiveBackend implements ChatBackend {
   /** Per-subscriber normalizer state is created in `subscribe`. */
   private readonly subscribers = new Set<EventQueue<V2Event>>()
   private upstream?: AsyncIterator<V2Event>
+  /** modelID → providerID, warmed by `listModels` (the BFF's info call). */
+  private modelProviders?: Map<string, string>
 
   constructor(options: LiveBackendOptions) {
     this.workspace = options.workspace
@@ -105,6 +111,10 @@ export class LiveBackend implements ChatBackend {
   }
 
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {
+    await applyCompletion(this.client, sessionID, input, async () => {
+      if (!this.modelProviders) await this.listModels()
+      return this.modelProviders ?? new Map()
+    })
     const entry = await this.client.session.prompt({
       sessionID,
       text: input.text,
@@ -160,6 +170,7 @@ export class LiveBackend implements ChatBackend {
 
   async listModels(): Promise<ModelInfo[]> {
     const response = await this.client.model.list({ types: ["chat"] })
+    this.modelProviders = new Map(response.data.map((model) => [model.modelID, model.providerID]))
     return response.data.map((model) => ({
       id: model.modelID,
       name: model.name,
@@ -174,6 +185,19 @@ export class LiveBackend implements ChatBackend {
       name: agent.name,
       description: agent.description,
     }))
+  }
+
+  async listPermissions(sessionID: string): Promise<PermissionRequest[]> {
+    const entries = await this.client.permission.list({ sessionID })
+    return entries.map(normalizePermissionRequest)
+  }
+
+  async replyPermission(
+    sessionID: string,
+    requestID: string,
+    decision: PermissionDecision,
+  ): Promise<void> {
+    await replyHostPermission(this.client, sessionID, requestID, decision)
   }
 
   async listApps(): Promise<AppsSnapshot> {

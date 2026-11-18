@@ -24,6 +24,20 @@ There is **no memory API**: nothing in the client or protocol stores facts about
 the owner. Memory is assembled from instructions plus conversation history, and
 anything durable has to be built by us.
 
+## Code Mode and MCP
+
+MCP servers are exposed **through Code Mode by default**: the `codemode` field
+on a server defaults to `true`, and its tools appear as
+`tools.<server>.<tool>(…)` inside the `execute` tool rather than as separate
+native tools. Setting `codemode: false` lists them directly.
+
+That matters for memory: a memory MCP server can expose `search({ queries: [] })`
+and `write({ entries: [] })` so one script answers several questions or stores
+several facts in a single step, and the intermediate results never enter the
+model context. MCP tool results are also capped (reported as 2 000 lines /
+51 200 bytes with the full output saved to a file), so a memory tool should
+return compact JSON and its own limits.
+
 ## Options
 
 | Option | Injection | Write path | Review | Risk |
@@ -38,10 +52,11 @@ The useful combination is **C + D**: a small, reviewed memory block injected
 into every session, plus a tool for detail on demand. A is for rules, not for
 facts about a person; E is the natural home for automatic capture later.
 
-## Recommended v1 — "approved memory"
+## Review-gated variant (fallback)
 
-A memory store owned by the BFF, written only by the owner or through an
-explicit, reviewable proposal.
+A store owned by the BFF, written only by the owner or through an explicit
+proposal. Kept here because self-management could poison the store in practice;
+the same file format supports it with `status: proposed` and no migration.
 
 ### Data model
 
@@ -162,18 +177,50 @@ new dependency.
   chat, assert the injected block contains the approved sentence and the
   proposal is gone from the prompt.
 
+## Owner direction (2026-11-18)
+
+The owner narrowed the design: memory is **self-managed by the agent**,
+including cleanup, and it must be **token-efficient**: a file as the source of
+truth plus a small query utility (an MCP server) that is callable from Code
+Mode, so one script can run several searches or write several entries. It is
+cross-session and ships in 2.5. The sections above describe the mechanism
+survey; "Recommended v1" below reflects the owner direction, with the review
+step reduced to an owner override in the UI instead of an approval gate.
+
+## Recommended v1 — "agent-managed memory"
+
+A file-first store under `/workspace/.memory/`, written and pruned by the agent
+through a small MCP server, plus a bounded index injected per session.
+
+- **Store**: an `index.json` plus per-topic Markdown files with front-matter
+  (key, kind, importance, provenance, timestamps, status). Atomic writes,
+  `0600`, single directory with the same path rules as chat files.
+- **Tools** (batch-friendly, compact JSON): `search({ queries[], kind?, limit? })`,
+  `read({ keys[] })`, `write({ entries[] })` (upsert by key), `update({ keys,
+  patch })`, `delete({ keys[] })`, `maintenance({ dryRun })` for duplicates,
+  stale entries and oversized topics, `stats()` for the agent's own budgeting.
+- **Injection**: `memory/index` via `session.instructions.entry.put`, top-N by
+  importance then recency, ~1 500 tokens; refreshed at step boundaries.
+- **Owner override**: `/memory` page to browse, edit, delete, export — the agent
+  owns the content, the owner keeps the last word.
+
+The earlier "approved memory" variant stays as a fallback if self-management
+turns out to poison the store in practice; the store format supports it
+(`status: proposed`) without a migration.
+
 ## Open owner decisions
 
-1. Should the agent be allowed to propose memories at all, or only the owner
-   writes them?
-2. Is the workspace volume the right home, or a separate `memory-data` volume?
-3. How much context is worth paying for on every session (1 500 tokens is a
+1. Is the workspace volume the right home, or a separate `memory-data` volume?
+2. How much context is worth paying for on every session (1 500 tokens is a
    starting point, not a measurement)?
-4. Do we want automatic capture (plugin hook) in the same milestone or later?
+3. Does `maintenance` run automatically at session start, or only when the agent
+   calls it?
 
 ## Recommendation
 
-Ship v1 as **approved memory + proposal tool + `/memory` + per-session
-injection**. It uses only documented APIs, adds no host-side plugin, and keeps
-every learned fact reviewable. Automatic capture is a second slice on top of the
-same store, not a prerequisite.
+Ship v1 as **file-first agent-managed memory + MCP tool + `/memory` + bounded
+per-session index**. It uses only documented APIs, adds no host-side plugin,
+and keeps every fact visible and editable for the owner. Automatic
+summarisation of every session (a plugin `compaction` hook) remains a later
+slice on the same store.
+

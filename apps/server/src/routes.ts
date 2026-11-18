@@ -33,6 +33,7 @@ import {
   readJson,
 } from "./http"
 import { clientAddress } from "./middleware"
+import { registerCatalogRoutes, registerPermissionRoutes } from "./completion-routes"
 import { registerAppsRoutes } from "./apps"
 import { AppsCache, probeApps } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
@@ -42,6 +43,7 @@ import { registerChatFilesRoutes } from "./chat-files"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
+import { registerFakeControlsRoutes } from "./fake-controls"
 import { registerFakeHostRoute } from "./fake-host-route"
 import type { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { SSE_RETRY_FRAME } from "./sse"
@@ -252,6 +254,8 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     const result = await backend.prompt(c.req.param("id"), {
       text: parsed.data.text,
       delivery: parsed.data.delivery ?? "queue",
+      model: parsed.data.model,
+      agent: parsed.data.agent,
     })
     const response: PromptResponse = { ok: true, messageID: result.messageID }
     if (result.queued) response.queued = true
@@ -351,7 +355,9 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
 
   registerAuthRoutes(app, deps)
   registerInfoRoutes(app, deps, appsCache)
+  registerCatalogRoutes(app, deps.backend)
   registerSessionRoutes(app, deps)
+  registerPermissionRoutes(app, deps.backend)
   registerCodeRoutes(app, {
     config: deps.config,
     ticketThrottle: deps.codeTicketThrottle,
@@ -379,7 +385,8 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerTranscribeRoute(app, deps)
   registerEventRoute(app, deps)
   // Fake mode only; the live adapter has no outage switch to expose.
-  if (deps.config.BACKEND_MODE === "fake" && deps.backend instanceof FakeHostSwitch) {
-    registerFakeHostRoute(app, deps.backend)
+  if (deps.config.BACKEND_MODE === "fake") {
+    if (deps.backend instanceof FakeHostSwitch) registerFakeHostRoute(app, deps.backend)
+    registerFakeControlsRoutes(app, deps.backend)
   }
 }

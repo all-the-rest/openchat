@@ -4,9 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { api } from "../api/client"
 import { useEventStream } from "../api/events"
 import { useSurfaceOrNull } from "../code/SurfaceProvider"
+import { SOURCE_LOCALE, translate, type MessageKey } from "../i18n"
+import { useI18nOrNull } from "../i18n/provider"
 import { createID } from "../lib/ids"
 import { setStreamActive } from "../pwa/stream-guard"
 import { applyEvent, isTerminalEvent } from "../state/fold"
+import { useCompletionOrNull } from "./completion"
 import { applyInboxEvent } from "./inbox"
 
 export type ChatError = "load" | "send" | "stop" | "cancel" | null
@@ -47,6 +50,10 @@ export function useChatSession(sessionID: string): ChatSessionValue {
   const [inbox, setInbox] = useState<InboxEntry[]>([])
   const { subscribe, reconnect } = useEventStream()
   const hostReachable = useSurfaceOrNull()?.hostReachable ?? null
+  const completion = useCompletionOrNull()
+  const locale = useI18nOrNull()?.locale ?? SOURCE_LOCALE
+  const askedTools = useRef(new Map<string, string>())
+  const notedEvents = useRef(new Set<string>())
 
   const activeSession = useRef(sessionID)
   activeSession.current = sessionID
@@ -131,9 +138,37 @@ export function useChatSession(sessionID: string): ChatSessionValue {
         setQueued(false)
       }
       if (event.type === EVENT.interrupted) setStopped(true)
+      if (event.type === EVENT.permissionAsked) {
+        const data = event.data
+        const id = typeof data.id === "string" ? data.id : ""
+        const tool = typeof data.tool === "string" ? data.tool : ""
+        if (id && tool) askedTools.current.set(id, tool)
+      }
+      if (event.type === EVENT.permissionReplied) {
+        const data = event.data
+        const requestID = typeof data.requestID === "string" ? data.requestID : ""
+        const tool = askedTools.current.get(requestID)
+        askedTools.current.delete(requestID)
+        if (
+          data.decision === "deny" &&
+          !notedEvents.current.has(event.id)
+        ) {
+          notedEvents.current.add(event.id)
+          const key: MessageKey = tool ? "chat.permissionDenied" : "chat.permissionDeniedGeneric"
+          const note: Message = {
+            id: createID("msg"),
+            sessionID: activeSession.current,
+            role: "system",
+            parts: [{ type: "text", id: createID("part"), text: translate(locale, key, { tool: tool ?? "" }) }],
+            created: event.created,
+            status: "complete",
+          }
+          setMessages((current) => [...current, note])
+        }
+      }
       if (isTerminalEvent(event.type)) setSubmitting(false)
     })
-  }, [subscribe])
+  }, [subscribe, locale])
 
   const runningRef = useRef(false)
 
@@ -162,9 +197,15 @@ export function useChatSession(sessionID: string): ChatSessionValue {
       try {
         // The response confirms the run, not the user message ID: the fake and
         // live backends return the assistant message ID here.
+        const choice = {
+          model: completion?.model ?? undefined,
+          agent: completion?.agent ?? undefined,
+        }
         const result = await api.prompt(
           sessionID,
-          queue ? { text: trimmed, delivery: "queue" } : { text: trimmed },
+          queue
+            ? { text: trimmed, delivery: "queue", ...choice }
+            : { text: trimmed, ...choice },
         )
         if (result?.queued) setQueued(true)
       } catch (failure) {
@@ -176,7 +217,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
         throw failure
       }
     },
-    [sessionID],
+    [sessionID, completion?.model, completion?.agent],
   )
 
   const stop = useCallback(async () => {

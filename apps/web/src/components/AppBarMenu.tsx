@@ -12,7 +12,7 @@ import { SurfaceSwitch } from "../code/SurfaceSwitch"
 import { useSurface } from "../code/SurfaceProvider"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
-import { AppsIcon, ArtifactsIcon, MoreIcon, PlusIcon, SearchIcon } from "./icons"
+import { AppsIcon, ArtifactsIcon, MoreIcon, PlusIcon, SearchIcon, SettingsIcon } from "./icons"
 
 /** Desktop layout breakpoint, matching the shell's drawer and Tailwind's `lg`. */
 const WIDE_QUERY = "(min-width: 1024px)"
@@ -222,6 +222,17 @@ export function AppBarMenu({ className = "" }: { className?: string }) {
               {t("nav.artifacts")}
             </Link>
           ) : null}
+
+          <Link
+            to="/settings"
+            role="menuitem"
+            data-testid="menu-settings"
+            onClick={() => close(false)}
+            className={ITEM}
+          >
+            <SettingsIcon className="size-4 shrink-0" />
+            {t("nav.settings")}
+          </Link>
 
           <button
             type="button"

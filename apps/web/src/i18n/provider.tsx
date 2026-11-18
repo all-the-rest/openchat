@@ -75,3 +75,8 @@ export function useI18n(): I18nValue {
 export function useT(): I18nValue["t"] {
   return useI18n().t
 }
+
+/** For hooks that need only the locale and may run outside a provider. */
+export function useI18nOrNull(): I18nValue | null {
+  return useContext(I18nContext)
+}

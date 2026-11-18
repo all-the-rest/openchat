@@ -38,6 +38,11 @@ msgid "artifacts.meta"
 msgstr "{size} · {date}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionTool"
+msgstr "{tool} requests:"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.quota"
 msgstr "{used} of {total} used ({percent}%)"
@@ -52,15 +57,35 @@ msgstr "A new version is available"
 msgid "pwa.description"
 msgstr "A self-hosted workspace for your agent, available offline."
 
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionDeniedGeneric"
+msgstr "A tool request was denied"
+
+
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "app.tagline"
 msgstr "A workspace for your agent."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.agentLabel"
+msgstr "Agent"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.origin.agent"
 msgstr "Agent"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionAllowAlways"
+msgstr "Allow always"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionAllowOnce"
+msgstr "Allow once"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -71,6 +96,11 @@ msgstr "An artifact appears here once the agent writes one with the app tool."
 #: src/i18n/messages/chat.ts
 msgid "chat.answerComplete"
 msgstr "Answer complete"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionHint"
+msgstr "Answer this request before sending another message."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -170,6 +200,11 @@ msgstr "Auto"
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.available"
+msgstr "Available"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.available"
 msgstr "Available"
 
 #. js-lingui-explicit-id
@@ -343,6 +378,16 @@ msgid "artifacts.draftData"
 msgstr "Data"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.defaultChoice"
+msgstr "Default"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.defaults"
+msgstr "Defaults for new chats"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.delete"
 msgstr "Delete"
@@ -363,6 +408,16 @@ msgid "files.deleteTitle"
 msgstr "Delete this file?"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionDenied"
+msgstr "Denied {tool}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionDeny"
+msgstr "Deny"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.narrow"
 msgstr "Desktop only"
@@ -371,6 +426,11 @@ msgstr "Desktop only"
 #: src/i18n/messages/settings.ts
 msgid "language.de"
 msgstr "Deutsch"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.dictation"
+msgstr "Dictation"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -412,6 +472,11 @@ msgstr "Dismiss"
 #: src/i18n/messages/files.ts
 msgid "files.dismiss"
 msgstr "Dismiss"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.documents"
+msgstr "Documents"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -497,6 +562,16 @@ msgstr "Files"
 #: src/i18n/messages/code.ts
 msgid "code.focusFrame"
 msgstr "Focus Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.hostUnreachable"
+msgstr "Host not reachable"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.hostReachable"
+msgstr "Host reachable"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -607,6 +682,16 @@ msgstr "Messages could not be loaded."
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.permission"
 msgstr "Microphone access was denied. Allow the microphone in your browser settings and try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.modelLabel"
+msgstr "Model"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.activeChoice"
+msgstr "Model: {model} · Agent: {agent}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -784,6 +869,11 @@ msgid "chat.inboxPendingStep"
 msgstr "Pending step"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionTitle"
+msgstr "Permission required"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.present"
 msgstr "Present"
@@ -882,6 +972,11 @@ msgstr "Requesting microphone…"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.reset"
 msgstr "Reset"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionResources"
+msgstr "Resources: {resources}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -999,9 +1094,29 @@ msgid "chat.statusSubmitting"
 msgstr "Sending…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.serverStatus"
+msgstr "Server status"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.loadFailed"
+msgstr "Server status could not be loaded."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.servers"
 msgstr "Servers"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.title"
+msgstr "Settings"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.settings"
+msgstr "Settings"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1234,6 +1349,11 @@ msgid "dictation.error.tooLarge"
 msgstr "The recording is too large. Record a shorter message."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionFailed"
+msgstr "The reply could not be sent. Try again."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.errorUnknown"
 msgstr "The request failed."
@@ -1344,6 +1464,11 @@ msgid "search.prompt"
 msgstr "Type a search term."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.unavailable"
+msgstr "Unavailable"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.unknownPart"
 msgstr "Unsupported content: {type}"
@@ -1377,6 +1502,11 @@ msgstr "Username"
 #: src/i18n/messages/pwa.ts
 msgid "update.streamingHint"
 msgstr "Wait for the current answer to finish before reloading."
+
+#: src/i18n/messages/settings.ts
+msgid "settings.version"
+msgstr "Version"
+
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts

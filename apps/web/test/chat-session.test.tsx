@@ -22,6 +22,10 @@ const mocks = vi.hoisted(() => ({
   createSession: vi.fn(),
   prompt: vi.fn(),
   interrupt: vi.fn(),
+  listPermissions: vi.fn(async () => []),
+  replyPermission: vi.fn(async () => undefined),
+  models: vi.fn(async () => []),
+  agents: vi.fn(async () => []),
   me: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
@@ -329,11 +333,11 @@ describe("continue and retry", () => {
     )
   })
 
-  it("re-sends the last user message on retry", async () => {
+  it("re-sends the last user message on retry of a failed turn", async () => {
     const userEventSetup = userEvent.setup()
     mocks.listMessages.mockResolvedValue([
       user("original question"),
-      assistant("stopped", "half an answer"),
+      assistant("error", "half an answer"),
     ])
 
     renderChat()

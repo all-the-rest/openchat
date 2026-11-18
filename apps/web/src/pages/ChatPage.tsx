@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { ChatFiles } from "../chat/ChatFiles"
+import { CompletionPickers } from "../chat/CompletionPicker"
 import { Composer } from "../chat/Composer"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
+import { PermissionCard } from "../chat/PermissionCard"
+import { usePermissions } from "../chat/permissions"
 import { QueuedTurns } from "../chat/QueuedTurns"
 import { useSessions } from "../chat/sessions"
 import { Transcript } from "../chat/Transcript"
@@ -22,6 +25,7 @@ export function ChatPage() {
   const navigate = useNavigate()
   const { sessions } = useSessions()
   const chat = useChatSession(sessionId)
+  const permission = usePermissions(sessionId)
   const consumedFor = useRef<string | null>(null)
   const [filesVersion, setFilesVersion] = useState(0)
   const refreshFiles = useCallback(() => setFilesVersion((value) => value + 1), [])
@@ -71,6 +75,7 @@ export function ChatPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-subtle bg-app px-4">
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{title}</h1>
+        <CompletionPickers />
       </header>
 
       <ChatFiles sessionID={sessionId} version={filesVersion} />
@@ -82,7 +87,11 @@ export function ChatPage() {
         onRetry={() => void chat.reload()}
         highlightMessageID={messageId}
         onContinue={canRecover ? () => void chat.continueRun() : undefined}
-        onRetryLast={canRecover && chat.canRetry ? () => void chat.retryLast() : undefined}
+        onRetryLast={
+          canRecover && chat.canRetry && chat.lastAssistantStatus === "error"
+            ? () => void chat.retryLast()
+            : undefined
+        }
       />
 
       <div className="shrink-0 border-t border-subtle bg-app px-4 pb-3 pt-3">
@@ -95,11 +104,13 @@ export function ChatPage() {
           {bannerMessage ? (
             <ErrorBanner message={bannerMessage} onDismiss={chat.clearError} />
           ) : null}
+          <PermissionCard value={permission} />
 
           <Composer
             onSend={chat.send}
             onStop={() => void chat.stop()}
             running={chat.running}
+            disabled={permission.pending}
             draftKey={sessionId}
             sessionID={sessionId}
             onAttachmentsChanged={refreshFiles}

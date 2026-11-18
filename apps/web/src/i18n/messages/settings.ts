@@ -14,4 +14,16 @@ export const settings = {
   "language.label": msg({ id: "language.label", message: "Interface language" }),
   "language.en": msg({ id: "language.en", message: "English" }),
   "language.de": msg({ id: "language.de", message: "Deutsch" }),
+
+  "settings.title": msg({ id: "settings.title", message: "Settings" }),
+  "settings.defaults": msg({ id: "settings.defaults", message: "Defaults for new chats" }),
+  "settings.serverStatus": msg({ id: "settings.serverStatus", message: "Server status" }),
+  "settings.version": msg({ id: "settings.version", message: "Version" }),
+  "settings.hostReachable": msg({ id: "settings.hostReachable", message: "Host reachable" }),
+  "settings.hostUnreachable": msg({ id: "settings.hostUnreachable", message: "Host not reachable" }),
+  "settings.dictation": msg({ id: "settings.dictation", message: "Dictation" }),
+  "settings.documents": msg({ id: "settings.documents", message: "Documents" }),
+  "settings.available": msg({ id: "settings.available", message: "Available" }),
+  "settings.unavailable": msg({ id: "settings.unavailable", message: "Unavailable" }),
+  "settings.loadFailed": msg({ id: "settings.loadFailed", message: "Server status could not be loaded." }),
 } as const

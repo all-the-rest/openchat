@@ -38,6 +38,11 @@ msgid "artifacts.meta"
 msgstr "{size} · {date}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionTool"
+msgstr "{tool} möchte:"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.quota"
 msgstr "{used} von {total} belegt ({percent} %)"
@@ -52,15 +57,35 @@ msgstr "Eine neue Version ist verfügbar"
 msgid "pwa.description"
 msgstr "Ein selbst gehosteter Arbeitsbereich für deinen Agenten, auch offline verfügbar."
 
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionDeniedGeneric"
+msgstr "Eine Werkzeuganfrage wurde abgelehnt"
+
+
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "app.tagline"
 msgstr "Ein Arbeitsplatz für deinen Agenten."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.agentLabel"
+msgstr "Agent"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.origin.agent"
 msgstr "Agent"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionAllowAlways"
+msgstr "Immer erlauben"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionAllowOnce"
+msgstr "Einmal erlauben"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -71,6 +96,11 @@ msgstr "Ein Artefakt erscheint hier, sobald der Agent eines mit dem App-Werkzeug
 #: src/i18n/messages/chat.ts
 msgid "chat.answerComplete"
 msgstr "Antwort vollständig"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionHint"
+msgstr "Beantworte diese Anfrage, bevor du eine weitere Nachricht sendest."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -170,6 +200,11 @@ msgstr "Auto"
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.available"
+msgstr "Verfügbar"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.available"
 msgstr "Verfügbar"
 
 #. js-lingui-explicit-id
@@ -343,6 +378,16 @@ msgid "artifacts.draftData"
 msgstr "Daten"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.defaultChoice"
+msgstr "Standard"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.defaults"
+msgstr "Standardwerte für neue Chats"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.delete"
 msgstr "Löschen"
@@ -363,6 +408,16 @@ msgid "files.deleteTitle"
 msgstr "Diese Datei löschen?"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionDenied"
+msgstr "{tool} abgelehnt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionDeny"
+msgstr "Ablehnen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.state.narrow"
 msgstr "Nur am Desktop"
@@ -371,6 +426,11 @@ msgstr "Nur am Desktop"
 #: src/i18n/messages/settings.ts
 msgid "language.de"
 msgstr "Deutsch"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.dictation"
+msgstr "Diktat"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -412,6 +472,11 @@ msgstr "Ausblenden"
 #: src/i18n/messages/files.ts
 msgid "files.dismiss"
 msgstr "Ausblenden"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.documents"
+msgstr "Dokumente"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -497,6 +562,16 @@ msgstr "Dateien"
 #: src/i18n/messages/code.ts
 msgid "code.focusFrame"
 msgstr "Fokus auf Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.hostUnreachable"
+msgstr "Host nicht erreichbar"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.hostReachable"
+msgstr "Host erreichbar"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -607,6 +682,16 @@ msgstr "Nachrichten konnten nicht geladen werden."
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.permission"
 msgstr "Der Mikrofonzugriff wurde verweigert. Erlaube das Mikrofon in den Browsereinstellungen und versuch es erneut."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.modelLabel"
+msgstr "Modell"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.activeChoice"
+msgstr "Modell: {model} · Agent: {agent}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -784,6 +869,11 @@ msgid "chat.inboxPendingStep"
 msgstr "Ausstehender Schritt"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionTitle"
+msgstr "Berechtigung erforderlich"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.present"
 msgstr "Präsentieren"
@@ -882,6 +972,11 @@ msgstr "Mikrofon wird angefordert…"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.reset"
 msgstr "Zurücksetzen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionResources"
+msgstr "Ressourcen: {resources}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -999,9 +1094,29 @@ msgid "chat.statusSubmitting"
 msgstr "Wird gesendet…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.serverStatus"
+msgstr "Serverstatus"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.loadFailed"
+msgstr "Der Serverstatus konnte nicht geladen werden."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.servers"
 msgstr "Server"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.title"
+msgstr "Einstellungen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.settings"
+msgstr "Einstellungen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1234,6 +1349,11 @@ msgid "dictation.error.tooLarge"
 msgstr "Die Aufnahme ist zu groß. Nimm eine kürzere Nachricht auf."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.permissionFailed"
+msgstr "Die Antwort konnte nicht gesendet werden. Versuche es erneut."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.errorUnknown"
 msgstr "Die Anfrage ist fehlgeschlagen."
@@ -1344,6 +1464,11 @@ msgid "search.prompt"
 msgstr "Gib einen Suchbegriff ein."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.unavailable"
+msgstr "Nicht verfügbar"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.unknownPart"
 msgstr "Nicht unterstützter Inhalt: {type}"
@@ -1377,6 +1502,11 @@ msgstr "Benutzername"
 #: src/i18n/messages/pwa.ts
 msgid "update.streamingHint"
 msgstr "Warte, bis die aktuelle Antwort abgeschlossen ist, bevor du neu lädst."
+
+#: src/i18n/messages/settings.ts
+msgid "settings.version"
+msgstr "Version"
+
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts

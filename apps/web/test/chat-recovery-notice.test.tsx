@@ -22,6 +22,10 @@ const mocks = vi.hoisted(() => ({
   createSession: vi.fn(),
   prompt: vi.fn(),
   interrupt: vi.fn(),
+  listPermissions: vi.fn(async () => []),
+  replyPermission: vi.fn(async () => undefined),
+  models: vi.fn(async () => []),
+  agents: vi.fn(async () => []),
 }))
 
 vi.mock("../src/api/client", () => ({

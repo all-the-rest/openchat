@@ -11,6 +11,10 @@ import type {
   InfoResponse,
   LoginResponse,
   Message,
+  AgentInfo,
+  ModelInfo,
+  PermissionDecision,
+  PermissionRequest,
   PromptRequest,
   PromptResponse,
   SearchResponse,
@@ -156,6 +160,18 @@ export const api = {
     return request<InfoResponse>("/api/info")
   },
 
+  /** Chat model catalogue; an empty list means the picker stays hidden. */
+  async models(): Promise<ModelInfo[]> {
+    const body = await request<unknown>("/api/models")
+    return unwrapList<ModelInfo>(body, "models")
+  },
+
+  /** Agent catalogue; an empty list means the picker stays hidden. */
+  async agents(): Promise<AgentInfo[]> {
+    const body = await request<unknown>("/api/agents")
+    return unwrapList<AgentInfo>(body, "agents")
+  },
+
   /**
    * Mints a single-use Code-host entry URL. `next` is a path on the Code host;
    * the BFF sanitises it and the Code host validates it again.
@@ -291,6 +307,23 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     })
+  },
+
+  /** Outstanding tool approvals of one session. */
+  async listPermissions(sessionID: string): Promise<PermissionRequest[]> {
+    const body = await request<unknown>(`${sessionPath(sessionID)}/permissions`)
+    return unwrapList<PermissionRequest>(body, "requests")
+  },
+
+  replyPermission(
+    sessionID: string,
+    requestID: string,
+    decision: PermissionDecision,
+  ): Promise<void> {
+    return request<void>(
+      `${sessionPath(sessionID)}/permissions/${encodeURIComponent(requestID)}`,
+      { method: "POST", body: JSON.stringify({ decision }) },
+    )
   },
 
   interrupt(sessionID: string): Promise<void> {

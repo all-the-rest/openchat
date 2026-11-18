@@ -7,6 +7,7 @@ export * from "./apps"
 export * from "./artifacts"
 export * from "./files"
 export * from "./artifacts/caps"
+export * from "./permissions"
 
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"
@@ -218,6 +219,10 @@ export interface PromptRequest {
   text: string
   /** `queue` accepts the prompt while a run is active instead of rejecting it. */
   delivery?: "queue"
+  /** Persisted model id; forwarded to the host when present. */
+  model?: string
+  /** Persisted agent id; forwarded to the host when present. */
+  agent?: string
 }
 
 /** Kind of a pending turn, mirroring the OpenCode inbox entry types. */
@@ -261,6 +266,8 @@ export const EVENT = {
   inboxDeliveryChanged: "session.inbox.delivery.changed",
   interrupted: "session.interrupted",
   usageUpdated: "session.usage.updated",
+  permissionAsked: "permission.asked",
+  permissionReplied: "permission.replied",
   error: "session.error",
 } as const
 
@@ -322,6 +329,8 @@ export const promptRequestSchema = z.object({
   text: z.string().min(1).max(32_000),
   /** `queue` accepts a prompt while a run is active instead of rejecting it. */
   delivery: z.literal("queue").optional(),
+  model: z.string().min(1).max(200).optional(),
+  agent: z.string().min(1).max(200).optional(),
 })
 
 export const createSessionRequestSchema = z.object({
