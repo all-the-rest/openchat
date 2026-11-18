@@ -1,6 +1,7 @@
 import { EVENT } from "@openchat/contracts"
 import type {
   AgentInfo,
+  BackgroundJob,
   EventEnvelope,
   FakeScenario,
   InboxEntry,
@@ -21,6 +22,7 @@ import type {
   SearchOutcome,
 } from "./index"
 import { FakeAppInventory } from "./fake-apps"
+import { FakeTaskStore } from "./fake-tasks"
 import { FakeEvents } from "./fake-events"
 import { fakeSearch } from "./fake-search"
 import { clone, errorText, PartWriter } from "./fake-parts"
@@ -66,13 +68,12 @@ export interface FakeBackendOptions {
   appsAvailable?: boolean
   /** Records connect/disconnect calls, so a test can prove the port is used. */
   onAppAction?: (action: "connect" | "disconnect", name: string) => void
+  /** Deterministic background jobs for the `/tasks` page. Empty by default. */
+  seedJobs?: readonly BackgroundJob[]
 }
 
-/**
- * Deterministic in-memory backend. No HTTP, no provider, no clock except the
- * injected one. It emits the real envelope shape so normalization is tested.
- */
-export class FakeBackend implements ChatBackend {
+/** Deterministic in-memory backend; task methods come from `FakeTaskStore`. */
+export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private readonly sessions = new Map<string, SessionState>()
   private readonly runs = new Map<string, RunState>()
   /** One FIFO per session; entries are promoted when the active run ends. */
@@ -90,6 +91,7 @@ export class FakeBackend implements ChatBackend {
   private readonly parts: PartWriter
 
   constructor(options: FakeBackendOptions = {}) {
+    super({ now: options.now, jobs: options.seedJobs })
     this.scenario = options.scenario ?? "default"
     this.delayOverride = options.delayMs
     this.clock = options.now ?? (() => Date.now())
@@ -239,7 +241,7 @@ export class FakeBackend implements ChatBackend {
     return this.events.subscribe(signal)
   }
 
-  private requireSession(sessionID: string): SessionState {
+  protected override requireSession(sessionID: string): SessionState {
     const session = this.sessions.get(sessionID)
     if (!session) throw new BackendError("not_found", `Unknown session: ${sessionID}`)
     return session

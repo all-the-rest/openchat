@@ -17,6 +17,7 @@ import { render } from "./render"
 import { search } from "./search"
 import { settings } from "./settings"
 import { shell } from "./shell"
+import { tasks } from "./tasks"
 
 export const messages = {
   ...shell,
@@ -30,6 +31,7 @@ export const messages = {
   ...pwa,
   ...render,
   ...settings,
+  ...tasks,
 } as const
 
 export type MessageKey = keyof typeof messages

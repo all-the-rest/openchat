@@ -7,6 +7,7 @@ export * from "./apps"
 export * from "./artifacts"
 export * from "./files"
 export * from "./artifacts/caps"
+export * from "./tasks"
 
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"

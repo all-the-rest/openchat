@@ -2,6 +2,7 @@ import { reportNetworkFailure, reportNetworkSuccess } from "../pwa/offline"
 import type {
   AppsResponse,
   ArtifactResponse,
+  BackgroundJob,
   ChatFileInfo,
   ChatFilesResponse,
   CodeStatusResponse,
@@ -13,6 +14,8 @@ import type {
   Message,
   PromptRequest,
   PromptResponse,
+  Schedule,
+  ScheduleEnds,
   SearchResponse,
   SearchSource,
   SessionInfo,
@@ -114,6 +117,8 @@ const sessionPath = (sessionID: string) => `/api/sessions/${encodeURIComponent(s
 const appPath = (name: string) => `/api/apps/${encodeURIComponent(name)}`
 
 const artifactPath = (id: string) => `/api/artifacts/${encodeURIComponent(id)}`
+
+const schedulePath = (id: string) => `/api/schedules/${encodeURIComponent(id)}`
 
 /**
  * Raw bytes for a download. The app origin serves them, never the signed
@@ -299,6 +304,50 @@ export const api = {
       // The BFF requires a JSON content type on state-changing requests.
       body: JSON.stringify({}),
     })
+  },
+
+  /** Schedules of one session; the host API requires the session id. */
+  async listSchedules(sessionID: string): Promise<Schedule[]> {
+    const body = await request<unknown>(`${sessionPath(sessionID)}/schedules`)
+    return unwrapList<Schedule>(body, "schedules")
+  },
+
+  createSchedule(
+    sessionID: string,
+    input: { prompt: string; ends: ScheduleEnds },
+  ): Promise<Schedule> {
+    return request<Schedule>(`${sessionPath(sessionID)}/schedules`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  },
+
+  pauseSchedule(id: string): Promise<Schedule> {
+    return request<Schedule>(`${schedulePath(id)}/pause`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    })
+  },
+
+  resumeSchedule(id: string): Promise<Schedule> {
+    return request<Schedule>(`${schedulePath(id)}/resume`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    })
+  },
+
+  deleteSchedule(id: string): Promise<void> {
+    return request<void>(schedulePath(id), {
+      method: "DELETE",
+      // The BFF requires a JSON content type on state-changing requests.
+      body: JSON.stringify({}),
+    })
+  },
+
+  /** Running and finished jobs, flat; the UI orders running ones first. */
+  async jobs(): Promise<BackgroundJob[]> {
+    const body = await request<unknown>("/api/jobs")
+    return unwrapList<BackgroundJob>(body, "jobs")
   },
 
   /**

@@ -8,6 +8,11 @@ msgstr ""
 "Language: de\n"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules.runs"
+msgstr "{count, plural, one {# Lauf} other {# Läufe}}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.groupCount"
 msgstr "{count} gefunden"
@@ -16,6 +21,11 @@ msgstr "{count} gefunden"
 #: src/i18n/messages/search.ts
 msgid "search.resultCount"
 msgstr "{count} gefunden für „{query}“."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.jobs.kind"
+msgstr "{kind}: {title}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -56,6 +66,16 @@ msgstr "Ein selbst gehosteter Arbeitsbereich für deinen Agenten, auch offline v
 #: src/i18n/messages/shell.ts
 msgid "app.tagline"
 msgstr "Ein Arbeitsplatz für deinen Agenten."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.active"
+msgstr "Aktiv"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.after"
+msgstr "Nach einer Dauer"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -148,6 +168,11 @@ msgid "chat.statusStreaming"
 msgstr "Der Assistent antwortet…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.at"
+msgstr "Zu einer Uhrzeit"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.lastSource"
 msgstr "Mindestens eine Quelle muss ausgewählt bleiben."
@@ -178,6 +203,11 @@ msgid "artifacts.back"
 msgstr "Zurück zu den Artefakten"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.jobs"
+msgstr "Hintergrundjobs"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.inboxCancel"
 msgstr "Abbrechen"
@@ -188,9 +218,19 @@ msgid "files.deleteCancel"
 msgstr "Abbrechen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.action.cancel"
+msgstr "Löschen abbrechen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.cancel"
 msgstr "Aufnahme verwerfen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.cancelled"
+msgstr "Abgebrochen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -273,6 +313,16 @@ msgid "render.errorCode"
 msgstr "Code: {code}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.completed"
+msgstr "Abgeschlossen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.action.confirm"
+msgstr "Löschen von {title} bestätigen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.connect"
 msgstr "Verbinden"
@@ -338,9 +388,24 @@ msgid "session.createFailed"
 msgstr "Chat konnte nicht erstellt werden."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.noSessions"
+msgstr "Erstelle zuerst einen Chat, bevor du eine Aufgabe planst."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.submit"
+msgstr "Zeitplan erstellen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftData"
 msgstr "Daten"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.datetime"
+msgstr "Datum und Uhrzeit"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -351,6 +416,11 @@ msgstr "Löschen"
 #: src/i18n/messages/files.ts
 msgid "files.deleteLabel"
 msgstr "{name} löschen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.action.delete"
+msgstr "{title} löschen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -393,12 +463,6 @@ msgid "apps.disconnectServer"
 msgstr "{server} trennen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/pwa.ts
-msgid "install.dismiss"
-msgstr "Ausblenden"
-
-#. js-lingui-explicit-id
-
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftDismiss"
 msgstr "Verwerfen"
@@ -414,9 +478,19 @@ msgid "files.dismiss"
 msgstr "Ausblenden"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/pwa.ts
+msgid "install.dismiss"
+msgstr "Ausblenden"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "tool.status.success"
 msgstr "Fertig"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.done"
+msgstr "Erledigt"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -439,6 +513,11 @@ msgid "artifacts.downloading"
 msgstr "Wird heruntergeladen…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.duration"
+msgstr "Dauer (zum Beispiel 30 Minuten)"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.elapsed"
 msgstr "Dauer {duration}"
@@ -447,6 +526,11 @@ msgstr "Dauer {duration}"
 #: src/i18n/messages/code.ts
 msgid "code.state.blocked"
 msgstr "Einbetten blockiert"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules.endsAt"
+msgstr "Ende: {when}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
@@ -474,6 +558,11 @@ msgid "tool.status.error"
 msgstr "Fehler"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.error"
+msgstr "Fehler"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.exitPresent"
 msgstr "Präsentation beenden"
@@ -494,6 +583,11 @@ msgid "files.title"
 msgstr "Dateien"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.jobs.finished"
+msgstr "Beendet: {when}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.focusFrame"
 msgstr "Fokus auf Code"
@@ -502,6 +596,11 @@ msgstr "Fokus auf Code"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.description"
 msgstr "HTML-Dokumente, die dein Agent geschrieben hat. Jedes läuft in einer Sandbox auf einer eigenen Origin."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.kind.image"
+msgstr "Bild"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -539,6 +638,16 @@ msgid "chat.jumpToLatest"
 msgstr "Zur neuesten Nachricht springen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules.error"
+msgstr "Letzter Lauf fehlgeschlagen: {text}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules.lastRun"
+msgstr "Letzter Lauf: {when}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "update.dismiss"
 msgstr "Später"
@@ -567,6 +676,11 @@ msgstr "Chats werden geladen…"
 #: src/i18n/messages/chat.ts
 msgid "chat.loading"
 msgstr "Nachrichten werden geladen…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.loading"
+msgstr "Aufgaben werden geladen…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -624,14 +738,29 @@ msgid "artifacts.draftNewResult"
 msgstr "Neues Ergebnis verfügbar"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.title"
+msgstr "Neuer Zeitplan"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.openNewTabShort"
 msgstr "Neuer Tab"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules.nextRun"
+msgstr "Nächster Lauf: {when}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.emptyTitle"
 msgstr "Noch keine Artefakte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.jobs.empty"
+msgstr "Zurzeit keine Hintergrundjobs."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -657,6 +786,16 @@ msgstr "Kein Mikrofon gefunden. Schließe ein Eingabegerät an und versuch es er
 #: src/i18n/messages/search.ts
 msgid "search.noResults"
 msgstr "Keine Treffer für „{query}“."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules.empty"
+msgstr "Noch keine Zeitpläne. Erstelle unten einen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules.noSession"
+msgstr "Kein Sitzungslink"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -774,6 +913,16 @@ msgid "auth.passwordPlaceholder"
 msgstr "Passwort"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.action.pause"
+msgstr "{title} pausieren"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.paused"
+msgstr "Pausiert"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.pending"
 msgstr "Ausstehend"
@@ -784,6 +933,11 @@ msgid "chat.inboxPendingStep"
 msgstr "Ausstehender Schritt"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.sessionHint"
+msgstr "Wähle zuerst eine Sitzung. Lege einen Chat an, um eine hier zu sehen."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.present"
 msgstr "Präsentieren"
@@ -792,6 +946,16 @@ msgstr "Präsentieren"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.presentRegion"
 msgstr "Präsentiertes Artefakt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.prompt"
+msgstr "Auftrag"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules.prompt"
+msgstr "Auftrag: {text}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -854,10 +1018,6 @@ msgid "code.reload"
 msgstr "Neu laden"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "composer.attachmentRemove"
-msgstr "{name} entfernen"
-
 #: src/i18n/messages/pwa.ts
 msgid "update.reload"
 msgstr "Neu laden zum Aktualisieren"
@@ -867,6 +1027,10 @@ msgstr "Neu laden zum Aktualisieren"
 msgid "update.hint"
 msgstr "Lade neu, wenn du bereit bist. Vorher ändert sich nichts."
 
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentRemove"
+msgstr "{name} entfernen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -887,6 +1051,11 @@ msgstr "Zurücksetzen"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftTitleFallback"
 msgstr "Ergebnis aus diesem Artefakt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.action.resume"
+msgstr "{title} fortsetzen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -934,9 +1103,19 @@ msgid "host.retry"
 msgstr "Erneut versuchen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.retry"
+msgstr "Erneut versuchen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.retry"
 msgstr "Transkription erneut versuchen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.ends"
+msgstr "Einmal ausführen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -944,9 +1123,34 @@ msgid "tool.status.running"
 msgstr "Läuft"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.status.running"
+msgstr "Läuft"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.autoHint"
 msgstr "Läuft automatisch, wenn relevant"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.created"
+msgstr "Zeitplan erstellt."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.serverNote"
+msgstr "Geplante Aufgaben laufen auf dem Server, auch wenn der Browser geschlossen ist."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.description"
+msgstr "Geplante Aufgaben und Hintergrundjobs dieses Arbeitsbereichs."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules"
+msgstr "Zeitpläne"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1002,6 +1206,21 @@ msgstr "Wird gesendet…"
 #: src/i18n/messages/apps.ts
 msgid "apps.servers"
 msgstr "Server"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.session"
+msgstr "Sitzung"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.schedules.session"
+msgstr "Sitzung: {title}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.kind.shell"
+msgstr "Shell"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1084,6 +1303,11 @@ msgid "dictation.start"
 msgstr "Diktat starten"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.jobs.started"
+msgstr "Gestartet: {when}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.stop"
 msgstr "Aufnahme beenden"
@@ -1104,6 +1328,11 @@ msgid "artifacts.draftDataNote"
 msgstr "Strukturierte Daten aus dem Artefakt, als JSON gezeigt — kein Dokument."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.kind.subagent"
+msgstr "Unteragent"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "surface.label"
 msgstr "Oberfläche"
@@ -1119,6 +1348,16 @@ msgid "theme.toggleToLight"
 msgstr "Zum hellen Design wechseln"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.title"
+msgstr "Aufgaben"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.loadFailed"
+msgstr "Aufgaben konnten nicht geladen werden."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftText"
 msgstr "Text"
@@ -1127,6 +1366,11 @@ msgstr "Text"
 #: src/i18n/messages/apps.ts
 msgid "apps.error.failed"
 msgstr "Die Aktion ist fehlgeschlagen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.action.failed"
+msgstr "Die Aktion ist fehlgeschlagen. Der Zeitplan wurde nicht geändert."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1244,9 +1488,19 @@ msgid "chat.stopFailed"
 msgstr "Der Lauf konnte nicht gestoppt werden."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.failed"
+msgstr "Der Zeitplan konnte nicht erstellt werden. Prüfe Auftrag und Endbedingung."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.failed"
 msgstr "Die Suche ist fehlgeschlagen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/tasks.ts
+msgid "tasks.create.promptHint"
+msgstr "Die Aufgabe, die der Server einmal ausführen soll."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts

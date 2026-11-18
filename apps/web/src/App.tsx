@@ -28,6 +28,7 @@ const ArtifactsPage = lazy(() =>
 const ArtifactViewer = lazy(() =>
   import("./artifacts/ArtifactViewer").then((m) => ({ default: m.ArtifactViewer })),
 )
+const TasksPage = lazy(() => import("./tasks/TasksPage").then((m) => ({ default: m.TasksPage })))
 
 /**
  * Suspense boundary for one lazily imported route. It sits inside the shell
@@ -211,6 +212,14 @@ function AppRoutes() {
           element={
             <LazyRoute>
               <CodeRoute />
+            </LazyRoute>
+          }
+        />
+        <Route
+          path="/tasks"
+          element={
+            <LazyRoute>
+              <TasksPage />
             </LazyRoute>
           }
         />

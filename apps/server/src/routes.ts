@@ -46,6 +46,7 @@ import { registerFakeHostRoute } from "./fake-host-route"
 import type { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { SSE_RETRY_FRAME } from "./sse"
 import { registerTranscribeRoute } from "./transcribe"
+import { registerTasksRoutes } from "./tasks"
 
 /** Fixed `Retry-After` for a login rejected by the concurrency gate. */
 export const LOGIN_BUSY_RETRY_AFTER_SECONDS = 1
@@ -377,6 +378,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerChatFilesRoutes(app, deps.config)
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
+  registerTasksRoutes(app, { backend: deps.backend })
   registerEventRoute(app, deps)
   // Fake mode only; the live adapter has no outage switch to expose.
   if (deps.config.BACKEND_MODE === "fake" && deps.backend instanceof FakeHostSwitch) {

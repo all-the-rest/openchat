@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { NavLink, useNavigate } from "react-router-dom"
 import { useAuth } from "../auth/provider"
-import { AppsIcon, ArtifactsIcon, PlusIcon, SearchIcon } from "../components/icons"
+import { AppsIcon, ArtifactsIcon, PlusIcon, SearchIcon, TasksIcon } from "../components/icons"
 import { LocaleSelect, ThemeToggle } from "../components/controls"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useI18n, useT } from "../i18n/provider"
@@ -81,6 +81,19 @@ export function SessionSidebar({
 
       <nav aria-label={t("nav.main")} className="mt-4 flex min-h-0 flex-1 flex-col">
         <div className="flex flex-col gap-0.5 px-2 pb-2">
+          <NavLink
+            to="/tasks"
+            data-testid="nav-tasks"
+            onClick={() => onNavigate?.()}
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-row px-2 py-1.5 text-sm ${
+                isActive ? "bg-selected text-base-content" : "text-secondary hover:bg-hover"
+              }`
+            }
+          >
+            <TasksIcon className="size-4" />
+            {t("tasks.title")}
+          </NavLink>
           <NavLink
             to="/search?scope=all"
             data-testid="nav-search"
