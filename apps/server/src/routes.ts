@@ -37,6 +37,7 @@ import { registerAppsRoutes } from "./apps"
 import { AppsCache, probeApps } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
 import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
+import { registerArtifactInternalRoute } from "./artifacts-internal"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
@@ -339,6 +340,10 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerArtifactsRoutes(app, {
     config: deps.config,
     createThrottle: deps.artifactsThrottle,
+    now: deps.artifactsNow,
+  })
+  registerArtifactInternalRoute(app, {
+    config: deps.config,
     now: deps.artifactsNow,
   })
   registerSearchRoute(app, deps.backend)

@@ -69,6 +69,91 @@ describe("artifact environment warnings", () => {
   })
 })
 
+describe("artifact environment: internal token", () => {
+  it("stays empty while the surface is unconfigured", () => {
+    expect(load().ARTIFACT_INTERNAL_TOKEN).toBe("")
+  })
+
+  it("keeps a configured token", () => {
+    const config = load({
+      ARTIFACT_HOST_URL: "http://host:4100",
+      ARTIFACT_SIGNING_KEY: KEY,
+      ARTIFACT_INTERNAL_TOKEN: "a".repeat(32),
+    })
+    expect(config.ARTIFACT_INTERNAL_TOKEN).toBe("a".repeat(32))
+  })
+
+  it("generates an ephemeral token for a development boot and says so", () => {
+    const warnings: string[] = []
+    const config = load(
+      { ARTIFACT_HOST_URL: "http://host:4100", ARTIFACT_SIGNING_KEY: KEY },
+      (message) => warnings.push(message),
+    )
+    expect(config.ARTIFACT_INTERNAL_TOKEN.length).toBeGreaterThanOrEqual(32)
+    expect(warnings.join("\n")).toMatch(/ARTIFACT_INTERNAL_TOKEN is unset; generated/)
+    expect(warnings.join("\n")).not.toContain(config.ARTIFACT_INTERNAL_TOKEN)
+  })
+
+  it("generates a different token per boot", () => {
+    const overrides = { ARTIFACT_HOST_URL: "http://host:4100", ARTIFACT_SIGNING_KEY: KEY }
+    expect(load(overrides).ARTIFACT_INTERNAL_TOKEN).not.toBe(load(overrides).ARTIFACT_INTERNAL_TOKEN)
+  })
+
+  it("refuses a short token", () => {
+    expect(() =>
+      load({
+        ARTIFACT_HOST_URL: "http://host:4100",
+        ARTIFACT_SIGNING_KEY: KEY,
+        ARTIFACT_INTERNAL_TOKEN: "a".repeat(31),
+      }),
+    ).toThrow(/ARTIFACT_INTERNAL_TOKEN must be at least 32 characters/)
+  })
+
+  it("refuses a production boot with the surface configured and no token", () => {
+    expect(() =>
+      load({
+        NODE_ENV: "production",
+        AUTH_MODE: "basic",
+        BACKEND_MODE: "live",
+        OPENCODE_PASSWORD: "opencode-password",
+        OPENCHAT_PASSWORD: "a-long-production-password",
+        SESSION_SECRET: "production-secret-production-secret",
+        ARTIFACT_HOST_URL: "https://artifacts.example.com",
+        ARTIFACT_SIGNING_KEY: KEY,
+      }),
+    ).toThrow(
+      /ARTIFACT_INTERNAL_TOKEN must be set when the artifact surface is configured and NODE_ENV=production/,
+    )
+  })
+
+  it("accepts a production token", () => {
+    const config = load({
+      NODE_ENV: "production",
+      AUTH_MODE: "basic",
+      BACKEND_MODE: "live",
+      OPENCODE_PASSWORD: "opencode-password",
+      OPENCHAT_PASSWORD: "a-long-production-password",
+      SESSION_SECRET: "production-secret-production-secret",
+      ARTIFACT_HOST_URL: "https://artifacts.example.com",
+      ARTIFACT_SIGNING_KEY: KEY,
+      ARTIFACT_INTERNAL_TOKEN: "production-internal-token-0123456789",
+    })
+    expect(config.ARTIFACT_INTERNAL_TOKEN).toBe("production-internal-token-0123456789")
+  })
+
+  it("does not require a token while the surface is off, even in production", () => {
+    const config = load({
+      NODE_ENV: "production",
+      AUTH_MODE: "basic",
+      BACKEND_MODE: "live",
+      OPENCODE_PASSWORD: "opencode-password",
+      OPENCHAT_PASSWORD: "a-long-production-password",
+      SESSION_SECRET: "production-secret-production-secret",
+    })
+    expect(config.ARTIFACT_INTERNAL_TOKEN).toBe("")
+  })
+})
+
 describe("artifact environment validation", () => {
   it("refuses a signing key below 32 characters", () => {
     expect(() => load({ ARTIFACT_SIGNING_KEY: "a".repeat(31) })).toThrow(
@@ -110,6 +195,7 @@ describe("artifact environment validation", () => {
       SESSION_SECRET: "production-secret-production-secret",
       ARTIFACT_HOST_URL: "https://artifacts.example.com",
       ARTIFACT_SIGNING_KEY: KEY,
+      ARTIFACT_INTERNAL_TOKEN: "production-internal-token-0123456789",
     })
     expect(config.ARTIFACT_HOST_URL).toBe("https://artifacts.example.com")
   })

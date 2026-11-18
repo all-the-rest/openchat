@@ -4,8 +4,9 @@ import { Readable } from "node:stream"
 import { FakeBackend, LiveBackend } from "@openchat/opencode"
 import type { ChatBackend } from "@openchat/opencode"
 import { createApp } from "./app"
+import { INTERNAL_ARTIFACTS_PATH } from "./artifacts-internal"
 import { loadEnv } from "./env"
-import { MAX_BODY_BYTES } from "./limits"
+import { ARTIFACT_BODY_MAX_BYTES, MAX_BODY_BYTES } from "./limits"
 import { pumpResponseBody } from "./pump"
 import { TRANSCRIBE_PATH } from "./transcribe"
 
@@ -27,7 +28,7 @@ const backend: ChatBackend =
 
 const app = createApp({ config, backend })
 
-function respondPayloadTooLarge(response: ServerResponse): void {
+function respondPayloadTooLarge(response: ServerResponse, maxBytes = MAX_BODY_BYTES): void {
   if (response.headersSent) {
     response.end()
     return
@@ -38,7 +39,7 @@ function respondPayloadTooLarge(response: ServerResponse): void {
     JSON.stringify({
       error: {
         code: "payload_too_large",
-        message: `Request body must not exceed ${MAX_BODY_BYTES} bytes`,
+        message: `Request body must not exceed ${maxBytes} bytes`,
       },
     }),
   )
@@ -73,10 +74,14 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     }
     webRequest = new Request(url, init)
   } else {
+    // The internal artifact route carries a compiled document, so its envelope
+    // matches the public artifact route instead of the generic JSON cap.
+    const bodyCap =
+      url.pathname === INTERNAL_ARTIFACTS_PATH ? ARTIFACT_BODY_MAX_BYTES : MAX_BODY_BYTES
     const declared = Number(request.headers["content-length"] ?? "")
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    if (Number.isFinite(declared) && declared > bodyCap) {
       request.resume()
-      respondPayloadTooLarge(response)
+      respondPayloadTooLarge(response, bodyCap)
       return
     }
 
@@ -86,7 +91,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     for await (const chunk of request) {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
       size += buffer.byteLength
-      if (size > MAX_BODY_BYTES) {
+      if (size > bodyCap) {
         tooLarge = true
         break
       }
@@ -95,7 +100,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     if (tooLarge) {
       // Discard the rest without buffering it; the response is already decided.
       request.resume()
-      respondPayloadTooLarge(response)
+      respondPayloadTooLarge(response, bodyCap)
       return
     }
 

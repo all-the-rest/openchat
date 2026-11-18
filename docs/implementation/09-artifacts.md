@@ -12,6 +12,12 @@ M4 (the read-only artifact viewer, issue #6) never shipped, so nothing
 artifact-related existed in code before this slice. This slice ships storage,
 signing, the separate-origin byte host and the BFF surface. It ships **no UI**.
 
+**Slice 3** (the third slice of the same issue) adds the write path below: the
+MCP tool, the validator, the compiler, the HTML shell and the
+bearer-authenticated internal route. Slice 3 is documented in
+[its own section](#slice-3-the-write-path) at the end of this document; the
+sections before it describe slice 1.
+
 ## What ships
 
 | Piece | Where | What it does |
@@ -200,6 +206,283 @@ redirect, no write, no directory listing, and no path that is not
 
 Warnings and refusals name the variable only, never a value.
 
+## Slice 3: the write path
+
+**Status:** 2026-11-18. Third slice for issue #13. It adds the MCP tool, the
+validator, the compiler, the document shell and the internal bearer route.
+Built to
+[`../architecture/07-artifact-runtime.md`](../architecture/07-artifact-runtime.md),
+with one owner-visible deviation (esbuild instead of `Bun.build`, below).
+
+### What ships
+
+| Piece | Where | What it does |
+| --- | --- | --- |
+| Tool package | `packages/artifact-tool/` | stdio MCP server `openchat-artifacts` exposing `openchat_app_write`; own `package.json`, `tsconfig.json` and tests. |
+| Validator | `packages/artifact-tool/src/validate.ts` | Pure rule table over `title`/`code`/`css`; no I/O, no compiler dependency. |
+| Compiler | `packages/artifact-tool/src/compile.ts` | Syntax pass, then one esbuild IIFE bundling Preact plus the app; output stays in memory. |
+| Shell | `packages/artifact-tool/src/shell.ts` | The document from the architecture: meta, tokens, user CSS, `#root`, inline bundle, `data-oc="1"`. |
+| BFF client | `packages/artifact-tool/src/bff.ts` | One redirect-free POST to the internal route, fixed status mapping, no upstream text. |
+| MCP surface | `packages/artifact-tool/src/mcp.ts` | Newline-delimited JSON-RPC on stdio: `initialize`, `ping`, `tools/list`, `tools/call`. |
+| Internal route | `apps/server/src/artifacts-internal.ts` | `POST /internal/artifacts`: bearer token, 20/min, store write, `{ artifactID, title, bytes }`. |
+| Env | `apps/server/src/env-artifacts.ts`, `apps/server/src/env.ts`, `.env.example` | `ARTIFACT_INTERNAL_TOKEN`, shared by the BFF and the tool. |
+
+The tool holds no credentials for OpenCode, the workspace or the app API. Its
+only privilege is the internal bearer token, and that token grants exactly one
+write route.
+
+### Tool contract
+
+`openchat_app_write({ title, code, css? })`
+
+| Field | Rule |
+| --- | --- |
+| `title` | Plain text, 1–120 code points after trimming. |
+| `code` | One JSX module, at most 64 KiB, top-level `App` declaration. |
+| `css` | Optional, at most 32 KiB, inlined into one `<style>`. |
+
+Result: `{ artifactID, title, bytes, warnings? }`. Never the HTML and never a
+signed URL, so the model cannot re-emit its own document or hand a link to
+nobody. `warnings` appears only when the compiler produced a non-blocking
+message.
+
+The tool description carries the retry budget: fix exactly what the message
+names, retry at most twice, then explain the app in text. Every rejection is one
+line with a position or a fixed phrase, never a stack trace:
+
+```
+code:3:14: Unexpected token
+cdn-url: line 7
+size: 71 KiB > 64 KiB
+app: no top-level function App found
+```
+
+Validation stops before the network: a rejected input never reaches the BFF and
+never consumes the write budget.
+
+### Validator rules
+
+The table is the documented one
+([`07:64-79`](../architecture/07-artifact-runtime.md)); every hit fails the call
+with `<construct>: line N`.
+
+| Rule | Label | Example |
+| --- | --- | --- |
+| no `import` / dynamic `import()` / `require` | `import`, `dynamic-import`, `require` | `import { useState } from "preact"` |
+| no network | `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon` | `await fetch("/x")` |
+| no URL literal | `cdn-url` | `"https://cdn.example/x.js"`, `"//cdn.example/x.js"` |
+| no code generation | `eval`, `new Function`, `document.write` | `eval("1")` |
+| no storage | `localStorage`, `sessionStorage`, `indexedDB`, `document.cookie` | `document.cookie` |
+| no frame escape | `window.open`, `window.top`, `window.parent` | `window.parent.postMessage(…)` |
+| no shell injection | `shell-injection` | `"</script>"` in code, `"</style>"` in CSS |
+| `App` at top level | `app` | `const App = () => <div/>` (accepted) |
+
+Two precision notes:
+
+- **`//` is a comment, not a URL.** Only a quoted protocol-relative form
+  (`"//host/…"`, `'//host/…'`, `` `//host/…` ``) counts as `cdn-url`; flagging
+  every `//` would reject every comment and teach the model nothing.
+- **CSS gets `</style`, code gets `</script`.** The architecture lists only
+  `</script` for both inputs. A stylesheet is inlined into `<style>`, so
+  `</style>` is the same escape and gets the same `shell-injection` label. The
+  compiler checks the emitted script for `</script` a second time.
+- A hit inside a comment or a string still counts. A rule with exceptions is a
+  bypass.
+
+### Compiler: esbuild instead of `Bun.build`
+
+The architecture pins `Bun.build` with the repo's Bun version. This repository
+is Node/pnpm and has no Bun runtime, so the same step runs on **esbuild**
+(`packages/artifact-tool`, pinned by the lockfile at `0.28.2`). Reasons, in the
+order that decided it:
+
+1. **No Bun in the toolchain.** Adding a Bun binary to CI, the dev loop and the
+   deploy image for one build call is a second package manager with no other
+   user. esbuild is already a repository dependency (Vite/Vitest) and is
+   allow-listed for its install script.
+2. **Same contract.** `bundle: true, write: false, format: "iife"` plus classic
+   JSX (`jsxFactory: "h"`, `jsxFragment: "Fragment"`) produces exactly the shape
+   the architecture asks for: one self-contained script with Preact and hooks
+   inlined, no imports left, no `eval`.
+3. **Same determinism.** esbuild is deterministic for identical input and a
+   pinned version. The tool builds twice in its test suite and compares bytes;
+   the shell carries the toolchain versions in a comment.
+
+Two consequences:
+
+- **No minification.** The architecture's Bun snippet passes `minify: true`;
+  here the output is unminified so the downloaded document stays inspectable.
+  A reference app (Preact 10.29.8 + hooks + a counter) compiles to about
+  20 KiB raw, 7 KiB gzipped, inside a 21 KiB document — far below the 1 MiB
+  document cap.
+- **`preact` is a dependency of the tool**, resolved from the tool package's own
+  `node_modules` through `resolveDir`. The artifact never fetches a runtime.
+
+Syntax errors are collected on the module **before** the runtime is appended.
+Otherwise an unclosed JSX tag swallows the appended code and the compiler
+reports a line the model never wrote; the two-pass order keeps `code:3:14` on
+line 3 of the app.
+
+### Shell
+
+The tool assembles the documented document and posts it as the artifact's
+`index.html`:
+
+| Part | Content |
+| --- | --- |
+| `<html lang="en" data-oc="1">` | Runtime generation marker; a test asserts it. |
+| `<meta charset>`, viewport, `color-scheme` | The three meta tags from the design. |
+| `<title>` | The validated title, HTML-escaped. |
+| `<style>` (first) | Reset plus `--bg`, `--fg`, `--muted`, `--accent`, `--radius` and a `prefers-color-scheme` pair. |
+| `<style>` (second) | The validated user CSS. |
+| `<div id="root">` | The only mount point; the bundle throws a named error if it is absent. |
+| `<script>` | The Preact + app IIFE, ending in `render(h(App), root)`. |
+| Comment | `openchat artifact shell 1; esbuild <version>; preact <version>` — toolchain drift shows up in a diff. |
+
+- **The runtime is injected at write time**, never per request, so the preview,
+  the download and a re-render of stored bytes are the same document.
+- **No bridge yet.** `bridgeScript()` is the single placeholder slice 4 fills;
+  it returns `""` today, the shell then emits no bridge `<script>` at all, and a
+  test asserts that `window.openchat` is absent and that the document has
+  exactly one script element.
+- **CSP is unchanged.** The document carries no meta policy; the host headers
+  from slice 1 are the enforced policy (`script-src 'unsafe-inline'`,
+  `connect-src 'none'`, no `'unsafe-eval'`). The bundle needs no eval and no
+  network, and a test compiles a sample and asserts no URL literal survives.
+
+### Internal route
+
+```
+POST /internal/artifacts
+Authorization: Bearer <ARTIFACT_INTERNAL_TOKEN>
+Content-Type: application/json
+
+{ "title": "…", "html": "<!doctype html>…" }   → 201 { artifactID, title, bytes }
+```
+
+- **Outside `/api/*` on purpose.** The caller is a process next to OpenCode, not
+  a browser session: no cookie, no CSRF guard, no session middleware. The bearer
+  token is the whole authentication, compared with SHA-256 plus
+  `timingSafeEqual`, scheme case-insensitive.
+- **The token is shared by both processes.** The BFF reads it from
+  `ARTIFACT_INTERNAL_TOKEN`; the tool reads the same variable from its MCP
+  environment. Two independently generated values mean every write answers 401;
+  the tool's message says so without printing either value.
+- **Same store, same validation.** The route constructs an `ArtifactStore` on
+  the same `ARTIFACTS_DIR` and calls `create()` exactly as `POST /api/artifacts`
+  does, so dedupe, title sanitisation, the 1 MiB document cap and the
+  content-addressed layout cannot drift between the two writers.
+- **20 accepted writes per minute per client address**, the published creation
+  budget and its own bucket. Authentication runs before the budget: a wrong
+  token can neither write nor exhaust the tool's writes. Only an accepted write
+  consumes a slot.
+- **Errors keep the shipped vocabulary**: `401 unauthorized`,
+  `415 unsupported_media_type`, `413 payload_too_large`,
+  `400 artifacts_invalid`, `429 too_many_requests` (with `Retry-After`),
+  `503 artifacts_unavailable`. Messages are fixed phrases; no id, title or
+  document fragment is echoed.
+- **No signed URL in the answer.** The tool has no reader and no iframe; it
+  returns the receipt, and the UI mints URLs through the public read routes.
+- **Body cap.** The internal route reuses `ARTIFACT_BODY_MAX_BYTES`
+  (2 MiB + 4 KiB) and the node adapter applies that cap to the path instead of
+  the generic 128 KiB JSON cap.
+
+### Environment additions
+
+| Variable | Process | Default | Meaning |
+| --- | --- | --- | --- |
+| `ARTIFACT_INTERNAL_TOKEN` | BFF **and** tool | BFF: generated per development boot; unset in production is a boot failure once artifacts are configured | Bearer token for `POST /internal/artifacts`, at least 32 characters. Same value on both sides. Never logged. |
+
+- With the artifact surface off, the token is not required and stays empty.
+- With the surface configured and `NODE_ENV=production` and no token, the BFF
+  refuses to boot; the message names the variable only.
+- A development boot without the variable generates an ephemeral token and
+  warns. The tool process cannot know that value, so a local tool run sets the
+  same token on both sides explicitly.
+- The tool reads `OPENCHAT_BFF_URL` (default `http://127.0.0.1:8787`) and
+  `ARTIFACT_INTERNAL_TOKEN`; a missing token is a startup failure, because every
+  write would answer 401 otherwise.
+
+### Owner step: the MCP entry
+
+`opencode.json` is owner-owned; this slice does not edit it. Add this server
+(merge into the existing `mcp.servers` object), then restart OpenCode:
+
+```jsonc
+{
+  "mcp": {
+    "servers": {
+      "openchat-artifacts": {
+        "type": "local",
+        "command": ["pnpm", "--filter", "@openchat/artifact-tool", "run", "start"],
+        "environment": {
+          "OPENCHAT_BFF_URL": "{env:OPENCHAT_BFF_URL}",
+          "ARTIFACT_INTERNAL_TOKEN": "{env:ARTIFACT_INTERNAL_TOKEN}"
+        },
+        "enabled": true
+      }
+    }
+  }
+}
+```
+
+Before it works:
+
+1. `pnpm install` in the repository (adds `esbuild` and `preact` to the tool
+   package; esbuild's install script is already allow-listed in
+   `pnpm-workspace.yaml`).
+2. Export `ARTIFACT_INTERNAL_TOKEN` (at least 32 characters) for the BFF **and**
+   for OpenCode's environment, plus `OPENCHAT_BFF_URL` when the BFF is not on
+   `http://127.0.0.1:8787`. A remote OpenCode host needs a reachable BFF URL;
+   loopback does not cross machines.
+3. Keep the BFF's `ARTIFACT_HOST_URL` and `ARTIFACT_SIGNING_KEY` set, otherwise
+   the tool gets `503 artifacts_unavailable`.
+
+`/api/info` still reports only `artifacts.available`; the MCP server is not
+advertised there, because the tool surface is the MCP entry above. The
+architecture sketch's `bun run` command becomes the pnpm script; everything
+else (stdio, `type: "local"`, environment passthrough) is unchanged.
+
+### Fake path
+
+A fake backend run cannot invoke an out-of-process MCP tool: the fake backend is
+in-process and has no tool transport, so there is nothing to execute. This slice
+does **not** invent a fake tool execution. Coverage instead:
+
+- the tool is unit-tested against a stubbed BFF (`fetch` injection, no socket);
+- the internal route is tested directly with and without the bearer token;
+- the join is proven by a manual smoke (tool → route → store → list), not by a
+  test, because a test would need a listening server.
+
+The chat UI therefore shows no artifact from a fake turn. Slice 4's UI slice
+owns the display path; a fake artifact card can be added there without pretending
+a tool ran.
+
+### Tests
+
+| File | Covers |
+| --- | --- |
+| `packages/artifact-tool/test/validate.test.ts` | every construct in the table (import, dynamic import, require, five network APIs, three URL forms, eval/new Function/document.write, four storage forms, three window forms, `</script`), CSS `@import`/URL/`</style`, missing `App`, input shape, title cap (code points, emoji), 64 KiB and 32 KiB caps at the exact byte, UTF-8 byte counting, first-hit line, the `//` comment exception, data URIs accepted. |
+| `packages/artifact-tool/test/compile.test.ts` | self-contained IIFE, mount into `#root`, no import statement, no `</script`, deterministic bytes, all documented hooks compile, syntax error with `code:line:column` inside the module, toolchain versions, shell structure, title escaping, no bridge/`window.openchat` today. |
+| `packages/artifact-tool/test/tool.test.ts` | receipt only, URL/bearer/redirect-free envelope, compiled HTML in the body, validator stops before the network, status table (400/401/403/413/415/429/503/500/418) without upstream text, redirect refused, unreachable BFF, malformed receipts. |
+| `packages/artifact-tool/test/mcp.test.ts` | initialize version negotiation and fallback, ping, tool listing and schema, argument passthrough, `isError`, unknown tool/method, notification silence, throwing handler, stdio framing and parse-error recovery. |
+| `packages/artifact-tool/test/env.test.ts` | default BFF URL, trailing slash, path prefix, missing token refusal, URL validation table, no token in a refusal. |
+| `apps/server/test/artifacts-internal.test.ts` | bearer table (missing, wrong, longer, shorter, Basic, empty, trailing junk, generated token), 503 unconfigured, 415, 413 envelope, non-object/malformed body, invalid document without echo, stored bytes on disk, receipt without URL, dedupe, `GET /api/artifacts` lists the write with a signed URL, 20/min throttle, rejected bodies and failed auth free of charge, `no-store`. |
+| `apps/server/test/artifacts-env.test.ts` | token empty when off, kept when set, 32-character floor, ephemeral generation with a value-free warning, per-boot difference, production refusal when configured, production acceptance, no production requirement while off. |
+
+No test opens a socket, starts OpenCode or signs a URL for the network; esbuild
+runs in-process and writes nothing.
+
+### Not implemented in slice 3
+
+- **The `window.openchat` bridge** (`artifact:init`, nonce, `artifact:resize`,
+  `artifact:result`). `bridgeScript()` is the hook slice 4 fills.
+- **The read UI** (artifact card, iframe, present mode, download, reset).
+- **The runtime migration job** that re-renders stored artifacts on `get()`.
+- **A fake tool execution.** See the fake-path note above.
+- **A Dockerfile/compose entry for the tool.** It runs next to OpenCode, not in
+  the artifact host's containment.
+
 ## Deliberate deviation: storage lives in the BFF, not in OpenCode
 
 The architecture sketch
@@ -249,27 +532,24 @@ Two smaller deviations follow from the same slice:
 | Document over 1 MiB | `400 artifacts_invalid`, nothing written. |
 | Missing document header | `400 artifacts_invalid` with the rule phrase. |
 
-## Not implemented in this slice
+## Not implemented in slice 1
+
+Slice 3 (above) ships the validator, the build step, the shell, the MCP tool and
+the internal bearer route. These remain open:
 
 - **No UI**: no artifact card, no iframe, no present mode, no download button,
   no reset. The UI is the next slice; it reads `ArtifactsSurfaceInfo` from
   `/api/info` and the three BFF routes.
-- **No validator and no build step** (`openchat_app_write`, Preact/Bun compile,
-  CSP check for `eval`/`fetch`/CDN URLs, shell assembly).
 - **No `postMessage` bridge** (`artifact:init`, `artifact:ready`,
-  `artifact:resize`, `artifact:result`, nonce).
-- **No MCP tool** (`packages/artifact-tool`) and no compose/Dockerfile for the
-  host; the deployment docs already describe the container (read-only, no
-  egress, `ARTIFACT_SIGNING_KEY` only).
+  `artifact:resize`, `artifact:result`, nonce). Slice 3 leaves the
+  `bridgeScript()` placeholder empty.
+- **No compose/Dockerfile for the tool or the host**; the deployment docs
+  already describe the host container (read-only, no egress,
+  `ARTIFACT_SIGNING_KEY` only).
 - **No runtime migration job.** The stored bytes are served verbatim; the
   "re-render on `get()`" migration in
   [`07-artifact-runtime.md`](../architecture/07-artifact-runtime.md) belongs to
-  the tool slice, which owns the runtime version.
-- **No internal bearer route** (`POST /internal/artifacts` with
-  `ARTIFACT_INTERNAL_TOKEN`) from the architecture sketch: the tool does not
-  exist yet, and a public-session route was the smaller surface for this slice.
-  The tool slice adds the bearer route next to it, sharing the same
-  `ArtifactStore`.
+  a later slice, which owns the runtime version.
 - **No rate limit on reads** and no per-artifact result quota: both depend on
   the UI and the bridge.
 - Conditional requests (`If-None-Match`) are not answered with 304; the header
@@ -289,4 +569,5 @@ Two smaller deviations follow from the same slice:
 No test starts a real OpenCode, signs a URL for the network or calls an external
 host. Host tests use an ephemeral loopback listener, as the Code host tests do,
 because duplicate `Content-Security-Policy` lines are only observable at the
-node level.
+node level. The slice-3 test files are listed in the table above; they follow the
+same rule, and esbuild runs in-process without writing to the workspace.
