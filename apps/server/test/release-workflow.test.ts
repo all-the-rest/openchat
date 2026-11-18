@@ -105,11 +105,23 @@ describe("release workflow", () => {
 
   it("runs the fast gates before any image is built", () => {
     const text = workflow()
-    const gates = text.indexOf("pnpm run gates:fast")
+    const gates = jobBlock(text, "gates")
+    // The ratchet binary comes from the action, so the job cannot call
+    // `gates:fast`; it runs the same steps the CI fast tier runs.
+    for (const step of [
+      "pnpm run lint",
+      "pnpm run typecheck",
+      "pnpm run test",
+      "pnpm run build",
+    ]) {
+      expect(gates).toContain(step)
+    }
+    expect(gates).toContain("all-the-rest/ratchet-cli@")
+    expect(gates).toContain("tier: fast")
+
     const build = text.indexOf("docker/build-push-action")
-    expect(gates).toBeGreaterThan(-1)
     expect(build).toBeGreaterThan(-1)
-    expect(gates).toBeLessThan(build)
+    expect(text.indexOf("all-the-rest/ratchet-cli@")).toBeLessThan(build)
     expect(text).toContain("needs: [version, gates]")
   })
 

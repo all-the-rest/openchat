@@ -60,8 +60,16 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # The same fast tier CI runs. A release never starts from a red tree.
-      - run: pnpm run gates:fast
+      # The same steps the CI's fast tier runs. `gates:fast` cannot be used here
+      # verbatim: it calls the `ratchet` binary, which this job only has once
+      # the ratchet action below installed it — so the action replaces that
+      # line and the four pnpm steps run directly.
+      - run: pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build
+      - uses: all-the-rest/ratchet-cli@dc43a9a322dd5906a49bc3bd4d7d8e3f8c327c0a # v1
+        with:
+          mode: validate
+          version: v0.6.3
+          tier: fast
 
   images:
     name: image ${{ matrix.image }}
