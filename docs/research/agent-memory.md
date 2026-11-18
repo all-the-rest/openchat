@@ -24,6 +24,45 @@ There is **no memory API**: nothing in the client or protocol stores facts about
 the owner. Memory is assembled from instructions plus conversation history, and
 anything durable has to be built by us.
 
+## Landscape of existing solutions (surveyed 2026-11-18)
+
+| Solution | Storage | Retrieval | Cleanup | Token cost | Fit |
+| --- | --- | --- | --- | --- | --- |
+| `@modelcontextprotocol/server-memory` | one JSONL knowledge graph (entities, relations) | substring search, open by name, read graph | 6 CRUD tools, no TTL; manual prune | whole graph rewritten per write; 100k entities ≈ 24 MB / ~0.4 s | high for batch shape, low for cleanup |
+| basic-memory | Markdown + front-matter, DB as index | hybrid FTS + semantic, wiki links | none automatic | slices, not whole store | medium (AGPL, heavy) |
+| mcp-memory-service | SQLite + vectors, knowledge graph | semantic + BM25 + ranked mode | consolidation, controlled forgetting, contradictions marked | token-budgeted profile | medium (service to run) |
+| Mem0 / OpenMemory | hosted or local vectors + facts | fused semantic/keyword/entity | explicit update/delete | fact-level, claims >90 % savings | low (hosted) / medium |
+| claude-mem | SQLite FTS + optional vectors | 3-step `search → timeline → get_observations` | observer agent compresses sessions | index rows ~50–100 tokens, detail ~500–1000 | high as design reference |
+| okf-agent-memory | git Markdown bundle | BM25 in-process | scorecards, `stale_after`, trust tiers | push layer capped at 400 tokens | high as design reference |
+| Letta / MemGPT | git-backed memory files | pinned `system/` + on-demand reads | background "dreaming" | explicit pinned/on-demand split | medium as concept |
+| Graphiti / Zep | temporal graph + episodes | hybrid + graph distance | facts invalidated, never silently overwritten | retrieved edges only | low as product, high as concept |
+| ChatGPT / Claude / Cursor / Copilot memory | product stores | ranked injection, citations | vote/expiry, review UI, restore | curated | patterns only |
+
+### Takeaways adopted for our v1
+
+1. **Two layers**: a tiny push layer (index, a few hundred tokens) and a pull layer fetched on demand — Letta (`system/` vs files), OKF (400-token cap), claude-mem (compact index).
+2. **Batch-first tools**: array inputs and outputs, so one Code Mode script does many queries or writes — the reference server and claude-mem both do this.
+3. **Atomic facts with provenance**, not transcripts — Mem0's core lesson; raw transcripts stay in OpenCode's own storage and search.
+4. **Compact index rows + fetch by ID** — claude-mem's `search → get_observations` is the cheapest shape.
+5. **Hard caps and deletes that are never refused**, so an oversized store can always shrink — reference server's `MEMORY_MAX_*`.
+6. **Supersession instead of silent overwrite** — Graphiti's validity windows, mcp-memory-service's marked contradictions; keep the old fact, link it.
+7. **TTL with confirmation-only renewal** — Copilot's 90-day expiry that retrieval does not reset; stale memory is worse than none.
+8. **Search before write, dedupe at the boundary** — OKF's rule; prevents ten near-identical facts.
+9. **Memory is untrusted input** — OWASP ASI06 (memory and context poisoning): gate writes, keep provenance, expiring unverified entries, no re-ingestion of the agent's own output, snapshots for rollback.
+10. **Plain text + small utilities over a platform** — diffable, backup-able, no AGPL/Elastic/hosted dependency.
+
+### Anti-patterns
+
+- Embedding everything by default (semantic search misses operational facts; BM25 is enough for one owner's store).
+- Injecting the whole store ("prompt monolith") — attention drift and cost on every message.
+- Silent writes without provenance; treating retrieved memory as instructions; re-ingesting the agent's own output as trusted.
+- Unbounded growth; a store that cannot be shrunk.
+- Secrets/PII in memory (reject at the write boundary).
+
+Sources: [server-memory](https://github.com/modelcontextprotocol/servers/tree/main/src/memory), [basic-memory](https://docs.basicmemory.com/reference/technical-information), [mcp-memory-service](https://github.com/doobidoo/mcp-memory-service), [Mem0](https://docs.mem0.ai/core-concepts/memory-types), [claude-mem](https://github.com/thedotmack/claude-mem), [OKF](https://github.com/okf-memory/okf-agent-memory), [Letta](https://docs.letta.com/agent-sdk/memory/), [Graphiti](https://github.com/getzep/graphiti), [Copilot memory](https://docs.github.com/en/copilot/concepts/prompting-and-context/copilot-memory), [OWASP ASI06](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/).
+
+
+
 ## Code Mode and MCP
 
 MCP servers are exposed **through Code Mode by default**: the `codemode` field
@@ -192,17 +231,38 @@ step reduced to an owner override in the UI instead of an approval gate.
 A file-first store under `/workspace/.memory/`, written and pruned by the agent
 through a small MCP server, plus a bounded index injected per session.
 
-- **Store**: an `index.json` plus per-topic Markdown files with front-matter
-  (key, kind, importance, provenance, timestamps, status). Atomic writes,
-  `0600`, single directory with the same path rules as chat files.
-- **Tools** (batch-friendly, compact JSON): `search({ queries[], kind?, limit? })`,
-  `read({ keys[] })`, `write({ entries[] })` (upsert by key), `update({ keys,
-  patch })`, `delete({ keys[] })`, `maintenance({ dryRun })` for duplicates,
-  stale entries and oversized topics, `stats()` for the agent's own budgeting.
-- **Injection**: `memory/index` via `session.instructions.entry.put`, top-N by
-  importance then recency, ~1 500 tokens; refreshed at step boundaries.
-- **Owner override**: `/memory` page to browse, edit, delete, export — the agent
-  owns the content, the owner keeps the last word.
+- **Store** (the research-backed shape):
+  - `facts.jsonl` — one atomic fact per line: `id`, `text`, `topic`, `tags`,
+    `source {sessionID, messageID, at}`, `trust` (`explicit | observed |
+    inferred`), `status` (`active | superseded | expired | deleted`),
+    `supersedes[]`, `createdAt`, `lastConfirmedAt`, `expiresAt`, `checksum`.
+  - `INDEX.md` — the push layer: topic, ID ranges, one line each, capped.
+  - `audit.jsonl` — every write/update/delete/prune with actor, time and reason,
+    so a bad prune can be explained and replayed.
+  - JSONL instead of one rewritten document: a write never rewrites the whole
+    store (the reference server's main scaling problem).
+- **Tools** (MCP, array inputs and outputs, compact JSON):
+  `mem_index()`, `mem_find({ queries[], tags?, since?, limit? })` → compact rows,
+  `mem_get({ ids[], fields? })` → full records only for chosen IDs,
+  `mem_write({ entries[] })` with search-before-write dedupe and secret /
+  instruction-like payload rejection, `mem_update({ updates[] })`,
+  `mem_delete({ ids[], reason })` (soft delete, never refused),
+  `mem_prune({ dryRun, maxAgeDays?, superseded?, maxBytes? })`,
+  `mem_stats()`.
+  No single-item variants and no "read the whole store" tool, so one Code Mode
+  script can search several queries, filter, fetch details and write a batch.
+- **Injection**: `memory/index` via `session.instructions.entry.put`, content of
+  `INDEX.md` (~300–400 tokens) refreshed at step boundaries when memory changes.
+- **Ranking**: topic/tag match, then BM25 keyword score, then recency, then hit
+  count, then trust. Superseded/expired/deleted are excluded from search and
+  reachable only by `mem_get`.
+- **Lifecycle**: a new fact on the same topic supersedes the old one (both kept,
+  linked); `inferred`/`observed` facts expire after 90 days, `explicit` owner
+  facts after a year or never; only explicit confirmation or reuse resets the
+  clock, never mere retrieval. Weekly `mem_prune({dryRun:true})` returns ranked
+  candidates with reasons; the owner or the agent applies it.
+- **Owner override**: `/memory` page to browse, edit, delete, export and see the
+  audit — the agent owns the content, the owner keeps the last word.
 
 The earlier "approved memory" variant stays as a fallback if self-management
 turns out to poison the store in practice; the store format supports it
@@ -211,9 +271,9 @@ turns out to poison the store in practice; the store format supports it
 ## Open owner decisions
 
 1. Is the workspace volume the right home, or a separate `memory-data` volume?
-2. How much context is worth paying for on every session (1 500 tokens is a
-   starting point, not a measurement)?
-3. Does `maintenance` run automatically at session start, or only when the agent
+2. How much context is worth paying for on every session (a ~400-token index is
+   the research default; measure before raising it)?
+3. Does `mem_prune` run automatically at session start, or only when the agent
    calls it?
 
 ## Recommendation
