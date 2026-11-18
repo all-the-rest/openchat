@@ -1,4 +1,11 @@
-import type { InboxEntry, Message, MessageStatus, UsageReport } from "@openchat/contracts"
+import type {
+  CompactionNotice,
+  InboxEntry,
+  Message,
+  MessageStatus,
+  PromptNotice,
+  TokenUsage,
+} from "@openchat/contracts"
 import { EVENT, messageText } from "@openchat/contracts"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { api } from "../api/client"
@@ -10,10 +17,17 @@ import { createID } from "../lib/ids"
 import { setStreamActive } from "../pwa/stream-guard"
 import { applyEvent, isTerminalEvent } from "../state/fold"
 import { completeModelValue, useCompletionOrNull } from "./completion"
+import { applyCompactionEvent, dropCompaction } from "./compaction"
+import { lastMessageUsage, readTokenUsage } from "./context-fill"
 import { applyInboxEvent } from "./inbox"
 import { usageFromEvent } from "./usage"
 
-export type ChatError = "load" | "send" | "stop" | "cancel" | null
+export type ChatError = "load" | "send" | "stop" | "cancel" | "compact" | null
+
+const NOTICE_KEYS: Record<PromptNotice, MessageKey> = {
+  contextCompacted: "chat.contextCompactedNotice",
+  contextCompactionFailed: "chat.contextCompactionFailedNotice",
+}
 
 export interface ChatSessionValue {
   messages: Message[]
@@ -27,12 +41,18 @@ export interface ChatSessionValue {
   queued: boolean
   /** Pending turns restored from the inbox or announced by the event stream. */
   inbox: InboxEntry[]
-  /** Token usage the host reported for this run; `null` means none yet. */
-  usage: UsageReport | null
+  /** The last token usage the host reported for this session. */
+  usage: TokenUsage | null
+  /** Compaction attempts observed in this session, oldest first. */
+  compactions: CompactionNotice[]
   lastAssistantStatus: MessageStatus | null
   canRetry: boolean
   send: (text: string) => Promise<void>
   stop: () => Promise<void>
+  /** Asks the host to compact now; the event stream renders the outcome. */
+  compactNow: () => Promise<void>
+  /** Drops a failed section and asks for compaction again. */
+  retryCompaction: (noticeID: string) => Promise<void>
   /** Drops one pending turn from the host queue. */
   cancelQueued: (messageID: string) => Promise<void>
   reload: (options?: { silent?: boolean }) => Promise<void>
@@ -51,7 +71,8 @@ export function useChatSession(sessionID: string): ChatSessionValue {
   const [stopped, setStopped] = useState(false)
   const [queued, setQueued] = useState(false)
   const [inbox, setInbox] = useState<InboxEntry[]>([])
-  const [usage, setUsage] = useState<UsageReport | null>(null)
+  const [usage, setUsage] = useState<TokenUsage | null>(null)
+  const [compactions, setCompactions] = useState<CompactionNotice[]>([])
   const { subscribe, reconnect } = useEventStream()
   const hostReachable = useSurfaceOrNull()?.hostReachable ?? null
   const completion = useCompletionOrNull()
@@ -84,6 +105,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
         if (activeSession.current !== target) return
         setMessages(list)
         setInbox(pending)
+        setUsage(lastMessageUsage(list))
         setQueued(false)
         setError(null)
       } catch {
@@ -104,6 +126,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     setQueued(false)
     setInbox([])
     setUsage(null)
+    setCompactions([])
     setError(null)
     void reload()
   }, [reload])
@@ -133,8 +156,11 @@ export function useChatSession(sessionID: string): ChatSessionValue {
       if (typeof eventSession === "string" && eventSession !== activeSession.current) return
       setMessages((current) => applyEvent(current, event))
       setInbox((current) => applyInboxEvent(current, event))
-      const reported = usageFromEvent(event)
-      if (reported) setUsage(reported)
+      setCompactions((current) => applyCompactionEvent(current, event))
+      if (event.type === EVENT.usageUpdated) {
+        const reported = readTokenUsage(event.data.tokens)
+        if (reported) setUsage(reported)
+      }
       if (event.type === EVENT.executionStarted) {
         setStopped(false)
         setQueued(false)
@@ -220,6 +246,23 @@ export function useChatSession(sessionID: string): ChatSessionValue {
             : { text: trimmed, ...choice },
         )
         if (result?.queued) setQueued(true)
+        if (result?.notices) {
+          const notes: Message[] = result.notices.map((notice) => ({
+            id: createID("msg"),
+            sessionID,
+            role: "system",
+            parts: [
+              {
+                type: "text",
+                id: createID("part"),
+                text: translate(locale, NOTICE_KEYS[notice]),
+              },
+            ],
+            created: Date.now(),
+            status: "complete",
+          }))
+          if (notes.length > 0) setMessages((current) => [...current, ...notes])
+        }
       } catch (failure) {
         // Keep the draft in the composer by throwing; drop the optimistic echo.
         setMessages((current) => current.filter((message) => message.id !== localID))
@@ -229,7 +272,14 @@ export function useChatSession(sessionID: string): ChatSessionValue {
         throw failure
       }
     },
-    [sessionID, completion?.model, completion?.variant, completion?.agent, completion?.models],
+    [
+      sessionID,
+      completion?.model,
+      completion?.variant,
+      completion?.agent,
+      completion?.models,
+      locale,
+    ],
   )
 
   const stop = useCallback(async () => {
@@ -282,6 +332,23 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     }
   }, [messages, send])
 
+  const compactNow = useCallback(async () => {
+    setError(null)
+    try {
+      await api.compact(sessionID)
+    } catch {
+      setError("compact")
+    }
+  }, [sessionID])
+
+  const retryCompaction = useCallback(
+    async (noticeID: string) => {
+      setCompactions((current) => dropCompaction(current, noticeID))
+      await compactNow()
+    },
+    [compactNow],
+  )
+
   const clearError = useCallback(() => setError(null), [])
 
   const streaming = messages.some((message) => message.status === "streaming")
@@ -316,10 +383,13 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     queued: queued || inbox.length > 0,
     inbox,
     usage,
+    compactions,
     lastAssistantStatus,
     canRetry,
     send,
     stop,
+    compactNow,
+    retryCompaction,
     cancelQueued,
     reload,
     continueRun,

@@ -53,6 +53,11 @@ msgid "chat.permissionTool"
 msgstr "{tool} requests:"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextUsage"
+msgstr "{used} / {limit} ({percent}%)"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.quota"
 msgstr "{used} of {total} used ({percent}%)"
@@ -258,6 +263,11 @@ msgid "apps.auto"
 msgstr "Auto"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionAuto"
+msgstr "Automatic"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.available"
 msgstr "Available"
@@ -432,6 +442,25 @@ msgstr "Code: {code}"
 msgid "palette.label"
 msgstr "Command palette"
 
+#: src/i18n/messages/chat.ts
+msgid "chat.compactNow"
+msgstr "Compact now"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionFailed"
+msgstr "Compaction failed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionEnded"
+msgstr "Compaction finished"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionStarted"
+msgstr "Compaction started"
+
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.status.completed"
@@ -479,6 +508,19 @@ msgstr "Context limit"
 #: src/i18n/messages/chat.ts
 msgid "usage.fill"
 msgstr "Context window fill"
+
+msgid "chat.contextCompactionFailedNotice"
+msgstr "Context compaction failed; sending your message anyway."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextUsageUnknown"
+msgstr "Context usage unknown"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextCompactedNotice"
+msgstr "Context was compacted before sending your message."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -989,6 +1031,11 @@ msgstr "Loading…"
 #: src/i18n/messages/shell.ts
 msgid "nav.main"
 msgstr "Main navigation"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionManual"
+msgstr "Manual"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1751,6 +1798,16 @@ msgid "tasks.kind.subagent"
 msgstr "Subagent"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactNowHint"
+msgstr "Summarise older turns to free context."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionSummaryLabel"
+msgstr "Summary"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "surface.label"
 msgstr "Surface"
@@ -1871,6 +1928,11 @@ msgid "code.mobileBody"
 msgstr "The Code interface is built for desktop. Open it in a new tab on this device."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactFailed"
+msgstr "The conversation could not be compacted."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.downloadFailed"
 msgstr "The download failed. Try again."
@@ -1899,6 +1961,11 @@ msgstr "The frame never finished loading. Open Code in a new tab instead."
 #: src/i18n/messages/code.ts
 msgid "code.downStatus"
 msgstr "The health probe got no answer from the Code host."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextUsageHint"
+msgstr "The host compacts automatically at 100% minus its configured buffer (35% in the seeded configuration)."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts

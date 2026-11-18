@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import type { TokenUsage } from "./compaction"
+
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"
 
@@ -59,6 +61,8 @@ export interface Message {
   parts: Part[]
   created: number
   status: MessageStatus
+  /** Token usage the host reported for this message, when it reported any. */
+  usage?: TokenUsage
 }
 
 export const toolPartSchema = z.object({
@@ -87,6 +91,13 @@ export const partSchema = z.discriminatedUnion("type", [
   }),
 ])
 
+export const tokenUsageSchema = z.object({
+  input: z.number(),
+  output: z.number(),
+  reasoning: z.number(),
+  cache: z.object({ read: z.number(), write: z.number() }),
+})
+
 export const messageSchema = z.object({
   id: z.string(),
   sessionID: z.string(),
@@ -94,6 +105,7 @@ export const messageSchema = z.object({
   parts: z.array(partSchema),
   created: z.number(),
   status: z.enum(["streaming", "complete", "stopped", "error"]),
+  usage: tokenUsageSchema.optional(),
 })
 
 /** Plain text of a message, used for copy and for E2E assertions. */

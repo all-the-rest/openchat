@@ -6,6 +6,7 @@ import { ChatMenu } from "../chat/ChatMenu"
 import { CompletionPickers } from "../chat/CompletionPicker"
 import { Composer } from "../chat/Composer"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
+import { ContextMeter } from "../chat/ContextMeter"
 import { PermissionCard } from "../chat/PermissionCard"
 import { usePermissions } from "../chat/permissions"
 import { QueuedTurns } from "../chat/QueuedTurns"
@@ -93,7 +94,9 @@ export function ChatPage() {
         ? t("chat.stopFailed")
         : chat.error === "cancel"
           ? t("chat.cancelFailed")
-          : null
+          : chat.error === "compact"
+            ? t("chat.compactFailed")
+            : null
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -115,9 +118,16 @@ export function ChatPage() {
           ) : null}
           <h1 className="truncate text-lg font-semibold">{title}</h1>
         </div>
+        <ContextMeter usage={chat.usage} />
         <UsagePanel report={usage} />
         <CompletionPickers />
-        <ChatMenu title={title} created={session?.created} messages={chat.messages} />
+        <ChatMenu
+          title={title}
+          created={session?.created}
+          messages={chat.messages}
+          onCompact={() => void chat.compactNow()}
+          compactDisabled={chat.running || chat.streaming}
+        />
       </header>
 
       <ChatFiles sessionID={sessionId} version={filesVersion} />
@@ -127,6 +137,8 @@ export function ChatPage() {
         loading={chat.loading}
         failed={chat.error === "load"}
         onRetry={() => void chat.reload()}
+        compactions={chat.compactions}
+        onRetryCompaction={(id) => void chat.retryCompaction(id)}
         highlightMessageID={messageId}
         onContinue={canRecover ? () => void chat.continueRun() : undefined}
         onRetryLast={

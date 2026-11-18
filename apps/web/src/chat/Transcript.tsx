@@ -1,8 +1,9 @@
-import type { Message } from "@openchat/contracts"
+import type { CompactionNotice, Message } from "@openchat/contracts"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { ChatHero } from "../components/ChatHero"
 import { ArrowDownIcon } from "../components/icons"
 import { useT } from "../i18n/provider"
+import { CompactionSections } from "./CompactionSections"
 import { MessageItem } from "./MessageItem"
 
 export interface TranscriptProps {
@@ -10,6 +11,9 @@ export interface TranscriptProps {
   loading: boolean
   failed: boolean
   onRetry: () => void
+  /** Compaction attempts observed in this session, rendered as collapsed notes. */
+  compactions?: CompactionNotice[]
+  onRetryCompaction?: (id: string) => void
   /** Shown under the last assistant message when it is not streaming. */
   onContinue?: () => void
   onRetryLast?: () => void
@@ -24,6 +28,8 @@ export function Transcript({
   loading,
   failed,
   onRetry,
+  compactions = [],
+  onRetryCompaction,
   onContinue,
   onRetryLast,
   highlightMessageID,
@@ -164,6 +170,9 @@ export function Transcript({
               />
             ))
           )}
+          {!loading && !failed ? (
+            <CompactionSections notices={compactions} onRetry={onRetryCompaction} />
+          ) : null}
         </div>
       </div>
 

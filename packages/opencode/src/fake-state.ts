@@ -58,4 +58,6 @@ export interface FakeBackendOptions {
   seedJobs?: readonly BackgroundJob[]
   /** Seeds one parent and one child chat, linked by `parentID`. */
   seedSubagents?: boolean
+  /** Tokens each completed assistant turn reports. Defaults to 1 000. */
+  usageTokens?: number
 }

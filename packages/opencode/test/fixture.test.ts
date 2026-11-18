@@ -47,7 +47,7 @@ describe("contract fixture", () => {
       ...base,
       tokens: { input: 10, output: 5, reasoning: 2, cache: { read: 7, write: 0 } },
     })
-    expect(reported.usage).toEqual({ input: 10, output: 5, cached: 7 })
+    expect(reported.usage).toEqual({ input: 10, output: 5, reasoning: 2, cache: { read: 7, write: 0 } })
 
     const empty = normalizeSession({
       ...base,

@@ -28,6 +28,30 @@ export function registerFakeControlsRoutes(app: Hono<AppEnv>, backend: ChatBacke
     return c.json(probe(backend)?.recordedPrompt(c.req.param("id")) ?? null)
   })
 
+  app.get("/api/__fake/compactions/:id", (c) => {
+    c.header("Cache-Control", "no-store")
+    return c.json(probe(backend)?.compactionRecord(c.req.param("id")) ?? null)
+  })
+
+  app.post("/api/__fake/compaction-failure", async (c) => {
+    c.header("Cache-Control", "no-store")
+    const body = await readJson(c)
+    if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
+    if (body === INVALID_JSON) {
+      return jsonError(c, 400, "invalid_request", "Invalid JSON body")
+    }
+    const record = body !== null && typeof body === "object"
+      ? (body as Record<string, unknown>)
+      : {}
+    const sessionID = text(record.sessionID)
+    if (!sessionID) return jsonError(c, 400, "invalid_request", "sessionID is required")
+    const fake = probe(backend)
+    if (!fake) return jsonError(c, 404, "not_found", "No fake backend is attached")
+    const times = typeof record.times === "number" ? record.times : 1
+    fake.failNextCompaction(sessionID, times)
+    return c.json(fake.compactionRecord(sessionID))
+  })
+
   app.post("/api/__fake/permission", async (c) => {
     c.header("Cache-Control", "no-store")
     const body = await readJson(c)

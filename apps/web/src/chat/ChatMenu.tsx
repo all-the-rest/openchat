@@ -28,10 +28,15 @@ export function ChatMenu({
   title,
   created,
   messages,
+  onCompact,
+  compactDisabled = false,
 }: {
   title: string
   created?: number
   messages: readonly Message[]
+  /** Manual compaction; the host rejects it while a run is streaming. */
+  onCompact?: () => void
+  compactDisabled?: boolean
 }) {
   const t = useT()
   const [open, setOpen] = useState(false)
@@ -124,6 +129,22 @@ export function ChatMenu({
           data-testid="chat-menu-panel"
           className="absolute end-0 top-full z-50 mt-1 w-56 rounded-row border border-subtle bg-elevated p-1 shadow-lg"
         >
+          {onCompact ? (
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="compact-now"
+              disabled={compactDisabled}
+              title={t("chat.compactNowHint")}
+              onClick={() => {
+                close(false)
+                onCompact()
+              }}
+              className={ITEM}
+            >
+              {t("chat.compactNow")}
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"

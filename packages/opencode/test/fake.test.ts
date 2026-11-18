@@ -120,10 +120,20 @@ describe("FakeBackend", () => {
     const events = await runUntilTerminal(backend, session.id, "hello")
 
     const usageEvent = events.find((event) => event.type === EVENT.usageUpdated)
-    expect(usageEvent?.data.usage).toEqual({ input: 1200, output: 340, cached: 512 })
+    expect(usageEvent?.data.tokens).toEqual({
+      input: 1200,
+      output: 333,
+      reasoning: 0,
+      cache: { read: 500, write: 0 },
+    })
 
     const listed = (await backend.listSessions()).find((entry) => entry.id === session.id)
-    expect(listed?.usage).toEqual({ input: 1200, output: 340, cached: 512 })
+    expect(listed?.usage).toEqual({
+      input: 1200,
+      output: 333,
+      reasoning: 0,
+      cache: { read: 500, write: 0 },
+    })
 
     // A fresh chat has no report at all; absence is not a zero.
     const other = await backend.createSession({ directory: "/workspace" })

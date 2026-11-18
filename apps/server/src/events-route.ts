@@ -13,9 +13,9 @@ function sseHeaders(): Record<string, string> {
 }
 
 /**
- * `/api/events` — one SSE subscription per browser, fanned out by the backend.
- * Heartbeats keep a proxy from closing an idle stream; either side aborting
- * ends the subscription and clears the timer.
+ * The one SSE proxy. It forwards the normalized event stream unchanged, adds a
+ * retry frame and a heartbeat, and tears the backend subscription down with the
+ * response so a closed browser tab cannot keep a host iterator open.
  */
 export function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
   const { backend, sseHeartbeatMs } = deps

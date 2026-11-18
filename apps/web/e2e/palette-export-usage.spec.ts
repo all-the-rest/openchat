@@ -99,8 +99,8 @@ test("the usage panel shows the fake backend's reported numbers", async ({ page 
   const panel = page.getByTestId("usage-panel")
   await expect(panel).toBeVisible()
   await expect(page.getByTestId("usage-input")).toHaveText("1,200")
-  await expect(page.getByTestId("usage-output")).toHaveText("340")
-  await expect(page.getByTestId("usage-cached")).toHaveText("512")
+  await expect(page.getByTestId("usage-output")).toHaveText("333")
+  await expect(page.getByTestId("usage-cached")).toHaveText("500")
   await expect(page.getByTestId("usage-limit")).toHaveText("128,000")
   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1")
 

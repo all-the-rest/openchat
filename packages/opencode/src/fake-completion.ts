@@ -18,6 +18,7 @@ export const FAKE_MODELS: readonly ModelInfo[] = [
     contextLimit: 128_000,
     capabilities: { tools: true, reasoning: false, image: false },
     status: "active",
+    default: true,
   },
   {
     id: "fake/reasoner",

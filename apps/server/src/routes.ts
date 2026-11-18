@@ -84,6 +84,8 @@ export interface RouteDeps {
   artifactsThrottle: FixedWindowThrottle
   /** Injected clock for signed artifact URLs. */
   artifactsNow?: () => number
+  /** How long a prompt waits for a compaction decision; tests shorten it. */
+  compactionWaitMs?: number
 }
 
 function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
@@ -241,8 +243,15 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     await backend.interrupt(c.req.param("id"))
     return c.json({ ok: true })
   })
-}
 
+  // Manual compaction. The host rejects a streaming session with `conflict`,
+  // which `createApp` maps to 409; the transcript then renders the failure
+  // event and offers a retry.
+  app.post("/api/sessions/:id/compact", async (c) => {
+    const outcome = await backend.compact(c.req.param("id"), { reason: "manual" })
+    return c.json({ ok: true, status: outcome.status })
+  })
+}
 /** Registers every API route; the guards and authentication run before it. */
 export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   // One cache for both `/api/apps` and `/api/info`: a page load probes once.

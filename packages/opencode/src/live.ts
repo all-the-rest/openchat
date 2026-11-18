@@ -16,6 +16,7 @@ import type { OpenCodeClient, V2Event } from "@opencode/client"
 import type {
   AppsSnapshot,
   ChatBackend,
+  CompactOptions,
   CreateScheduleInput,
   CreateSessionInput,
   PromptInput,
@@ -23,8 +24,10 @@ import type {
   SearchInput,
   SearchOutcome,
 } from "./index"
+import type { CompactionOutcome, SessionContext } from "@openchat/contracts"
 import { EventQueue } from "./events"
 import { BackendError } from "./errors"
+import { compactOnHost, sessionContextOnHost } from "./live-compaction"
 import { liveAppAction, liveApps } from "./live-apps"
 import { applyCompletion, mapHostModel } from "./live-model"
 import type { HostModelInfo, ModelHostInfo } from "./live-model"
@@ -184,12 +187,25 @@ export class LiveBackend implements ChatBackend {
         { providerID: model.providerID, variants: model.variants?.map((v) => v.id) ?? [] },
       ]),
     )
-    return response.data.map((model) =>
-      mapHostModel(
+    // The default probe decides which chip the fill indicator may use before
+    // the browser has made a choice. A host that cannot answer it keeps every
+    // entry unmarked instead of failing the catalogue.
+    let defaultID: string | undefined
+    if (typeof this.client.model.default === "function") {
+      try {
+        defaultID = (await this.client.model.default()).data?.modelID
+      } catch {
+        defaultID = undefined
+      }
+    }
+    return response.data.map((model) => {
+      const info = mapHostModel(
         model as HostModelInfo,
         providerNames.get(model.providerID) ?? model.providerID,
-      ),
-    )
+      )
+      if (model.modelID === defaultID) info.default = true
+      return info
+    })
   }
 
   /** Provider display names; a failed probe degrades to the raw provider ids. */
@@ -238,6 +254,19 @@ export class LiveBackend implements ChatBackend {
 
   async search(input: SearchInput): Promise<SearchOutcome> {
     return liveSearch(this.client, this.workspace, input)
+  }
+
+  async sessionContext(sessionID: string): Promise<SessionContext> {
+    return sessionContextOnHost(this.client, sessionID)
+  }
+
+  async compact(sessionID: string, options?: CompactOptions): Promise<CompactionOutcome> {
+    return compactOnHost(
+      this.client,
+      (signal) => this.subscribe(signal),
+      sessionID,
+      options,
+    )
   }
 
   async listSchedules(sessionID: string): Promise<Schedule[]> {

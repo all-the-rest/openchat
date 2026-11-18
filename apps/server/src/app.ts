@@ -60,6 +60,8 @@ export interface AppOptions {
   verify?: CredentialVerifier
   /** Login concurrency gate; tests shrink it to one permit. */
   verificationGate?: VerificationGate
+  /** Bounded wait for a compaction decision before a prompt; tests shorten it. */
+  compactionWaitMs?: number
 }
 
 export interface AppVariables {
@@ -108,7 +110,8 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
 
   app.onError((error, c) => {
     if (error instanceof BackendError) {
-      const status = error.code === "not_found" ? 404 : 400
+      const status =
+        error.code === "not_found" ? 404 : error.code === "conflict" ? 409 : 400
       return jsonError(c, status, error.code, error.message)
     }
     return jsonError(c, 500, "internal_error", "Unexpected server error")
@@ -141,6 +144,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     appsNow: options.appsNow,
     artifactsThrottle,
     artifactsNow: options.artifactsNow,
+    compactionWaitMs: options.compactionWaitMs,
   })
 
   return app

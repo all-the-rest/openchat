@@ -12,6 +12,7 @@ import {
   payloadTooLarge,
   readJson,
 } from "./http"
+import { COMPACTION_WAIT_MS, ContextSoftCap } from "./context-cap"
 import { clientAddress } from "./middleware"
 import type { FixedWindowThrottle } from "./throttle"
 
@@ -19,6 +20,8 @@ export interface PromptRouteDeps {
   config: EnvConfig
   backend: ChatBackend
   promptThrottle: FixedWindowThrottle
+  /** How long a prompt waits for a compaction decision; tests shorten it. */
+  compactionWaitMs?: number
 }
 
 /**
@@ -27,6 +30,11 @@ export interface PromptRouteDeps {
  */
 export function registerPromptRoute(app: Hono<AppEnv>, deps: PromptRouteDeps): void {
   const { config, backend, promptThrottle } = deps
+  const softCap = new ContextSoftCap({
+    backend,
+    cap: config.CHAT_CONTEXT_SOFT_CAP,
+    waitMs: deps.compactionWaitMs ?? COMPACTION_WAIT_MS,
+  })
 
   app.post("/api/sessions/:id/prompt", async (c) => {
     const address = clientAddress(c, config.TRUST_PROXY)
@@ -48,6 +56,9 @@ export function registerPromptRoute(app: Hono<AppEnv>, deps: PromptRouteDeps): v
     // Count accepted submissions only; a rejected body must not consume the
     // caller's budget.
     promptThrottle.record(address)
+    // The soft cap runs before admission: at/over the cap and idle, one
+    // compaction is requested and awaited. A failure only adds a notice.
+    const decision = await softCap.admit(c.req.param("id"))
     // Spec 03: one active run per session. A second send is queued rather than
     // rejected, so the BFF defaults to the queue delivery mode.
     const result = await backend.prompt(c.req.param("id"), {
@@ -59,6 +70,7 @@ export function registerPromptRoute(app: Hono<AppEnv>, deps: PromptRouteDeps): v
     })
     const response: PromptResponse = { ok: true, messageID: result.messageID }
     if (result.queued) response.queued = true
+    if (decision.notice) response.notices = [decision.notice]
     return c.json(response)
   })
 }

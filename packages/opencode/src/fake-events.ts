@@ -1,7 +1,7 @@
 import type { EventEnvelope } from "@openchat/contracts"
 import { EventQueue } from "./events"
 
-export type IdPrefix = "ses" | "msg" | "part" | "call" | "evt"
+export type IdPrefix = "ses" | "msg" | "part" | "call" | "evt" | "cmp"
 
 /**
  * Ids, the injected clock, durable sequence numbers and the subscriber
@@ -36,6 +36,9 @@ export class FakeEvents {
       case "evt":
         this.eventCounter += 1
         return `evt_${this.eventCounter}`
+      case "cmp":
+        this.eventCounter += 1
+        return `cmp_${this.eventCounter}`
     }
   }
 

@@ -57,6 +57,10 @@ export interface TestServerOptions {
   verify?: CredentialVerifier
   /** Login concurrency gate; tests shrink it to one permit. */
   verificationGate?: VerificationGate
+  /** Bounded compaction wait before a prompt; tests shorten it. */
+  compactionWaitMs?: number
+  /** Tokens each fake assistant turn reports. */
+  usageTokens?: number
 }
 
 export function makeConfig(overrides: Record<string, string | undefined> = {}): EnvConfig {
@@ -88,6 +92,7 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
     onAppAction: options.onAppAction,
     seedJobs: options.seedJobs,
     seedSubagents: options.seedSubagents,
+    usageTokens: options.usageTokens,
   })
   return {
     app: createApp({
@@ -108,6 +113,7 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
       artifactsNow: options.artifactsNow,
       verify: options.verify,
       verificationGate: options.verificationGate,
+      compactionWaitMs: options.compactionWaitMs,
     }),
     backend,
     config,

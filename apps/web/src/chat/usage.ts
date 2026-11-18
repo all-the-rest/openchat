@@ -1,5 +1,16 @@
 import { EVENT } from "@openchat/contracts"
-import type { EventEnvelope, UsageReport } from "@openchat/contracts"
+import type { EventEnvelope, TokenUsage, UsageReport } from "@openchat/contracts"
+
+/**
+ * Display shape of a canonical TokenUsage. `cached` mirrors the provider's
+ * cache read; the panel shows exactly the counters the host reported.
+ */
+export function toUsageReport(usage: TokenUsage | null | undefined): UsageReport | null {
+  if (!usage) return null
+  const report: UsageReport = { input: usage.input, output: usage.output }
+  if (usage.cache.read > 0) report.cached = usage.cache.read
+  return report
+}
 
 /**
  * Reported token usage for one chat (spec 02, issue #8). The module is pure so

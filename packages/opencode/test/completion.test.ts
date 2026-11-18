@@ -33,6 +33,7 @@ describe("completion catalogue and forwarding", () => {
     expect(await backend.listModels()).toEqual(FAKE_MODELS)
     expect(FAKE_MODELS.some((model) => model.variants.length >= 2)).toBe(true)
     expect(FAKE_MODELS.some((model) => model.status === "deprecated")).toBe(true)
+    expect(FAKE_MODELS.filter((model) => model.default)).toHaveLength(1)
     expect(await backend.listAgents()).toEqual([
       { id: "build", name: "Build", description: "Deterministic scenario runner" },
     ])

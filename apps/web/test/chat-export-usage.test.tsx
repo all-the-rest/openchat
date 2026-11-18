@@ -137,7 +137,7 @@ function renderUsage(report: Parameters<typeof UsagePanel>[0]["report"], locale:
 describe("usage panel", () => {
   it("renders the reported counters and the model's context limit", async () => {
     const user = userEvent.setup()
-    renderUsage({ input: 1200, output: 340, cached: 512 }, "en", 128_000)
+    renderUsage({ input: 1200, output: 340, reasoning: 0, cache: { read: 512, write: 0 } }, "en", 128_000)
 
     await user.click(screen.getByRole("button", { name: "Usage" }))
     expect(screen.getByRole("dialog", { name: "Token usage" })).toBeVisible()
@@ -163,7 +163,7 @@ describe("usage panel", () => {
 
   it("does not invent a context limit when the model has none", async () => {
     const user = userEvent.setup()
-    renderUsage({ input: 10, output: 5 }, "en")
+    renderUsage({ input: 10, output: 5, reasoning: 0, cache: { read: 0, write: 0 } }, "en")
 
     await user.click(screen.getByRole("button", { name: "Usage" }))
     expect(screen.getByTestId("usage-limit")).toHaveTextContent("Not reported")

@@ -111,6 +111,7 @@ main() {
   [ -n "$documents_token" ] || die "$STACK_DIR/.env has no DOCUMENTS_TOKEN"
 
   if [ "$DRY_RUN" -eq 1 ]; then
+    note "would: configure compaction auto=true buffer=35% keep.tokens=12000"
     note "would: write $file (0600) with local MCP entries for $BFF_URL"
     return 0
   fi
@@ -142,6 +143,13 @@ main() {
         "DOCUMENTS_URL": "$DOCUMENTS_URL",
         "DOCUMENTS_TOKEN": "$documents_token"
       }
+    }
+  },
+  "compaction": {
+    "auto": true,
+    "buffer": "35%",
+    "keep": {
+      "tokens": 12000
     }
   }
 }

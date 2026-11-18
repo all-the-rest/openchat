@@ -125,6 +125,9 @@ export default defineConfig({
         OPENCHAT_PASSWORD: "test-password",
         SESSION_SECRET: "test-secret",
         WORKSPACE_DIR,
+        // The fake reports 1 000 tokens per completed turn, so the second
+        // prompt of a chat crosses the cap and exercises the soft-cap gate.
+        CHAT_CONTEXT_SOFT_CAP: "500",
         STT_URL: "http://127.0.0.1:8899",
         // The stub Code host below stands in for apps/code-host; the ticket
         // audience and the secret must match it exactly.

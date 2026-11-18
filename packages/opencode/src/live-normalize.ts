@@ -3,9 +3,9 @@ import type {
   MessageStatus,
   Part,
   SessionInfo,
+  TokenUsage,
   ToolPart,
   ToolStatus,
-  UsageReport,
 } from "@openchat/contracts"
 import type {
   SessionInfo as OpenCodeSessionInfo,
@@ -109,17 +109,24 @@ function tokenCount(value: unknown): number | null {
  * report rather than a substituted zero.
  */
 export function normalizeUsage(
-  tokens: { input?: number; output?: number; cache?: { read?: number } } | undefined,
-): UsageReport | undefined {
+  tokens:
+    | {
+        input?: number
+        output?: number
+        reasoning?: number
+        cache?: { read?: number; write?: number }
+      }
+    | undefined,
+): TokenUsage | undefined {
   if (!tokens) return undefined
   const input = tokenCount(tokens.input)
   const output = tokenCount(tokens.output)
   if (input === null || output === null) return undefined
-  const cached = tokenCount(tokens.cache?.read)
-  if (input + output + (cached ?? 0) === 0) return undefined
-  const usage: UsageReport = { input, output }
-  if (cached !== null && cached > 0) usage.cached = cached
-  return usage
+  const reasoning = tokenCount(tokens.reasoning) ?? 0
+  const read = tokenCount(tokens.cache?.read) ?? 0
+  const write = tokenCount(tokens.cache?.write) ?? 0
+  if (input + output + reasoning + read + write === 0) return undefined
+  return { input, output, reasoning, cache: { read, write } }
 }
 
 export function normalizeSession(info: OpenCodeSessionInfo, workspace?: string): SessionInfo {
@@ -151,7 +158,7 @@ export function normalizeMessage(info: SessionMessageInfo, sessionID = ""): Mess
     }
   }
   if (info.type === "assistant") {
-    return {
+    const message: Message = {
       id: info.id,
       sessionID,
       role: "assistant",
@@ -159,6 +166,9 @@ export function normalizeMessage(info: SessionMessageInfo, sessionID = ""): Mess
       created: info.time.created,
       status: assistantStatus(info),
     }
+    const usage = normalizeUsage(info.tokens)
+    if (usage) message.usage = usage
+    return message
   }
   if (info.type === "system") {
     return {

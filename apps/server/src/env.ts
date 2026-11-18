@@ -5,6 +5,14 @@ import { isFakeScenario } from "@openchat/opencode"
 import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
 import { loadWorkspaceEnv, type WorkspaceFileEnv } from "./env-workspace"
 import { loadCredentialEnv } from "./env-auth"
+import {
+  read,
+  readBoolean,
+  readNumber,
+  readPort,
+  readSecret,
+  readTokenCap,
+} from "./env-parse"
 import { sttModelDir } from "./models"
 import { webDistDir } from "./static"
 
@@ -63,6 +71,12 @@ export interface EnvConfig extends WorkspaceFileEnv {
    * is configured.
    */
   ARTIFACT_INTERNAL_TOKEN: string
+  /**
+   * Compact before admitting a prompt once a session's context reaches this
+   * many tokens. `0` disables the BFF-side guard and leaves compaction to the
+   * host's own policy.
+   */
+  CHAT_CONTEXT_SOFT_CAP: number
 }
 
 export interface LoadEnvOptions {
@@ -78,6 +92,8 @@ const DEFAULT_TTL_SECONDS = 604_800
 const DEFAULT_OPENCODE_URL = "http://127.0.0.1:4096"
 const DEFAULT_DICTATION_MAX_SECONDS = 120
 const DEFAULT_DICTATION_MAX_BYTES = 26_214_400
+/** Compact before the next prompt at 200k tokens unless the owner overrides it. */
+const DEFAULT_CONTEXT_SOFT_CAP = 200_000
 const DEFAULT_CODE_TICKET_TTL_SECONDS = 60
 const DEFAULT_CODE_STATUS_TIMEOUT_MS = 2_000
 /** Matches the Code host's probe bound: a status probe must not hold a socket. */
@@ -91,57 +107,6 @@ const MAX_CODE_TICKET_TTL_SECONDS = 60
  * above the 25 MiB default.
  */
 const DICTATION_MAX_BYTES_CEILING = 104_857_600
-
-function read(source: Record<string, string | undefined>, key: string): string | undefined {
-  const value = source[key]
-  if (value === undefined) return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
-/** Secrets keep their exact characters; only an empty value counts as unset. */
-function readSecret(
-  source: Record<string, string | undefined>,
-  key: string,
-): string | undefined {
-  const value = source[key]
-  if (value === undefined || value.trim().length === 0) return undefined
-  return value
-}
-
-function readNumber(
-  source: Record<string, string | undefined>,
-  key: string,
-  fallback: number,
-  warn: (message: string) => void,
-): number {
-  const value = read(source, key)
-  if (!value) return fallback
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    warn(`${key} must be a positive integer; using the default`)
-    return fallback
-  }
-  return parsed
-}
-
-/**
- * A TCP port; anything outside `1..65535` would fail later inside `listen`.
- */
-function readPort(
-  source: Record<string, string | undefined>,
-  fallback: number,
-  warn: (message: string) => void,
-): number {
-  const value = read(source, "PORT")
-  if (!value) return fallback
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
-    warn("PORT must be an integer between 1 and 65535; using the default")
-    return fallback
-  }
-  return parsed
-}
 
 /**
  * Validates the upstream Code host. A typo must fail the boot, not silently
@@ -170,14 +135,6 @@ function readOpencodeUrl(source: Record<string, string | undefined>): string {
   // trailing slash and any search/hash so the value equals what is used.
   const path = url.pathname.replace(/\/+$/, "")
   return path.length > 0 ? `${url.origin}${path}` : url.origin
-}
-
-function readBoolean(
-  source: Record<string, string | undefined>,
-  key: string,
-): boolean {
-  const value = read(source, key)?.toLowerCase()
-  return value === "1" || value === "true" || value === "on" || value === "yes"
 }
 
 /**
@@ -395,5 +352,11 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     ARTIFACT_SIGNING_KEY: artifacts.signingKey,
     ARTIFACTS_DIR: read(source, "ARTIFACTS_DIR") ?? join(workspaceDir, ARTIFACT_DIR_NAME),
     ARTIFACT_INTERNAL_TOKEN: artifacts.internalToken,
+    CHAT_CONTEXT_SOFT_CAP: readTokenCap(
+      source,
+      "CHAT_CONTEXT_SOFT_CAP",
+      DEFAULT_CONTEXT_SOFT_CAP,
+      warn,
+    ),
   }
 }

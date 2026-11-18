@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react"
-import type { UsageReport } from "@openchat/contracts"
+import type { TokenUsage } from "@openchat/contracts"
 import { useCompletionOrNull } from "./completion"
 import { useI18n, useT } from "../i18n/provider"
-import { contextFill, usageView } from "./usage"
+import { contextFill, toUsageReport, usageView } from "./usage"
 
 function formatCount(value: number, locale: "en" | "de"): string {
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value)
@@ -14,7 +14,7 @@ function formatCount(value: number, locale: "en" | "de"): string {
  * exists the panel says so instead of showing zeros. The context limit is the
  * selected model's published window, or "not reported" when it has none.
  */
-export function UsagePanel({ report }: { report: UsageReport | null }) {
+export function UsagePanel({ report }: { report: TokenUsage | null }) {
   const t = useT()
   const { locale } = useI18n()
   const completion = useCompletionOrNull()
@@ -30,7 +30,7 @@ export function UsagePanel({ report }: { report: UsageReport | null }) {
   // host default, so no window is claimed.
   const selected = model ?? (models.length === 1 ? (models[0]?.id ?? null) : null)
   const contextLimit = models.find((entry) => entry.id === selected)?.contextLimit ?? null
-  const view = usageView(report, contextLimit)
+  const view = usageView(toUsageReport(report), contextLimit)
   const fill = contextFill(view)
 
   const close = useCallback((restoreFocus: boolean) => {

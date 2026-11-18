@@ -26,8 +26,10 @@ describe("catalogue routes", () => {
       contextLimit: 128_000,
       capabilities: { tools: true, reasoning: false, image: false },
       status: "active",
+      default: true,
     })
     expect(catalogue.some((model) => model.status === "deprecated")).toBe(true)
+    expect(catalogue.filter((model) => model.default).length).toBeLessThanOrEqual(1)
 
     const agents = await server.app.request("/api/agents", { headers: { cookie } })
     expect(agents.status).toBe(200)
