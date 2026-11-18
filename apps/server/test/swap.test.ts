@@ -127,7 +127,11 @@ afterEach(() => {
   }
 })
 
-describe.skipIf(IS_WINDOWS)("deploy/swap.sh", () => {
+// The rollback cases run a full candidate probe, a failed swap and a re-probe
+// of the restored release; each waits on the script's own two-second retry, so
+// the file needs more than the 5 s default when the rest of the workspace is
+// compiling and testing in parallel.
+describe.skipIf(IS_WINDOWS)("deploy/swap.sh", { timeout: 20_000 }, () => {
   it("prints the plan and mutates nothing in a dry run", () => {
     const test = fixture()
     const result = test.run(["--release", test.release("r1"), "--dry-run"])
