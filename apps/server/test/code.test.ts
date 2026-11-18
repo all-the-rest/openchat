@@ -1,13 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { readTicket } from "@openchat/code-ticket"
 import type { CodeStatusResponse, CodeTicketResponse } from "@openchat/contracts"
-import { PINNED_OPENCODE_VERSION } from "@openchat/opencode"
+import { SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
 import { createCodeProbe, safeNext } from "../src/code"
 import { FixedWindowThrottle } from "../src/throttle"
 import { json, login, makeConfig, makeServer } from "./helpers"
 
 const ORIGIN = "http://code.example:8090"
 const SECRET = "test-code-ticket-secret"
+const HOST_VERSION = "2.3.0"
 
 function codeEnv(overrides: Record<string, string | undefined> = {}) {
   return {
@@ -72,7 +73,7 @@ describe("unconfigured Code surface", () => {
   })
 
   it("reports the status as disabled without probing", async () => {
-    const probe = vi.fn(async () => ({ reachable: true, version: PINNED_OPENCODE_VERSION }))
+    const probe = vi.fn(async () => ({ reachable: true, version: HOST_VERSION }))
     const server = makeServer({ codeProbe: probe })
     const cookie = await login(server)
     const response = await server.app.request("/api/code/status", { headers: { cookie } })
@@ -80,7 +81,7 @@ describe("unconfigured Code surface", () => {
     expect(await json<CodeStatusResponse>(response)).toEqual({
       configured: false,
       reachable: false,
-      expectedVersion: PINNED_OPENCODE_VERSION,
+      expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL,
       matches: false,
     })
     expect(probe).not.toHaveBeenCalled()
@@ -91,7 +92,7 @@ describe("unconfigured Code surface", () => {
     const cookie = await login(server)
     const response = await server.app.request("/api/info", { headers: { cookie } })
     const body = await json<{ code: { configured: boolean; expectedVersion: string } }>(response)
-    expect(body.code).toEqual({ configured: false, expectedVersion: PINNED_OPENCODE_VERSION })
+    expect(body.code).toEqual({ configured: false, expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL })
   })
 })
 
@@ -154,7 +155,7 @@ describe("ticket minting", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {})
     const server = makeServer({
       env: codeEnv(),
-      codeProbe: async () => ({ reachable: true, version: PINNED_OPENCODE_VERSION }),
+      codeProbe: async () => ({ reachable: true, version: HOST_VERSION }),
     })
     const cookie = await login(server)
 
@@ -217,10 +218,10 @@ describe("ticket throttle", () => {
 })
 
 describe("Code host status", () => {
-  it("matches the pinned version", async () => {
+  it("matches a host on the supported major", async () => {
     const server = makeServer({
       env: codeEnv(),
-      codeProbe: async () => ({ reachable: true, version: PINNED_OPENCODE_VERSION }),
+      codeProbe: async () => ({ reachable: true, version: HOST_VERSION }),
     })
     const cookie = await login(server)
     const response = await server.app.request("/api/code/status", { headers: { cookie } })
@@ -228,23 +229,37 @@ describe("Code host status", () => {
     expect(await json<CodeStatusResponse>(response)).toEqual({
       configured: true,
       reachable: true,
-      version: PINNED_OPENCODE_VERSION,
-      expectedVersion: PINNED_OPENCODE_VERSION,
+      version: HOST_VERSION,
+      expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL,
       matches: true,
     })
   })
 
-  it("reports a different version without blocking", async () => {
+  it("accepts a minor skew without warning", async () => {
     const server = makeServer({
       env: codeEnv(),
-      codeProbe: async () => ({ reachable: true, version: "9.9.9" }),
+      codeProbe: async () => ({ reachable: true, version: "2.4.0" }),
+    })
+    const cookie = await login(server)
+    const body = await json<CodeStatusResponse>(
+      await server.app.request("/api/code/status", { headers: { cookie } }),
+    )
+    expect(body.version).toBe("2.4.0")
+    expect(body.expectedVersion).toBe(SUPPORTED_OPENCODE_MAJOR_LABEL)
+    expect(body.matches).toBe(true)
+  })
+
+  it("warns on a major skew without blocking", async () => {
+    const server = makeServer({
+      env: codeEnv(),
+      codeProbe: async () => ({ reachable: true, version: "3.0.0" }),
     })
     const cookie = await login(server)
     const body = await json<CodeStatusResponse>(
       await server.app.request("/api/code/status", { headers: { cookie } }),
     )
     expect(body.reachable).toBe(true)
-    expect(body.version).toBe("9.9.9")
+    expect(body.version).toBe("3.0.0")
     expect(body.matches).toBe(false)
   })
 
@@ -259,7 +274,7 @@ describe("Code host status", () => {
     expect(JSON.parse(text)).toEqual({
       configured: true,
       reachable: false,
-      expectedVersion: PINNED_OPENCODE_VERSION,
+      expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL,
       matches: false,
     })
     expect(text).not.toContain("boom")
@@ -297,7 +312,7 @@ describe("Code host status", () => {
     let calls = 0
     const probe = async () => {
       calls += 1
-      return { reachable: true, version: PINNED_OPENCODE_VERSION }
+      return { reachable: true, version: HOST_VERSION }
     }
     const server = makeServer({ env: codeEnv(), codeProbe: probe, codeNow: () => now })
     const cookie = await login(server)
@@ -319,7 +334,7 @@ describe("configured /api/info", () => {
     const body = await json<{ code: { configured: boolean; expectedVersion: string } }>(
       await server.app.request("/api/info", { headers: { cookie } }),
     )
-    expect(body.code).toEqual({ configured: true, expectedVersion: PINNED_OPENCODE_VERSION })
+    expect(body.code).toEqual({ configured: true, expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL })
   })
 
   it("defaults to no Code host", () => {

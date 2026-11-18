@@ -25,7 +25,7 @@ function status(overrides: Partial<CodeStatusResponse> = {}): CodeStatusResponse
     configured: true,
     reachable: true,
     version: "2.3.0",
-    expectedVersion: "2.3.0",
+    expectedVersion: "2",
     matches: true,
     ...overrides,
   }
@@ -50,7 +50,7 @@ let tickets = 0
 beforeEach(() => {
   tickets = 0
   stubViewport(true)
-  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2.3.0" } })
+  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2" } })
   mocks.codeStatus.mockResolvedValue(status())
   mocks.codeTicket.mockImplementation(async () => {
     tickets += 1
@@ -151,7 +151,7 @@ describe("Code page", () => {
       ),
     ).toBeInTheDocument()
     // The Code host itself is not the failure here, so no version line.
-    expect(screen.queryByText("This app expects version 2.3.0.")).toBeNull()
+    expect(screen.queryByText("This app is built for OpenCode major version 2.")).toBeNull()
     expect(screen.queryByTestId("code-frame")).toBeNull()
     expect(screen.getByTestId("code-state")).toHaveTextContent("Sign-in failed")
 
@@ -168,16 +168,26 @@ describe("Code page", () => {
     expect(
       await screen.findByText("The health probe got no answer from the Code host."),
     ).toBeInTheDocument()
-    expect(screen.getByText("This app expects version 2.3.0.")).toBeInTheDocument()
+    expect(
+      screen.getByText("This app is built for OpenCode major version 2."),
+    ).toBeInTheDocument()
     expect(screen.queryByTestId("code-frame")).toBeNull()
   })
 
-  it("warns on a version mismatch without blocking the frame", async () => {
-    mocks.codeStatus.mockResolvedValue(status({ version: "2.4.0", matches: false }))
+  it("accepts a minor skew without a warning", async () => {
+    mocks.codeStatus.mockResolvedValue(status({ version: "2.4.0", matches: true }))
+
+    renderCode()
+    expect(await screen.findByTestId("code-frame")).toBeInTheDocument()
+    expect(screen.queryByTestId("code-version-warning")).toBeNull()
+  })
+
+  it("warns on a major skew without blocking the frame", async () => {
+    mocks.codeStatus.mockResolvedValue(status({ version: "3.0.0", matches: false }))
 
     renderCode()
     expect(await screen.findByTestId("code-version-warning")).toHaveTextContent(
-      "The Code host reports version 2.4.0; this app expects 2.3.0.",
+      "The Code host runs OpenCode 3.0.0; this app supports major version 2.",
     )
     expect(await screen.findByTestId("code-frame")).toBeInTheDocument()
   })
@@ -327,7 +337,7 @@ describe("Code page", () => {
 
 describe("Code route", () => {
   it("redirects to chat when the Code host is not configured", async () => {
-    mocks.info.mockResolvedValue({ code: { configured: false, expectedVersion: "2.3.0" } })
+    mocks.info.mockResolvedValue({ code: { configured: false, expectedVersion: "2" } })
     providers(
       "/code",
       <Routes>

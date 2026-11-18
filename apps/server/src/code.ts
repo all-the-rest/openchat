@@ -1,7 +1,10 @@
 import type { Hono } from "hono"
 import { mintTicket } from "@openchat/code-ticket"
 import type { CodeStatusResponse, CodeTicketResponse } from "@openchat/contracts"
-import { PINNED_OPENCODE_VERSION } from "@openchat/opencode"
+import {
+  matchesSupportedMajor,
+  SUPPORTED_OPENCODE_MAJOR_LABEL,
+} from "@openchat/opencode"
 import type { AppEnv } from "./app"
 import type { EnvConfig } from "./env"
 import { jsonError } from "./http"
@@ -85,7 +88,7 @@ function unconfiguredStatus(): CodeStatusResponse {
   return {
     configured: false,
     reachable: false,
-    expectedVersion: PINNED_OPENCODE_VERSION,
+    expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL,
     matches: false,
   }
 }
@@ -147,13 +150,13 @@ export function registerCodeRoutes(app: Hono<AppEnv>, deps: CodeRouteDeps): void
             configured: true,
             reachable: true,
             version: result.version,
-            expectedVersion: PINNED_OPENCODE_VERSION,
-            matches: result.version === PINNED_OPENCODE_VERSION,
+            expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL,
+            matches: matchesSupportedMajor(result.version),
           }
         : {
             configured: true,
             reachable: false,
-            expectedVersion: PINNED_OPENCODE_VERSION,
+            expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL,
             matches: false,
           }
     cached = { at, value }

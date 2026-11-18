@@ -43,7 +43,7 @@ vi.mock("../src/chat/sessions", () => ({
 
 beforeEach(() => {
   mocks.info.mockReset()
-  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2.3.0" } })
+  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2" } })
 })
 
 afterEach(() => {
@@ -190,7 +190,7 @@ describe("surface switch", () => {
   })
 
   it("stays hidden and inert when the deployment has no Code host", async () => {
-    mocks.info.mockResolvedValue({ code: { configured: false, expectedVersion: "2.3.0" } })
+    mocks.info.mockResolvedValue({ code: { configured: false, expectedVersion: "2" } })
     renderSwitch("/")
 
     await waitFor(() => expect(mocks.info).toHaveBeenCalledTimes(1))

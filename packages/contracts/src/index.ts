@@ -98,7 +98,10 @@ export interface InfoResponse {
 export interface CodeSurfaceInfo {
   /** False when the deployment has no Code host; the UI must hide the switch. */
   configured: boolean
-  /** The `@opencode/client` version the BFF pins, e.g. "2.3.0". */
+  /**
+   * The supported `@opencode/client` major as a string, e.g. `"2"`. Any host on
+   * `2.x.y` matches; a `3.x` host does not.
+   */
   expectedVersion: string
 }
 
@@ -115,8 +118,9 @@ export interface CodeStatusResponse {
   reachable: boolean
   /** The Code host's upstream version, when reachable. */
   version?: string
+  /** The supported `@opencode/client` major, e.g. `"2"`. */
   expectedVersion: string
-  /** `version === expectedVersion`; false when unreachable. */
+  /** True when `version` is on `expectedVersion`'s major; false when unreachable. */
   matches: boolean
 }
 

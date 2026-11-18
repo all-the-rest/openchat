@@ -1,6 +1,6 @@
 import type { Hono } from "hono"
 import type { ChatBackend } from "@openchat/opencode"
-import { PINNED_OPENCODE_VERSION } from "@openchat/opencode"
+import { SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
 import {
   createSessionRequestSchema,
   loginRequestSchema,
@@ -146,7 +146,7 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
       } satisfies DictationInfo,
       code: {
         configured: Boolean(config.CODE_HOST_ORIGIN),
-        expectedVersion: PINNED_OPENCODE_VERSION,
+        expectedVersion: SUPPORTED_OPENCODE_MAJOR_LABEL,
       } satisfies CodeSurfaceInfo,
       apps: { available: appsAvailable } satisfies AppsSurfaceInfo,
     } satisfies InfoResponse)

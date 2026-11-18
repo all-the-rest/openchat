@@ -180,7 +180,7 @@ importers:
         specifier: workspace:*
         version: link:../contracts
       '@opencode/client':
-        specifier: 2.3.0
+        specifier: ^2.3.0
         version: 2.3.0(effect@4.1.0)
     devDependencies:
       '@types/node':
