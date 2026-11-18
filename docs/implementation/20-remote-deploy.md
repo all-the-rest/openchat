@@ -34,6 +34,9 @@ routing probes against `caddy:2-alpine`.
 | Boot unit | `deploy/remote/openchat-disks.service` | mounts the images before Docker |
 | Boot guard | `deploy/remote/openchat-guard.sh` + `.service` | stops only this stack if a mount failed |
 | Retention | `deploy/remote/prune-releases.sh` | keeps `current`/`previous`, drops older releases, `src` and images |
+| Backup | `deploy/remote/backup.sh` | one archive of `.env`, `opencode-config`, `opencode-data`, artifacts and workspace; manifest, checksums, retention, `--restore-check` |
+| Status | `deploy/remote/status.sh` | read-only probes: release, containers, uptime, `/healthz`, restarts, disk, RAM; non-zero when down |
+| Runbook | [`28-operations.md`](28-operations.md) | signals, backup/restore, upgrade and rollback, secret rotation, common failures |
 | Disk gate | `deploy/remote/compose.yaml` (`disks-ready`) | refuses to start services on an unmounted disk |
 | Runbook | this file | facts, arithmetic, commands, boundaries |
 

@@ -47,6 +47,7 @@ REQUIRED_FILES=(
   deploy/remote/Caddyfile.openchat deploy/remote/mount-disks.sh
   deploy/remote/env-bootstrap.sh deploy/remote/env-value.sh
   deploy/remote/seed-config.sh deploy/remote/caddy.sh
+  deploy/remote/backup.sh deploy/remote/status.sh
   deploy/remote/openchat-disks.service deploy/remote/openchat-guard.sh
   deploy/remote/openchat-guard.service deploy/remote/prune-releases.sh deploy/remote/ssh-safe.sh
   deploy/host/install.sh deploy/host/ram-watchdog.sh deploy/host/dind-gc.sh
@@ -253,6 +254,8 @@ install_boot_unit() {
   remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/mount-disks.sh" "$STACK_DIR/bin/mount-disks.sh")"
   remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/caddy.sh" "$STACK_DIR/bin/caddy.sh")"
   remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/openchat-guard.sh" "$STACK_DIR/bin/openchat-guard.sh")"
+  remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/backup.sh" "$STACK_DIR/bin/backup.sh")"
+  remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/status.sh" "$STACK_DIR/bin/status.sh")"
   remote "$(quote_cmd install -m 644 "$SRC/deploy/remote/openchat-disks.service" /etc/systemd/system/openchat-disks.service)"
   remote "$(quote_cmd install -m 644 "$SRC/deploy/remote/openchat-guard.service" /etc/systemd/system/openchat-guard.service)"
   remote "systemctl daemon-reload && systemctl enable openchat-disks.service openchat-guard.service"

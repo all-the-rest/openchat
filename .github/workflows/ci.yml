@@ -28,6 +28,9 @@ jobs:
       - run: pnpm run lint
       - run: pnpm run typecheck
       - run: pnpm run test
+      # Backup, status and upgrade/rollback scripts against temp fixtures and
+      # fake docker/curl: no daemon, no network, under 10 s.
+      - run: pnpm run deploy:test
       - run: pnpm run build
 
   e2e:

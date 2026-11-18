@@ -343,7 +343,7 @@ What Compose **cannot** do — owner/host work, stated plainly:
 | Disk quota for the artifact volume | Not expressible for a named volume | XFS project quota, ext4 `prjquota`, or a dedicated volume; monitor free space. |
 | dind image garbage | Nothing collects images | `deploy/host/dind-gc.sh` + its daily timer prune **inside** the rootless daemon (`DOCKER_HOST=tcp://dind:2375`), bounded by a 168 h retention and the 4 GiB loop. |
 | Kernel OOM score | Not expressible | `oom_score_adj` via the systemd unit if the BFF must survive the agent. |
-| Backups | Not in this file | `opencode-data`, `opencode-config`, `workspace`, the artifact volume and `.env`; test a restore. |
+| Backups | Not in this file | `deploy/remote/backup.sh`: one timestamped archive of `opencode-data`, `opencode-config`, `workspace`, the artifact volume and `.env`, with manifest, checksums, retention and `--restore-check` ([`28-operations.md`](28-operations.md)). |
 
 The predecessor kept `ram-watchdog.sh` and `dind-guard.sh` as host scripts. They
 stay host scripts: a container that watches its own cgroup cannot enforce a host
