@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   cleanup,
   commit,
@@ -21,6 +21,11 @@ function repo(version = "1.2.3"): string {
   commit(root, "chore: seed the workspace")
   return root
 }
+
+// Every case spawns git and a Node process; under a parallel full-suite run
+// a single case reached 9.5 s and hit the 5 s default. The work is bounded
+// by the fixture, not by the clock, so the limit moves instead of the test.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
 
 describe("version bump", () => {
   it("walks the semver table: patch, minor, major", () => {

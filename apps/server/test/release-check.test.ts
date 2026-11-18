@@ -1,6 +1,6 @@
 import { chmodSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   cleanup,
   commit,
@@ -46,6 +46,11 @@ function replaceVersion(root: string, path: string, version: string): void {
   const file = join(root, path)
   writeFileSync(file, readFileSync(file, "utf8").replace(/"version": "[^"]*"/, `"version": "${version}"`))
 }
+
+// Every case spawns git and a Node process; under a parallel full-suite run
+// a single case reached 9.5 s and hit the 5 s default. The work is bounded
+// by the fixture, not by the clock, so the limit moves instead of the test.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
 
 describe("release check", () => {
   it("passes a clean, agreeing workspace with a changelog section", () => {
