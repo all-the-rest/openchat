@@ -175,12 +175,8 @@ describe("artifact viewer", () => {
     expect(mocks.artifact.mock.calls.length).toBeGreaterThanOrEqual(3)
   })
 
-  it("re-mints the URL on reload", async () => {
+  it("resets the app in place without minting a new URL", async () => {
     const user = userEvent.setup()
-    const next = artifact({
-      url: `https://artifacts.example.test/a/${ID}?exp=4070909999&sig=${"r".repeat(43)}`,
-    })
-    mocks.artifact.mockResolvedValueOnce(artifact()).mockResolvedValueOnce(next)
     renderViewer()
 
     const before = await screen.findByTestId("artifact-frame")
@@ -188,10 +184,12 @@ describe("artifact viewer", () => {
 
     await user.click(screen.getByTestId("artifact-reload"))
 
-    await waitFor(() =>
-      expect(screen.getByTestId("artifact-frame")).toHaveAttribute("src", next.url),
-    )
-    expect(mocks.artifact).toHaveBeenCalledTimes(2)
+    // Reset remounts the frame with the same signed URL: no second metadata
+    // read, no new signature, no lost present mode.
+    const after = await screen.findByTestId("artifact-frame")
+    expect(after).not.toBe(before)
+    expect(after).toHaveAttribute("src", artifact().url)
+    expect(mocks.artifact).toHaveBeenCalledTimes(1)
   })
 
   it("presents in the content area and returns focus on Escape", async () => {
