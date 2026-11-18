@@ -1,0 +1,14 @@
+[Unit]
+# One tick a minute. The guard is cheap (one /proc/meminfo read and at most one
+# compose call) and exits 0 when it has nothing to do.
+Description=Run the OpenChat RAM watchdog every 60 seconds
+Documentation=file:@STACK_DIR@/docs/implementation/14-deployment.md
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=openchat-ram-watchdog.service
+
+[Install]
+WantedBy=timers.target

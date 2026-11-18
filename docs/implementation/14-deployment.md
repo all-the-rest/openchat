@@ -22,6 +22,7 @@ esbuild command the Dockerfiles use, and by running the bundles directly with
 | Stack | `compose.yaml` | one project, six services, profiles for the optional three |
 | Swap | `deploy/swap.sh` | candidate validation, link swap, rollback, `--dry-run` |
 | Env template | `deploy/env.example` | host-only `.env` skeleton, every secret empty |
+| Host guards | `deploy/host/` | RAM watchdog, dind image GC, artifact-disk alert; systemd units + installer |
 | Static serving | `apps/server/src/static.ts` | the production entry point for `apps/web/dist` |
 
 A bucket, in order of who may reach whom:
@@ -251,17 +252,112 @@ What Compose **cannot** do — owner/host work, stated plainly:
 
 | Concern | Inside compose | Owner must do on the host |
 | --- | --- | --- |
-| RAM watchdog | A `mem_limit` kills one container; nothing watches host-level pressure | A systemd unit (`MemoryHigh`/`MemoryMax`, `Restart=on-failure`) around the stack, or a cron watchdog that reads `MemAvailable` and stops the `opencode` service below a threshold. Compose has no supervisor and cannot restart a whole stack on host pressure. |
+| RAM watchdog | A `mem_limit` kills one container; nothing watches host-level pressure | `deploy/host/ram-watchdog.sh` + its timer read `MemAvailable` and stop only the `opencode` service below a threshold, with hysteresis. Compose has no supervisor and cannot restart a whole stack on host pressure. |
 | Total stack ceiling | Per-container only | `systemd` slice accounting for the docker service, or the VPS size. |
 | Swap / overcommit | Not configured here | `vm.swappiness`, `vm.overcommit_memory`; decide whether the agent may swap. |
 | Disk quota for the artifact volume | Not expressible for a named volume | XFS project quota, ext4 `prjquota`, or a dedicated volume; monitor free space. |
-| dind image garbage | Nothing collects images | Scheduled `docker image prune` **inside** the rootless daemon (`DOCKER_HOST=tcp://dind:2375`), bounded to under the 4 GiB limit. |
+| dind image garbage | Nothing collects images | `deploy/host/dind-gc.sh` + its daily timer prune **inside** the rootless daemon (`DOCKER_HOST=tcp://dind:2375`), bounded by a 168 h retention and the 4 GiB loop. |
 | Kernel OOM score | Not expressible | `oom_score_adj` via the systemd unit if the BFF must survive the agent. |
 | Backups | Not in this file | `opencode-data`, `opencode-config`, `workspace`, the artifact volume and `.env`; test a restore. |
 
 The predecessor kept `ram-watchdog.sh` and `dind-guard.sh` as host scripts. They
 stay host scripts: a container that watches its own cgroup cannot enforce a host
 policy, and Compose has no hook that runs when the host runs out of memory.
+
+### Host guards (`deploy/host/`)
+
+The scripts are POSIX `sh`, run on the host and are installed by
+`deploy/host/install.sh`; the units are rendered with `@STACK_DIR@` replaced, so
+a stack outside `/opt/stacks/openchat` gets correct `ExecStart=` paths.
+
+| Piece | Input | Behaviour |
+| --- | --- | --- |
+| `ram-watchdog.sh` | `MemAvailable` from `/proc/meminfo` (or `--meminfo FILE`), `--low` MiB, `--high` MiB | below `--low` stops **only** the `opencode` compose service and writes `$STACK_DIR/ram-watchdog.state` (0600); above `--high` starts it again only when that state file exists; inside the band it changes nothing |
+| `dind-gc.sh` | `--max-age-hours` (168), `--network openchat_dind`, `--image` (the digest the dind profile pins) | one-shot container on the internal `dind` bridge runs `image prune -af --filter until=168h`; exits 0 when dind is not running |
+| `artifact-usage.sh` | `df -P -k` on `$STACK_DIR/disks/artifacts`, `--warn-percent` (90) | prints one warning line at or above the threshold; deletes nothing |
+
+The guards never stop `bff`, `code-host`, `artifact-host` or the edge proxy, never
+restart the Docker daemon and have no `OnFailure=` handler (every plausible
+handler would stop or restart Docker). The units carry no `After=`/`Requires=` on
+`docker.service`. A missing meminfo, a missing compose file, an unreadable `df` or
+a stopped dind logs and exits `0`: a guard that takes the host down when its input
+is missing is worse than no guard.
+
+**Measured baseline** (#44 physical review, 2026-11-18 16:15 UTC, 56 min after the
+second deploy): `MemTotal` **7648 MiB**, `MemAvailable` **3688 MiB**, 16 GiB swap
+with 2.7 GiB used and `si/so` ≈ 0, the four application containers at **183 MiB**
+total, compose memory caps summing **2432 MiB** without dind. The box is not
+under pressure at baseline; the guard exists for the next build or agent burst,
+not for the happy path.
+
+**Thresholds and why.** `--low 900 MiB`, `--high 1200 MiB`:
+
+- The `opencode` cap is 1536 MiB. Once `MemAvailable` is under 900 MiB, the host
+  cannot satisfy one more meaningful growth step plus page cache for the BFF
+  (512 MiB cap) without reclaiming hot file pages or swapping. Stopping
+  `opencode` is the smallest action that removes the agent's growth path while
+  leaving login, SSE and artifacts running.
+- 1200 MiB is a 300 MiB hysteresis band. Reclaiming 300 MiB of page cache is an
+  ordinary fluctuation, so without the band a busy host would stop and start
+  `opencode` on consecutive ticks. Restarting at 1200 also leaves 300 MiB above
+  the stop point for the service to start again.
+- Both values are inputs, not constants tied to a clock or a PID. The 60 s timer
+  only decides *when* the value is read; the decision is `available < low` /
+  `available > high` and the state file. A test drives `--low 1500 --high 1800`
+  against the same 1000 MiB fixture and gets a stop, while the defaults stay
+  silent.
+
+**The dind GC shape.** The rootless daemon publishes no port; `tcp://dind:2375`
+resolves only on the internal `openchat_dind` bridge. A host-side Docker CLI
+cannot reach it, so the GC runs a one-shot container on that bridge with the
+`dind` profile's own pinned image as the CLI:
+
+```
+docker run --rm --network openchat_dind \
+  -e DOCKER_HOST=tcp://dind:2375 \
+  --entrypoint docker docker:27-dind-rootless@sha256:e2ac8e8f… \
+  image prune -af --filter until=168h
+```
+
+168 h is the retention maximum; `image prune` never removes images in use, and the
+4 GiB `disks/dind.img` remains the hard bound. The daily timer is enough because
+the loop is already the cap; the hourly artifact check is separate.
+
+**Install and remove** (on the host, from the synced source tree):
+
+```
+sudo deploy/host/install.sh --stack-dir /opt/stacks/openchat
+# installs $STACK_DIR/bin/{ram-watchdog,dind-gc,artifact-usage}.sh,
+# renders six units into /etc/systemd/system, daemon-reload,
+# enables openchat-{ram-watchdog,dind-gc,artifact-usage}.timer
+
+deploy/host/ram-watchdog.sh --stack-dir /opt/stacks/openchat --dry-run
+deploy/host/dind-gc.sh --dry-run
+deploy/host/artifact-usage.sh --stack-dir /opt/stacks/openchat
+systemctl list-timers 'openchat-*'
+journalctl -u openchat-ram-watchdog -n 20
+
+sudo deploy/host/install.sh --uninstall
+# disables the timers, removes the six units and the three guard scripts.
+# Keeps the state file, $STACK_DIR/bin (the deploy's own helpers), .env, the
+# disk images and every container. Nothing is stopped and Docker is untouched.
+```
+
+The timers are `openchat-ram-watchdog.timer` (60 s), `openchat-dind-gc.timer`
+(daily, persistent) and `openchat-artifact-usage.timer` (hourly, persistent).
+`deploy/remote/deploy.sh` does not install them yet; that is a separate slice.
+
+**Unproven.** No guard was run against a live host for this change: no systemd
+unit was started, no VPS memory was dropped, and the "only `opencode` stops"
+rehearsal remains issue #36's acceptance item. Everything above is pinned by
+`apps/server/test/host-guards.test.ts` against stubbed `docker`, `systemctl`, `df`
+and `install`; the units were rendered into a temp directory, not loaded by
+systemd. The dind GC cannot be proven while the `dind` profile is off:
+`MemAvailable` measured 3688 MiB is below the 5120 MiB gate `deploy.sh` requires
+for `--with-dind`, so the daemon and its bridge were not running. The artifact
+check is alert-only; no `prjquota`/XFS quota exists on `/`, and the 2 GiB loop is
+the only hard bound.
+
 
 ## Cutover
 
@@ -367,6 +463,7 @@ volumes.
 | `apps/server/test/deployment.test.ts` | compose service set; no `privileged: true`; only bff + artifact-host publish, loopback only, never 4096/8090; `TRUST_PROXY` off by default in compose and the env template; artifact volume `:ro` in the host and read-write only in the BFF; `read_only` + tmpfs for the three app services; `mem_limit`/`cpus`/`pids_limit`/log rotation/`restart` per service; a healthcheck per service; profiles on the optional three; artifact origin off `backend`; every secret an interpolation; empty secrets in the template; digest-pinned multi-stage images; frozen-lockfile installs; non-root `USER node` + tini + healthcheck; no install in the runtime stage; tool image toolchain and CLI; the docker CLI tarball verified against its release checksum before unpacking; no `.env` copied; swap-script shape |
 | `apps/server/test/swap.test.ts` | dry run mutates nothing and calls no docker; successful swap writes `current`; `previous` records the prior release; rerun is a no-op; rollback on an unhealthy candidate and on a failing `up`; version mismatch; version accepted in a spaced JSON body; degraded host accepted; usage errors exit 2; missing `.env` and an out-of-tree release are refused; no secret on a compose command line |
 | `apps/server/test/static.test.ts` | `WEB_DIST_DIR` parsing; shell/no-store; SPA fallback; immutable assets; missing asset is not the shell; reserved routes case- and slash-insensitive (`/API/info`, `//api/info`, `/healthz/`) and a build file named `api` unserved; assets and client routes still served; `/api`/`/healthz`/non-GET untouched; HEAD without body; traversal and malformed-escape refusal |
+| `apps/server/test/host-guards.test.ts` | watchdog: one stop below `--low` with a 0600 state file, no second stop, one start above `--high` and state cleared, band silence, custom thresholds, missing/corrupt meminfo and missing compose exit 0 with no docker call, dry run, space-bearing stack path as single argv; dind GC: no prune when dind is down, exact one-shot prune command, dry run; artifact usage: 91 % warning and 50 % silence; install/uninstall files and systemctl calls, dry run; units have no `docker.service` ordering and no `OnFailure=`; the doc states the baseline, thresholds and unproven parts |
 
 ## Manual acceptance (not run here)
 
@@ -378,5 +475,8 @@ volumes.
    `docker compose exec toolbox docker run --rm hello-world`.
 4. `deploy/swap.sh --dry-run`, then a real swap with a deliberately broken
    candidate to watch the rollback on the host.
-5. Confirm on the host that the artifact volume quota, the RAM watchdog unit and
-   the dind image GC exist — none of them is compose configuration.
+5. Install the host guards (`deploy/host/install.sh --stack-dir /opt/stacks/openchat`),
+   run each script once with `--dry-run`, then drop `MemAvailable` artificially
+   and watch only `opencode` stop and return on the next high tick. The dind GC
+   needs `--with-dind` and therefore the 5120 MiB gate; it remains unproven until
+   the predecessor stack is gone.

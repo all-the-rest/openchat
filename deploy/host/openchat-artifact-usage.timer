@@ -1,0 +1,15 @@
+[Unit]
+# Hourly. A 2 GiB artifact disk at the documented write rate can go from 90 %
+# to full in under an hour, so the alert is deliberately more frequent than the
+# dind GC.
+Description=Run the OpenChat artifacts disk usage check hourly
+Documentation=file:@STACK_DIR@/docs/implementation/14-deployment.md
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+Unit=openchat-artifact-usage.service
+
+[Install]
+WantedBy=timers.target

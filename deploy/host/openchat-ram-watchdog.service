@@ -1,0 +1,19 @@
+[Unit]
+# OpenChat host guard (issue #36). Installed by deploy/host/install.sh, which
+# replaces @STACK_DIR@ with the stack root.
+#
+# Deliberately no After=/Requires=/Wants= on docker.service: the guard reads a
+# kernel file and talks to the compose CLI, and a Docker restart must never be
+# a side effect of it. There is also no OnFailure= handler: every plausible
+# handler would stop or restart the host's Docker daemon, which is exactly what
+# this guard must not touch. A non-zero exit is reported by `systemctl --failed`
+# and by the timer's journal entry.
+Description=OpenChat RAM watchdog (stop the opencode service under memory pressure)
+Documentation=file:@STACK_DIR@/docs/implementation/14-deployment.md
+After=local-fs.target
+
+[Service]
+Type=oneshot
+Nice=10
+TimeoutStartSec=60
+ExecStart="@STACK_DIR@/bin/ram-watchdog.sh" --stack-dir "@STACK_DIR@"
