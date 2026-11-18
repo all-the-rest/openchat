@@ -29,6 +29,7 @@ CADDY_CONTAINER=caddy
 TAG=""
 ACTION=deploy
 WITH_DIND=0
+WITH_GUARDS=0
 DRY_RUN=0
 EXPECT_VERSION=""
 ARTIFACTS_SIZE=2G
@@ -48,6 +49,8 @@ REQUIRED_FILES=(
   deploy/remote/seed-config.sh deploy/remote/caddy.sh
   deploy/remote/openchat-disks.service deploy/remote/openchat-guard.sh
   deploy/remote/openchat-guard.service deploy/remote/prune-releases.sh deploy/remote/ssh-safe.sh
+  deploy/host/install.sh deploy/host/ram-watchdog.sh deploy/host/dind-gc.sh
+  deploy/host/artifact-usage.sh
 )
 
 usage() {
@@ -65,6 +68,7 @@ Options:
   --predecessor-env FILE  where AUTH_USER and AUTH_HASH live
   --tag TAG               image tag (default: short commit sha)
   --with-dind             start toolbox + dind, after a MemAvailable check
+  --with-guards           install and enable the host guard timers (RAM, dind GC, artifacts)
   --expect-version V      fail the swap unless /healthz reports V
   --artifacts-size SIZE   artifacts image (default: 2G)
   --workspace-size SIZE   workspace image (default: 4G)
@@ -131,6 +135,7 @@ parse_args() {
       --dind-size) require_value "$@"; DIND_SIZE=$2; shift 2 ;;
       --reserve) require_value "$@"; RESERVE=$2; shift 2 ;;
       --with-dind) WITH_DIND=1; shift ;;
+      --with-guards) WITH_GUARDS=1; shift ;;
       --dry-run) DRY_RUN=1; shift ;;
       --unmount) ACTION=unmount; shift ;;
       --uninstall) ACTION=uninstall; shift ;;
@@ -150,6 +155,9 @@ parse_args() {
   esac
   if [ "$WITH_DIND" -eq 1 ] && [ "$ACTION" != "deploy" ]; then
     usage_error "--with-dind only applies to a deploy"
+  fi
+  if [ "$WITH_GUARDS" -eq 1 ] && [ "$ACTION" != "deploy" ]; then
+    usage_error "--with-guards only applies to a deploy"
   fi
   validate_inputs
 }
@@ -335,6 +343,24 @@ install_caddy() {
     --fragment "$RELEASE/caddy.openchat"
 }
 
+# Host guards (issue #36) are opt-in: they stop or start the `opencode` service
+# and prune inside dind, which is a host-level decision. Installed from the
+# synced source tree so the unit templates sit next to the installer; a failure
+# is a warning, because the swap and the Caddy fragment already happened.
+install_guards() {
+  [ "$WITH_GUARDS" -eq 1 ] || return 0
+  step "host guard timers"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    remote "sh $(shquote "$SRC/deploy/host/install.sh") --stack-dir $(shquote "$STACK_DIR")"
+    return 0
+  fi
+  if remote "sh $(shquote "$SRC/deploy/host/install.sh") --stack-dir $(shquote "$STACK_DIR")"; then
+    note "host guards installed and their timers enabled"
+  else
+    note "warning: host guard install failed; the deploy is unaffected"
+  fi
+}
+
 # Bounded retention: keep current and previous; non-fatal, the swap already succeeded.
 prune_releases() {
   step "bounded release retention"
@@ -381,6 +407,7 @@ do_deploy() {
   render_release
   swap_release
   install_caddy
+  install_guards
   prune_releases
   prune_build_cache
   summarize
@@ -403,11 +430,11 @@ do_uninstall() {
   remote_script "$STACK_DIR/bin/caddy.sh" --container "$CADDY_CONTAINER" --remove
   step "stop the stack"
   remote "if [ -f $(shquote "$STACK_DIR/current/compose.yaml") ]; then cd $(shquote "$STACK_DIR") && docker compose --project-name $(shquote "$PROJECT") --env-file $(shquote "$STACK_DIR/.env") --file current/compose.yaml down; fi"
-  step "remove the boot unit and installed helpers"
-  remote "systemctl disable --now openchat-disks.service openchat-guard.service 2>/dev/null || true; rm -f /etc/systemd/system/openchat-disks.service /etc/systemd/system/openchat-guard.service; systemctl daemon-reload; rm -rf $(shquote "$STACK_DIR/bin")"
+  step "remove the boot unit, the guard timers and installed helpers"
+  remote "systemctl disable --now openchat-disks.service openchat-guard.service openchat-ram-watchdog.timer openchat-artifact-usage.timer openchat-dind-gc.timer 2>/dev/null || true; rm -f /etc/systemd/system/openchat-disks.service /etc/systemd/system/openchat-guard.service /etc/systemd/system/openchat-ram-watchdog.service /etc/systemd/system/openchat-ram-watchdog.timer /etc/systemd/system/openchat-dind-gc.service /etc/systemd/system/openchat-dind-gc.timer /etc/systemd/system/openchat-artifact-usage.service /etc/systemd/system/openchat-artifact-usage.timer; systemctl daemon-reload; rm -rf $(shquote "$STACK_DIR/bin")"
   note ""
-  note "removed: the Caddy fragment and its import, the containers, openchat-disks.service, openchat-guard.service and $STACK_DIR/bin."
-  note "kept on purpose: $STACK_DIR/.env, $STACK_DIR/disks/*.img and the Caddy backup - they hold data."
+  note "removed: the Caddy fragment and its import, the containers, openchat-disks.service, openchat-guard.service, the three guard timers and $STACK_DIR/bin."
+  note "kept on purpose: $STACK_DIR/.env, $STACK_DIR/disks/*.img, $STACK_DIR/ram-watchdog.state and the Caddy backup - they hold data."
   note "a deploy reinstalls the unit and bin; unmount a kept image with the repo's mount-disks.sh --umount."
   [ "$DRY_RUN" -eq 1 ] && note "dry run: nothing was removed or stopped"
   return 0

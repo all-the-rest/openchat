@@ -135,12 +135,13 @@ or a `;` — quoting, not rejection, is what makes it inert.
 | `--predecessor-env` | `/opt/stacks/dev-vm/.env` | source of `AUTH_USER`/`AUTH_HASH` |
 | `--tag` | short commit sha | image tag |
 | `--with-dind` | off | start `toolbox` + `dind`, after the memory check |
+| `--with-guards` | off | install and enable the host guard timers (`deploy/host/install.sh`) after the swap |
 | `--expect-version` | none | fail the swap unless `/healthz` reports it |
 | `--artifacts-size` / `--workspace-size` / `--dind-size` | `2G`/`4G`/`4G` | image sizes (create only; positive, K/M/G/T suffix) |
 | `--reserve` | `10G` | free space that must remain (same shape) |
 | `--dry-run` | off | print `would: …`, change nothing |
 | `--unmount` | — | unmount the images; refuses while the stack runs |
-| `--uninstall` | — | remove the fragment, stop the stack, remove both units and `bin` |
+| `--uninstall` | — | remove the fragment, stop the stack, remove both units, the three guard timers and `bin` |
 
 No secret is accepted as an argument: a `KEY=VALUE` or `--password …` argument is
 a usage error. Nothing in the driver prints a value.
@@ -424,11 +425,13 @@ Caddy, so container-to-container writes keep working. Measured on
 `POST /other` → 200; the same POST sent directly between containers → 200.
 
 `--uninstall` removes the fragment and its import, stops the stack, then
-`systemctl disable --now`s both units, deletes
-`/etc/systemd/system/openchat-disks.service` and `openchat-guard.service`,
-reloads systemd and removes `/opt/stacks/openchat/bin`. It deliberately keeps
-`.env`, the disk images (the data inside them) and `/etc/caddy/Caddyfile.openchat.bak`;
-delete those only after a restore test. A later deploy reinstalls the units and
+`systemctl disable --now`s both stack units and the three guard timers
+(`openchat-{ram-watchdog,dind-gc,artifact-usage}.timer`, so a deleted `bin` is
+never left behind a firing timer), deletes their eight unit files, reloads
+systemd and removes `/opt/stacks/openchat/bin`. It deliberately keeps `.env`,
+the disk images (the data inside them), `ram-watchdog.state` and
+`/etc/caddy/Caddyfile.openchat.bak`; delete those only after a restore test. A
+later deploy reinstalls the units and
 `bin`, and the repo's `deploy/remote/mount-disks.sh --umount` detaches a kept
 image.
 
@@ -528,8 +531,11 @@ file.
   `reverse_proxy`, and the in-network MCP path is BFF-direct; three origins, SSE
   and header rules, staged validate-before-move (live files byte-identical on
   failure), backup path, remove path;
-- `--uninstall` stops the stack, disables and removes both units, removes `bin`,
-  and prints what it keeps;
+- `--uninstall` stops the stack, disables and removes both units and the three
+  guard timers, removes `bin`, and prints what it keeps;
+- `--with-guards` runs `deploy/host/install.sh` after the Caddy fragment, is
+  off by default, is refused for `--uninstall`/`--unmount` and cannot fail the
+  deploy once the swap succeeded;
 - the boot guard stops only the compose project when a marker is missing, exits
   0 on a missing compose file or `.env`, and appears in no `docker.service.d`
   drop-in (also true of every OpenChat unit);

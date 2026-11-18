@@ -345,7 +345,12 @@ sudo deploy/host/install.sh --uninstall
 
 The timers are `openchat-ram-watchdog.timer` (60 s), `openchat-dind-gc.timer`
 (daily, persistent) and `openchat-artifact-usage.timer` (hourly, persistent).
-`deploy/remote/deploy.sh` does not install them yet; that is a separate slice.
+`deploy/remote/deploy.sh --with-guards` runs `deploy/host/install.sh` from the
+synced source tree after the swap and the Caddy fragment, so a deploy can
+install and enable them; without the flag nothing on the host changes, because
+a watchdog that stops `opencode` is a host-level decision. `--uninstall`
+disables the three timers and removes their six unit files together with the
+two stack units.
 
 **Unproven.** No guard was run against a live host for this change: no systemd
 unit was started, no VPS memory was dropped, and the "only `opencode` stops"
