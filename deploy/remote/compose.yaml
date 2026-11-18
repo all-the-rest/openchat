@@ -38,9 +38,13 @@ services:
   # each mounted image; an unmounted bind directory is empty and fails here.
   # Without this, a failed mount would let Docker start the stack on the root
   # filesystem, silently without the size caps and with an empty workspace.
-  # `alpine:3` is the smallest stock image; the check is three `test -f`s.
+  # `alpine:3` is the smallest stock image; the check is three `test -f`s. The
+  # tag is pinned by index digest (multi-arch) so the start path cannot fetch a
+  # different image than the one that was reviewed. Bump command:
+  #   docker buildx imagetools inspect alpine:3
+  # then update the digest here and `ALPINE_INDEX_DIGEST` in the limits test.
   disks-ready:
-    image: alpine:3
+    image: alpine:3@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
     # A one-shot `test -f`; the cap is here only so the merged config has one
     # memory limit per service and nothing can be added without one.
     mem_limit: 64m
@@ -63,7 +67,8 @@ services:
     # The BFF is the availability-critical process: it owns the login, the SSE
     # stream and every /api route. It keeps its share while OpenCode is capped.
     mem_limit: 512m
-    mem_reservation: 192m
+    # Reservation is `memory.low`; the measured working set (#44) was ~16 MiB.
+    mem_reservation: 32m
     depends_on:
       disks-ready:
         condition: service_completed_successfully
@@ -89,7 +94,8 @@ services:
   code-host:
     image: openchat-code-host:${OPENCHAT_TAG:-local}
     mem_limit: 256m
-    mem_reservation: 96m
+    # ~70 MiB measured (#44), 2x.
+    mem_reservation: 160m
     environment:
       OPENCODE_URL: http://opencode:4096
     networks:
@@ -101,7 +107,8 @@ services:
   artifact-host:
     image: openchat-artifact-host:${OPENCHAT_TAG:-local}
     mem_limit: 128m
-    mem_reservation: 48m
+    # ~13 MiB measured (#44), 2x.
+    mem_reservation: 32m
     depends_on:
       disks-ready:
         condition: service_completed_successfully
@@ -124,7 +131,8 @@ services:
     # the predecessor's own OpenCode instance is the box's largest tenant today.
     # See the memory budget in the runbook before lowering it.
     mem_limit: 1536m
-    mem_reservation: 768m
+    # ~84 MiB measured (#44), 2x. `memory.low`, not a RAM reservation.
+    mem_reservation: 384m
     depends_on:
       disks-ready:
         condition: service_completed_successfully

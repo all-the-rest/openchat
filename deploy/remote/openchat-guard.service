@@ -1,0 +1,27 @@
+[Unit]
+# The OpenChat stack's loopback disks are mounted before Docker starts, but
+# `Before=` only orders the start; a failed mount still lets Docker bring the
+# project back with `restart: unless-stopped`. This unit runs after Docker and
+# checks the three `.openchat-disk` markers. If one is missing it stops only the
+# `openchat` compose project, never the host's Docker daemon: the twelve other
+# sites on that daemon keep running.
+#
+# There is deliberately no `/etc/systemd/system/docker.service.d/` drop-in and
+# no `Requires=docker.service` here or in any OpenChat unit. A hard dependency
+# on Docker would turn one stack's failed mount into a host-wide outage, which
+# is worse than the failure it would fix. The guard is the boot-side twin of the
+# `disks-ready` gate in deploy/remote/compose.yaml.
+Description=Stop the OpenChat stack when a disk image did not mount
+Documentation=file:/opt/stacks/openchat/current/compose.yaml
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+# Installed by deploy/remote/deploy.sh; the script always exits 0 and logs a
+# missing compose file or .env instead of failing the boot.
+ExecStart=/opt/stacks/openchat/bin/openchat-guard.sh --stack-dir /opt/stacks/openchat
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

@@ -31,6 +31,8 @@ routing probes against `caddy:2-alpine`.
 | MCP seed | `deploy/remote/seed-config.sh` | one `local` entry in `opencode.json`, `0600`, once |
 | Caddy install | `deploy/remote/caddy.sh` | staged validate, import line, reload, backup, remove |
 | Boot unit | `deploy/remote/openchat-disks.service` | mounts the images before Docker |
+| Boot guard | `deploy/remote/openchat-guard.sh` + `.service` | stops only this stack if a mount failed |
+| Retention | `deploy/remote/prune-releases.sh` | keeps `current`/`previous`, drops older releases, `src` and images |
 | Disk gate | `deploy/remote/compose.yaml` (`disks-ready`) | refuses to start services on an unmounted disk |
 | Runbook | this file | facts, arithmetic, commands, boundaries |
 
@@ -53,8 +55,9 @@ Measured on `root@reisinger.pictures` before this layer was written:
 1. `rsync` the build context to `/opt/stacks/openchat/src/<short-sha>`.
    `node_modules`, `.git`, `dist`, `references`, coverage and `.env*` are
    excluded; the source tree is the build context on the host, not a registry.
-2. Install `mount-disks.sh` and `caddy.sh` as `/opt/stacks/openchat/bin/*`, the
-   systemd unit as `/etc/systemd/system/openchat-disks.service`, enable it, and
+2. Install `mount-disks.sh`, `caddy.sh` and `openchat-guard.sh` as
+   `/opt/stacks/openchat/bin/*`, the two systemd units
+   (`openchat-disks.service`, `openchat-guard.service`), enable both, and
    record `disks/layout` (sizes and reserve).
 3. Create and mount the ext4 images (2 GiB artifacts, 4 GiB workspace, 4 GiB
    dind) after the free-space check, chown each mount root to `1000:1000` and
@@ -68,13 +71,16 @@ Measured on `root@reisinger.pictures` before this layer was written:
    `opencode`, `tools`. The image cache lives beside the predecessor's; nothing
    is pulled from a registry.
 8. Render the release: `docker compose … config --no-interpolate` into
-   `releases/<utc>/compose.yaml` (mode `0600`) and the Caddy fragment with the
+   `releases/<utc>/compose.yaml` (mode `0600`), write the image tag to
+   `releases/<utc>/tag` (`0644`) and the Caddy fragment with the
    domain substituted. `--no-interpolate` keeps `${…}` references, so **no
    secret is baked into a release file**.
 9. `deploy/swap.sh` validates and swaps `current`, with rollback.
 10. Install the Caddy fragment and reload. This is deliberately last: a failed
     deploy never takes the existing sites down and no certificate is requested
     for a dead upstream.
+11. Prune old releases (`prune-releases.sh`, below), then trim the shared build
+    cache. Both are non-fatal: the deploy already swapped.
 
 Rerunning is idempotent: the same tag maps to the same source tree, existing
 images are reused, `.env` and `opencode.json` are kept, mounted disks are a
@@ -134,7 +140,7 @@ or a `;` — quoting, not rejection, is what makes it inert.
 | `--reserve` | `10G` | free space that must remain (same shape) |
 | `--dry-run` | off | print `would: …`, change nothing |
 | `--unmount` | — | unmount the images; refuses while the stack runs |
-| `--uninstall` | — | remove the fragment, stop the stack, remove the unit and `bin` |
+| `--uninstall` | — | remove the fragment, stop the stack, remove both units and `bin` |
 
 No secret is accepted as an argument: a `KEY=VALUE` or `--password …` argument is
 a usage error. Nothing in the driver prints a value.
@@ -233,23 +239,72 @@ touch /artifacts/.probe` answers `Permission denied` and a write fails with
 let Compose start containers on the empty bind directories and put artifact and
 workspace data on the root filesystem. `mount-disks.sh` therefore writes
 `.openchat-disk` inside each mounted image, and the overlay's `disks-ready`
-service (stock `alpine:3`, 64 MiB cap, three `test -f`; pulled once by
-`docker compose up`) must complete successfully before `bff`, `artifact-host`,
-`opencode`, `toolbox` and `dind` start. The marker cannot exist on an unmounted
-directory, so the failure is a refused start, not silent data loss. A failed
-unit is visible in `systemctl --failed`.
+service (stock `alpine:3` pinned by index digest, 64 MiB cap, three `test -f`;
+pulled once by `docker compose up`) must complete successfully before `bff`,
+`artifact-host`, `opencode`, `toolbox` and `dind` start. The marker cannot exist
+on an unmounted directory, so the failure is a refused start, not silent data
+loss. A failed unit is visible in `systemctl --failed`.
+
+The gate only covers a compose run. Docker's `restart: unless-stopped` policy
+does **not** re-evaluate `depends_on`, so a failed mount followed by a daemon
+start would restart this stack on the empty directories. `openchat-guard.service`
+(`After=docker.service`, `Wants=docker.service`) closes that hole: it runs
+`openchat-guard.sh`, which checks the same three markers and, if one is missing,
+runs `docker compose --project-name openchat --env-file … --file
+"$STACK_DIR/current/compose.yaml" --profile "*" stop`. That stops this stack's
+four (or six, with dind) containers and **nothing else on the daemon**. The
+guard always exits 0 and logs a missing `.env` or compose file instead of
+failing the boot; the stopped stack is the signal.
 
 **No `docker.service` drop-in, on purpose.** A reviewer will suggest
 `Requires=openchat-disks.service` in `/etc/systemd/system/docker.service.d/`.
 That makes a failed mount stop Docker itself, taking the host's other sites with
-it — the failure mode is worse than the one it fixes. The gate is scoped to this
-stack: a failed mount refuses these five services and leaves everything else
-running, while `systemctl --failed` still reports the unit. `deploy.sh` installs
-no drop-in and must not start doing so.
+it — the failure mode is worse than the one it fixes. The gate and the guard are
+scoped to this stack: a failed mount refuses or stops these services and leaves
+everything else running, while `systemctl --failed` still reports the unit.
+`deploy.sh` installs no drop-in and must not start doing so.
 
-Boot persistence is the installed `openchat-disks.service` (`Before=docker.service`),
-not `/etc/fstab`: the images are deployment state and an fstab entry would be a
-host-wide change this stack does not make implicitly.
+Boot persistence is the installed `openchat-disks.service` (`Before=docker.service`)
+plus `openchat-guard.service` (`After=docker.service`), not `/etc/fstab`: the
+images are deployment state and an fstab entry would be a host-wide change this
+stack does not make implicitly.
+
+### Pinned `disks-ready` image
+
+The gate is the one image in the start path that comes from a registry, so it is
+pinned by the multi-arch index digest:
+
+```
+disks-ready:
+  image: alpine:3@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+```
+
+Resolve a bump with `docker buildx imagetools inspect alpine:3` (the `Digest:`
+line is the index digest), replace the digest in `deploy/remote/compose.yaml`,
+and update `ALPINE_INDEX_DIGEST` in `apps/server/test/remote-deploy-limits.test.ts`.
+The test fails when the digest is not 64 lowercase hex digits or when `latest`
+appears anywhere in the overlay. `alpine:3` moves; the digest does not, which is
+why the tag stays for the bump policy and the digest decides the bytes.
+
+## Release retention
+
+Every deploy used to leave its `releases/<utc>`, `src/<tag>` and
+`openchat-*:<tag>` images behind; a rollback only needs `current` and
+`previous`. `deploy/remote/prune-releases.sh` (called after the swap and the
+Caddy install, before the build-cache trim) keeps the newest `--keep` releases
+(default 2, always `current` and `previous`) and deletes:
+
+- `releases/<name>` directories outside the kept set;
+- `src/<tag>` trees whose name is not a kept release's tag;
+- `openchat-<service>:<tag>` images whose tag is not kept.
+
+Each release now records its tag in `releases/<name>/tag` (`0644`); the rendered
+`compose.yaml` still carries `${OPENCHAT_TAG}`, so no value is baked into it.
+If `current`, `previous`, or any kept release's `tag` file is missing, the script
+deletes **nothing** and says why: releases written before the tag file existed
+are not guessed at. Only refs matching `^openchat-[a-z-]+:[A-Za-z0-9._-]+$` are
+touched, `latest` and other repositories never are, and a failed `docker rmi` is
+a warning. A prune failure warns and leaves the deploy intact.
 
 ## Memory budget
 
@@ -265,6 +320,12 @@ The overlay's limits: `bff` 512m, `code-host` 256m, `artifact-host` 128m,
   it, but only to the same cap as `toolbox`; it is not cut further to make dind
   fit. It owns the login, the SSE stream and every API route, and is the
   availability-critical process.
+- `mem_reservation` is `memory.low`, a reclaim hint, not RAM set aside. Measured
+  working sets (#44): bff 16 MiB, code-host 70 MiB (61 MiB file), artifact-host
+  13 MiB, opencode 84 MiB. The overlay reserves roughly 2× those values — bff
+  `32m`, code-host `160m`, artifact-host `32m`, opencode `384m` (608 MiB total,
+  down from 1.1 GiB). `toolbox` (`192m`) and `dind` (`512m`) keep their old
+  values because they do not run today. Every `mem_limit` is unchanged.
 
 ## Caddy: stage, validate, move, reload
 
@@ -363,12 +424,13 @@ Caddy, so container-to-container writes keep working. Measured on
 `POST /other` → 200; the same POST sent directly between containers → 200.
 
 `--uninstall` removes the fragment and its import, stops the stack, then
-`systemctl disable --now`s the unit, deletes
-`/etc/systemd/system/openchat-disks.service`, reloads systemd and removes
-`/opt/stacks/openchat/bin`. It deliberately keeps `.env`, the disk images (the
-data inside them) and `/etc/caddy/Caddyfile.openchat.bak`; delete those only
-after a restore test. A later deploy reinstalls the unit and `bin`, and the
-repo's `deploy/remote/mount-disks.sh --umount` detaches a kept image.
+`systemctl disable --now`s both units, deletes
+`/etc/systemd/system/openchat-disks.service` and `openchat-guard.service`,
+reloads systemd and removes `/opt/stacks/openchat/bin`. It deliberately keeps
+`.env`, the disk images (the data inside them) and `/etc/caddy/Caddyfile.openchat.bak`;
+delete those only after a restore test. A later deploy reinstalls the units and
+`bin`, and the repo's `deploy/remote/mount-disks.sh --umount` detaches a kept
+image.
 
 ## Security boundary: OpenCode 2.3.2 has **no HTTP auth**
 
@@ -466,8 +528,14 @@ file.
   `reverse_proxy`, and the in-network MCP path is BFF-direct; three origins, SSE
   and header rules, staged validate-before-move (live files byte-identical on
   failure), backup path, remove path;
-- `--uninstall` stops the stack, disables and removes the unit, removes `bin`,
+- `--uninstall` stops the stack, disables and removes both units, removes `bin`,
   and prints what it keeps;
+- the boot guard stops only the compose project when a marker is missing, exits
+  0 on a missing compose file or `.env`, and appears in no `docker.service.d`
+  drop-in (also true of every OpenChat unit);
+- retention keeps `current`/`previous`, deletes older releases, `src` trees and
+  tags, refuses to delete when a kept release has no tag file, and never touches
+  `latest` or another repository;
 - the runbook states the interpolation rule, `Valid configuration`, the live
   state and the no-HTTP-auth boundary.
 
