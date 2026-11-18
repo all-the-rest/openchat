@@ -1,6 +1,12 @@
 import { randomBytes } from "node:crypto"
 import { join } from "node:path"
 import type { FakeScenario } from "@openchat/contracts"
+import {
+  CHAT_FILE_BODY_CEILING_BYTES,
+  CHAT_FILE_MAX_BYTES,
+  CHAT_QUOTA_PER_CHAT_BYTES,
+  CHAT_QUOTA_TOTAL_BYTES,
+} from "@openchat/contracts"
 import { isFakeScenario } from "@openchat/opencode"
 import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
 import { loadCredentialEnv } from "./env-auth"
@@ -59,6 +65,12 @@ export interface EnvConfig {
    * is configured.
    */
   ARTIFACT_INTERNAL_TOKEN: string
+  /** Per-chat working-file quota in bytes; writes above it are rejected. */
+  WORKSPACE_QUOTA_PER_CHAT_BYTES: number
+  /** Workspace-wide quota across every chat directory. */
+  WORKSPACE_QUOTA_TOTAL_BYTES: number
+  /** Largest single chat file; also caps the upload request body. */
+  WORKSPACE_MAX_FILE_BYTES: number
 }
 
 export interface LoadEnvOptions {
@@ -294,6 +306,17 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
   )
   const workspaceDir = read(source, "WORKSPACE_DIR") ?? process.cwd()
 
+  let workspaceMaxFileBytes = readNumber(
+    source,
+    "WORKSPACE_MAX_FILE_BYTES",
+    CHAT_FILE_MAX_BYTES,
+    warn,
+  )
+  if (workspaceMaxFileBytes > CHAT_FILE_BODY_CEILING_BYTES) {
+    warn("WORKSPACE_MAX_FILE_BYTES is above the 100 MiB ceiling; using the ceiling")
+    workspaceMaxFileBytes = CHAT_FILE_BODY_CEILING_BYTES
+  }
+
   if (authMode === "basic" && credentials.passwordHash) {
     throw new Error(
       "AUTH_MODE=basic requires OPENCHAT_PASSWORD; HTTP Basic cannot verify a bcrypt hash",
@@ -388,5 +411,18 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     ARTIFACT_SIGNING_KEY: artifacts.signingKey,
     ARTIFACTS_DIR: read(source, "ARTIFACTS_DIR") ?? join(workspaceDir, ARTIFACT_DIR_NAME),
     ARTIFACT_INTERNAL_TOKEN: artifacts.internalToken,
+    WORKSPACE_QUOTA_PER_CHAT_BYTES: readNumber(
+      source,
+      "WORKSPACE_QUOTA_PER_CHAT_BYTES",
+      CHAT_QUOTA_PER_CHAT_BYTES,
+      warn,
+    ),
+    WORKSPACE_QUOTA_TOTAL_BYTES: readNumber(
+      source,
+      "WORKSPACE_QUOTA_TOTAL_BYTES",
+      CHAT_QUOTA_TOTAL_BYTES,
+      warn,
+    ),
+    WORKSPACE_MAX_FILE_BYTES: workspaceMaxFileBytes,
   }
 }

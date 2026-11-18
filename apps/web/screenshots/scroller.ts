@@ -27,6 +27,11 @@ export async function detectScroller(
   page: Page,
   configuredSelector?: string,
 ): Promise<UiReviewScroller> {
+  // A configured container is a hard requirement: wait for the route's chunk
+  // to mount it instead of racing the lazy import.
+  if (configuredSelector) {
+    await page.locator(configuredSelector).first().waitFor({ state: "attached", timeout: 30_000 })
+  }
   const detected = await page.evaluate((selector): DetectedScroller => {
     const doc = document.scrollingElement
     const winH = window.innerHeight

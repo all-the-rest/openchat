@@ -67,6 +67,10 @@ export async function captureSections(
   route: UiReviewRoute,
   variant?: UiReviewVariant,
 ): Promise<void> {
+  // Routes are lazy chunks (#26), so the shell's <main> is visible before the
+  // page has mounted its own scroller. Waiting for a content marker the route
+  // names, and for the scroller itself, keeps the detection off the shell.
+  await route.waitForContentReady?.(page)
   const scroller = await detectScroller(
     page,
     route.scrollContainerSelector ?? uiReviewConfig.scrollContainerSelector,
