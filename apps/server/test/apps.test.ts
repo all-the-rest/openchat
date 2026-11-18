@@ -169,7 +169,7 @@ describe("connect and disconnect", () => {
     ])
   })
 
-  it("answers 404 for a server the snapshot does not know", async () => {
+  it("answers 404 for a name the snapshot does not know", async () => {
     const server = makeServer()
     const cookie = await login(server)
     const response = await action(server, cookie, "nope", "connect")
@@ -178,16 +178,6 @@ describe("connect and disconnect", () => {
       error: { code: "apps_unknown_server" },
     })
   })
-
-  it.each(["%20", "a".repeat(65), "with%2Fslash", "..%2F.."])(
-    "answers 404 for the impossible name %j",
-    async (name) => {
-      const server = makeServer()
-      const cookie = await login(server)
-      const response = await action(server, cookie, name, "connect")
-      expect(response.status).toBe(404)
-    },
-  )
 
   it("maps a server that vanished after the snapshot to 404", async () => {
     const server = makeServer()

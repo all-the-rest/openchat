@@ -24,8 +24,9 @@ error instead of disappearing.
 
 `@opencode/client@2.3.0` exposes `mcp.list`, `mcp.resource.catalog`,
 `skill.list` and `experimental.mcp.{add,remove,connect,disconnect,client.token}`
-— there is no `tool` namespace at all (`grep -c tool dist/promise/client.d.ts`
-→ 0). `contracts` records this: `SearchHit.appKind` allows `"tool"` but is
+— there is no `tool` namespace at all (`grep -c '^    tool: {' dist/promise/client.d.ts`
+→ 0; the file's single `tool` hit is the `session.tool.called` event name).
+`contracts` records this: `SearchHit.appKind` allows `"tool"` but is
 commented as reserved because the pinned client cannot list a server's tools.
 
 Consequences, chosen deliberately:
@@ -82,8 +83,13 @@ vocabulary (`apps/web/src/search/sources.ts`, `STATUS_LABEL`) so search and
 - `listApps()` reads `mcp.list` and `skill.list` with `Promise.allSettled`: one
   failing list must not hide the other. Only when **both** fail does the call
   throw, because only then is the capability unanswerable.
-- A server error string is bounded to 300 characters, control characters are
-  replaced and whitespace collapsed. A stack trace never becomes a row.
+- A server error string is bounded to 300 characters plus an ellipsis (301 with
+  it), and C0/C1 controls, DEL, zero-width marks, line separators, bidi
+  overrides and a BOM are replaced before whitespace is collapsed. A stack
+  trace never becomes a row, and a bidi override cannot rewrite one.
+- A host row without a usable name or with a status outside the five known
+  values is skipped: one malformed server must not turn the whole list into a
+  502. The list also survives a single failed source (next bullet).
 - Skills are trimmed to `id`, `name`, `description`, `autoinvoke`. `path` and
   `content` stay upstream: they are workspace-local and can be large.
 - `connectApp(name)` / `disconnectApp(name)` call
@@ -105,7 +111,9 @@ vocabulary (`apps/web/src/search/sources.ts`, `STATUS_LABEL`) so search and
 
 **One probe per window.** `AppsCache` holds the snapshot for 10 s (injectable
 clock and TTL) and is shared by `/api/apps` and `/api/info`, so a page load does
-not ask the host twice and a polling UI cannot hammer it. A completed answer —
+not ask the host twice and a polling UI cannot hammer it. Two concurrent cold
+readers share one in-flight probe instead of racing, and an action that lands
+mid-probe prevents that stale answer from being cached. A completed answer —
 including "this host has no such surface" — is cached; a *failure* is not, so a
 transient outage does not pin a 502 for the whole window.
 
@@ -114,19 +122,32 @@ transient outage does not pin a 502 for the whole window.
 1. throttle: 10 connect/disconnect calls per address in a 60 s fixed window,
    `429` with `Retry-After`. Every attempt counts, including an unknown name —
    the budget exists so the route cannot be used as an amplifier.
-2. name shape: `^[A-Za-z0-9._-]{1,64}$` before anything reaches the host.
-3. the name must be present in the current snapshot: a caller cannot pass an
-   arbitrary string through to `experimental.mcp`, which is the "no wildcard
-   proxy" rule in practice.
+2. name shape: after decoding, 1–128 characters and no `/`, `\`, C0/C1 control
+   character, `?` or `#`. Spaces and non-ASCII letters are allowed on purpose:
+   a host may report `git hub` or `Über-Server`, and such a row has to stay
+   actionable.
+3. the name must be present in the current snapshot, compared exactly against
+   the decoded name. **This is the authorization** — the "no wildcard proxy"
+   rule in practice — and the only reason an arbitrary string cannot reach
+   `experimental.mcp`; the shape check merely keeps a separator or a control
+   character out of the URL and the upstream call.
 4. the action's `BackendError` code decides the response, never the upstream
    text:
 
-| Backend code | HTTP | Code |
-| --- | --- | --- |
-| `conflict` (server is `disabled` in the host config) | `409` | `apps_disabled` |
-| `not_found` (host dropped it between snapshot and action) | `404` | `apps_unknown_server` |
-| `invalid` | `400` | `apps_invalid_name` |
-| `unsupported`, `unavailable`, anything else | `502` | `apps_unavailable` |
+| Backend code | HTTP | Code | Reachable in a live deployment |
+| --- | --- | --- | --- |
+| `conflict` (server is `disabled` in the host config) | `409` | `apps_disabled` | no — fake and contract tests only |
+| `not_found` (host dropped it between snapshot and action) | `404` | `apps_unknown_server` | no — the snapshot check answers the same 404 before the call; fake and contract tests cover this row |
+| `invalid` | `400` | `apps_invalid_name` | no — the shape check answers `404 apps_unknown_server` before any backend call, the same code as an unknown name; `invalid` remains part of the backend vocabulary |
+| `unsupported`, `unavailable`, anything else | `502` | `apps_unavailable` | **yes — the only live-reachable row** |
+
+`liveAppAction` deliberately collapses *every* upstream rejection into
+`BackendError("unavailable")`, because the upstream message may carry a URL, a
+token or a workspace path. So a live host that refuses a connect, or has dropped
+the server since the snapshot, answers `502 apps_unavailable`; the 409/404/400
+bodies exist as the complete fixed vocabulary (and are exercised through the
+fake), not as behaviour a live host can produce. No row ever forwards upstream
+text.
 
 ## The `/apps` page
 
@@ -139,8 +160,9 @@ transient outage does not pin a 502 for the whole window.
   - `disabled` → no action, with the note that the host configuration owns it.
   - Every action's accessible name carries the server name; the button is
     disabled while its request runs.
-- After an action the page re-reads `GET /api/apps` — the endpoint answers
-  `204`, and the row must show what the host reports, not an optimistic guess.
+- After an action the page re-reads `GET /api/apps` — the action endpoint
+  answers `204`, then the page takes a fresh list, because the row must show
+  what the host reports, not an optimistic guess.
 - Failures are code-specific and never print upstream text: unknown server
   (gone from the config), disabled (host config), throttled (try again
   shortly), unavailable (the host did not answer).
@@ -158,15 +180,17 @@ of its own.
 
 ## Security
 
-- No upstream error text, server names from the config, URLs or tokens reach the
-  client: every failure is a fixed message with a stable code.
+- No upstream error text, URL, token or workspace path appears in any error
+  body: every failure is a fixed message with a stable code. The server's
+  `name` is the list's identifier — it ships in `GET /api/apps` and travels
+  back in the action path by design.
 - The name must exist in the snapshot, so the route cannot be turned into a
   generic MCP call proxy.
 - Connect/disconnect are `POST` with a JSON body, so the existing cross-origin
   guard and content-type check apply before the route runs.
-- All `/api/*` routes sit behind the session cookie; there is no anonymous
-  variant, and no admin proxy is involved (that is `ADMIN_PROXY` in spec 07,
-  which is not implemented).
+- All `/api/*` routes sit behind the session **or** Basic-auth guard
+  (`AUTH_MODE`); there is no anonymous variant, and no admin proxy is involved
+  (that is `ADMIN_PROXY` in spec 07, which is not implemented).
 
 ## Showing the absent surface
 
@@ -197,20 +221,30 @@ End-to-end coverage).
   stream is a follow-up, not part of this slice.
 - **One page per workspace.** `location.directory` is the BFF's
   `WORKSPACE_DIR`; there is no workspace switcher.
+- **Actionable names are 1–128 characters and carry no `/`, `\`, control
+  character, `?` or `#`.** Spaces and non-ASCII letters are fine: a listed
+  `git hub` or `Über-Server` connects and disconnects like any other row, and
+  tests pin both directions. A longer name is listed but cannot be toggled; the
+  snapshot check still authorizes every call.
 
 ## Tests
 
 - contracts: status tuple.
 - `packages/opencode`: every MCP status mapped, `allSettled` partial failure,
-  error truncation and control-character stripping, skills without
-  `path`/`content`, connect/disconnect calling the right method with the
-  workspace, empty-name rejection, fake determinism and the connect →
-  `connected` / disconnect → `pending` transitions, unavailable inventory
-  throwing.
+  error truncation plus C1/bidi stripping, a malformed host row skipped instead
+  of failing the list, skills without `path`/`content`, connect/disconnect
+  calling the right method with the workspace, empty-name rejection, fake
+  determinism and the connect → `connected` / disconnect → `pending`
+  transitions, unavailable inventory throwing.
 - `apps/server`: `/api/apps` shape and auth, cache (two calls in the window →
-  one probe), `available: false`, 502 without upstream text, connect/disconnect
-  + invalidation, unknown name 404, invalid name 400, disabled 409, cross-origin
-  POST 403, throttle 429 with `Retry-After`, `/api/info` sharing the probe.
+  one probe, one probe for two concurrent readers, a failed probe not cached),
+  `available: false`, 502 without upstream text, connect/disconnect +
+  invalidation, unknown name 404 from the snapshot check and from the shape
+  check (each asserted with a backend spy proving the host is never called), a
+  listed `git hub` / `Über-Server` acting with 204, `invalid` backend code 400,
+  disabled 409, a POST on an unavailable surface 502, cross-origin POST 403,
+  throttle 429 with `Retry-After` after ten refused names, `/api/info` sharing
+  the probe.
 - `apps/web`: five statuses and their actions, connect/disconnect with refetch,
   code-specific failures, skills with the Auto badge, empty states, loading,
   failed list with Retry, unavailable redirect, nav gating, search hit link,

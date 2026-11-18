@@ -145,6 +145,41 @@ describe("live apps", () => {
     expect(error).toContain("line one line two")
   })
 
+  it("skips a host row that cannot be a list entry", async () => {
+    const { client } = stubClient({
+      servers: [
+        { name: "filesystem", status: { status: "connected" } },
+        { name: "   ", status: { status: "connected" } },
+        { status: { status: "connected" } },
+        { name: "mystery", status: { status: "half-open" } },
+        { name: "no-status", status: {} },
+        { name: "broken", status: { status: "failed", error: 42 } },
+      ],
+    })
+    const snapshot = await backendWith(client).listApps()
+
+    // One malformed row must not hide the healthy ones or fail the list.
+    expect(snapshot.servers).toEqual([
+      { name: "filesystem", status: "connected" },
+      { name: "broken", status: "failed" },
+    ])
+    expect(snapshot.skills).toHaveLength(2)
+  })
+
+  it("strips bidi overrides and C1 controls from an error", async () => {
+    const { client } = stubClient({
+      servers: [
+        {
+          name: "broken",
+          status: { status: "failed", error: "safe\u202eevil\u0085end\ufeff" },
+        },
+      ],
+    })
+    const snapshot = await backendWith(client).listApps()
+
+    expect(server(snapshot.servers, "broken").error).toBe("safe evil end")
+  })
+
   it("connects and disconnects by name with the workspace", async () => {
     const { client, connect, disconnect } = stubClient()
     const backend = backendWith(client)

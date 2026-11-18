@@ -14,11 +14,18 @@ export const APPS_ACTION_LIMIT = 10
 export const APPS_ACTION_WINDOW_MS = 60_000
 
 /**
- * Host-side server names. The route only passes a name that is both shaped
- * like a name and present in the snapshot, so a caller cannot smuggle a path
- * or an arbitrary string into the upstream call.
+ * Host-side server names may legitimately contain spaces or non-ASCII letters
+ * (`git hub`, `Über-Server`), so the shape check only keeps a hostile string
+ * out of the upstream call: a decoded path segment may not carry a separator,
+ * a control character or a URL delimiter. Authorization is the snapshot
+ * comparison below, which matches the decoded name exactly.
  */
-const APP_NAME_PATTERN = /^[A-Za-z0-9._-]{1,64}$/
+const APP_NAME_MAX_LENGTH = 128
+const APP_NAME_FORBIDDEN = /[/\\\u0000-\u001f\u007f-\u009f?#]/
+
+function isAppName(name: string): boolean {
+  return name.length >= 1 && name.length <= APP_NAME_MAX_LENGTH && !APP_NAME_FORBIDDEN.test(name)
+}
 
 export interface AppsRouteDeps {
   backend: ChatBackend
@@ -74,7 +81,7 @@ function actionHandler(
     deps.actionThrottle.record(address)
 
     const name = c.req.param("name") ?? ""
-    if (!APP_NAME_PATTERN.test(name)) {
+    if (!isAppName(name)) {
       return jsonError(c, 404, "apps_unknown_server", "Unknown app server")
     }
 
