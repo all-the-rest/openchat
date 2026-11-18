@@ -2,11 +2,12 @@
 #
 # Seed the OpenCode MCP configuration once (issue #20).
 #
-# The artifact tool (`packages/artifact-tool`) runs as a stdio MCP server inside
-# the OpenCode container and needs two values: where the BFF is and the shared
-# bearer token. Both belong to the deployment, not to a person, so the deploy
-# script writes them once into the config volume instead of asking the owner to
-# hand-edit a file.
+# Two stdio MCP servers run inside the OpenCode container: the artifact tool
+# (`packages/artifact-tool`) and the document tools (`packages/python-tool`).
+# Both need the BFF URL and the shared bearer token, and the document tools also
+# need the image's interpreter path. Those values belong to the deployment, not
+# to a person, so the deploy script writes them once into the config volume
+# instead of asking the owner to hand-edit a file.
 #
 # `/opt/stacks/openchat/opencode-config/opencode.json` is created only when it
 # does not exist. An existing file is left byte-for-byte alone: the agent may
@@ -30,8 +31,11 @@ CONFIG_DIR=""
 DRY_RUN=0
 
 TOOL_DIR=/opt/artifact-tool/packages/artifact-tool
+DOCUMENT_DIR=/opt/artifact-tool/packages/python-tool
 TOOL_COMMAND_TSX=/opt/artifact-tool/node_modules/.bin/tsx
 TOOL_ENTRY=/opt/artifact-tool/packages/artifact-tool/src/index.ts
+DOCUMENT_ENTRY=/opt/artifact-tool/packages/python-tool/src/index.ts
+PYTHON=/usr/bin/python3
 BFF_URL=http://bff:8787
 
 usage() {
@@ -105,7 +109,7 @@ main() {
   [ -n "$token" ] || die "$STACK_DIR/.env has no ARTIFACT_INTERNAL_TOKEN"
 
   if [ "$DRY_RUN" -eq 1 ]; then
-    note "would: write $file (0600) with one local MCP entry for $BFF_URL"
+    note "would: write $file (0600) with two local MCP entries for $BFF_URL"
     return 0
   fi
 
@@ -123,6 +127,16 @@ main() {
         "OPENCHAT_BFF_URL": "$BFF_URL",
         "ARTIFACT_INTERNAL_TOKEN": "$token"
       }
+    },
+    "openchat-documents": {
+      "type": "local",
+      "command": ["$TOOL_COMMAND_TSX", "$DOCUMENT_ENTRY"],
+      "enabled": true,
+      "environment": {
+        "OPENCHAT_BFF_URL": "$BFF_URL",
+        "ARTIFACT_INTERNAL_TOKEN": "$token",
+        "OPENCHAT_PYTHON": "$PYTHON"
+      }
     }
   }
 }
@@ -130,8 +144,8 @@ JSON
   chmod 600 "$tmp"
   mv "$tmp" "$file"
 
-  note "config: wrote $file (0600, one local MCP entry for $BFF_URL); token not shown"
-  note "config: tool = $TOOL_DIR; re-check after an OpenCode config-schema upgrade"
+  note "config: wrote $file (0600, two local MCP entries for $BFF_URL); token not shown"
+  note "config: tools = $TOOL_DIR, $DOCUMENT_DIR, python = $PYTHON; re-check after an OpenCode config-schema upgrade"
 }
 
 main "$@"

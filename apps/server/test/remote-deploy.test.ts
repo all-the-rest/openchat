@@ -309,6 +309,8 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
     expect(text).toContain('"type": "local"')
     expect(text).toContain("/opt/artifact-tool/node_modules/.bin/tsx")
     expect(text).toContain("/opt/artifact-tool/packages/artifact-tool/src/index.ts")
+    expect(text).toContain("/opt/artifact-tool/packages/python-tool/src/index.ts")
+    expect(text).toContain('"OPENCHAT_PYTHON": "/usr/bin/python3"')
     expect(text).toContain('"OPENCHAT_BFF_URL": "http://bff:8787"')
     expect(text).toContain(token)
 
