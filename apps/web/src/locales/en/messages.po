@@ -89,6 +89,11 @@ msgstr "Artifact not available"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftLabel"
+msgstr "Artifact result"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
 msgid "artifacts.title"
 msgstr "Artifacts"
 
@@ -136,6 +141,11 @@ msgstr "Available"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.back"
 msgstr "Back to artifacts"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxCancel"
+msgstr "Cancel"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -243,6 +253,11 @@ msgid "chat.continue"
 msgstr "Continue"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftCopied"
+msgstr "Copied"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.copied"
 msgstr "Copied"
@@ -253,24 +268,9 @@ msgid "chat.copied"
 msgstr "Copied to clipboard"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.cancelFailed"
-msgstr "The queued message could not be cancelled."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.inboxCancel"
-msgstr "Cancel"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.inboxLabel"
-msgstr "Queued messages"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.inboxPendingStep"
-msgstr "Pending step"
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftCopy"
+msgstr "Copy"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -286,6 +286,11 @@ msgstr "Copy message"
 #: src/i18n/messages/chat.ts
 msgid "session.createFailed"
 msgstr "Could not create a chat."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftData"
+msgstr "Data"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -316,6 +321,11 @@ msgstr "Disconnect"
 #: src/i18n/messages/apps.ts
 msgid "apps.disconnectServer"
 msgstr "Disconnect {server}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftDismiss"
+msgstr "Dismiss"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -498,6 +508,11 @@ msgid "nav.newChat"
 msgstr "New chat"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftNewResult"
+msgstr "New result available"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.openNewTabShort"
 msgstr "New tab"
@@ -638,6 +653,11 @@ msgid "search.status.pending"
 msgstr "Pending"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxPendingStep"
+msgstr "Pending step"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.present"
 msgstr "Present"
@@ -656,6 +676,11 @@ msgstr "Queued"
 #: src/i18n/messages/render.ts
 msgid "tool.status.queued"
 msgstr "Queued"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxLabel"
+msgstr "Queued messages"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -716,6 +741,11 @@ msgstr "Requesting microphone…"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.reset"
 msgstr "Reset"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftTitleFallback"
+msgstr "Result from this artifact"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -903,11 +933,6 @@ msgid "dictation.start"
 msgstr "Start dictation"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.empty"
-msgstr "Start the conversation."
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.stop"
 msgstr "Stop recording"
@@ -923,6 +948,11 @@ msgid "chat.statusStopped"
 msgstr "Stopped"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftDataNote"
+msgstr "Structured data from the artifact, shown as JSON — not a document."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "surface.label"
 msgstr "Surface"
@@ -936,6 +966,11 @@ msgstr "Switch to dark theme"
 #: src/i18n/messages/settings.ts
 msgid "theme.toggleToLight"
 msgstr "Switch to light theme"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftText"
+msgstr "Text"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -1018,6 +1053,11 @@ msgid "apps.error.host"
 msgstr "The host did not answer."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.cancelFailed"
+msgstr "The queued message could not be cancelled."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.failed"
 msgstr "The recording could not be transcribed. Try again."
@@ -1091,6 +1131,11 @@ msgstr "This server is no longer configured."
 #: src/i18n/messages/search.ts
 msgid "search.disabledHint"
 msgstr "This source is not configured on the host and was not queried."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftTitle"
+msgstr "Title"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1181,53 +1226,3 @@ msgstr "Your message could not be sent."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Your message is queued until the current run finishes."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftCopied"
-msgstr "Copied"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftCopy"
-msgstr "Copy"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftData"
-msgstr "Data"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftDataNote"
-msgstr "Structured data from the artifact, shown as JSON — not a document."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftDismiss"
-msgstr "Dismiss"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftLabel"
-msgstr "Artifact result"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftNewResult"
-msgstr "New result available"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftText"
-msgstr "Text"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftTitle"
-msgstr "Title"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftTitleFallback"
-msgstr "Result from this artifact"

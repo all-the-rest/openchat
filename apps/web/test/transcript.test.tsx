@@ -179,6 +179,24 @@ describe("message deep link", () => {
   })
 })
 
+describe("Transcript empty state", () => {
+  it("centres the same hero the landing page shows", () => {
+    renderTranscript([])
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: "What do you want to work on?" }),
+    ).toBeInTheDocument()
+    expect(screen.getByText("Send a message to start a new chat.")).toBeInTheDocument()
+    expect(screen.getByTestId("transcript-body")).toHaveClass("min-h-full", "justify-center")
+  })
+
+  it("keeps the transcript top-aligned once messages exist", () => {
+    renderTranscript([message("m1")])
+
+    expect(screen.getByTestId("transcript-body")).not.toHaveClass("justify-center")
+  })
+})
+
 describe("Transcript scrolling", () => {
   it("keeps the bottom pinned while streaming and scrolls on a new message", () => {
     const first = message("m1")
@@ -213,6 +231,9 @@ describe("Transcript scrolling", () => {
 
     const jump = screen.getByTestId("jump-latest")
     expect(jump).toHaveAccessibleName("Jump to latest message")
+    // A solid surface with a strong edge and a layer shadow: the disc floats
+    // over the transcript, so it must not read as part of the content.
+    expect(jump).toHaveClass("bg-elevated", "border-strong", "shadow-lg")
 
     fireEvent.click(jump)
 

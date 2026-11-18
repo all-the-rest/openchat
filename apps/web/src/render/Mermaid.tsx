@@ -76,11 +76,19 @@ export function Mermaid({ chart }: { chart: string }) {
     )
   }
 
+  // Diagram labels scale with the SVG, so shrinking the diagram to a phone
+  // column makes them unreadable. The canvas keeps a readable minimum width and
+  // the frame scrolls horizontally instead of squeezing the drawing.
   return (
     <div
       data-testid="mermaid"
       className="my-3 overflow-x-auto rounded-card border border-subtle bg-surface p-3"
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    >
+      <div
+        data-testid="mermaid-canvas"
+        className="min-w-[36rem] [&>svg]:h-auto [&>svg]:w-full [&>svg]:max-w-none"
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+    </div>
   )
 }

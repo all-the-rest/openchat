@@ -20,8 +20,8 @@ configured state; the "no STT configured" state (control absent) is covered by
 unit tests, not by a capture.
 
 Verdict: **APPROVED** — no `critical` or `high` findings. One medium finding was
-fixed during the first review round; eight findings exist, and the seven still
-open (one medium, six low) are tracked in
+fixed during the first review round and six more were fixed on 2026-11-18 (all
+but UI-8); the remaining low finding is tracked in
 [#27](https://github.com/all-the-rest/openchat/issues/27) and listed in
 `ratchet.findings.json`.
 
@@ -90,8 +90,8 @@ notice and the German pill are asserted by unit and E2E tests but not captured.
 | Id | Severity | Status | Owner | Ticket | File:Line | Screenshot | Finding | Suggested fix |
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
 | — | — | — | — | — | — | `empty/desktop/login.png` | Coverage: card centered at 384 px, top-right locale/theme controls, disabled submit clearly disabled. No defect. | — |
-| UI-3 | low | open | orchestrator | #27 | `apps/web/src/pages/LoginPage.tsx:64` | `empty/desktop/login.png` | No product branding on the login card; the app header elsewhere shows "OpenChat". | Add a wordmark above the card. |
-| UI-4 | low | open | orchestrator | #27 | `apps/web/src/pages/ChatPage.tsx:56` | `empty/desktop/chat-empty-sec0.png` | Empty chat is one muted line pinned under the header while the landing hero is centered. | Center the empty state or reuse the landing hero. |
+| UI-3 | low | fixed | orchestrator | #27 | `apps/web/src/pages/LoginPage.tsx:71` | `empty/desktop/login.png` | No product branding on the login card; the app header elsewhere shows "OpenChat". | Fixed 2026-11-18: the `app.name` wordmark sits above the card; regression test in `apps/web/test/login.test.tsx`. |
+| UI-4 | low | fixed | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:147` | `empty/desktop/chat-empty-sec0.png` | Empty chat was one muted line pinned under the header while the landing hero is centered. | Fixed 2026-11-18: both routes render the shared `components/ChatHero.tsx`, vertically centered in an empty transcript; regression test in `apps/web/test/transcript.test.tsx`. |
 | UI-8 | low | open | orchestrator | #27 | `apps/web/src/dictation/DictationButton.tsx:77` | `empty/desktop/landing.png` | The dictation microphone is a bare glyph in a transparent circle next to the filled send disc, so it reads as an icon rather than a control. | Give the idle mic the same surface as send, or make both ghost. |
 | UI-2 | medium | fixed | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx` | `filled/desktop/chat-error-sec0.png` | Error card promised a retry that did not exist. | Fixed 2026-11-17: Continue/Retry actions render under the last assistant message; regression test in `apps/web/test/transcript.test.tsx`. |
 
@@ -99,8 +99,8 @@ notice and the German pill are asserted by unit and E2E tests but not captured.
 
 | Id | Severity | Status | Owner | Ticket | File:Line | Screenshot | Finding | Suggested fix |
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
-| UI-5 | low | open | orchestrator | #27 | `apps/web/src/chat/Composer.tsx` | `empty/mobile/landing.png`, `empty/mobile/landing-de.png` | "Enter sends, Shift+Enter adds a line" is shown on a touch viewport (German copy does the same). | Hide under `(pointer: coarse)` or swap the copy. |
-| UI-7 | low | open | orchestrator | #27 | `apps/web/src/pages/LoginPage.tsx:64` | `empty/mobile/login.png`, `empty/mobile/login-dark.png`, `empty/mobile/login-de.png` | Password focus shows an outline plus border as a heavy double ring, close to an error affordance; the same ring is more prominent in dark. | Use one focus ring. |
+| UI-5 | low | fixed | orchestrator | #27 | `apps/web/src/chat/Composer.tsx:60` | `empty/mobile/landing.png`, `empty/mobile/landing-de.png` | "Enter sends, Shift+Enter adds a line" was shown on a touch viewport (German copy did the same). | Fixed 2026-11-18: the hint is dropped under `(pointer: coarse)`; regression test in `apps/web/test/composer.test.tsx`. |
+| UI-7 | low | fixed | orchestrator | #27 | `apps/web/src/styles.css:211` | `empty/mobile/login.png`, `empty/mobile/login-dark.png`, `empty/mobile/login-de.png` | Password focus showed an outline plus border as a heavy double ring, close to an error affordance. | Fixed 2026-11-18: both login fields use the single `field-input` ring in the focus token; regression test in `apps/web/test/login.test.tsx`. |
 | UI-8 | low | open | orchestrator | #27 | `apps/web/src/dictation/DictationButton.tsx:77` | `empty/mobile/landing.png` | Same bare mic next to the filled send disc; at 390 px the icon is the only hint that dictation exists. | As above. |
 
 ## Filled · Desktop
@@ -111,8 +111,8 @@ notice and the German pill are asserted by unit and E2E tests but not captured.
 | — | — | — | — | — | — | `filled/desktop/chat-rich-dark-sec0..1.png`, `filled/desktop/chat-tools-dark-sec0.png` | Coverage: dark palette keeps the same hierarchy — sidebar/content surfaces separate, code and table borders readable, cards keep their border instead of a shadow. No defect. | — |
 | — | — | — | — | — | — | `filled/desktop/chat-rich-de-sec0..1.png` | Coverage: chrome is German ("Neuer Chat", "UNTERHALTUNGEN", "Überlegung", "Abmelden", "Nachricht senden…"); the seeded session titles and prompts stay English because they are fixture data, not UI strings. No layout overflow at 768 px. | — |
 | — | — | — | — | — | — | `filled/desktop/chat-tools-expanded-sec0.png` | Coverage: first tool card's input section expanded (`aria-expanded="true"`) shows the raw JSON in a code block; the collapsed output row keeps its chevron. No defect. | — |
-| UI-1 | low | open | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:104` | `filled/desktop/chat-rich-sec0.png` | Jump-to-latest is a white disc on white content, floating over the last block. | Solid background, stronger border/shadow, larger inset. |
-| UI-6 | medium | open | orchestrator | #27 | `apps/web/src/render/Mermaid.tsx` | `filled/mobile/chat-rich-sec1.png` | Diagram labels shrink to ~7 px at 390 px width. | Minimum width plus horizontal scroll (or tap-to-zoom). |
+| UI-1 | low | fixed | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:173` | `filled/desktop/chat-rich-sec0.png` | Jump-to-latest was a white disc on white content, floating over the last block. | Fixed 2026-11-18: solid elevated surface, `border-strong`, larger shadow and a 24 px inset; regression test in `apps/web/test/transcript.test.tsx`. |
+| UI-6 | medium | fixed | orchestrator | #27 | `apps/web/src/render/Mermaid.tsx:88` | `filled/mobile/chat-rich-sec1.png` | Diagram labels shrank to ~7 px at 390 px width. | Fixed 2026-11-18: the canvas keeps a 36 rem minimum width inside the horizontal scroller; regression test in `apps/web/test/mermaid.test.tsx`. |
 
 ## Filled · Mobile
 
@@ -121,8 +121,8 @@ notice and the German pill are asserted by unit and E2E tests but not captured.
 | — | — | — | — | — | — | `filled/mobile/chat-rich-sec0..1.png` | Coverage: header stack, user bubble, table, blockquote, code, math, mermaid and tool card. No horizontal page overflow; code scrolls inside its block. | — |
 | — | — | — | — | — | — | `filled/mobile/chat-tools-expanded-sec0.png` | Coverage: expanded input panel grows the card by one code block and still fits the viewport (`maxScrollY` 0); the second card and the error card stay collapsed. | — |
 | — | — | — | — | — | — | `filled/mobile/chat-rich-dark-sec0..1.png`, `filled/mobile/chat-tools-dark-sec0.png` | Coverage: dark surfaces hold at 390 px; the code block and the tool-card borders stay distinguishable. | — |
-| UI-1 | low | open | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:104` | `filled/mobile/chat-rich-sec0.png` | Same jump-to-latest disc, here overlapping the code block header. | As above. |
-| UI-6 | medium | open | orchestrator | #27 | `apps/web/src/render/Mermaid.tsx` | `filled/mobile/chat-rich-sec1.png` | Same unreadable diagram labels. | As above. |
+| UI-1 | low | fixed | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:173` | `filled/mobile/chat-rich-sec0.png` | Same jump-to-latest disc, here overlapping the code block header. | Fixed 2026-11-18, as above. |
+| UI-6 | medium | fixed | orchestrator | #27 | `apps/web/src/render/Mermaid.tsx:88` | `filled/mobile/chat-rich-sec1.png` | Same unreadable diagram labels. | Fixed 2026-11-18, as above; the diagram now scrolls horizontally instead of shrinking. |
 
 ## Tablet · 820 px
 
@@ -135,7 +135,7 @@ notice and the German pill are asserted by unit and E2E tests but not captured.
 | Id | Severity | Status | Owner | Ticket | File:Line | Screenshot | Finding | Suggested fix |
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
 | — | — | — | — | — | — | `empty/wide/login.png`, `empty/wide/landing.png`, `filled/wide/chat-rich-sec0..1.png` | Coverage: the login card stays narrow while locale/theme controls sit at the far right; the chat column stays at its 768 px measure. No defect. | — |
-| UI-1 | low | open | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:104` | `filled/wide/chat-rich-sec0.png` | The jump-to-latest disc sits bottom-centre and, at 1920 px, lands in the middle of the visible tool card instead of clearing it. | As above; the disc needs a solid surface so the overlap reads as a layer, not as broken content. |
+| UI-1 | low | fixed | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:173` | `filled/wide/chat-rich-sec0.png` | The jump-to-latest disc sits bottom-centre and, at 1920 px, lands in the middle of the visible tool card instead of clearing it. | Fixed 2026-11-18: the disc now reads as a layer on a solid surface with a strong edge; the inset grew from 16 to 24 px. |
 
 ## Dictation · recording (390 / 1440)
 
@@ -152,10 +152,12 @@ notice and the German pill are asserted by unit and E2E tests but not captured.
 
 ## Open follow-ups
 
-- Fix the remaining medium finding (UI-6, mermaid on mobile) and the low
-  ones in #27; re-capture `chat-rich` and `login`, then re-run
-  `ratchet check --tier fast` (the registry counts open critical/high findings,
-  currently zero).
+- Fix the last low finding (UI-8, the bare dictation mic) in #27; the six
+  findings fixed on 2026-11-18 are already re-captured (`login`, `landing`,
+  `chat-rich`, `chat-empty` at 390 and 1440).
+- The chat-empty hero and the landing hero are the same component
+  (`apps/web/src/components/ChatHero.tsx`); `chat.empty` was retired with it.
+  Keep future copy changes on `landing.heading` / `landing.description`.
 - Dictation has one captured state per breakpoint (recording, 390 and 1440).
   Add the transcript-inserted composer, the error line and the limit notice as
   variants when the dictation slice gets its second UI round; the behaviour

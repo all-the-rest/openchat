@@ -77,6 +77,32 @@ describe("login form", () => {
   })
 })
 
+describe("login chrome", () => {
+  it("shows the wordmark above the card", () => {
+    renderLogin()
+
+    const wordmark = screen.getByTestId("login-wordmark")
+    const form = screen.getByTestId("login-submit").closest("form")
+
+    expect(wordmark).toHaveTextContent("OpenChat")
+    expect(form).not.toBeNull()
+    expect(
+      wordmark.compareDocumentPosition(form as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it("routes both fields through the single-ring focus utility", () => {
+    renderLogin()
+
+    for (const testID of ["login-user", "login-password"]) {
+      const field = screen.getByTestId(testID)
+      expect(field).toHaveClass("field-input")
+      // daisyUI 4's `input-bordered` would add a second edge around the ring.
+      expect(field).not.toHaveClass("input-bordered")
+    }
+  })
+})
+
 describe("login error codes", () => {
   it.each([
     ["invalid_credentials", new ApiError(400, "Invalid credentials", "invalid_credentials")],

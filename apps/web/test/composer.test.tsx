@@ -62,6 +62,36 @@ describe("Composer", () => {
     expect((textarea as HTMLTextAreaElement).value).toBe("keep me")
   })
 
+  it("shows the keyboard hint with a fine pointer", () => {
+    renderComposer()
+
+    expect(screen.getByText("Enter sends, Shift+Enter adds a line")).toBeInTheDocument()
+  })
+
+  it("hides the keyboard hint when the pointer is coarse", () => {
+    const matchMedia = vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === "(pointer: coarse)",
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        }) as unknown as MediaQueryList,
+    )
+
+    try {
+      renderComposer()
+
+      expect(screen.queryByText("Enter sends, Shift+Enter adds a line")).not.toBeInTheDocument()
+    } finally {
+      matchMedia.mockRestore()
+    }
+  })
+
   it("shows stop while a run is active", () => {
     const onStop = vi.fn()
     render(

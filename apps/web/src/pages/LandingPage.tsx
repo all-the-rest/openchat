@@ -4,6 +4,7 @@ import { Composer } from "../chat/Composer"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
 import { NEW_DRAFT_KEY, clearDraft } from "../chat/drafts"
 import { useSessions } from "../chat/sessions"
+import { ChatHero } from "../components/ChatHero"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useT } from "../i18n/provider"
 
@@ -33,10 +34,7 @@ export function LandingPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <div className="mx-auto flex w-full max-w-[768px] flex-1 flex-col justify-center gap-6 px-4 py-10">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold">{t("landing.heading")}</h1>
-          <p className="mt-2 text-sm text-muted">{t("landing.description")}</p>
-        </div>
+        <ChatHero />
 
         {failed ? (
           <ErrorBanner message={t("session.createFailed")} onDismiss={() => setFailed(false)} />
