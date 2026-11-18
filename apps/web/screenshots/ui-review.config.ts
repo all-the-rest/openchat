@@ -18,6 +18,7 @@ import { readFileSync } from "node:fs"
 import { isAbsolute, resolve } from "node:path"
 import process from "node:process"
 import {
+  waitForAppBarMenu,
   waitForAppsInventory,
   waitForCodeStub,
   waitForMermaid,
@@ -60,6 +61,8 @@ export interface UiReviewClickStep {
   scope: "banner" | "complementary" | "main"
   role: "link" | "button"
   name?: string
+  /** Target by test id instead of accessible name, for chrome without a stable one. */
+  testid?: string
   within?: string
 }
 
@@ -254,6 +257,24 @@ export const uiReviewConfig: UiReviewConfig = {
       ],
     },
     {
+      name: "shell-menu",
+      path: "/",
+      expectedTitle: APP_TITLE,
+      states: ["empty"],
+      auth: "user",
+      viewports: ["mobile", "tablet"],
+      note: "The app bar's overflow menu at the narrow layouts: the Chat | Code switch, Search, Apps and New chat. The session list stays in the drawer.",
+      nav: [
+        {
+          kind: "click",
+          scope: "banner",
+          role: "button",
+          testid: "app-bar-menu",
+        },
+      ],
+      waitForContentReady: waitForAppBarMenu,
+    },
+    {
       name: "chat-rich",
       path: "/c/:sessionId",
       expectedTitle: APP_TITLE,
@@ -352,10 +373,9 @@ export const uiReviewConfig: UiReviewConfig = {
       note: "The frame is the stub Code host from apps/web/e2e/code-stub.ts, not the OpenCode UI: the capture shows the app's slim bar, the translated frame title and the stub page. Below 1024 px the app shows the desktop-orientation notice instead of the frame, by design.",
       nav: [
         {
-          kind: "click",
-          scope: "banner",
-          role: "button",
-          name: "Code",
+          kind: "goto",
+          path: "/code",
+          reason: "The switch sits in the bar on wide layouts and in the overflow menu below 1024 px; the route is the same destination and e2e/shell-menu.spec.ts covers the menu click.",
         },
       ],
       waitForContentReady: waitForCodeStub,

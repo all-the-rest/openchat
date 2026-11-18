@@ -22,6 +22,9 @@ export const en = {
   "nav.search": "Search",
   "nav.apps": "Apps",
 
+  "menu.trigger": "Open menu",
+  "menu.label": "App menu",
+
   "surface.label": "Surface",
   "surface.chat": "Chat",
   "surface.code": "Code",
