@@ -155,7 +155,9 @@ the PO catalogue, and the compiled bundles are regenerated with
   issue #46 (`documents_fill`, `documents_convert`) write only their own
   generated DOCX/PDF into the same folder, with their own path and symlink
   guards, and do not update `index.json` (the artifact cards are the download
-  surface). See [`25-documents.md`](25-documents.md).
+  surface). The two archive tools from issue #52 (`archive_list`,
+  `archive_extract`) write only what a ZIP in that folder contains, with their
+  own guards; see [`26-archives.md`](26-archives.md).
 
 ## Deployment
 

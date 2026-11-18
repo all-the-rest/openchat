@@ -75,7 +75,7 @@ describe("MCP: server version", () => {
 })
 
 describe("MCP: tools", () => {
-  it("lists the six tools with their schemas", async () => {
+  it("lists the eight tools with their schemas", async () => {
     const response = (await handleRpc(rpc("tools/list"), call)) as {
       result: { tools: Array<{ name: string; inputSchema: { required: string[] } }> }
     }
@@ -86,8 +86,10 @@ describe("MCP: tools", () => {
       "read_document",
       "documents_fill",
       "documents_convert",
+      "archive_list",
+      "archive_extract",
     ])
-    expect(TOOLS).toHaveLength(6)
+    expect(TOOLS).toHaveLength(8)
     expect(response.result.tools[0]?.inputSchema.required).toEqual(["title"])
     expect(response.result.tools[3]?.inputSchema.required).toEqual(["sourceArtifactID"])
     for (const tool of TOOLS) expect(tool.description).toContain("retry at most twice")

@@ -3,6 +3,7 @@
  * exact bytes, so the headers carry valid PNG/PDF magic and no fixture is
  * fetched from a network.
  */
+export const E2E_ZIP_NAME = "bundle.zip"
 export const E2E_PDF_NAME = "report.pdf"
 export const E2E_PNG_NAME = "pasted.png"
 
@@ -15,6 +16,11 @@ export const E2E_PDF_BYTES = Buffer.concat([
 export const E2E_PNG_BYTES = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
   Buffer.from("E2E fixture image bytes", "latin1"),
+])
+
+export const E2E_ZIP_BYTES = Buffer.concat([
+  Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+  Buffer.from("E2E zip fixture bytes", "latin1"),
 ])
 
 export const E2E_HTML_BYTES = Buffer.from(

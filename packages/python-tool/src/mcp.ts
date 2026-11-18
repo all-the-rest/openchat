@@ -4,8 +4,8 @@ import type { Readable, Writable } from "node:stream"
 import { TOOL_NAMES } from "./validate"
 
 /**
- * The MCP surface: one stdio server exposing the four document tools, newline
- * delimited JSON-RPC. The protocol is intentionally the same small subset the
+ * The MCP surface: one stdio server exposing the document and archive tools,
+ * newline delimited JSON-RPC. The protocol is intentionally the same small subset the
  * artifact tool uses (`initialize`, `ping`, `tools/list`, `tools/call`); a
  * tool error is a result, never a crash, and no argument is echoed back.
  */
@@ -170,6 +170,55 @@ export const DOCUMENTS_CONVERT_TOOL = {
   },
 } as const
 
+export const ARCHIVE_LIST_TOOL = {
+  name: "archive_list",
+  title: "List the contents of a ZIP file",
+  description: [
+    "List the entries of a plain `.zip` uploaded to this chat: name, uncompressed size,",
+    "compressed size and directory flag, plus totals. `zipPath` is",
+    "`<sessionID>/files/<name>.zip` relative to WORKSPACE_DIR/chats; never an absolute path.",
+    "Caps: 500 entries, depth 10, 200 MiB total uncompressed. Encrypted entries and unsafe",
+    "names are refused. DOCX, XLSX and PPTX are ZIP containers but are read with",
+    "`read_document`; the archive tools are for plain `.zip` only, and `.tar.gz` is not supported.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      zipPath: { type: "string", description: "Relative path <sessionID>/files/<name>.zip" },
+    },
+    required: ["zipPath"],
+    additionalProperties: false,
+  },
+} as const
+
+export const ARCHIVE_EXTRACT_TOOL = {
+  name: "archive_extract",
+  title: "Extract a ZIP into this chat's files",
+  description: [
+    "Extract a plain `.zip` into `files/<directory>/` in the same chat; `zipPath` is",
+    "`<sessionID>/files/<name>.zip` relative to WORKSPACE_DIR/chats. Nothing is overwritten:",
+    "an existing target is refused with `already_exists` and leaves no partial output.",
+    "Symlinks, device entries, absolute names, `..` segments and Windows drive prefixes are",
+    "rejected. Caps: 500 entries, depth 10, 200 MiB uncompressed, 25 MiB per file, the chat's",
+    "quota, and a 100:1 compression-ratio bomb guard over both declared and written bytes.",
+    "DOCX, XLSX and PPTX are read with `read_document`; `.tar.gz` is not supported.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      zipPath: { type: "string", description: "Relative path <sessionID>/files/<name>.zip" },
+      directory: {
+        type: "string",
+        description: "New subdirectory under files/, 1-64 characters of letters, digits, dot, dash or underscore.",
+      },
+    },
+    required: ["zipPath", "directory"],
+    additionalProperties: false,
+  },
+} as const
+
 export const TOOLS = [
   DOCX_TOOL,
   XLSX_TOOL,
@@ -177,6 +226,8 @@ export const TOOLS = [
   READ_TOOL,
   DOCUMENTS_FILL_TOOL,
   DOCUMENTS_CONVERT_TOOL,
+  ARCHIVE_LIST_TOOL,
+  ARCHIVE_EXTRACT_TOOL,
 ] as const
 
 export interface ToolCallResult {

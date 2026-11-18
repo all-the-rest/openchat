@@ -79,6 +79,32 @@ describe("chat file list", () => {
     expect(download).toHaveAttribute("download", "report.pdf")
   })
 
+  it("renders a ZIP as a generic archive with size and download, no preview", async () => {
+    mocks.chatFiles.mockResolvedValue(
+      response({
+        files: [
+          file({
+            name: "bundle.zip",
+            displayName: "bundle.zip",
+            mime: "application/zip",
+            size: 4096,
+          }),
+        ],
+      }),
+    )
+    renderFiles()
+
+    const row = await screen.findByTestId("chat-file")
+    expect(within(row).getByTestId("chat-file-archive")).toHaveTextContent("Archive")
+    expect(within(row).getByTestId("chat-file-size")).toHaveTextContent("4kB")
+    expect(within(row).getByRole("link", { name: "Download bundle.zip" })).toHaveAttribute(
+      "href",
+      `/api/sessions/${SESSION}/files/bundle.zip`,
+    )
+    expect(within(row).queryByRole("img")).toBeNull()
+    expect(within(row).queryByRole("iframe")).toBeNull()
+  })
+
   it("renders the quota fill level next to the list", async () => {
     renderFiles()
 

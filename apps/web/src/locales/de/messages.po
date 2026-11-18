@@ -299,6 +299,11 @@ msgstr "Speicherplatz für Chat-Dateien"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
+msgid "files.kind.archive"
+msgstr "Archiv"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
 msgid "files.listLabel"
 msgstr "Dateien im Chat"
 
