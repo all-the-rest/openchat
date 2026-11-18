@@ -1,5 +1,5 @@
 import type { ToolPart } from "@openchat/contracts"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 import { I18nProvider } from "../src/i18n/provider"
@@ -26,8 +26,7 @@ function renderTool(part: ToolPart) {
 }
 
 describe("ToolCard", () => {
-  it("shows name, status and duration and keeps input/output collapsed", async () => {
-    const user = userEvent.setup()
+  it("shows name, status and duration and keeps input/output collapsed", () => {
     renderTool(basePart)
 
     expect(screen.getByText("read_file")).toBeInTheDocument()
@@ -40,10 +39,14 @@ describe("ToolCard", () => {
     )
     expect(screen.getByText("src/index.ts")).not.toBeVisible()
 
-    await user.click(screen.getByRole("button", { name: "Input" }))
+    fireEvent.click(screen.getByRole("button", { name: "Input" }))
+    expect(screen.getByRole("button", { name: "Input" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    )
     expect(screen.getByText("src/index.ts")).toBeVisible()
 
-    await user.click(screen.getByRole("button", { name: "Output" }))
+    fireEvent.click(screen.getByRole("button", { name: "Output" }))
     expect(screen.getByText("export const value = 1")).toBeVisible()
   })
 
