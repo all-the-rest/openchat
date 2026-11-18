@@ -12,12 +12,11 @@
 # does not exist. An existing file is left byte-for-byte alone: the agent may
 # have added providers or models, and a deploy must not overwrite them.
 #
-# The file is mode 0644 on purpose. It lives in a root-owned stack directory
-# and is bind-mounted into one container that runs as root (the official image
-# sets no user); the token it carries authorizes `POST /internal/artifacts` on
-# the BFF, which is reachable only from the compose `backend` network and is
-# not published. Host-local users can read a 0644 file, which is why the stack
-# directory itself stays root-owned 0755 and the token only works in-network.
+# The file is mode 0600. It is bind-mounted into one container that runs as root
+# (the official image sets no user), so the container can read it while host
+# users other than root cannot. That removes the host-user exposure of the
+# token: it authorizes `POST /internal/artifacts` on the BFF, which is reachable
+# only from the compose `backend` network and is not published.
 #
 # No value is printed: the script names the path and the number of entries.
 
@@ -92,12 +91,12 @@ main() {
   [ -n "$token" ] || die "$STACK_DIR/.env has no ARTIFACT_INTERNAL_TOKEN"
 
   if [ "$DRY_RUN" -eq 1 ]; then
-    note "would: write $file (0644) with one local MCP entry for $BFF_URL"
+    note "would: write $file (0600) with one local MCP entry for $BFF_URL"
     return 0
   fi
 
   mkdir -p "$CONFIG_DIR"
-  umask 022
+  umask 077
   local tmp="$file.tmp"
   cat > "$tmp" <<JSON
 {
@@ -114,10 +113,10 @@ main() {
   }
 }
 JSON
-  chmod 644 "$tmp"
+  chmod 600 "$tmp"
   mv "$tmp" "$file"
 
-  note "config: wrote $file (0644, one local MCP entry for $BFF_URL); token not shown"
+  note "config: wrote $file (0600, one local MCP entry for $BFF_URL); token not shown"
   note "config: tool = $TOOL_DIR; re-check after an OpenCode config-schema upgrade"
 }
 

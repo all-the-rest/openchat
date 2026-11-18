@@ -2,19 +2,16 @@
 #
 # Deploy the OpenChat stack to the owner's VPS over SSH (issue #20).
 #
-# This is the driver; nothing in it runs on the target except the helper scripts
-# under deploy/remote/ and deploy/swap.sh, which are synced first and executed
-# from the release's source tree.
+# The driver; only the helper scripts under deploy/remote/ and deploy/swap.sh
+# run on the target, from the synced release source tree. One run: sync, install
+# the boot unit and mount the size-capped ext4 images (2/4/4 GiB), bootstrap .env
+# once, seed the MCP entry once, build five images, render the release
+# (`config --no-interpolate`, no secret in a file), validate and swap, and
+# install the Caddy fragment last: a failed deploy never takes the existing
+# sites down and no certificate is requested for a dead upstream.
 #
-# What one run does, in order: sync the source; install the boot-time disk unit
-# and mount the size-capped ext4 images (2/4/4 GiB); bootstrap .env once from the
-# predecessor and generated secrets; seed the OpenCode MCP entry once; build the
-# five images and render the release (`config --no-interpolate`, no secret in a
-# file); let `deploy/swap.sh` validate and swap; install the Caddy fragment. The
-# proxy comes last on purpose: a failed deploy never takes the existing sites
-# down and no certificate is requested for a dead upstream.
-#
-# No secret is accepted as an argument or printed. Secrets live only in the
+# Every value in a remote command is validated and quoted (ssh-safe.sh). No
+# secret is accepted as an argument or printed: secrets live only in the
 # host-only .env, which compose reads through `--env-file`.
 
 set -euo pipefail
@@ -44,17 +41,12 @@ RESERVE=10G
 DIND_MIN_AVAILABLE_MIB=5120
 
 REQUIRED_FILES=(
-  compose.yaml
-  deploy/swap.sh
-  deploy/Dockerfile.opencode
-  deploy/remote/compose.yaml
-  deploy/remote/Caddyfile.openchat
-  deploy/remote/mount-disks.sh
-  deploy/remote/env-bootstrap.sh
-  deploy/remote/env-value.sh
-  deploy/remote/seed-config.sh
-  deploy/remote/caddy.sh
-  deploy/remote/openchat-disks.service
+  compose.yaml deploy/swap.sh
+  deploy/Dockerfile.opencode deploy/remote/compose.yaml
+  deploy/remote/Caddyfile.openchat deploy/remote/mount-disks.sh
+  deploy/remote/env-bootstrap.sh deploy/remote/env-value.sh
+  deploy/remote/seed-config.sh deploy/remote/caddy.sh
+  deploy/remote/openchat-disks.service deploy/remote/ssh-safe.sh
 )
 
 usage() {
@@ -63,17 +55,13 @@ Deploy OpenChat to the owner's VPS over SSH.
 
 Usage:
   deploy/remote/deploy.sh [options]
-  deploy/remote/deploy.sh --dry-run
-  deploy/remote/deploy.sh --unmount
-  deploy/remote/deploy.sh --uninstall
+  deploy/remote/deploy.sh --dry-run | --unmount | --uninstall
 
 Options:
   --host USER@HOST        SSH target (default: root@reisinger.pictures)
-  --domain DOMAIN         base domain; origins become chat./code./artifacts.
-                          (default: reisinger.pictures)
+  --domain DOMAIN         base domain; origins become chat. code. artifacts.
   --stack-dir DIR         stack root on the host (default: /opt/stacks/openchat)
   --predecessor-env FILE  where AUTH_USER and AUTH_HASH live
-                          (default: /opt/stacks/dev-vm/.env)
   --tag TAG               image tag (default: short commit sha)
   --with-dind             start toolbox + dind, after a MemAvailable check
   --expect-version V      fail the swap unless /healthz reports V
@@ -85,9 +73,6 @@ Options:
   --unmount               unmount the disk images; refuses while the stack runs
   --uninstall             remove the Caddy fragment and stop the stack
   --help
-
-Secrets are never accepted as arguments: they are read from and written to the
-host-only .env. Rotation is an owner action (docs/implementation/20-remote-deploy.md).
 EOF
 }
 
@@ -102,22 +87,11 @@ usage_error() {
   exit 2
 }
 
-note() {
-  printf '%s\n' "$*"
-}
+note() { printf '%s\n' "$*"; }
 
-plan() {
-  printf 'would: %s\n' "$*"
-}
+plan() { printf 'would: %s\n' "$*"; }
 
-quote_cmd() {
-  local out=""
-  local word
-  for word in "$@"; do
-    out+="${out:+ }$(printf '%q' "$word")"
-  done
-  printf '%s' "$out"
-}
+. "$ROOT/deploy/remote/ssh-safe.sh"
 
 run() {
   if [ "$DRY_RUN" -eq 1 ]; then
@@ -125,6 +99,17 @@ run() {
     return 0
   fi
   "$@"
+}
+
+# `ssh` joins its argv with spaces and the remote shell parses the result, so a
+# command is always built as one quoted string. `--` keeps a hostile --host
+# value from being read as an option such as -oProxyCommand.
+remote() {
+  if [ "$DRY_RUN" -eq 1 ]; then
+    plan "ssh -- $(shquote "$HOST") $1"
+    return 0
+  fi
+  ssh -- "$HOST" "$1"
 }
 
 require_value() {
@@ -159,11 +144,13 @@ parse_args() {
   done
 
   case "$DOMAIN" in
-    *[!a-z0-9.-]*) usage_error "--domain must be a bare DNS name (lowercase letters, digits, dots, dashes)" ;;
+    ""|*[!a-z0-9.-]*) usage_error "--domain must be a bare DNS name (lowercase letters, digits, dots, dashes)" ;;
+    -*|*.|*..*|*.-*) usage_error "--domain must be a bare DNS name: $DOMAIN" ;;
   esac
   if [ "$WITH_DIND" -eq 1 ] && [ "$ACTION" != "deploy" ]; then
     usage_error "--with-dind only applies to a deploy"
   fi
+  validate_inputs
 }
 
 preflight_local() {
@@ -204,24 +191,27 @@ profiles() {
 
 # The one compose invocation shape every step uses. `config --no-interpolate`
 # keeps `${…}` references instead of baking .env values into a release file.
+# Every word is quoted because the result is one remote shell command line.
 compose_remote() {
   local sub=$1
   shift
-  printf 'env OPENCHAT_TAG=%s COMPOSE_PROFILES=%s docker compose --project-name %s --env-file %s --file %s --file %s %s %s' \
-    "$TAG" "$(profiles)" "$PROJECT" "$STACK_DIR/.env" \
-    "$SRC/compose.yaml" "$SRC/deploy/remote/compose.yaml" "$sub" "$*"
+  quote_cmd env "OPENCHAT_TAG=$TAG" "COMPOSE_PROFILES=$(profiles)" docker compose \
+    --project-name "$PROJECT" --env-file "$STACK_DIR/.env" \
+    --file "$SRC/compose.yaml" --file "$SRC/deploy/remote/compose.yaml" "$sub" "$@"
 }
 
 remote_compose() {
   local command
   command=$(compose_remote "$@")
-  run ssh "$HOST" "cd $SRC && $command"
+  remote "cd $(shquote "$SRC") && $command"
 }
 
 remote_script() {
   local path=$1
   shift
-  run ssh "$HOST" bash "$path" "$@"
+  local command
+  command=$(quote_cmd bash "$path" "$@")
+  remote "$command"
 }
 
 step() {
@@ -230,7 +220,9 @@ step() {
 
 sync_source() {
   step "source -> $SRC"
-  run ssh "$HOST" "mkdir -p $STACK_DIR/src $STACK_DIR/releases $STACK_DIR/bin $STACK_DIR/disks $STACK_DIR/opencode-config"
+  remote "$(quote_cmd mkdir -p \
+    "$STACK_DIR/src" "$STACK_DIR/releases" "$STACK_DIR/bin" \
+    "$STACK_DIR/disks" "$STACK_DIR/opencode-config")"
   run rsync -az --delete \
     --exclude .git \
     --exclude node_modules \
@@ -249,11 +241,11 @@ sync_source() {
 
 install_boot_unit() {
   step "boot unit and disk layout"
-  run ssh "$HOST" "install -m 755 $SRC/deploy/remote/mount-disks.sh $STACK_DIR/bin/mount-disks.sh"
-  run ssh "$HOST" "install -m 755 $SRC/deploy/remote/caddy.sh $STACK_DIR/bin/caddy.sh"
-  run ssh "$HOST" "install -m 644 $SRC/deploy/remote/openchat-disks.service /etc/systemd/system/openchat-disks.service"
-  run ssh "$HOST" "systemctl daemon-reload && systemctl enable openchat-disks.service"
-  run ssh "$HOST" "printf 'artifacts=%s\nworkspace=%s\ndind=%s\nreserve=%s\n' '$ARTIFACTS_SIZE' '$WORKSPACE_SIZE' '$DIND_SIZE' '$RESERVE' > $STACK_DIR/disks/layout"
+  remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/mount-disks.sh" "$STACK_DIR/bin/mount-disks.sh")"
+  remote "$(quote_cmd install -m 755 "$SRC/deploy/remote/caddy.sh" "$STACK_DIR/bin/caddy.sh")"
+  remote "$(quote_cmd install -m 644 "$SRC/deploy/remote/openchat-disks.service" /etc/systemd/system/openchat-disks.service)"
+  remote "systemctl daemon-reload && systemctl enable openchat-disks.service"
+  remote "printf 'artifacts=%s\nworkspace=%s\ndind=%s\nreserve=%s\n' $(shquote "$ARTIFACTS_SIZE") $(shquote "$WORKSPACE_SIZE") $(shquote "$DIND_SIZE") $(shquote "$RESERVE") > $(shquote "$STACK_DIR/disks/layout")"
 }
 
 mount_disks() {
@@ -282,12 +274,13 @@ seed_opencode_config() {
 check_dind_headroom() {
   [ "$WITH_DIND" -eq 1 ] || return 0
   step "dind memory precondition"
+  local probe="awk '/^MemAvailable:/ { print \$2 }' /proc/meminfo"
   if [ "$DRY_RUN" -eq 1 ]; then
-    plan "ssh $HOST \"awk '/^MemAvailable:/ { print \$2 }' /proc/meminfo\" # require >= $DIND_MIN_AVAILABLE_MIB MiB"
+    plan "ssh -- $(shquote "$HOST") $(shquote "$probe") # require >= $DIND_MIN_AVAILABLE_MIB MiB"
     return 0
   fi
   local available
-  available=$(ssh "$HOST" "awk '/^MemAvailable:/ { print \$2 }' /proc/meminfo" 2>/dev/null || true)
+  available=$(ssh -- "$HOST" "$probe" 2>/dev/null || true)
   case "$available" in
     ""|*[!0-9]*) die "cannot read MemAvailable from $HOST" ;;
   esac
@@ -304,23 +297,28 @@ build_images() {
 
 render_release() {
   step "render $RELEASE"
-  local render="set -eu; mkdir -p $RELEASE; \
-cd $SRC; \
-env OPENCHAT_TAG=$TAG COMPOSE_PROFILES=opencode,tools,dind docker compose \
-  --project-name $PROJECT --env-file $STACK_DIR/.env \
-  --file $SRC/compose.yaml --file $SRC/deploy/remote/compose.yaml \
-  config --no-interpolate > $RELEASE/compose.yaml; \
-chmod 600 $RELEASE/compose.yaml; \
-sed 's/__OPENCHAT_DOMAIN__/$DOMAIN/g' $SRC/deploy/remote/Caddyfile.openchat > $RELEASE/caddy.openchat; \
-chmod 644 $RELEASE/caddy.openchat"
-  run ssh "$HOST" "$render"
+  local compose_file="$RELEASE/compose.yaml"
+  local render
+  render="set -eu; mkdir -p $(shquote "$RELEASE"); \
+cd $(shquote "$SRC"); \
+$(quote_cmd env "OPENCHAT_TAG=$TAG" COMPOSE_PROFILES=opencode,tools,dind docker compose \
+  --project-name "$PROJECT" --env-file "$STACK_DIR/.env" \
+  --file "$SRC/compose.yaml" --file "$SRC/deploy/remote/compose.yaml" \
+  config --no-interpolate) > $(shquote "$compose_file"); \
+chmod 600 $(shquote "$compose_file"); \
+sed $(shquote "s/__OPENCHAT_DOMAIN__/$DOMAIN/g") $(shquote "$SRC/deploy/remote/Caddyfile.openchat") > $(shquote "$RELEASE/caddy.openchat"); \
+chmod 644 $(shquote "$RELEASE/caddy.openchat")"
+  remote "$render"
 }
 
 swap_release() {
   step "validate and swap"
-  local extra=""
-  [ -n "$EXPECT_VERSION" ] && extra=" --expect-version $EXPECT_VERSION"
-  run ssh "$HOST" "cd $STACK_DIR && env OPENCHAT_TAG=$TAG COMPOSE_PROFILES=$(profiles) bash $SRC/deploy/swap.sh --stack-dir $STACK_DIR --release $RELEASE$extra"
+  local args
+  args=$(quote_cmd bash "$SRC/deploy/swap.sh" --stack-dir "$STACK_DIR" --release "$RELEASE")
+  if [ -n "$EXPECT_VERSION" ]; then
+    args="$args $(quote_cmd --expect-version "$EXPECT_VERSION")"
+  fi
+  remote "cd $(shquote "$STACK_DIR") && env $(shquote "OPENCHAT_TAG=$TAG") $(shquote "COMPOSE_PROFILES=$(profiles)") $args"
 }
 
 install_caddy() {
@@ -379,10 +377,13 @@ do_uninstall() {
   step "remove the Caddy fragment"
   remote_script "$STACK_DIR/bin/caddy.sh" --container "$CADDY_CONTAINER" --remove
   step "stop the stack"
-  run ssh "$HOST" "if [ -f $STACK_DIR/current/compose.yaml ]; then cd $STACK_DIR && docker compose --project-name $PROJECT --env-file $STACK_DIR/.env --file current/compose.yaml down; fi"
+  remote "if [ -f $(shquote "$STACK_DIR/current/compose.yaml") ]; then cd $(shquote "$STACK_DIR") && docker compose --project-name $(shquote "$PROJECT") --env-file $(shquote "$STACK_DIR/.env") --file current/compose.yaml down; fi"
+  step "remove the boot unit and installed helpers"
+  remote "systemctl disable --now openchat-disks.service 2>/dev/null || true; rm -f /etc/systemd/system/openchat-disks.service; systemctl daemon-reload; rm -rf $(shquote "$STACK_DIR/bin")"
   note ""
-  note "kept on purpose: $STACK_DIR/.env, $STACK_DIR/disks/*.img, the docker volumes and the images."
-  note "remove them only after a backup restore test; see docs/implementation/20-remote-deploy.md."
+  note "removed: the Caddy fragment and its import, the containers, openchat-disks.service and $STACK_DIR/bin."
+  note "kept on purpose: $STACK_DIR/.env, $STACK_DIR/disks/*.img and the Caddy backup - they hold data."
+  note "a deploy reinstalls the unit and bin; unmount a kept image with the repo's mount-disks.sh --umount."
   [ "$DRY_RUN" -eq 1 ] && note "dry run: nothing was removed or stopped"
   return 0
 }

@@ -16,6 +16,12 @@
 # Rerunning is a no-op; `--umount` detaches them and refuses while an OpenChat
 # container is running.
 #
+# Ownership: a bind mount from the root of a fresh ext4 image is root:root 0755,
+# unlike a named volume, which inherits the mode of the directory baked into the
+# image. The BFF, the artifact host and the tools image run as uid/gid 1000, and
+# the rootless dind daemon is uid 1000 inside its container, so each mount root
+# is chowned to that owner after mounting (not recursive: the root only).
+#
 # Free space: before creating anything, the script requires the free space that
 # remains *after* the missing images to be at least `--reserve` (default 10 GiB).
 # That reserve is for the Docker image store, the build cache, logs and the
@@ -39,6 +45,11 @@ RESERVE=10G
 SIZE_FLAGS=""
 UMOUNT=0
 DRY_RUN=0
+# The service processes that write here run as uid/gid 1000 (see the header).
+DISK_OWNER=1000:1000
+# File the compose guard checks; it lives inside the image, so an empty host
+# directory (failed mount) cannot satisfy it.
+DISK_MARKER=.openchat-disk
 
 usage() {
   cat <<'EOF'
@@ -57,14 +68,19 @@ Options:
   --dry-run              print the plan; create, mount and unmount nothing
   --help
 
-Sizes accept K, M, G and T suffixes (1024-based). The deploy script records the
-chosen sizes in disks/layout; a boot without flags reads that file first.
+# Sizes accept a K, M, G or T suffix (1024-based). The deploy script records the
+# chosen sizes in disks/layout; a boot without flags reads that file first.
 EOF
 }
 
 die() {
   printf '%s: %s\n' "$PROG" "$*" >&2
   exit 1
+}
+
+usage_error() {
+  printf '%s: %s\n' "$PROG" "$*" >&2
+  exit 2
 }
 
 note() {
@@ -132,8 +148,28 @@ apply_layout() {
   return 0
 }
 
-# 2G -> 2097152 KiB. Anything that is not a positive integer with an optional
-# suffix is a usage error, not a guess.
+# 2G -> 2097152 KiB. Anything that is not a positive integer with a suffix is a
+# usage error, not a guess. `validate_size` runs before any arithmetic so a bad
+# value dies with a readable message instead of `missing_kib + : syntax error`.
+validate_size() {
+  local name=$1 value=$2 number
+  case "$value" in
+    *[KkMmGgTt]) number=${value%?} ;;
+    *) usage_error "$name must be a number with a K/M/G/T suffix: $value" ;;
+  esac
+  case "$number" in
+    ""|*[!0-9]*) usage_error "$name must be a number with a K/M/G/T suffix: $value" ;;
+  esac
+  [ "$number" -gt 0 ] || usage_error "$name must be positive: $value"
+}
+
+validate_sizes() {
+  validate_size "--artifacts-size" "$ARTIFACTS_SIZE"
+  validate_size "--workspace-size" "$WORKSPACE_SIZE"
+  validate_size "--dind-size" "$DIND_SIZE"
+  validate_size "--reserve" "$RESERVE"
+}
+
 to_kib() {
   local value=$1 number suffix
   case "$value" in
@@ -221,12 +257,20 @@ check_free_space() {
 
 ensure_disk() {
   local name=$1 size=$2 img="$STACK_DIR/disks/$1.img" target="$STACK_DIR/disks/$1"
+  local tmp="$img.tmp"
 
   if [ ! -f "$img" ]; then
     note "disk: creating $img ($size)"
-    run truncate -s "$size" "$img"
-    # -F: the image is a file, not a block device; -q: no mkfs chatter.
-    run mkfs.ext4 -F -q -L "openchat-$name" "$img"
+    run rm -f "$tmp"
+    run truncate -s "$size" "$tmp"
+    # -F: the image is a file, not a block device; -q: no mkfs chatter. mkfs
+    # runs on the temp name, so a failed mkfs cannot leave a 0-byte `.img` that
+    # the next run trusts and only fails on at `mount`.
+    if ! run mkfs.ext4 -F -q -L "openchat-$name" "$tmp"; then
+      run rm -f "$tmp"
+      die "mkfs.ext4 failed for $tmp; removed it, nothing was mounted"
+    fi
+    run mv -f "$tmp" "$img"
   else
     note "disk: $img exists ($(du -h "$img" | awk '{ print $1 }'))"
   fi
@@ -234,16 +278,33 @@ ensure_disk() {
   run mkdir -p "$target"
   if is_mounted "$target"; then
     note "disk: $target already mounted"
+  else
+    run mount -o loop "$img" "$target"
+    note "disk: mounted $target"
+  fi
+
+  # Repair on every run: a bind mount from a fresh ext4 root is root:root, and
+  # the services write as uid/gid 1000. Only the mount root, never recursive.
+  run chown "$DISK_OWNER" "$target"
+  mark_disk "$name" "$target"
+}
+
+# The marker is written inside the mounted image. A dry run must not create it,
+# so it does not go through `run` (whose redirection would still execute).
+mark_disk() {
+  local name=$1 target=$2
+  if [ "$DRY_RUN" -eq 1 ]; then
+    plan "write $target/$DISK_MARKER"
     return 0
   fi
-  run mount -o loop "$img" "$target"
-  note "disk: mounted $target"
+  printf '%s\n' "$name" > "$target/$DISK_MARKER"
 }
 
 main() {
   parse_args "$@"
   apply_layout
   STACK_DIR=$(cd "$STACK_DIR" 2>/dev/null && pwd -P) || die "stack directory not found: $STACK_DIR"
+  validate_sizes
   run mkdir -p "$STACK_DIR/disks"
 
   if [ "$UMOUNT" -eq 1 ]; then

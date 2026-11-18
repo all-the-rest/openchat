@@ -37,18 +37,37 @@ chat.__OPENCHAT_DOMAIN__ {
 		X-Frame-Options "DENY"
 		Cross-Origin-Opener-Policy "same-origin"
 	}
-	# Event streams must not wait for a compression block: encode everything
-	# else by name-matching the Content-Type. (`encode { match { not … } }` is
-	# not valid syntax; Caddy rejects `not` as a response matcher there.)
-	@compressible not header Content-Type text/event-stream*
-	encode @compressible zstd gzip
-	reverse_proxy openchat-bff:8787 {
-		# -1 flushes after every write, so an SSE token reaches the browser
-		# before the response ends.
-		flush_interval -1
-		# Overwrite, never append: the BFF runs TRUST_PROXY=1 and reads the last
-		# entry, so a client-supplied X-Forwarded-For must not survive the hop.
-		header_up X-Forwarded-For {remote_host}
+	# SSE is the one response that must not be compressed: gzip/zstd hold a
+	# stream until a block fills, so a token would sit in the compressor.
+	# Response matchers cannot negate (`not header …` inside `encode` is
+	# rejected: "unrecognized response matcher not"), and a request matcher on
+	# the directive encodes SSE too (measured). So `/api/events` gets its own
+	# exclusive handle without `encode`, and the catch-all handle compresses
+	# everything else. `handle` blocks are ordered and exclusive.
+	handle /api/events* {
+		reverse_proxy openchat-bff:8787 {
+			# -1 flushes after every write, so an SSE token reaches the browser
+			# before the response ends.
+			flush_interval -1
+			# Overwrite, never append: the BFF runs TRUST_PROXY=1 and reads the
+			# last entry, so a client-supplied X-Forwarded-For must not survive.
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	handle /internal/* {
+		# The internal write route (`POST /internal/artifacts`, bearer token) is
+		# a container-to-container API: the MCP tool calls http://bff:8787, which
+		# never passes through Caddy. Publishing it here would put a second
+		# credential in front of artifact writes and widen the surface for
+		# nothing. 404, not 403: the edge does not confirm that the route exists.
+		respond 404
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy openchat-bff:8787 {
+			flush_interval -1
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 }
 
@@ -57,8 +76,8 @@ code.__OPENCHAT_DOMAIN__ {
 	# No X-Frame-Options here: the chat origin embeds this UI. The Code host
 	# sets `Content-Security-Policy: frame-ancestors <chat origin>` itself, and
 	# an edge XFO would contradict it and break the frame.
-	@compressible not header Content-Type text/event-stream*
-	encode @compressible zstd gzip
+	# No event stream on this origin; the whole site is compressible.
+	encode zstd gzip
 	reverse_proxy openchat-code-host:8090 {
 		flush_interval -1
 		header_up X-Forwarded-For {remote_host}

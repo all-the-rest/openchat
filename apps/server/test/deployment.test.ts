@@ -230,8 +230,12 @@ describe("remote overlay storage", () => {
       /^\s*- \/opt\/stacks\/openchat\/disks\/artifacts:\/artifacts:ro$/m,
     )
 
+    // Consumers see the artifacts at /artifacts; the `disks-ready` gate mounts
+    // the same directory read-only at /disks/artifacts to look for its marker.
     const writers = [...REMOTE_SERVICES]
-      .filter(([, block]) => block.includes("/opt/stacks/openchat/disks/artifacts:"))
+      .filter(([, block]) =>
+        /^\s*- \/opt\/stacks\/openchat\/disks\/artifacts:\/artifacts(:\w+)?$/m.test(block),
+      )
       .map(([name]) => name)
       .sort()
     expect(writers).toEqual(["artifact-host", "bff"])
@@ -251,8 +255,10 @@ describe("remote overlay storage", () => {
     expect(remote("dind")).toMatch(
       /^\s*- \/opt\/stacks\/openchat\/disks\/dind:\/home\/rootless\/\.local\/share\/docker$/m,
     )
+    // Only the daemon gets the image at its storage path; the gate at
+    // /disks/dind reads the marker.
     const others = [...REMOTE_SERVICES].filter(
-      ([name, block]) => name !== "dind" && block.includes("disks/dind"),
+      ([name, block]) => name !== "dind" && /disks\/dind:\/home\/rootless\/\.local\/share\/docker$/m.test(block),
     )
     expect(others).toEqual([])
   })
