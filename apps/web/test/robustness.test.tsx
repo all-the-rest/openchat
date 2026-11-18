@@ -53,7 +53,10 @@ describe("oversized blocks", () => {
     expect(screen.getByRole("button", { name: /copy/i })).toBeInTheDocument()
   })
 
-  it("renders an oversized paragraph with many blocks without throwing", () => {
+  // Markdown (KaTeX + highlighting) over 500 blocks is seconds of jsdom work;
+  // under a parallel full-suite run it crossed the 5 s default and reported a
+  // timeout rather than a failure.
+  it("renders an oversized paragraph with many blocks without throwing", { timeout: 30_000 }, () => {
     const text = Array.from({ length: 500 }, (_unused, index) => `paragraph ${index} $${index}$`).join(
       "\n\n",
     )
