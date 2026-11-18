@@ -12,7 +12,7 @@ function sseHeaders(): Record<string, string> {
   }
 }
 
-function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
+export function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
   const { backend, sseHeartbeatMs } = deps
 
   app.get("/api/events", (c) => {
