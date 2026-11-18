@@ -22,23 +22,30 @@ export function LoginPage() {
   const auth = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [user, setUser] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<"invalid" | "failed" | null>(null)
   const [pending, setPending] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const userRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
 
+  // First empty field on mount, read from the DOM so a browser-autofilled
+  // username skips the first control. Mount only; later keystrokes must not
+  // move the caret.
   useEffect(() => {
-    inputRef.current?.focus()
+    const filled = (userRef.current?.value ?? "").length > 0
+    const target = filled ? passwordRef.current : userRef.current
+    target?.focus()
   }, [])
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (password.length === 0 || pending) return
+    if (user.length === 0 || password.length === 0 || pending) return
 
     setPending(true)
     setError(null)
     try {
-      await auth.signIn(password)
+      await auth.signIn(user, password)
       navigate(safeRedirectPath(location.state) ?? "/", { replace: true })
     } catch (failure) {
       const unauthorized =
@@ -67,16 +74,33 @@ export function LoginPage() {
           <h1 className="text-xl font-semibold">{t("auth.loginTitle")}</h1>
           <p className="mt-1 text-sm text-muted">{t("auth.loginDescription")}</p>
 
-          <label htmlFor="login-password" className="mt-5 block text-sm font-medium">
+          <label htmlFor="login-user" className="mt-5 block text-sm font-medium">
+            {t("auth.userLabel")}
+          </label>
+          <input
+            id="login-user"
+            data-testid="login-user"
+            ref={userRef}
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={user}
+            onChange={(event) => setUser(event.target.value)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "login-error" : undefined}
+            className="input input-bordered mt-1 w-full"
+          />
+
+          <label htmlFor="login-password" className="mt-4 block text-sm font-medium">
             {t("auth.passwordLabel")}
           </label>
           <input
             id="login-password"
             data-testid="login-password"
-            ref={inputRef}
+            ref={passwordRef}
             type="password"
             autoComplete="current-password"
-            autoFocus
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder={t("auth.passwordPlaceholder")}
@@ -87,14 +111,14 @@ export function LoginPage() {
 
           {error ? (
             <p id="login-error" role="alert" className="mt-2 text-sm text-error">
-              {t(error === "invalid" ? "auth.invalidPassword" : "auth.loginFailed")}
+              {t(error === "invalid" ? "auth.invalidCredentials" : "auth.loginFailed")}
             </p>
           ) : null}
 
           <button
             type="submit"
             data-testid="login-submit"
-            disabled={password.length === 0 || pending}
+            disabled={user.length === 0 || password.length === 0 || pending}
             className="btn btn-primary mt-5 w-full"
           >
             {pending ? t("auth.signingIn") : t("auth.signIn")}

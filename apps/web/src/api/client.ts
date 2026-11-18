@@ -121,10 +121,10 @@ export const api = {
     return request<LoginResponse>("/api/auth/me")
   },
 
-  login(password: string): Promise<LoginResponse> {
+  login(user: string, password: string): Promise<LoginResponse> {
     return request<LoginResponse>("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ user, password }),
     })
   },
 

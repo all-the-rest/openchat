@@ -106,3 +106,21 @@ describe("artifacts client", () => {
     })
   })
 })
+
+describe("auth client", () => {
+  it("sends the username and password to the login route", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ user: "owner" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    )
+
+    await expect(api.login("owner", "secret")).resolves.toEqual({ user: "owner" })
+
+    const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit]
+    expect(url).toBe("/api/auth/login")
+    expect(init.method).toBe("POST")
+    expect(JSON.parse(String(init.body))).toEqual({ user: "owner", password: "secret" })
+  })
+})

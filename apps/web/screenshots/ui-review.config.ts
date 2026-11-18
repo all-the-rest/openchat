@@ -112,9 +112,9 @@ export interface UiReviewConfig {
   routes: UiReviewRoute[]
 }
 
-/** Development password from `playwright.screenshots.config.ts`. */
+/** Development credentials for the seeded BFF: its user default and password. */
+export const uiReviewUser = "owner"
 export const uiReviewPassword = "test-password"
-
 /** Environment variable that points setup project and workers at the seed file. */
 export const uiReviewSeedFileEnv = "UI_REVIEW_SEEDS"
 export const uiReviewSeedFileDefault = "test-results/ui-review-seeds.json"

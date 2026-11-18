@@ -54,7 +54,10 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-0}
       AUTH_MODE: ${AUTH_MODE:-session}
       OPENCHAT_USER: ${OPENCHAT_USER:-owner}
-      OPENCHAT_PASSWORD: ${OPENCHAT_PASSWORD:?set a non-default password in .env}
+      # Exactly one credential: the BFF refuses both or neither at boot, so an
+      # unfilled .env still fails loudly.
+      OPENCHAT_PASSWORD: ${OPENCHAT_PASSWORD:-}
+      OPENCHAT_PASSWORD_HASH: ${OPENCHAT_PASSWORD_HASH:-}
       SESSION_SECRET: ${SESSION_SECRET:?set 32+ random bytes in .env}
       SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-604800}
       COOKIE_SECURE: ${COOKIE_SECURE:-1}

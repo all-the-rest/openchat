@@ -6,6 +6,7 @@ test("anonymous access requires login and lands on the empty landing page", asyn
 
   await page.goto("/")
   await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByTestId("login-user")).toBeVisible()
   await expect(page.getByTestId("login-password")).toBeVisible()
 
   await login(page)

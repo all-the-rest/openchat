@@ -340,7 +340,7 @@ msgstr "Enter sendet, Umschalt+Enter fügt eine Zeile ein"
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "auth.loginDescription"
-msgstr "Gib dein Passwort ein, um den Arbeitsplatz zu öffnen."
+msgstr "Gib deinen Benutzernamen und dein Passwort ein, um den Arbeitsplatz zu öffnen."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1113,6 +1113,11 @@ msgid "session.untitled"
 msgstr "Unbenannt"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.userLabel"
+msgstr "Benutzername"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.sourceWeb"
 msgstr "Web"
@@ -1134,8 +1139,8 @@ msgstr "Workspace"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
-msgid "auth.invalidPassword"
-msgstr "Falsches Passwort. Versuch es erneut."
+msgid "auth.invalidCredentials"
+msgstr "Benutzername oder Passwort falsch. Versuch es erneut."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts

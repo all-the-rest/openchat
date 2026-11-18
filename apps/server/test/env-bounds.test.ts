@@ -7,7 +7,10 @@ import { loadEnv } from "../src/env"
  */
 
 function env(overrides: Record<string, string>, warnings: string[] = []) {
-  return loadEnv({ source: overrides, warn: (message) => warnings.push(message) })
+  return loadEnv({
+    source: { OPENCHAT_PASSWORD: "dev-password", ...overrides },
+    warn: (message) => warnings.push(message),
+  })
 }
 
 describe("BFF env bounds", () => {

@@ -340,7 +340,7 @@ msgstr "Enter sends, Shift+Enter adds a line"
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "auth.loginDescription"
-msgstr "Enter your password to open the workspace."
+msgstr "Enter your username and password to open the workspace."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1113,6 +1113,11 @@ msgid "session.untitled"
 msgstr "Untitled"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "auth.userLabel"
+msgstr "Username"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.sourceWeb"
 msgstr "Web"
@@ -1134,8 +1139,8 @@ msgstr "Workspace"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
-msgid "auth.invalidPassword"
-msgstr "Wrong password. Try again."
+msgid "auth.invalidCredentials"
+msgstr "Wrong username or password. Try again."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts

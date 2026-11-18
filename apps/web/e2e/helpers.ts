@@ -18,8 +18,9 @@ export function guardExternalRequests(page: Page): string[] {
   return external
 }
 
-/** Signs in with the fixed fake-backend password and waits for the landing page. */
+/** Signs in with the fixed fake-backend credentials and waits for the landing page. */
 export async function login(page: Page): Promise<void> {
+  await page.getByTestId("login-user").fill("owner")
   await page.getByTestId("login-password").fill("test-password")
   await page.getByTestId("login-submit").click()
   await expect(page).toHaveURL(/\/$/)

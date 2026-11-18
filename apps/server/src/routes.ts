@@ -19,7 +19,7 @@ import type {
 import {
   clearSessionCookie,
   sessionCookie,
-  verifyPassword,
+  verifyCredentials,
 } from "./auth"
 import type { AuthSettings } from "./auth"
 import type { AppEnv } from "./app"
@@ -106,10 +106,14 @@ function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
       return jsonError(c, 429, "too_many_requests", "Too many failed login attempts")
     }
 
-    const user = verifyPassword(parsed.data.password, settings)
+    const user = await verifyCredentials(
+      parsed.data.user,
+      parsed.data.password,
+      settings,
+    )
     if (!user) {
       loginThrottle.record(address)
-      return jsonError(c, 401, "invalid_credentials", "Invalid password")
+      return jsonError(c, 401, "invalid_credentials", "Invalid user or password")
     }
     loginThrottle.reset(address)
     if (config.AUTH_MODE === "session") {

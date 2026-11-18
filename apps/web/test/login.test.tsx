@@ -36,29 +36,64 @@ function renderLogin(state?: unknown) {
 }
 
 async function signIn(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByTestId("login-user"), "owner")
   await user.type(screen.getByTestId("login-password"), "secret")
   await user.click(screen.getByTestId("login-submit"))
-  await waitFor(() => expect(auth.signIn).toHaveBeenCalledWith("secret"))
+  await waitFor(() => expect(auth.signIn).toHaveBeenCalledWith("owner", "secret"))
 }
 
 beforeEach(() => {
   auth.signIn.mockReset()
 })
 
+describe("login form", () => {
+  it("focuses the username field and sends both credentials", async () => {
+    const user = userEvent.setup()
+    auth.signIn.mockResolvedValue(undefined)
+
+    renderLogin()
+    expect(screen.getByTestId("login-user")).toHaveFocus()
+    expect(screen.getByTestId("login-user")).toHaveAttribute("autocomplete", "username")
+    expect(screen.getByTestId("login-password")).toHaveAttribute(
+      "autocomplete",
+      "current-password",
+    )
+
+    await signIn(user)
+  })
+
+  it("keeps the submit button disabled until both fields are filled", async () => {
+    const user = userEvent.setup()
+    renderLogin()
+
+    const submit = screen.getByTestId("login-submit")
+    expect(submit).toBeDisabled()
+
+    await user.type(screen.getByTestId("login-user"), "owner")
+    expect(submit).toBeDisabled()
+
+    await user.type(screen.getByTestId("login-password"), "secret")
+    expect(submit).toBeEnabled()
+  })
+})
+
 describe("login error codes", () => {
   it.each([
     ["invalid_credentials", new ApiError(400, "Invalid credentials", "invalid_credentials")],
     ["invalid_password", new ApiError(401, "Invalid password", "invalid_password")],
-  ])("shows the wrong-password message for %s", async (_code, failure) => {
+  ])("shows the wrong-credentials message for %s", async (_code, failure) => {
     const user = userEvent.setup()
     auth.signIn.mockRejectedValue(failure)
 
     renderLogin()
+    await user.type(screen.getByTestId("login-user"), "owner")
     await user.type(screen.getByTestId("login-password"), "secret")
     await user.click(screen.getByTestId("login-submit"))
 
-    await waitFor(() => expect(auth.signIn).toHaveBeenCalledWith("secret"))
-    expect(await screen.findByRole("alert")).toHaveTextContent("Wrong password. Try again.")
+    await waitFor(() => expect(auth.signIn).toHaveBeenCalledWith("owner", "secret"))
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Wrong username or password. Try again.",
+    )
   })
 })
 

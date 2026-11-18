@@ -324,7 +324,8 @@ export const createSessionRequestSchema = z.object({
 })
 
 export const loginRequestSchema = z.object({
-  password: z.string().min(1).max(512),
+  user: z.string().min(1).max(64),
+  password: z.string().min(1).max(256),
 })
 
 export const toolPartSchema = z.object({

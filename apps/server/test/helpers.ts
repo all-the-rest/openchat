@@ -96,11 +96,15 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
   }
 }
 
-export async function login(server: TestServer, password = "secret-password"): Promise<string> {
+export async function login(
+  server: TestServer,
+  password = "secret-password",
+  user = "owner",
+): Promise<string> {
   const response = await server.app.request("/api/auth/login", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ user, password }),
   })
   if (response.status !== 200) throw new Error(`Login failed with ${response.status}`)
   const header = response.headers.get("set-cookie") ?? ""

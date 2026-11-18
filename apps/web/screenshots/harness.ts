@@ -12,7 +12,7 @@ import type { Page } from "@playwright/test"
 import { LOCALE_STORAGE_KEY } from "../src/i18n"
 import { THEME_STORAGE_KEY } from "../src/theme/provider"
 import { captureSections } from "./capture"
-import { uiReviewConfig, uiReviewPassword } from "./ui-review.config"
+import { uiReviewConfig, uiReviewPassword, uiReviewUser } from "./ui-review.config"
 import type {
   UiReviewNavStep,
   UiReviewRoute,
@@ -60,11 +60,12 @@ async function withInstantScrollBehavior(page: Page, capture: () => Promise<void
   }
 }
 
-/** UI login through the real form: one password field, then a redirect to `/`. */
+/** UI login through the real form: username and password, then a redirect to `/`. */
 async function loginViaUi(page: Page, origin: string, landing: RegExp): Promise<void> {
   await page.goto(`${origin}/login`)
   await expect(page).toHaveURL(/\/login$/)
   const main = page.getByRole("main")
+  await main.getByTestId("login-user").fill(uiReviewUser)
   await main.getByTestId("login-password").fill(uiReviewPassword)
   await main.getByTestId("login-submit").click()
   await expect(page).toHaveURL(landing)

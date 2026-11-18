@@ -132,16 +132,16 @@ export async function runSmoke(options: SmokeOptions): Promise<SmokeResult> {
   }
 
   try {
+    const user = options.user ?? DEFAULT_USER
     const { response, ms } = await get("/api/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ password: options.password }),
+      body: JSON.stringify({ user, password: options.password }),
     })
     const body = await response.text()
     bodies.push({ url: "/api/auth/login", body })
     const setCookie = response.headers.get("set-cookie") ?? ""
     cookie = setCookie.split(";")[0] ?? ""
-    const user = options.user ?? DEFAULT_USER
     if (!cookie) {
       // `AUTH_MODE=basic` sets no cookie; the same password travels as Basic.
       authorization = `Basic ${Buffer.from(`${user}:${options.password}`).toString("base64")}`
