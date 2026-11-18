@@ -7,6 +7,11 @@ export const en = {
   "app.tagline": "A workspace for your agent.",
   "app.loading": "Loading…",
 
+  "host.unreachable": "OpenCode host not reachable",
+  "host.unreachableHint":
+    "The app is running, but the OpenCode host did not answer. Retry once the tunnel is back.",
+  "host.retry": "Retry",
+
   "nav.skipToContent": "Skip to content",
   "nav.openSidebar": "Open chat list",
   "nav.closeSidebar": "Close chat list",

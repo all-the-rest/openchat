@@ -51,7 +51,8 @@ function base64(value: string): string {
 }
 
 /**
- * Adapter for a real `opencode serve` instance. It typechecks against
+ * Adapter for an OpenCode server that already runs at `OPENCODE_URL`; this
+ * adapter never starts one itself. It typechecks against
  * `@opencode/client@2.3.0`; there is no live test in CI.
  */
 export class LiveBackend implements ChatBackend {

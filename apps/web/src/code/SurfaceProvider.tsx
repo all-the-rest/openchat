@@ -26,6 +26,11 @@ export interface SurfaceValue {
    * answered. False hides the `/apps` entry and redirects the route home.
    */
   appsAvailable: boolean | null
+  /**
+   * `host.reachable` from `/api/info`; `null` until it answered. False means
+   * the app is up but the OpenCode host behind it did not answer.
+   */
+  hostReachable: boolean | null
   /** The surface the current route belongs to. */
   surface: Surface
   /** The persisted choice, used only to restore `/` on a fresh load. */
@@ -35,43 +40,49 @@ export interface SurfaceValue {
   /** Persists a choice and navigates to its surface. */
   choose(surface: Surface): void
   toggle(): void
+  /** Re-reads `/api/info`; the host banner's retry action. */
+  refresh(): Promise<void>
 }
 
 const SurfaceContext = createContext<SurfaceValue | null>(null)
 
 /**
- * Reads `code.configured` and `apps.available` from the single `/api/info`
- * response and owns the Chat | Code shortcut. A failed info call means "not
- * configured": the switch and the apps entry stay hidden and their routes
- * redirect home.
+ * Reads the host state plus `code.configured` and `apps.available` from the
+ * single `/api/info` response and owns the Chat | Code shortcut. A failed info
+ * call means "not configured": the switch and the apps entry stay hidden and
+ * their routes redirect home. It also counts as an unreachable host, because
+ * the banner's retry is the only useful action left.
  */
 export function SurfaceProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [configured, setConfigured] = useState<boolean | null>(null)
   const [appsAvailable, setAppsAvailable] = useState<boolean | null>(null)
+  const [hostReachable, setHostReachable] = useState<boolean | null>(null)
   const [stored, setStored] = useState<Surface>(() => readSurface())
+  // StrictMode runs the mount effect twice and retries can overlap; only the
+  // newest answer may update the state.
+  const request = useRef(0)
 
-  useEffect(() => {
-    let mounted = true
-    void (async () => {
-      try {
-        const info = await api.info()
-        if (mounted) {
-          setConfigured(info?.code?.configured === true)
-          setAppsAvailable(info?.apps?.available === true)
-        }
-      } catch {
-        if (mounted) {
-          setConfigured(false)
-          setAppsAvailable(false)
-        }
-      }
-    })()
-    return () => {
-      mounted = false
+  const refresh = useCallback(async () => {
+    const current = (request.current += 1)
+    try {
+      const info = await api.info()
+      if (current !== request.current) return
+      setConfigured(info?.code?.configured === true)
+      setAppsAvailable(info?.apps?.available === true)
+      setHostReachable(info?.host?.reachable !== false)
+    } catch {
+      if (current !== request.current) return
+      setConfigured(false)
+      setAppsAvailable(false)
+      setHostReachable(false)
     }
   }, [])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
 
   const surface = surfaceForPath(location.pathname)
   const previousPath = useRef(location.pathname)
@@ -118,8 +129,28 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
   }, [configured, toggle])
 
   const value = useMemo<SurfaceValue>(
-    () => ({ configured, appsAvailable, surface, stored, setSurface, choose, toggle }),
-    [configured, appsAvailable, surface, stored, setSurface, choose, toggle],
+    () => ({
+      configured,
+      appsAvailable,
+      hostReachable,
+      surface,
+      stored,
+      setSurface,
+      choose,
+      toggle,
+      refresh,
+    }),
+    [
+      configured,
+      appsAvailable,
+      hostReachable,
+      surface,
+      stored,
+      setSurface,
+      choose,
+      toggle,
+      refresh,
+    ],
   )
 
   return <SurfaceContext.Provider value={value}>{children}</SurfaceContext.Provider>
@@ -129,6 +160,14 @@ export function useSurface(): SurfaceValue {
   const value = useContext(SurfaceContext)
   if (!value) throw new Error("useSurface must be used inside SurfaceProvider")
   return value
+}
+
+/**
+ * Null outside a `SurfaceProvider`. Leaf controls such as the composer can be
+ * rendered on their own (tests, embeds); they then simply have no host state.
+ */
+export function useSurfaceOrNull(): SurfaceValue | null {
+  return useContext(SurfaceContext)
 }
 
 /**

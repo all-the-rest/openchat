@@ -126,18 +126,28 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
   const { config, backend } = deps
 
   app.get("/api/info", async (c) => {
-    const [server, models, agents, appsAvailable] = await Promise.all([
+    // The host may be unreachable (a dead tunnel is a normal operating state),
+    // so the three host calls settle independently: one answer proves the host
+    // is up, and a failed fragment degrades instead of failing the page load.
+    const appsProbe = probeApps(appsCache)
+    const [info, models, agents] = await Promise.allSettled([
       backend.info(),
       backend.listModels(),
       backend.listAgents(),
-      // Shares the `/api/apps` cache and never throws: an unreachable host must
-      // still boot and answer, with `apps.available === false`.
-      probeApps(appsCache),
     ])
+    const appsAvailable = await appsProbe
+
+    const hostReachable =
+      info.status === "fulfilled" ||
+      models.status === "fulfilled" ||
+      agents.status === "fulfilled"
+
+    c.header("Cache-Control", "no-store")
     return c.json({
-      server,
-      models,
-      agents,
+      host: { reachable: hostReachable },
+      server: info.status === "fulfilled" ? info.value : null,
+      models: models.status === "fulfilled" ? models.value : [],
+      agents: agents.status === "fulfilled" ? agents.value : [],
       scenario: config.BACKEND_MODE === "fake" ? config.FAKE_SCENARIO : "live",
       dictation: {
         enabled: Boolean(config.STT_URL),
