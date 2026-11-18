@@ -16,7 +16,7 @@ Deployment itself is [`14-deployment.md`](14-deployment.md).
 | Changelog rules | `scripts/release/changelog.ts` | commit grouping, deterministic dates, section replace |
 | Pre-tag check | `scripts/release/check.ts` | dirty tree, agreement, changelog-vs-tag, gates, verify |
 | Workflow | `.github/workflows/release.yml` | gates, multi-arch images, SBOM/provenance, release notes |
-| Changelog | `CHANGELOG.md` | Keep a Changelog; starts empty until 2.0.0 is prepared |
+| Changelog | `CHANGELOG.md` | Keep a Changelog; `## [2.0.0] - 2026-11-18` is the first section |
 
 ## One version, one source
 
@@ -40,7 +40,7 @@ image, so the BFF version covers it. Discovery walks `apps/*` and `packages/*`
 rather than a hard-coded list, minus that one exclusion.
 
 ```bash
-pnpm run release:version             # 0.1.0 today
+pnpm run release:version             # 2.0.0 today
 pnpm run release:bump --patch       # 2.0.1 everywhere
 pnpm run release:bump --minor       # 2.1.0
 pnpm run release:bump --major       # 3.0.0
@@ -150,14 +150,19 @@ Each step starts from the previous one green:
    `git tag -a v2.0.0 -m "OpenChat 2.0.0" && git push origin v2.0.0`. The tag
    name must be `v` plus the `VERSION` content; the workflow fails otherwise.
 8. **Workflow.** `release.yml` re-runs `gates:fast`, builds `bff`,
-   `code-host`, `artifact-host` and `tools` for `linux/amd64` and
+   `code-host`, `artifact-host`, `opencode` and `tools` for `linux/amd64` and
    `linux/arm64` with buildx, pushes
    `ghcr.io/all-the-rest/openchat/<image>:2.0.0` and `:latest`, attaches SBOM
    and provenance, then creates the GitHub release from the changelog section.
-   `tools` is the `openchat-tools` image `compose.yaml` runs for the agent tool
-   runtime: it is published like the apps, so a pulled release has an image for
-   every service compose builds here. The `opencode` and `dind` services keep
-   pulling upstream images.
+   `opencode` is the derived image `deploy/Dockerfile.opencode` builds on the
+   official `ghcr.io/anomalyco/opencode:2.3.2` base plus git, the Docker CLI and
+   the artifact tool, and `tools` is the `openchat-tools` image
+   `compose.yaml` runs for the agent tool runtime: both are published like the
+   apps, so a pulled release has an image for every service this repository
+   builds. `dind` still pulls `docker:27-dind-rootless`; the base
+   `compose.yaml` keeps the upstream `opencode` default until a host sets
+   `OPENCODE_IMAGE` or applies `deploy/remote/compose.yaml`, which names
+   `openchat-opencode:${OPENCHAT_TAG}`.
 9. **Verify.** Pull the images on the host and run the deployment checklist in
    [`14-deployment.md`](14-deployment.md). The BFF's `/healthz` must report
    `2.0.0`; `deploy/swap.sh --expect-version 2.0.0` enforces it.
@@ -185,13 +190,22 @@ by construction.
 so the host pulls and retags, or uses its own compose override:
 
 ```bash
-for image in bff code-host artifact-host tools; do
+for image in bff code-host artifact-host opencode tools; do
   docker pull "ghcr.io/all-the-rest/openchat/${image}:2.0.0"
   docker tag "ghcr.io/all-the-rest/openchat/${image}:2.0.0" "openchat-${image}:2.0.0"
 done
 OPENCHAT_TAG=2.0.0 deploy/swap.sh --release releases/2026-11-18 \
-  --prepare pull --expect-version 2.0.0
+  --expect-version 2.0.0
 ```
+
+Pass no `--prepare` after the loop: the compose image names carry no registry
+(`openchat-bff:2.0.0`), so `--prepare pull` would ask Docker Hub for them and
+`--prepare build` would rebuild from the release's source tree. The retagged
+images are already what compose starts. The base `compose.yaml` defaults the
+`opencode` service to the upstream image, so a host that wants the published
+derived image sets `OPENCODE_IMAGE=openchat-opencode:2.0.0` in `.env` — or
+applies `deploy/remote/compose.yaml`, which names
+`openchat-opencode:${OPENCHAT_TAG}`.
 
 Pin the version tag, never `latest`: `latest` exists for convenience and moves
 on every release.
@@ -209,9 +223,9 @@ There are three layers; use the smallest one that fixes the problem.
 3. **A bad tag or image.** Owner actions, in this order:
    - `gh release delete v2.0.0 --yes --cleanup-tag` (or delete the tag in the
      UI) and `git push origin :refs/tags/v2.0.0`.
-   - Delete the three GHCR package versions for `2.0.0` (GitHub → Packages →
-     the image → delete the version). Deleting the git tag alone leaves
-     pullable images.
+   - Delete the five GHCR package versions for `2.0.0`, one per image
+     (GitHub → Packages → the image → delete the version). Deleting the git tag
+     alone leaves pullable images.
    - Re-point `latest` at the last good version, so a convenience pull cannot
      resurrect the bad build:
      `docker buildx imagetools create -t ghcr.io/all-the-rest/openchat/bff:latest ghcr.io/all-the-rest/openchat/bff:1.9.0`
@@ -248,7 +262,7 @@ upstream check.
 
 These are repository or GitHub settings, not code in this slice:
 
-1. **GHCR visibility.** After the first real publish, open the three packages
+1. **GHCR visibility.** After the first real publish, open the five packages
    under the organisation and pick visibility. Public images pull anonymously;
    private images need `docker login ghcr.io` on the host with a PAT carrying
    `read:packages`. Link each package to `all-the-rest/openchat` so the
@@ -277,18 +291,18 @@ These are repository or GitHub settings, not code in this slice:
 | `apps/server/test/release-version.test.ts` | bump table patch/minor/major; explicit set; missing manifest version inserted; all packages plus `SERVER_VERSION` plus lockfile importer agree; the artifact-tool manifest is in the plan; dirty-tree refusal and `--allow-dirty`; dry run writes nothing; usage errors; non-git refusal |
 | `apps/server/test/release-changelog.test.ts` | grouping by type and issue; multiple refs; breaking marker; merge exclusion; prose is not a reference; section replacement; empty range writes nothing; history date and `SOURCE_DATE_EPOCH`; invalid date/version |
 | `apps/server/test/release-check.test.ts` | clean pass; package disagreement; missing changelog section; dirty tree before gates; gate failure propagation; `ratchet verify` only when configured; `--with-e2e`; tag mismatch and matching tag |
-| `apps/server/test/release-workflow.test.ts` | triggers; minimal permissions; only `GITHUB_TOKEN`; gates before build; three Dockerfiles; both architectures; SBOM/provenance; GHCR tags; every compose-built image in the matrix; non-tag guards; release notes extraction |
+| `apps/server/test/release-workflow.test.ts` | triggers; minimal permissions; only `GITHUB_TOKEN`; gates before build; five Dockerfiles that all exist and cover every `dockerfile:` `compose.yaml` and `deploy/remote/compose.yaml` reference; both architectures; SBOM/provenance; GHCR tags; every compose-built image in the matrix; non-tag guards; release notes extraction |
 
 `node scripts/count-tests.ts` includes these and the ratchet floor stays a
 floor: nothing was deleted.
 
 ## Manual acceptance (not run here)
 
-1. `pnpm run release:bump --set 2.0.0 --dry-run` on a clean tree: nine
+1. `pnpm run release:bump --set 2.0.1 --dry-run` on a clean tree: nine
    `would write` lines, no diff.
 2. `pnpm run release:changelog --version 2.0.0 --dry-run`: a section that
    groups by issue, with no merge commits.
-3. Actions → Release → Run workflow (`dry_run: true`): four multi-arch builds
+3. Actions → Release → Run workflow (`dry_run: true`): five multi-arch builds
    succeed, nothing appears in GHCR.
 4. On a scratch fork, push a `v2.0.0` tag: the release exists, its notes are
    the changelog section, and `docker manifest inspect` shows both platforms.
