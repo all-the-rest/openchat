@@ -342,6 +342,32 @@ Before the old stack is removed, all of these must be true:
 Only then remove the old stack's containers and (after the retention window) its
 volumes.
 
+## Local tunnel mode
+
+The same image runs when OpenCode is a process behind an SSH forward instead of
+a container on the deployment host. The tunnel is a **host concern**: no BFF
+tunnel mode, no second URL, no tunnel-specific route.
+
+1. Open the forward next to the BFF:
+   `ssh -N -L 4096:127.0.0.1:4096 owner@code.example.com` (`-N`: no shell).
+2. Set exactly `OPENCODE_URL=http://127.0.0.1:4096`: the forwarded loopback
+   port, not the remote name, so credentials stay in
+   `OPENCODE_USERNAME`/`OPENCODE_PASSWORD` and never in the URL.
+3. Keep it alive with systemd, or `autossh -M 0 -N -L 4096:127.0.0.1:4096
+   owner@code.example.com` under a LaunchAgent with `KeepAlive` true; the BFF
+   only ever sees a refused connection.
+
+While the tunnel is down:
+
+- `/healthz` stays `200` (process liveness), so no restart loop follows.
+- `/api/info` answers `200` with `host.reachable: false`, `server: null` and
+  empty `models`/`agents`; other API routes fail as for any host outage, with
+  no `502 tunnel-down` branch.
+- The event stream ends with the upstream subscription; the browser reconnects
+  after the BFF's `retry: 2000` frame and the transcript re-reads its snapshot.
+- The host banner appears when the stream drops, and clears when it reopens and
+  `/api/info` says reachable — no page reload, draft preserved.
+
 ## Secrets
 
 - `.env` lives beside `compose.yaml`, mode `0600`, owned by the service user; it

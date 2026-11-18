@@ -101,6 +101,7 @@ export interface ChatBackend {
 export { isFakeScenario, resolveScenario } from "./scenarios"
 export { FakeBackend } from "./fake"
 export type { FakeBackendOptions } from "./fake"
+export { FakeHostSwitch } from "./fake-host"
 export { LiveBackend } from "./live"
 export type { LiveBackendOptions } from "./live"
 

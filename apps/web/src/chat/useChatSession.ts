@@ -3,6 +3,7 @@ import { EVENT, messageText } from "@openchat/contracts"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { api } from "../api/client"
 import { useEventStream } from "../api/events"
+import { useSurfaceOrNull } from "../code/SurfaceProvider"
 import { createID } from "../lib/ids"
 import { applyEvent, isTerminalEvent } from "../state/fold"
 
@@ -38,6 +39,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
   const [stopped, setStopped] = useState(false)
   const [queued, setQueued] = useState(false)
   const { subscribe, reconnect } = useEventStream()
+  const hostReachable = useSurfaceOrNull()?.hostReachable ?? null
 
   const activeSession = useRef(sessionID)
   activeSession.current = sessionID
@@ -87,6 +89,16 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     reconnectSeen.current = reconnect
     void reload({ silent: true })
   }, [reconnect, reload])
+
+  // A host that comes back is the same signal as a stream reconnect: re-read
+  // the transcript silently, so an outage that failed the first load heals
+  // without a page reload and without dropping what is already on screen.
+  const previousReachable = useRef(hostReachable)
+  useEffect(() => {
+    const previous = previousReachable.current
+    previousReachable.current = hostReachable
+    if (previous === false && hostReachable === true) void reload({ silent: true })
+  }, [hostReachable, reload])
 
   useEffect(() => {
     return subscribe((event) => {

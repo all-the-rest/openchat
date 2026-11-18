@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
-const BFF_TARGET = "http://localhost:8787"
+const BFF_TARGET = process.env.OPENCHAT_BFF_TARGET ?? "http://localhost:8787"
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), lingui({ macroTransform: true })],

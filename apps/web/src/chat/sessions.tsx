@@ -5,10 +5,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
 import { api } from "../api/client"
+import { useSurfaceOrNull } from "../code/SurfaceProvider"
 
 export interface SessionsValue {
   sessions: SessionInfo[]
@@ -24,6 +26,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  const hostReachable = useSurfaceOrNull()?.hostReachable ?? null
 
   const refresh = useCallback(async () => {
     try {
@@ -40,6 +43,15 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // The sidebar failed while the host was gone; a recovered host gets one
+  // silent retry, so the list returns with the banner, not behind its own button.
+  const previousReachable = useRef(hostReachable)
+  useEffect(() => {
+    const previous = previousReachable.current
+    previousReachable.current = hostReachable
+    if (previous === false && hostReachable === true) void refresh()
+  }, [hostReachable, refresh])
 
   const create = useCallback(async () => {
     const session = await api.createSession({})

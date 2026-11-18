@@ -243,6 +243,24 @@ describe("artifact viewer", () => {
     const user = userEvent.setup()
     renderViewer()
 
+    const frame = (await screen.findByTestId("artifact-frame")) as HTMLIFrameElement
+    const posted: unknown[] = []
+    const source = {
+      postMessage: vi.fn((message: unknown) => {
+        posted.push(message)
+      }),
+    }
+    Object.defineProperty(frame, "contentWindow", { configurable: true, value: source })
+    fireEvent.load(frame)
+    const init = posted[0] as { nonce?: string }
+    const ready = new MessageEvent("message", {
+      data: { type: "artifact:ready", nonce: init.nonce },
+    })
+    Object.defineProperty(ready, "source", { configurable: true, value: source })
+    await act(async () => {
+      window.dispatchEvent(ready)
+    })
+
     const present = await screen.findByTestId("artifact-present")
     await user.click(present)
 
