@@ -59,8 +59,13 @@ afterEach(() => {
 
 /** Shows the info-driven state that decides whether the entry renders. */
 function AvailabilityProbe() {
-  const { appsAvailable } = useSurface()
-  return <output data-testid="apps-availability">{String(appsAvailable)}</output>
+  const { appsAvailable, artifactsAvailable } = useSurface()
+  return (
+    <>
+      <output data-testid="apps-availability">{String(appsAvailable)}</output>
+      <output data-testid="artifacts-availability">{String(artifactsAvailable)}</output>
+    </>
+  )
 }
 
 function renderShell(probe?: ReactNode) {
@@ -151,6 +156,40 @@ describe("sidebar drawer", () => {
     newChat.focus()
     expect(newChat).toHaveFocus()
     expect(drawer.contains(newChat)).toBe(true)
+  })
+})
+
+describe("sidebar artifacts entry", () => {
+  it("links to /artifacts when the host reports the artifact surface", async () => {
+    stubViewport(true)
+    mocks.info.mockResolvedValue({
+      code: { configured: true, expectedVersion: "2" },
+      apps: { available: false },
+      artifacts: { available: true },
+    })
+    renderShell()
+
+    const nav = screen.getByRole("navigation", { name: "Main navigation" })
+    expect(await within(nav).findByTestId("nav-artifacts")).toHaveAttribute(
+      "href",
+      "/artifacts",
+    )
+  })
+
+  it("hides the entry when artifact storage is not configured", async () => {
+    stubViewport(true)
+    mocks.info.mockResolvedValue({
+      code: { configured: true, expectedVersion: "2" },
+      apps: { available: false },
+      artifacts: { available: false },
+    })
+    renderShell(<AvailabilityProbe />)
+
+    await waitFor(() =>
+      expect(screen.getByTestId("artifacts-availability")).toHaveTextContent("false"),
+    )
+    expect(screen.getByTestId("nav-search")).toBeInTheDocument()
+    expect(screen.queryByTestId("nav-artifacts")).toBeNull()
   })
 })
 

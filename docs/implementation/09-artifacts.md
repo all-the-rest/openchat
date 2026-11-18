@@ -1,6 +1,6 @@
 # 09 — Artifacts: storage, signing and the artifact host
 
-**Status:** 2026-11-18. First of four slices for issue #13 (milestone v2.0).
+**Status:** 2026-11-18. First two of four slices for issue #13 (milestone v2.0).
 Implements the foundation from
 [`../architecture/04-artifact-sandbox.md`](../architecture/04-artifact-sandbox.md)
 and the serving rules from
@@ -9,8 +9,10 @@ plus FR-37…FR-40 in
 [`../spec/01-product-scope.md`](../spec/01-product-scope.md).
 
 M4 (the read-only artifact viewer, issue #6) never shipped, so nothing
-artifact-related existed in code before this slice. This slice ships storage,
-signing, the separate-origin byte host and the BFF surface. It ships **no UI**.
+artifact-related existed in code before the first slice. Slice 1 shipped
+storage, signing, the separate-origin byte host and the BFF surface, with no
+UI. Slice 2 adds the `/artifacts` surface and the viewer; its contract is at
+[the end of this document](#slice-2--the-read-only-viewer).
 
 ## What ships
 
@@ -130,15 +132,17 @@ shapes are asserted.
 
 ## BFF routes
 
-All three sit behind the existing `/api/*` guards and authentication: a request
-without a session is 401, and `POST` needs `Content-Type: application/json` and
-same-origin evidence.
+The three slice-1 routes sit behind the existing `/api/*` guards and
+authentication: a request without a session is 401, and `POST` needs
+`Content-Type: application/json` and same-origin evidence. The slice-2 download
+route sits behind the same guards.
 
 | Route | Behaviour |
 | --- | --- |
 | `POST /api/artifacts` | Validates, stores, answers `201 ArtifactResponse` with a fresh signed URL. `Cache-Control: no-store`. |
 | `GET /api/artifacts` | `200 ArtifactResponse[]`, newest first, at most 100, every entry signed at this read. `no-store`. |
 | `GET /api/artifacts/:id` | `200 ArtifactResponse` or `404 artifacts_unknown`. `no-store`. |
+| `GET /api/artifacts/:id/download` | `200` with the stored bytes verbatim (slice 2). `Content-Disposition: attachment`, `nosniff`, `no-store`; `404 artifacts_unknown`, `503 artifacts_unavailable`. |
 
 - **Availability.** `artifacts.available` in `/api/info` is true only when
   `ARTIFACT_HOST_URL` **and** `ARTIFACT_SIGNING_KEY` are both set. Otherwise
@@ -243,17 +247,17 @@ Two smaller deviations follow from the same slice:
 | Signing key shorter than 32 characters | BFF and host refuse the boot; the message names the variable. |
 | Store directory missing | List is `[]`, reads 404; the first write creates it. |
 | Disk full / unwritable directory | The store throws, `onError` answers `500 internal_error` without detail; nothing is logged with a path. |
-| Expired URL | Host answers 403; the client requests a fresh one (the UI slice will retry once). |
+| Expired URL | Host answers 403; the viewer re-reads the metadata once and then shows its recoverable stale panel (see slice 2). |
 | Forged or truncated signature | 403 before any filesystem access. |
 | Artifact deleted while a page is open | 404 on the next read; the UI shows "unavailable" for that frame. |
 | Document over 1 MiB | `400 artifacts_invalid`, nothing written. |
 | Missing document header | `400 artifacts_invalid` with the rule phrase. |
 
-## Not implemented in this slice
+## Not implemented in slice 1
 
-- **No UI**: no artifact card, no iframe, no present mode, no download button,
-  no reset. The UI is the next slice; it reads `ArtifactsSurfaceInfo` from
-  `/api/info` and the three BFF routes.
+- **No UI in the first slice**: no artifact card, no iframe, no present mode, no
+  download button, no reset. Slice 2 (below) adds the list, the viewer, present
+  mode and the download route.
 - **No validator and no build step** (`openchat_app_write`, Preact/Bun compile,
   CSP check for `eval`/`fetch`/CDN URLs, shell assembly).
 - **No `postMessage` bridge** (`artifact:init`, `artifact:ready`,
@@ -281,12 +285,127 @@ Two smaller deviations follow from the same slice:
 | --- | --- |
 | `apps/server/test/artifacts-sign.test.ts` | deterministic unpadded base64url, id/expiry/key separation, URL shape and trailing slash, TTL, expired, far-future ceiling and its boundary, tampered signature, unshaped id/exp/signature tables, hostile input without a throw, URL round trip. |
 | `apps/server/test/artifacts-store.test.ts` | validation table (types, blank, size, document start), accepted document starts (doctype, uppercase, whitespace, BOM), exact byte cap, title sanitisation (trim, control characters, blank, 120 code points, emoji), layout and metadata, dedupe keeps the first title, one-byte difference, `null` for unknown/unshaped/broken, newest-first list, 100 cap and smaller limit, missing directory, no `.tmp` left behind. |
-| `apps/server/test/artifacts.test.ts` | auth on all three routes, unconfigured/info/503/`[]`, half-configured, 201 metadata and a URL that verifies, on-disk bytes, dedupe, invalid-body table, non-object and malformed JSON, content-type guard, envelope 413, title capping, no URL/key in logs, 20-per-window throttle plus reset and free rejected bodies, newest-first list with freshly signed URLs, read by id, 404 for unknown and unshaped ids without echo, empty surface. |
+| `apps/server/test/artifacts.test.ts` | auth on every route (including download), unconfigured/info/503/`[]`, half-configured, 201 metadata and a URL that verifies, on-disk bytes, dedupe, invalid-body table, non-object and malformed JSON, content-type guard, envelope 413, title capping, no URL/key in logs, 20-per-window throttle plus reset and free rejected bodies, newest-first list with freshly signed URLs, read by id, 404 for unknown and unshaped ids without echo, empty surface. |
 | `apps/server/test/artifacts-env.test.ts` | defaults, explicit values, path prefix and trailing slash, half-configured warnings without values, 32-character key floor, URL validation table, production https refusal and acceptance. |
 | `apps/artifact-host/test/app.test.ts` | every document header, the two CSP lines and the verbatim policy, no cookie/CORS on any route, 403 table (missing, short, padded, non-digit, expired, far future, wrong key, unshaped id), signature-before-filesystem ordering, byte-identical non-ASCII output, 404 for a valid signature over a missing id, 404 for an unknown path, `/healthz` without artifact headers, no writes into the directory, traversal rejected in the reader, node header map (array, joined fallback, dropped `Set-Cookie`), configured frame ancestors. |
 | `apps/artifact-host/test/env.test.ts` | defaults, explicit values, missing/short key refusals, frame-ancestor injection refusal, port warning, no key in a warning. |
+| `apps/web/test/artifacts-page.test.tsx` | list metadata and links, loading, empty explanation, failed read with retry, redirect and no list read when unconfigured, rendering when available. |
+| `apps/web/test/artifact-viewer.test.tsx` | signed URL verbatim, sandbox and title, loading, deleted artifact, failed read with retry, pre-expiry re-mint, one recovery read then a recoverable stale panel, reload, present mode plus Escape focus return, download bytes and filename, failed download, hostile titles, refresh margin. |
+| `apps/web/test/app-shell.test.tsx` | the sidebar artifacts entry appears only when `artifacts.available` is true. |
+| `apps/web/test/api-client.test.ts` | list, single read, same-origin download and structured download errors. |
+| `apps/web/e2e/artifacts.spec.ts` | one seeded document through the real artifact host: list, frame attributes, rendered content, byte-identical download, present/Escape focus return, reload with a fresh signed URL. |
 
 No test starts a real OpenCode, signs a URL for the network or calls an external
 host. Host tests use an ephemeral loopback listener, as the Code host tests do,
 because duplicate `Content-Security-Policy` lines are only observable at the
 node level.
+
+## Slice 2 — the read-only viewer
+
+**Status:** 2026-11-18. Adds the `/artifacts` surface and the viewer, still
+read-only. It consumes the slice-1 contract above; no second storage, signing or
+host path is introduced.
+
+### What ships
+
+| Piece | Where | What it does |
+| --- | --- | --- |
+| Surface state | `apps/web/src/code/SurfaceProvider.tsx` | `artifactsAvailable` from `InfoResponse.artifacts.available`; `null` until `/api/info` answers. |
+| Entry | `apps/web/src/chat/SessionSidebar.tsx` | `/artifacts` link, rendered only when the surface is available. Hidden and inert otherwise; the app-bar menu is unchanged. |
+| Routes | `apps/web/src/App.tsx` | `/artifacts` and `/artifacts/:id`; both redirect home when the surface is unavailable, exactly like `/apps`. |
+| List | `apps/web/src/artifacts/ArtifactsPage.tsx` | `GET /api/artifacts`, newest first, title plus size and write time. |
+| Viewer | `apps/web/src/artifacts/ArtifactViewer.tsx` | `GET /api/artifacts/:id` on mount and reload; one iframe; present mode; download. |
+| Download route | `apps/server/src/artifacts.ts` | `GET /api/artifacts/:id/download`, the exact stored bytes through the app origin. |
+| Store read | `apps/server/src/artifacts-store.ts` | `read(id)` returns the bytes only when the metadata is readable too. |
+| Names/formatting | `apps/web/src/artifacts/files.ts` | download filename, byte/date formatting, refresh margin. |
+| i18n | `apps/web/src/i18n/messages/{en,de}.ts` | every viewer string in both locales. |
+| E2E fixture | `apps/web/e2e/artifact-fixture.ts`, `playwright.config.ts` | one content-addressed document seeded before the BFF and the real artifact host start. |
+
+The frame is exactly the documented embed:
+
+```html
+<iframe
+  src="<url from GET /api/artifacts/:id>"
+  sandbox="allow-scripts"
+  referrerpolicy="no-referrer"
+  loading="lazy"
+  title="<artifact title>"
+></iframe>
+```
+
+The URL is used verbatim. The client never derives, joins or re-signs an
+artifact URL; reload and recovery re-read the metadata, and every read mints a
+fresh signature.
+
+### States
+
+| State | Trigger | What the surface shows |
+| --- | --- | --- |
+| List loading | first `GET /api/artifacts` in flight | spinner and "Loading artifacts…" |
+| Empty | list answered `[]` | "No artifacts yet" and that an artifact appears once the agent writes one with the app tool |
+| List error | list rejected | localised error banner and Retry; the retry reads again |
+| Unconfigured | `InfoResponse.artifacts.available` is false | no sidebar entry, both routes redirect to chat, and the list is never read |
+| Viewer loading | `GET /api/artifacts/:id` in flight | spinner and "Loading artifact…" |
+| Missing | `404 artifacts_unknown` | "Artifact not available" with the list link |
+| Viewer error | any other failed read | localised error, Retry and the list link |
+| Stale URL | frame `error`, or no `load` within 10 s | one metadata re-read and a fresh URL; a second failure shows "This artifact link has expired" with Reload |
+| Download failure | download route rejected | error banner; the frame stays |
+| Refresh failure | pre-expiry re-read rejected | error banner; the last working URL stays until it expires |
+| Present | Present button | the artifact fills the content area, page chrome hides, Escape leaves and returns focus to the trigger |
+
+**Freshness.** `GET /api/artifacts/:id` mints a URL for 15 minutes. A URL that
+arrives within one minute of expiry is replaced by a second read before the
+frame mounts, and an open viewer re-reads shortly before expiry. Both use the
+same BFF route; neither constructs a URL.
+
+**Why a frame failure is the stale signal.** With `sandbox="allow-scripts"` and
+no `allow-same-origin`, the parent cannot read the frame's HTTP status: an
+expired or refused URL is not an observable 403 on this side. The viewer treats
+the two signals it does get — an `error` event and a missing `load` within 10 s —
+as a refused URL, re-reads the metadata exactly once and then shows the
+recoverable panel. The pre-expiry re-read keeps the 403 path rare. An explicit
+host-to-app refusal message belongs to the bridge slice, which owns the nonce
+and message schema.
+
+### Download
+
+`GET /api/artifacts/:id/download` answers the stored document verbatim with
+`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` and
+`no-store`. It sits behind the same session and `artifacts.available` check as
+the other routes. The client fetches that route, never the signed host URL, so
+no short-lived URL reaches the download history or a referer, and the saved
+file contains only the stored bytes. The server's fallback filename is
+`artifact-<id>.html`; the client saves under the artifact's title with one
+`.html`, with path separators and control characters flattened.
+
+### Deliberately not in this slice
+
+- **No "open in new tab".** The documents do not describe one: an artifact
+  opens in the app's frame, the spec's viewer chrome is title/reset/present/
+  download/close, and external navigation is an explicit owner action. A new tab
+  would also put a short-lived signed URL into tab state and history and could
+  outlive its TTL.
+- **No bridge and no `artifact:reset`.** Reset as "reload with a fresh URL" is
+  what the Reload button does. The in-frame reset without a new URL needs
+  `artifact:reset` over the `postMessage` bridge; that belongs to slice 3/4.
+- **No inline chat card, right rail or version history.** The surface is the
+  dedicated `/artifacts` route. Embedding an artifact in a message and the
+  right-rail/sheet placement are integration work that needs the message
+  renderer and the bridge.
+- **No artifact creation UI, no validator, no MCP tool.** Those are later
+  slices; this one only reads what the store already holds.
+- **No screenshot harness entry.** The functional E2E covers the rendered
+  surface; the screenshot seeds would need artifact-store seeding in a second
+  harness, which is not part of this slice.
+
+### Slice 2 tests
+
+| File | Pins |
+| --- | --- |
+| `apps/server/test/artifacts.test.ts` | auth and exact bytes on the download route, `nosniff`/attachment/no-store headers, no signed URL or id in the body, 404 table without echo, 503 when unconfigured. |
+| `apps/server/test/artifacts-store.test.ts` | `read()` returns the exact bytes and `null` for unknown, unshaped and metadata-less entries. |
+| `apps/web/test/artifacts-page.test.tsx` | metadata and links, loading, empty, failed read with retry, redirect with no list read when unconfigured, list when available. |
+| `apps/web/test/artifact-viewer.test.tsx` | signed URL verbatim, sandbox/title/referrer, loading, missing, retry, pre-expiry re-mint, one recovery read then the stale panel, reload re-mint, present/Escape focus return, download bytes and filename, failed download, hostile titles, freshness margin. |
+| `apps/web/test/app-shell.test.tsx` | the sidebar entry is present only with `artifacts.available`. |
+| `apps/web/test/api-client.test.ts` | list, single read, download path and structured download error. |
+| `apps/web/e2e/artifacts.spec.ts` | seeded document through the real host: list, frame attributes and rendered document, byte-identical download, present/Escape focus return, reload with a new signature. The E2E config seeds the store and starts `apps/artifact-host` with the same key; no external host is contacted. |

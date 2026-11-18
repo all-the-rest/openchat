@@ -27,6 +27,11 @@ export interface SurfaceValue {
    */
   appsAvailable: boolean | null
   /**
+   * `artifacts.available` from `/api/info`; `null` until it answered. False
+   * hides the `/artifacts` entry and redirects both routes home.
+   */
+  artifactsAvailable: boolean | null
+  /**
    * `host.reachable` from `/api/info`; `null` until it answered. False means
    * the app is up but the OpenCode host behind it did not answer.
    */
@@ -47,17 +52,19 @@ export interface SurfaceValue {
 const SurfaceContext = createContext<SurfaceValue | null>(null)
 
 /**
- * Reads the host state plus `code.configured` and `apps.available` from the
- * single `/api/info` response and owns the Chat | Code shortcut. A failed info
- * call means "not configured": the switch and the apps entry stay hidden and
- * their routes redirect home. It also counts as an unreachable host, because
- * the banner's retry is the only useful action left.
+ * Reads the host state plus `code.configured`, `apps.available` and
+ * `artifacts.available` from the single `/api/info` response and owns the
+ * Chat | Code shortcut. A failed info call means "not configured": the switch,
+ * the apps entry and the artifacts entry stay hidden and their routes redirect
+ * home. It also counts as an unreachable host, because the banner's retry is the
+ * only useful action left.
  */
 export function SurfaceProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [configured, setConfigured] = useState<boolean | null>(null)
   const [appsAvailable, setAppsAvailable] = useState<boolean | null>(null)
+  const [artifactsAvailable, setArtifactsAvailable] = useState<boolean | null>(null)
   const [hostReachable, setHostReachable] = useState<boolean | null>(null)
   const [stored, setStored] = useState<Surface>(() => readSurface())
   // StrictMode runs the mount effect twice and retries can overlap; only the
@@ -71,11 +78,13 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
       if (current !== request.current) return
       setConfigured(info?.code?.configured === true)
       setAppsAvailable(info?.apps?.available === true)
+      setArtifactsAvailable(info?.artifacts?.available === true)
       setHostReachable(info?.host?.reachable !== false)
     } catch {
       if (current !== request.current) return
       setConfigured(false)
       setAppsAvailable(false)
+      setArtifactsAvailable(false)
       setHostReachable(false)
     }
   }, [])
@@ -133,6 +142,7 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
     () => ({
       configured,
       appsAvailable,
+      artifactsAvailable,
       hostReachable,
       surface,
       stored,
@@ -144,6 +154,7 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
     [
       configured,
       appsAvailable,
+      artifactsAvailable,
       hostReachable,
       surface,
       stored,

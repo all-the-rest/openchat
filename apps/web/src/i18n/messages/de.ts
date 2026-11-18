@@ -20,6 +20,7 @@ export const de: Record<MessageKey, string> = {
   "nav.main": "Hauptnavigation",
   "nav.search": "Suche",
   "nav.apps": "Apps",
+  "nav.artifacts": "Artefakte",
 
   "menu.trigger": "Menü öffnen",
   "menu.label": "App-Menü",
@@ -116,6 +117,39 @@ export const de: Record<MessageKey, string> = {
   "apps.error.throttledAfter": "Zu viele Versuche. Versuch es in {seconds} s noch einmal.",
   "apps.error.host": "Der Host hat nicht geantwortet.",
   "apps.error.failed": "Die Aktion ist fehlgeschlagen.",
+
+  "artifacts.title": "Artefakte",
+  "artifacts.description":
+    "HTML-Dokumente, die dein Agent geschrieben hat. Jedes läuft in einer Sandbox auf einer eigenen Origin.",
+  "artifacts.loading": "Artefakte werden geladen…",
+  "artifacts.loadFailed": "Artefakte konnten nicht geladen werden.",
+  "artifacts.retry": "Erneut versuchen",
+  "artifacts.emptyTitle": "Noch keine Artefakte",
+  "artifacts.emptyBody":
+    "Ein Artefakt erscheint hier, sobald der Agent eines mit dem App-Werkzeug schreibt.",
+  "artifacts.listLabel": "Artefakte",
+  "artifacts.meta": "{size} · {date}",
+  "artifacts.open": "{title} öffnen",
+  "artifacts.back": "Zurück zu den Artefakten",
+  "artifacts.viewerTitle": "Artefakt",
+  "artifacts.viewerLoading": "Artefakt wird geladen…",
+  "artifacts.missingTitle": "Artefakt nicht verfügbar",
+  "artifacts.missingBody":
+    "Es wurde möglicherweise gelöscht. Die Liste zeigt, was noch gespeichert ist.",
+  "artifacts.errorTitle": "Das Artefakt konnte nicht geladen werden",
+  "artifacts.errorBody": "Die App konnte dieses Artefakt nicht lesen. Versuch es erneut.",
+  "artifacts.staleTitle": "Dieser Artefakt-Link ist abgelaufen",
+  "artifacts.staleBody":
+    "Der Artefakt-Host hat den Link abgelehnt. Lade neu, um einen frischen anzufordern.",
+  "artifacts.download": "Herunterladen",
+  "artifacts.downloading": "Wird heruntergeladen…",
+  "artifacts.downloadFailed": "Der Download ist fehlgeschlagen. Versuch es erneut.",
+  "artifacts.refreshFailed":
+    "Der Artefakt-Link konnte nicht erneuert werden. Lade neu, um einen frischen zu bekommen.",
+  "artifacts.reload": "Neu laden",
+  "artifacts.present": "Präsentieren",
+  "artifacts.exitPresent": "Präsentation beenden",
+  "artifacts.presentRegion": "Präsentiertes Artefakt",
 
   "auth.loginTitle": "Anmelden",
   "auth.loginDescription": "Gib dein Passwort ein, um den Arbeitsplatz zu öffnen.",

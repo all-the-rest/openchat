@@ -128,4 +128,27 @@ export function registerArtifactsRoutes(app: Hono<AppEnv>, deps: ArtifactsRouteD
     if (!meta) return jsonError(c, 404, "artifacts_unknown", UNKNOWN_MESSAGE)
     return c.json(signedResponse(meta, config.ARTIFACT_HOST_URL, signer))
   })
+
+  /**
+   * The download goes through the app origin, never the signed host URL: a
+   * download should not leave a working artifact URL in the browser history,
+   * a referer or a shared file. The body is the stored document verbatim, so
+   * preview and download are the same bytes.
+   */
+  app.get("/api/artifacts/:id/download", async (c) => {
+    c.header("Cache-Control", "no-store")
+    if (!signer) {
+      return jsonError(c, 503, "artifacts_unavailable", UNAVAILABLE_MESSAGE)
+    }
+    const id = c.req.param("id") ?? ""
+    const bytes = await store.read(id)
+    if (!bytes) return jsonError(c, 404, "artifacts_unknown", UNKNOWN_MESSAGE)
+
+    c.header("Content-Type", "text/html; charset=utf-8")
+    // The stored id is already shape-validated, so it is safe in a header. The
+    // client overrides this name with the artifact's title.
+    c.header("Content-Disposition", `attachment; filename="artifact-${id}.html"`)
+    c.header("X-Content-Type-Options", "nosniff")
+    return c.body(new Uint8Array(bytes))
+  })
 }
