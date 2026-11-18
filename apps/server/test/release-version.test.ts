@@ -61,6 +61,22 @@ describe("version bump", () => {
     expect(readJson(path).version).toBe("1.2.4")
   })
 
+  it("lists the artifact-tool manifest so the MCP handshake version cannot go stale", () => {
+    const root = repo()
+    const path = join(root, "packages/artifact-tool/package.json")
+    writeFileSync(path, '{\n  "name": "@openchat/artifact-tool",\n  "private": true\n}\n')
+    commit(root, "chore: drop the artifact-tool version")
+
+    const dry = runRelease(root, ["bump", "--set", "2.0.0", "--dry-run", "--allow-dirty"])
+    expect(dry.status).toBe(0)
+    expect(dry.stdout).toContain(
+      "would write packages/artifact-tool/package.json: absent -> 2.0.0",
+    )
+
+    expect(runRelease(root, ["bump", "--set", "2.0.0", "--allow-dirty"]).status).toBe(0)
+    expect(readJson(path).version).toBe("2.0.0")
+  })
+
   it("refuses a dirty tree unless --allow-dirty is passed", () => {
     const root = repo()
     writeFileSync(join(root, "scratch.txt"), "uncommitted\n")

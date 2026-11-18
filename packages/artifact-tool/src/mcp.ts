@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { createInterface } from "node:readline"
 import type { Readable, Writable } from "node:stream"
 
@@ -9,11 +10,43 @@ import type { Readable, Writable } from "node:stream"
  */
 
 export const SERVER_NAME = "openchat-artifacts"
-export const SERVER_VERSION = "0.1.0"
+
+/**
+ * The manifest is the only version source: the release bump owns its
+ * `version` field, so a literal here would silently drift. Before the first
+ * release the field does not exist yet — the bump inserts it — and the
+ * handshake reports a placeholder until then.
+ */
+export const PACKAGE_MANIFEST = new URL("../package.json", import.meta.url)
+export const FALLBACK_VERSION = "0.0.0-dev"
 
 /** Newest first; the first entry is the fallback for an unknown request. */
 export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
 export const DEFAULT_PROTOCOL_VERSION = "2025-06-18"
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Read `version` from a manifest. A missing field, an unreadable file or
+ * malformed JSON falls back to `FALLBACK_VERSION`: the handshake must answer,
+ * and a version is not worth a protocol error.
+ */
+export function readManifestVersion(manifest: URL = PACKAGE_MANIFEST): string {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(manifest, "utf8"))
+    if (isRecord(parsed) && typeof parsed.version === "string" && parsed.version.length > 0) {
+      return parsed.version
+    }
+  } catch {
+    // Fall through to the placeholder.
+  }
+  return FALLBACK_VERSION
+}
+
+/** The version the `initialize` result reports. */
+export const SERVER_VERSION = readManifestVersion()
 
 export interface ToolCallResult {
   text: string
@@ -80,10 +113,6 @@ export const ARTIFACT_TOOL = {
     additionalProperties: false,
   },
 } as const
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
 
 function failure(id: JsonRpcId, code: number, message: string): JsonRpcFailure {
   return { jsonrpc: "2.0", id, error: { code, message } }

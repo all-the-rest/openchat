@@ -1,14 +1,33 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { Readable, Writable } from "node:stream"
-import { describe, expect, it } from "vitest"
+import { pathToFileURL } from "node:url"
+import { afterEach, describe, expect, it } from "vitest"
 import {
   ARTIFACT_TOOL,
   DEFAULT_PROTOCOL_VERSION,
+  FALLBACK_VERSION,
   SERVER_NAME,
   SUPPORTED_PROTOCOL_VERSIONS,
   handleRpc,
+  readManifestVersion,
   serveStdio,
 } from "../src/mcp"
 import type { ToolHandler } from "../src/mcp"
+
+const created: string[] = []
+
+afterEach(() => {
+  for (const dir of created.splice(0)) rmSync(dir, { recursive: true, force: true })
+})
+
+function manifestDir(contents: string): string {
+  const dir = mkdtempSync(join(tmpdir(), "artifact-tool-version-"))
+  created.push(dir)
+  writeFileSync(join(dir, "package.json"), contents)
+  return dir
+}
 
 const call: ToolHandler = async () => ({ text: "ok", isError: false })
 
@@ -38,6 +57,32 @@ describe("MCP: initialize", () => {
 
   it("answer ping with an empty result", async () => {
     expect(await handleRpc(rpc("ping"), call)).toEqual({ jsonrpc: "2.0", id: 1, result: {} })
+  })
+})
+
+describe("MCP: server version", () => {
+  it("reports the package version from its own manifest", async () => {
+    const manifest = JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+    ) as { version?: unknown }
+    const expected = typeof manifest.version === "string" ? manifest.version : FALLBACK_VERSION
+
+    const response = await handleRpc(rpc("initialize", 1, { protocolVersion: "2025-06-18" }), call)
+    expect(response).toMatchObject({
+      result: { serverInfo: { name: SERVER_NAME, version: expected } },
+    })
+  })
+
+  it("reads the version field of a manifest that has one", () => {
+    const dir = manifestDir('{\n  "name": "@openchat/artifact-tool",\n  "version": "2.0.0"\n}\n')
+    expect(readManifestVersion(pathToFileURL(join(dir, "package.json")))).toBe("2.0.0")
+  })
+
+  it("falls back when the version is absent or the manifest is unreadable", () => {
+    const dir = manifestDir('{\n  "name": "@openchat/artifact-tool"\n}\n')
+    expect(readManifestVersion(pathToFileURL(join(dir, "package.json")))).toBe(FALLBACK_VERSION)
+    expect(readManifestVersion(pathToFileURL(join(dir, "missing.json")))).toBe(FALLBACK_VERSION)
+    expect(readManifestVersion(pathToFileURL(dir))).toBe(FALLBACK_VERSION)
   })
 })
 
