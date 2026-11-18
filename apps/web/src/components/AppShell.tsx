@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Outlet } from "react-router-dom"
+import { AppBarMenu } from "../components/AppBarMenu"
 import { SidebarToggle } from "../components/controls"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
@@ -133,12 +134,13 @@ export function AppShell() {
               onOpen={() => setSidebarOpen(true)}
               className="lg:hidden"
             />
-            <SurfaceSwitch />
+            {wide ? <SurfaceSwitch /> : null}
             {/* The desktop sidebar already shows the name; below `lg` it is the
-                only place it appears, and the switch plus Reload must not wrap. */}
+                only place it appears, and the menu trigger must not wrap. */}
             <span className="min-w-0 flex-1 truncate px-1 text-sm font-semibold lg:hidden">
               {t("app.name")}
             </span>
+            <AppBarMenu />
           </div>
         )}
 

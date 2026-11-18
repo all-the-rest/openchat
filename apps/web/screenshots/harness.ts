@@ -83,10 +83,13 @@ async function applyNavStep(
   }
 
   const region = page.getByRole(step.scope)
-  let locator = region.getByRole(
-    step.role,
-    step.name !== undefined ? { name: step.name, exact: true } : undefined,
-  )
+  let locator =
+    step.testid !== undefined
+      ? region.getByTestId(step.testid)
+      : region.getByRole(
+          step.role,
+          step.name !== undefined ? { name: step.name, exact: true } : undefined,
+        )
   if (step.within !== undefined) {
     locator = region
       .locator("article", { hasText: String(seed[step.within]) })

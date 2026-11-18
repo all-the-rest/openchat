@@ -57,3 +57,12 @@ export const waitForCodeStub = async (page: Page) => {
     )
     .toBe("ready")
 }
+
+/**
+ * The app bar's overflow menu is open. The panel is the marker of the state:
+ * before the click it is absent, and a closed or unmounted menu fails loudly
+ * instead of capturing the plain bar.
+ */
+export const waitForAppBarMenu = async (page: Page) => {
+  await expect(page.getByTestId("app-bar-menu-panel")).toBeVisible({ timeout: 30_000 })
+}

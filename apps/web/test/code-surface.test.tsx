@@ -48,7 +48,25 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
+
+/**
+ * The desktop layout. Below `lg` the switch lives in the app-bar menu, so a
+ * test about the bar's own switch has to ask for the wide layout explicitly.
+ */
+function stubWideViewport() {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query.includes("min-width: 1024px"),
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }))
+}
 
 function memoryStorage(): Storage {
   const map = new Map<string, string>()
@@ -204,6 +222,7 @@ describe("surface switch", () => {
 
 describe("surface layout", () => {
   it("keeps the switch in the app bar and hides the chat sidebar on /code", async () => {
+    stubWideViewport()
     const chat = renderShell("/")
     expect(await screen.findByTestId("app-bar")).toBeInTheDocument()
     expect(screen.getByTestId("app-bar")).toHaveAttribute("role", "banner")

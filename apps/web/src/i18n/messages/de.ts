@@ -16,6 +16,9 @@ export const de: Record<MessageKey, string> = {
   "nav.search": "Suche",
   "nav.apps": "Apps",
 
+  "menu.trigger": "Menü öffnen",
+  "menu.label": "App-Menü",
+
   "surface.label": "Oberfläche",
   "surface.chat": "Chat",
   "surface.code": "Code",

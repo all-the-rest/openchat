@@ -72,6 +72,20 @@ export function MenuIcon(props: IconProps) {
   )
 }
 
+/**
+ * Horizontal ellipsis for the app bar's overflow menu. It is drawn as three
+ * stroked dots so it keeps the shared 1.8 px stroke look at 16 px.
+ */
+export function MoreIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="5" cy="12" r="1.2" />
+      <circle cx="12" cy="12" r="1.2" />
+      <circle cx="19" cy="12" r="1.2" />
+    </Icon>
+  )
+}
+
 export function PlusIcon(props: IconProps) {
   return (
     <Icon {...props}>
