@@ -36,6 +36,8 @@ const backend: ChatBackend =
           scenario: config.FAKE_SCENARIO,
           workspace: config.WORKSPACE_DIR,
           appsAvailable: config.FAKE_APPS,
+          // The development and E2E sidebar always has one nested pair.
+          seedSubagents: true,
         }),
       )
 

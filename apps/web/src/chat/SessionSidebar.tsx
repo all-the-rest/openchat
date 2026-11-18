@@ -1,11 +1,23 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { NavLink, useNavigate } from "react-router-dom"
 import { useAuth } from "../auth/provider"
-import { AppsIcon, ArtifactsIcon, PlusIcon, SearchIcon, TasksIcon } from "../components/icons"
+import {
+  AppsIcon,
+  ArtifactsIcon,
+  ChevronDownIcon,
+  PlusIcon,
+  SearchIcon,
+  TasksIcon,
+} from "../components/icons"
 import { LocaleSelect, ThemeToggle } from "../components/controls"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useI18n, useT } from "../i18n/provider"
 import { relativeTime } from "../lib/format"
+import {
+  groupSessions,
+  readExpandedSessions,
+  writeExpandedSessions,
+} from "./session-groups"
 import { useSessions } from "./sessions"
 
 export function SessionSidebar({
@@ -26,6 +38,18 @@ export function SessionSidebar({
   const { sessions, loading, failed, create } = useSessions()
   const [creating, setCreating] = useState(false)
   const [createFailed, setCreateFailed] = useState(false)
+  const groups = useMemo(() => groupSessions(sessions), [sessions])
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => readExpandedSessions())
+
+  const toggleGroup = (sessionID: string) => {
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (next.has(sessionID)) next.delete(sessionID)
+      else next.add(sessionID)
+      writeExpandedSessions(next)
+      return next
+    })
+  }
 
   const startNewChat = async () => {
     if (creating) return
@@ -150,27 +174,102 @@ export function SessionSidebar({
             <p className="px-2 py-1 text-xs text-muted">{t("session.empty")}</p>
           ) : (
             <ul aria-label={t("session.listLabel")} className="flex flex-col gap-0.5">
-              {sessions.map((session) => (
-                <li key={session.id}>
-                  <NavLink
-                    to={`/c/${session.id}`}
-                    data-testid="session-item"
-                    onClick={() => onNavigate?.()}
-                    className={({ isActive }) =>
-                      `flex flex-col rounded-row px-2 py-1.5 text-sm ${
-                        isActive
-                          ? "bg-selected text-base-content"
-                          : "text-secondary hover:bg-hover"
-                      }`
-                    }
-                  >
-                    <span className="truncate">{session.title || t("session.untitled")}</span>
-                    <span className="text-xs text-muted">
-                      {relativeTime(session.updated, locale)}
-                    </span>
-                  </NavLink>
-                </li>
-              ))}
+              {groups.map(({ session, children, orphan }) => {
+                const isExpanded = expanded.has(session.id)
+                const listID = `session-children-${session.id}`
+                const title = session.title || t("session.untitled")
+                const linkClass = ({ isActive }: { isActive: boolean }) =>
+                  `flex min-w-0 flex-1 flex-col rounded-row px-2 py-1.5 text-sm ${
+                    isActive ? "bg-selected text-base-content" : "text-secondary hover:bg-hover"
+                  }`
+
+                return (
+                  <li key={session.id} data-testid="session-group">
+                    <div className="flex items-stretch gap-0.5">
+                      <NavLink
+                        to={`/c/${session.id}`}
+                        data-testid="session-item"
+                        data-session-id={session.id}
+                        onClick={() => onNavigate?.()}
+                        className={linkClass}
+                      >
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          {orphan ? (
+                            <span
+                              data-testid="session-orphan-badge"
+                              className="badge badge-ghost badge-xs shrink-0"
+                            >
+                              {t("session.agentBadge")}
+                            </span>
+                          ) : null}
+                          <span className="truncate">{title}</span>
+                        </span>
+                        <span className="text-xs text-muted">
+                          {relativeTime(session.updated, locale)}
+                        </span>
+                      </NavLink>
+                      {children.length > 0 ? (
+                        <button
+                          type="button"
+                          data-testid="session-children-toggle"
+                          data-session-id={session.id}
+                          aria-expanded={isExpanded}
+                          aria-controls={listID}
+                          aria-label={t("session.toggleChildren", { count: children.length })}
+                          title={t("session.toggleChildren", { count: children.length })}
+                          onClick={() => toggleGroup(session.id)}
+                          className="btn btn-ghost btn-xs my-0.5 shrink-0 gap-0.5 px-1.5"
+                        >
+                          <span aria-hidden="true" className="text-xs tabular-nums">
+                            {children.length}
+                          </span>
+                          <ChevronDownIcon
+                            className={`size-3.5 transition-transform ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                      ) : null}
+                    </div>
+                    {children.length > 0 ? (
+                      <ul
+                        id={listID}
+                        aria-label={t("session.childrenLabel")}
+                        data-testid="session-children"
+                        hidden={!isExpanded}
+                        className={isExpanded ? "mt-0.5 flex flex-col gap-0.5 ps-4" : undefined}
+                      >
+                        {children.map((child) => (
+                          <li key={child.id}>
+                            <NavLink
+                              to={`/c/${child.id}`}
+                              data-testid="session-child"
+                              data-session-id={child.id}
+                              onClick={() => onNavigate?.()}
+                              className={linkClass}
+                            >
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <span className="badge badge-soft badge-xs shrink-0">
+                                  {t("session.agentBadge")}
+                                </span>
+                                <span className="truncate">
+                                  {child.title || t("session.untitled")}
+                                </span>
+                              </span>
+                              <span className="truncate text-xs text-muted">
+                                {`${t("session.childOf", { title })} · ${relativeTime(
+                                  child.updated,
+                                  locale,
+                                )}`}
+                              </span>
+                            </NavLink>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

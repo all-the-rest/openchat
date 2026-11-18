@@ -1896,3 +1896,28 @@ msgstr "Your message could not be sent."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Your message is queued until the current run finishes."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.agentBadge"
+msgstr "Agent"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.childOf"
+msgstr "in {title}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.childrenLabel"
+msgstr "Subagent chats"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.toggleChildren"
+msgstr "{count, plural, one {# subagent chat} other {# subagent chats}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.backToParent"
+msgstr "Back to {title}"

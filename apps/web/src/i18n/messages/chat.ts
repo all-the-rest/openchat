@@ -26,6 +26,11 @@ export const chat = {
   "session.loading": msg({ id: "session.loading", message: "Loading chats…" }),
   "session.loadFailed": msg({ id: "session.loadFailed", message: "Chats could not be loaded." }),
   "session.createFailed": msg({ id: "session.createFailed", message: "Could not create a chat." }),
+  "session.agentBadge": msg({ id: "session.agentBadge", message: "Agent" }),
+  "session.childOf": msg({ id: "session.childOf", message: "in {title}" }),
+  "session.childrenLabel": msg({ id: "session.childrenLabel", message: "Subagent chats" }),
+  "session.toggleChildren": msg({ id: "session.toggleChildren", message: "{count, plural, one {# subagent chat} other {# subagent chats}}" }),
+  "session.backToParent": msg({ id: "session.backToParent", message: "Back to {title}" }),
 
   "landing.heading": msg({ id: "landing.heading", message: "What do you want to work on?" }),
   "landing.description": msg({ id: "landing.description", message: "Send a message to start a new chat." }),

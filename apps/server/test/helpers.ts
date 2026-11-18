@@ -37,6 +37,8 @@ export interface TestServerOptions {
   onAppAction?: (action: "connect" | "disconnect", name: string) => void
   /** Deterministic background jobs for `/api/jobs`. */
   seedJobs?: readonly BackgroundJob[]
+  /** Seeds the parent/child subagent pair in the fake backend. */
+  seedSubagents?: boolean
   /** Code host health probe; keeps tests off the network. */
   codeProbe?: CodeProbe
   codeStatusCacheMs?: number
@@ -85,6 +87,7 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
     appsAvailable: options.appsAvailable ?? config.FAKE_APPS,
     onAppAction: options.onAppAction,
     seedJobs: options.seedJobs,
+    seedSubagents: options.seedSubagents,
   })
   return {
     app: createApp({

@@ -19,6 +19,8 @@ export interface SessionInfo {
   directory: string
   created: number
   updated: number
+  /** Parent chat of a subagent session; absent for a normal chat. */
+  parentID?: string
 }
 
 export interface ModelInfo {

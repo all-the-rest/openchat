@@ -97,13 +97,17 @@ function assistantParts(message: SessionMessageAssistant): Part[] {
 }
 
 export function normalizeSession(info: OpenCodeSessionInfo, workspace?: string): SessionInfo {
-  return {
+  const session: SessionInfo = {
     id: info.id,
     title: info.title ?? "",
     directory: info.location?.directory ?? workspace ?? "",
     created: info.time.created,
     updated: info.time.updated,
   }
+  // A normal chat has no parent; the key stays absent instead of becoming
+  // `undefined`, so the normalized shape mirrors the host.
+  if (info.parentID) session.parentID = info.parentID
+  return session
 }
 
 /** Returns `null` for message types the M1 transcript does not render. */

@@ -21,6 +21,26 @@ describe("contract fixture", () => {
     })
   })
 
+  it("keeps a host parent link and omits it for a normal chat", () => {
+    const child = normalizeSession({
+      id: "ses_child",
+      parentID: "ses_parent",
+      title: "Subagent run",
+      time: { created: 1, updated: 2 },
+      location: { directory: "/workspace" },
+    } as unknown as OpenCodeSessionInfo)
+    expect(child.parentID).toBe("ses_parent")
+
+    const plain = normalizeSession({
+      id: "ses_plain",
+      title: "Normal chat",
+      time: { created: 1, updated: 2 },
+      location: { directory: "/workspace" },
+    } as unknown as OpenCodeSessionInfo)
+    expect(plain.parentID).toBeUndefined()
+    expect("parentID" in plain).toBe(false)
+  })
+
   it("decodes messages and validates them against the contract", () => {
     const messages = (fixture.messages as unknown as SessionMessageInfo[])
       .map((entry) => normalizeMessage(entry))

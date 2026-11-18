@@ -32,6 +32,7 @@ import { clone, errorText, PartWriter } from "./fake-parts"
 import { resolveScenario, runScenario } from "./scenarios"
 import type { ScenarioOutcome } from "./scenarios"
 import type { FakeBackendOptions, QueuedPrompt, RecordedPrompt, RunState, SessionState } from "./fake-state"
+import { subagentSeedSessions } from "./fake-seed"
 
 export type { FakeBackendOptions, RecordedPrompt } from "./fake-state"
 
@@ -75,6 +76,11 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
       clock: () => this.clock(),
       emit: (type, sid, data, durable) => this.events.emit(type, sid, data, durable),
     })
+    if (options.seedSubagents) {
+      for (const session of subagentSeedSessions(this.workspace, this.clock())) {
+        this.sessions.set(session.info.id, session)
+      }
+    }
   }
 
   async info(): Promise<ServerInfo> {
