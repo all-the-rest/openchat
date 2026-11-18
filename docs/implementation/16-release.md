@@ -25,6 +25,8 @@ Deployment itself is [`14-deployment.md`](14-deployment.md).
 - `apps/server/package.json`
 - `apps/code-host/package.json`
 - `apps/artifact-host/package.json`
+- `packages/artifact-tool/package.json` — the MCP handshake reads its `version`
+  at runtime; the first bump inserts the field
 - `packages/code-ticket/package.json`
 - `packages/contracts/package.json`
 - `packages/opencode/package.json`
@@ -59,7 +61,7 @@ pnpm run release:bump --set 2.0.0   # explicit
 `ratchet release` computes a next version and writes a changelog from the
 commits since the last tag, but it supports exactly one configured version file
 and refuses to guess where a project keeps it (`the release is not configured`).
-This repository needs six manifests plus the `/healthz` literal to agree, and
+This repository needs seven manifests plus the `/healthz` literal to agree, and
 `ratchet release` would also own `CHANGELOG.md` itself. Two writers for one
 changelog is the defect, not the feature. The generator therefore lives in
 `scripts/release.ts`; `ratchet` keeps its role as the gate and `ratchet verify`
@@ -134,8 +136,9 @@ Each step starts from the previous one green:
    release branch only prepares metadata.
 2. **Gates.** `pnpm run gates:fast` on the branch, plus `pnpm run test:e2e` when
    the change touches a surface it covers.
-3. **Version.** `pnpm run release:bump --minor` (or `--major` for 2.0.0).
-   Review the eight-file diff.
+3. **Version.** `pnpm run release:bump --set 2.0.0`. From a 0.x version
+   `--major` is not the 2.0 lever: it yields `1.0.0`, and the workflow rejects
+   the tag. Review the nine-file diff.
 4. **Changelog.** `pnpm run release:changelog --version 2.0.0 --dry-run`,
    then without `--dry-run`. Read the section; the generator groups, it does
    not write prose.
@@ -147,10 +150,14 @@ Each step starts from the previous one green:
    `git tag -a v2.0.0 -m "OpenChat 2.0.0" && git push origin v2.0.0`. The tag
    name must be `v` plus the `VERSION` content; the workflow fails otherwise.
 8. **Workflow.** `release.yml` re-runs `gates:fast`, builds `bff`,
-   `code-host` and `artifact-host` for `linux/amd64` and `linux/arm64` with
-   buildx, pushes `ghcr.io/all-the-rest/openchat/<image>:2.0.0` and `:latest`,
-   attaches SBOM and provenance, then creates the GitHub release from the
-   changelog section.
+   `code-host`, `artifact-host` and `tools` for `linux/amd64` and
+   `linux/arm64` with buildx, pushes
+   `ghcr.io/all-the-rest/openchat/<image>:2.0.0` and `:latest`, attaches SBOM
+   and provenance, then creates the GitHub release from the changelog section.
+   `tools` is the `openchat-tools` image `compose.yaml` runs for the agent tool
+   runtime: it is published like the apps, so a pulled release has an image for
+   every service compose builds here. The `opencode` and `dind` services keep
+   pulling upstream images.
 9. **Verify.** Pull the images on the host and run the deployment checklist in
    [`14-deployment.md`](14-deployment.md). The BFF's `/healthz` must report
    `2.0.0`; `deploy/swap.sh --expect-version 2.0.0` enforces it.
@@ -178,7 +185,7 @@ by construction.
 so the host pulls and retags, or uses its own compose override:
 
 ```bash
-for image in bff code-host artifact-host; do
+for image in bff code-host artifact-host tools; do
   docker pull "ghcr.io/all-the-rest/openchat/${image}:2.0.0"
   docker tag "ghcr.io/all-the-rest/openchat/${image}:2.0.0" "openchat-${image}:2.0.0"
 done
@@ -267,21 +274,21 @@ These are repository or GitHub settings, not code in this slice:
 
 | File | Covers |
 | --- | --- |
-| `apps/server/test/release-version.test.ts` | bump table patch/minor/major; explicit set; missing manifest version inserted; all packages plus `SERVER_VERSION` plus lockfile importer agree; dirty-tree refusal and `--allow-dirty`; dry run writes nothing; usage errors; non-git refusal |
+| `apps/server/test/release-version.test.ts` | bump table patch/minor/major; explicit set; missing manifest version inserted; all packages plus `SERVER_VERSION` plus lockfile importer agree; the artifact-tool manifest is in the plan; dirty-tree refusal and `--allow-dirty`; dry run writes nothing; usage errors; non-git refusal |
 | `apps/server/test/release-changelog.test.ts` | grouping by type and issue; multiple refs; breaking marker; merge exclusion; prose is not a reference; section replacement; empty range writes nothing; history date and `SOURCE_DATE_EPOCH`; invalid date/version |
 | `apps/server/test/release-check.test.ts` | clean pass; package disagreement; missing changelog section; dirty tree before gates; gate failure propagation; `ratchet verify` only when configured; `--with-e2e`; tag mismatch and matching tag |
-| `apps/server/test/release-workflow.test.ts` | triggers; minimal permissions; only `GITHUB_TOKEN`; gates before build; three Dockerfiles; both architectures; SBOM/provenance; GHCR tags; non-tag guards; release notes extraction |
+| `apps/server/test/release-workflow.test.ts` | triggers; minimal permissions; only `GITHUB_TOKEN`; gates before build; three Dockerfiles; both architectures; SBOM/provenance; GHCR tags; every compose-built image in the matrix; non-tag guards; release notes extraction |
 
 `node scripts/count-tests.ts` includes these and the ratchet floor stays a
 floor: nothing was deleted.
 
 ## Manual acceptance (not run here)
 
-1. `pnpm run release:bump --set 2.0.0 --dry-run` on a clean tree: eight
+1. `pnpm run release:bump --set 2.0.0 --dry-run` on a clean tree: nine
    `would write` lines, no diff.
 2. `pnpm run release:changelog --version 2.0.0 --dry-run`: a section that
    groups by issue, with no merge commits.
-3. Actions → Release → Run workflow (`dry_run: true`): three multi-arch builds
+3. Actions → Release → Run workflow (`dry_run: true`): four multi-arch builds
    succeed, nothing appears in GHCR.
 4. On a scratch fork, push a `v2.0.0` tag: the release exists, its notes are
    the changelog section, and `docker manifest inspect` shows both platforms.

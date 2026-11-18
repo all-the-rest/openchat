@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { basicHeader, json, login, makeServer, makeConfig } from "./helpers"
-import { createApp } from "../src/app"
+import { SERVER_VERSION, createApp } from "../src/app"
 import { FakeBackend } from "@openchat/opencode"
 
 describe("healthz", () => {
@@ -11,7 +11,7 @@ describe("healthz", () => {
     expect(await json(response)).toEqual({
       ok: true,
       mode: "fake",
-      version: "0.1.0",
+      version: SERVER_VERSION,
     })
   })
 })
