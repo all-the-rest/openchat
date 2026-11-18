@@ -1,46 +1,58 @@
-"""xlsx_write: write typed cells into one workbook."""
+"""xlsx_write: one sheet with typed cells and an explicit formula map."""
 
-import os
-import sys
+import datetime
+import io
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
-from common import emit, fail, local_path, run  # noqa: E402
+from _common import emit, fail, run
 
-from openpyxl import Workbook  # noqa: E402
-
-MAX_ROWS = 5_000
-MAX_CELLS = 100
+MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+FIXED_TIME = datetime.datetime(2000, 1, 1, 0, 0, 0)
 
 
-def handler(request):
-    sheets = request.get("sheets")
-    if not isinstance(sheets, list) or not sheets:
-        fail("invalid_output")
-    output = local_path(request, "output")
+def clean_strings(worksheet) -> None:
+    # openpyxl treats a leading `=` as a formula. A data cell is data: force the
+    # string type after writing so an imported value cannot become executable.
+    for row in worksheet.iter_rows(min_row=2):
+        for cell in row:
+            if isinstance(cell.value, str) and cell.value.startswith("="):
+                cell.data_type = "s"
+
+
+def main(payload: dict) -> None:
+    headers = payload.get("headers")
+    rows = payload.get("rows")
+    formulas = payload.get("formulas") or {}
+    if not isinstance(headers, list) or not isinstance(rows, list):
+        fail("invalid_input")
+    if not isinstance(formulas, dict):
+        fail("invalid_input")
 
     workbook = Workbook()
-    # Drop the implicit sheet: the request names every sheet explicitly.
-    workbook.remove(workbook.active)
-    for sheet in sheets:
-        if not isinstance(sheet, dict):
-            fail("invalid_output")
-        name = sheet.get("name")
-        rows = sheet.get("rows")
-        if not isinstance(name, str) or not name or not isinstance(rows, list):
-            fail("invalid_output")
-        if len(rows) > MAX_ROWS:
-            fail("crashed")
-        worksheet = workbook.create_sheet(title=name)
-        for row in rows:
-            if not isinstance(row, list) or not row or len(row) > MAX_CELLS:
-                fail("invalid_output")
-            worksheet.append(row)
+    sheet = workbook.active
+    sheet.title = str(payload["sheet"])
+    sheet.append([str(header) for header in headers])
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
 
+    for row in rows:
+        sheet.append(row)
+    clean_strings(sheet)
+
+    for reference, formula in formulas.items():
+        expression = str(formula)
+        sheet[str(reference)] = expression if expression.startswith("=") else "=" + expression
+
+    workbook.properties.creator = "OpenChat"
+    workbook.properties.lastModifiedBy = "OpenChat"
+    workbook.properties.created = FIXED_TIME
+    workbook.properties.modified = FIXED_TIME
+
+    output = io.BytesIO()
     workbook.save(output)
-    if os.path.getsize(output) == 0:
-        fail("crashed")
-    emit({"ok": True, "file": os.path.basename(output)})
+    emit(str(payload["filename"]), MEDIA_TYPE, output.getvalue())
 
 
-run(handler)
+run(main)

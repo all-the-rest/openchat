@@ -39,9 +39,27 @@ All four are session-scoped and sit behind the existing `/api/*` auth guard.
 
 `ChatFileInfo` is `{ name, displayName, size, mtime, mime, origin, sha256 }`:
 the stored name, the owner-facing name (equal unless a collision added a
-suffix), the filesystem size and mtime, the type derived from the stored
-extension, `upload` or `agent`, and the SHA-256 of the exact bytes. No
-filesystem path crosses the wire.
+suffix), the filesystem size and mtime, the MIME (sniffed for uploads, see
+below), `upload` or `agent`, and the SHA-256 of the exact bytes. No filesystem
+path crosses the wire.
+
+## Upload transport (issue #21)
+
+The `POST` route now sniffs magic bytes before writing and stores the sniffed
+MIME rather than the extension-derived one. An extension that disagrees, HTML,
+SVG, an empty body or an unknown binary is `415 unsupported_media_type`; a bad
+name is still `400` and an oversized body still `413`. The composer uploads on
+selection (picker, drop or paste), shows a chip and appends a documented
+reference block to the prompt:
+
+```text
+Attached files:
+- report.pdf (/workspace/chats/<sessionID>/files/report.pdf)
+```
+
+The block is the only attachment signal; the bytes stay on the shared volume.
+Flow, allowlist, i18n strings and the full test matrix are in
+[23-uploads.md](23-uploads.md).
 
 `ChatFileQuota` reports the chat's used and configured bytes plus the same two
 numbers for the whole workspace. The chat list renders that as one progress bar
@@ -125,11 +143,10 @@ the PO catalogue, and the compiled bundles are regenerated with
 ## Deliberately left out
 
 - Upload transport (drag/drop, magic-byte type check, prompt attachment
-  reference) — issue #21. The BFF accepts a raw body so the storage path exists
-  and its `413`/`400` behaviour is testable; the MIME type is derived from the
-  stored extension until #21 adds sniffing.
+  reference) — implemented in [23-uploads.md](23-uploads.md), issue #21.
 - An event-driven refresh of the list when the agent writes a file in the
-  background. The list reads once per chat open and after a delete.
+  background. The list reads once per chat open, after a delete, and after an
+  upload or a send.
 - A cleanup action for old chats: there is no chat deletion in the UI yet, and
   the boot audit deliberately never deletes.
 - An agent-facing tool that writes into `files/`. `ChatFilesStore.write(...,

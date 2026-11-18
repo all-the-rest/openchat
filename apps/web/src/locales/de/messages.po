@@ -173,18 +173,28 @@ msgid "search.lastSource"
 msgstr "Mindestens eine Quelle muss ausgewählt bleiben."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attach"
+msgstr "Dateien anhängen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentsLabel"
+msgstr "Anhänge"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.auto"
 msgstr "Auto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/settings.ts
-msgid "settings.available"
+#: src/i18n/messages/search.ts
+msgid "search.status.available"
 msgstr "Verfügbar"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/search.ts
-msgid "search.status.available"
+#: src/i18n/messages/settings.ts
+msgid "settings.available"
 msgstr "Verfügbar"
 
 #. js-lingui-explicit-id
@@ -888,6 +898,11 @@ msgid "code.reload"
 msgstr "Neu laden"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentRemove"
+msgstr "{name} entfernen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.mermaidLoading"
 msgstr "Diagramm wird gerendert…"
@@ -1238,6 +1253,11 @@ msgid "files.loadFailed"
 msgstr "Die Dateiliste konnte nicht geladen werden."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentQuotaError"
+msgstr "Das Dateikontingent ist erschöpft."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.blockedBody"
 msgstr "Der Frame wurde nie fertig geladen. Öffne Code stattdessen in einem neuen Tab."
@@ -1328,6 +1348,16 @@ msgid "render.retryable"
 msgstr "Dieser Fehler kann erneut versucht werden."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentTooLarge"
+msgstr "Diese Datei ist zu groß."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentTypeError"
+msgstr "Dieser Dateityp ist nicht erlaubt."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.unknownServer"
 msgstr "Dieser Server ist nicht mehr eingerichtet."
@@ -1388,9 +1418,19 @@ msgid "session.untitled"
 msgstr "Unbenannt"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentFailed"
+msgstr "Upload fehlgeschlagen."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.origin.upload"
 msgstr "Hochgeladen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentUploading"
+msgstr "Wird hochgeladen…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts

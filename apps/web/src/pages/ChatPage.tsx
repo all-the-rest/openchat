@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { ChatFiles } from "../chat/ChatFiles"
 import { CompletionPickers } from "../chat/CompletionPicker"
@@ -27,6 +27,8 @@ export function ChatPage() {
   const chat = useChatSession(sessionId)
   const permission = usePermissions(sessionId)
   const consumedFor = useRef<string | null>(null)
+  const [filesVersion, setFilesVersion] = useState(0)
+  const refreshFiles = useCallback(() => setFilesVersion((value) => value + 1), [])
 
   const session = sessions.find((entry) => entry.id === sessionId)
   const title = session?.title || t("session.untitled")
@@ -40,8 +42,11 @@ export function ChatPage() {
 
     consumedFor.current = sessionId
     navigate(location.pathname, { replace: true, state: null })
-    void chat.send(pendingPrompt).catch(() => undefined)
-  }, [pendingPrompt, sessionId, chat, navigate, location.pathname])
+    void chat
+      .send(pendingPrompt)
+      .then(refreshFiles)
+      .catch(() => undefined)
+  }, [pendingPrompt, sessionId, chat, navigate, location.pathname, refreshFiles])
 
   const statusKey: MessageKey = chat.queued
     ? "chat.statusQueued"
@@ -73,7 +78,7 @@ export function ChatPage() {
         <CompletionPickers />
       </header>
 
-      <ChatFiles sessionID={sessionId} />
+      <ChatFiles sessionID={sessionId} version={filesVersion} />
 
       <Transcript
         messages={chat.messages}
@@ -107,6 +112,8 @@ export function ChatPage() {
             running={chat.running}
             disabled={permission.pending}
             draftKey={sessionId}
+            sessionID={sessionId}
+            onAttachmentsChanged={refreshFiles}
           />
 
           <p

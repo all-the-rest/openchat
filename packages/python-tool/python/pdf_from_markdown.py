@@ -1,152 +1,89 @@
-"""pdf_from_markdown: render Markdown as a selectable-text PDF with reportlab.
+"""pdf_from_markdown: Markdown to a selectable-text PDF, no network."""
 
-Built-in fonts only (Helvetica/Courier): no font download, no network. The
-subset covers headings, paragraphs, bullet lists, fenced code, bold, italic and
-inline code. Non-latin-1 glyphs need embedded fonts, which this slice does not
-ship (issue #22).
-"""
+import io
 
-import os
-import re
-import sys
+from reportlab import rl_config
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _common import emit, run
+from xml.sax.saxutils import escape
 
-from common import emit, fail, local_path, run  # noqa: E402
+# Fixed producer, creation date and document id: identical input gives
+# identical bytes, which makes the opt-in reproducibility check meaningful.
+rl_config.invariant = 1
 
-from reportlab.lib.pagesizes import A4  # noqa: E402
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet  # noqa: E402
-from reportlab.lib.units import mm  # noqa: E402
-from reportlab.platypus import (  # noqa: E402
-    ListFlowable,
-    ListItem,
-    Paragraph,
-    Preformatted,
-    SimpleDocTemplate,
-    Spacer,
-)
-
-HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
-BULLET = re.compile(r"^\s*[-*+]\s+(.*)$")
-LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+MEDIA_TYPE = "application/pdf"
 
 
-def escape(text):
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
+def inline(text: str) -> str:
+    escaped = escape(text)
+    # A deliberately small subset: bold, italic and inline code. Links keep
+    # their text and drop the target; the renderer never fetches a URL.
+    escaped = escaped.replace("`", "")
+    escaped = escaped.replace("**", "<b>", 1)
+    while "**" in escaped:
+        escaped = escaped.replace("**", "</b>", 1)
+        if "**" in escaped:
+            escaped = escaped.replace("**", "<b>", 1)
+    if "<b>" in escaped and "</b>" not in escaped:
+        escaped += "</b>"
+    return escaped
+
+
+def build_story(markdown: str, styles) -> list:
+    body = ParagraphStyle(
+        "Body",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=10.5,
+        leading=15,
+        spaceAfter=6,
     )
-
-
-def inline(text):
-    """Escape, then the three inline spans reportlab understands as markup."""
-    text = LINK.sub(lambda match: "%s (%s)" % (match.group(1), match.group(2)), text)
-    text = escape(text)
-    text = re.sub(r"`([^`]+)`", r'<font face="Courier">\1</font>', text)
-    text = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", text)
-    text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", text)
-    return text
-
-
-def styles():
-    base = getSampleStyleSheet()
-    return {
-        "title": base["Title"],
-        "body": base["BodyText"],
-        "bullet": ParagraphStyle("Bullet", parent=base["BodyText"], leftIndent=12),
-        "code": ParagraphStyle(
-            "CodeBlock", parent=base["BodyText"], fontName="Courier", fontSize=8, leading=10
-        ),
-        "headings": [base["Heading1"], base["Heading2"], base["Heading3"]],
+    headings = {
+        1: ParagraphStyle("H1", parent=body, fontName="Helvetica-Bold", fontSize=18, leading=22),
+        2: ParagraphStyle("H2", parent=body, fontName="Helvetica-Bold", fontSize=15, leading=19),
+        3: ParagraphStyle("H3", parent=body, fontName="Helvetica-Bold", fontSize=12.5, leading=16),
     }
-
-
-def flowables(markdown, sheet):
-    flow = []
-    bullets = []
-    paragraph = []
-
-    def flush_bullets():
-        if not bullets:
-            return
-        items = [ListItem(Paragraph(inline(text), sheet["bullet"]), leftIndent=12) for text in bullets]
-        flow.append(ListFlowable(items, bulletType="bullet", start="circle"))
-        bullets.clear()
-
-    def flush_paragraph():
-        if not paragraph:
-            return
-        flow.append(Paragraph(inline(" ".join(paragraph)), sheet["body"]))
-        paragraph.clear()
-
-    def flush_all():
-        flush_paragraph()
-        flush_bullets()
-
-    lines = markdown.splitlines()
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        stripped = line.strip()
-
-        if stripped.startswith("```"):
-            flush_all()
-            index += 1
-            code = []
-            while index < len(lines) and not lines[index].strip().startswith("```"):
-                code.append(lines[index])
-                index += 1
-            index += 1
-            flow.append(Preformatted("\n".join(code), sheet["code"]))
+    story: list = []
+    in_code = False
+    for raw in markdown.splitlines():
+        line = raw.rstrip()
+        if line.startswith("```"):
+            in_code = not in_code
             continue
-
-        if stripped == "":
-            flush_all()
-            flow.append(Spacer(1, 5))
-            index += 1
+        if in_code:
+            story.append(
+                Paragraph(
+                    escape(line).replace(" ", "&nbsp;") or "&nbsp;",
+                    ParagraphStyle("Code", parent=body, fontName="Courier", fontSize=8.5, leading=11),
+                )
+            )
             continue
-
-        heading = HEADING.match(line)
-        if heading:
-            flush_all()
-            level = min(len(heading.group(1)), 3) - 1
-            flow.append(Paragraph(inline(heading.group(2)), sheet["headings"][level]))
-            index += 1
+        if not line.strip():
+            story.append(Spacer(1, 4))
             continue
-
-        bullet = BULLET.match(line)
-        if bullet:
-            flush_paragraph()
-            bullets.append(bullet.group(1))
-            index += 1
+        level = 0
+        while level < len(line) and line[level] == "#":
+            level += 1
+        if 1 <= level <= 3 and line[level : level + 1] == " ":
+            story.append(Paragraph(inline(line[level + 1 :].strip()), headings[level]))
             continue
-
-        if stripped.startswith(">"):
-            flush_all()
-            flow.append(Paragraph(inline(stripped.lstrip("> ").strip()), sheet["bullet"]))
-            index += 1
+        if line.lstrip().startswith(("- ", "* ")):
+            story.append(Paragraph("&bull; " + inline(line.lstrip()[2:].strip()), body))
             continue
-
-        paragraph.append(stripped)
-        index += 1
-
-    flush_all()
-    if not flow:
-        flow.append(Spacer(1, 1))
-    return flow
+        story.append(Paragraph(inline(line.strip()), body))
+    return story
 
 
-def handler(request):
-    markdown = request.get("markdown")
-    title = request.get("title")
-    if not isinstance(markdown, str) or not markdown.strip():
-        fail("invalid_output")
-    if not isinstance(title, str) or not title.strip():
-        title = "Document"
-    output = local_path(request, "output")
-
-    sheet = styles()
+def main(payload: dict) -> None:
+    markdown = payload.get("markdown")
+    if not isinstance(markdown, str):
+        markdown = ""
+    styles = getSampleStyleSheet()
+    output = io.BytesIO()
     document = SimpleDocTemplate(
         output,
         pagesize=A4,
@@ -154,17 +91,11 @@ def handler(request):
         rightMargin=20 * mm,
         topMargin=18 * mm,
         bottomMargin=18 * mm,
-        title=title,
+        title=str(payload.get("title") or "Document"),
         author="OpenChat",
-        creator="openchat-documents",
     )
-    story = [Paragraph(escape(title), sheet["title"]), Spacer(1, 8)]
-    story.extend(flowables(markdown, sheet))
-    document.build(story)
-
-    if os.path.getsize(output) == 0:
-        fail("crashed")
-    emit({"ok": True, "file": os.path.basename(output)})
+    document.build(build_story(markdown, styles))
+    emit(str(payload["filename"]), MEDIA_TYPE, output.getvalue())
 
 
-run(handler)
+run(main)

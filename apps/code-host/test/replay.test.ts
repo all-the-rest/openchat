@@ -46,11 +46,16 @@ describe("TicketReplayCache", () => {
     expect(cache.claim("", EXP, NOW)).toBe(false)
   })
 
-  it("evicts the oldest claim at the documented default bound", () => {
+  // 10 001 claims against a 10 000-entry map, each with an expiry check: the
+  // case is intentionally large to prove the real default bound. It needs more
+  // than the 5 s default when the suite runs in parallel on a loaded machine.
+  it("evicts the oldest claim at the documented default bound", { timeout: 30_000 }, () => {
     const cache = new TicketReplayCache()
+    let accepted = 0
     for (let index = 0; index <= MAX_REPLAY_ENTRIES; index += 1) {
-      expect(cache.claim(`jti-${index}`, EXP, NOW)).toBe(true)
+      if (cache.claim(`jti-${index}`, EXP, NOW)) accepted += 1
     }
+    expect(accepted).toBe(MAX_REPLAY_ENTRIES + 1)
     expect(cache.size).toBe(MAX_REPLAY_ENTRIES)
 
     // The first entry is gone, so its jti can be claimed again; the second

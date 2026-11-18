@@ -1,280 +1,203 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import { mkdtemp, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { pathToFileURL } from "node:url"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import type { ProcessInvocation, ProcessOutcome, ProcessRunner } from "../src/process"
-import { DEFAULT_MEMORY_MB, MAX_OUTPUT_BYTES, createTempDir, runPython } from "../src/runner"
+import { afterEach, describe, expect, it } from "vitest"
+import type { ProcessResult, SpawnFn, SpawnOptions } from "../src/runner"
+import { createRunner } from "../src/runner"
 
-const SCRIPTS = ["docx_fill", "xlsx_write", "pdf_from_markdown", "read_document"]
-const created: string[] = []
+const roots: string[] = []
 
-let scriptDir: URL
-
-beforeAll(() => {
-  const dir = mkdtempSync(join(tmpdir(), "python-tool-scripts-"))
-  created.push(dir)
-  for (const name of SCRIPTS) writeFileSync(join(dir, `${name}.py`), "# fixture\n")
-  scriptDir = pathToFileURL(`${dir}/`)
-})
-
-afterAll(() => {
-  for (const dir of created.splice(0)) rmSync(dir, { recursive: true, force: true })
-})
-
-function tempRoot(): string {
-  const dir = mkdtempSync(join(tmpdir(), "python-tool-root-"))
-  created.push(dir)
+async function root(): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "python-tool-runner-"))
+  roots.push(dir)
   return dir
 }
 
-function outcome(overrides: Partial<ProcessOutcome> = {}): ProcessOutcome {
+afterEach(async () => {
+  for (const dir of roots.splice(0)) await rm(dir, { recursive: true, force: true })
+})
+
+function success(filename = "report.pdf", mediaType = "application/pdf", body = "pdf"): ProcessResult {
   return {
-    status: 0,
-    stdout: '{"ok":true}\n',
+    code: 0,
+    stdout: JSON.stringify({
+      ok: true,
+      filename,
+      mediaType,
+      data: Buffer.from(body).toString("base64"),
+    }),
     stderr: "",
     timedOut: false,
-    spawnFailed: false,
-    stdoutOverflow: false,
-    ...overrides,
   }
 }
 
-interface Fake {
-  runner: ProcessRunner
-  calls: ProcessInvocation[]
-}
-
-function fake(
-  respond: (invocation: ProcessInvocation) => Partial<ProcessOutcome> | Promise<Partial<ProcessOutcome>> = () => ({}),
-): Fake {
-  const calls: ProcessInvocation[] = []
-  const runner: ProcessRunner = async (invocation) => {
-    calls.push(invocation)
-    return outcome(await respond(invocation))
+function withSpawn(result: ProcessResult | (() => Promise<ProcessResult>)): {
+  spawn: SpawnFn
+  calls: SpawnOptions[]
+} {
+  const calls: SpawnOptions[] = []
+  const spawn: SpawnFn = async (_command, _args, options) => {
+    calls.push(options)
+    return typeof result === "function" ? result() : result
   }
-  return { runner, calls }
+  return { spawn, calls }
 }
 
-function run(
-  runner: ProcessRunner,
-  request: Parameters<typeof runPython>[0],
-  extra: { timeoutMs?: number } = {},
-) {
-  return runPython(request, {
-    python: "python3",
-    scriptDir,
-    runProcess: runner,
-    tempRoot: tempRoot(),
-    ...extra,
-  })
-}
+describe("runner: success and isolation", () => {
+  it("parses the structured file and removes the temporary directory", async () => {
+    const tempRoot = await root()
+    const { spawn, calls } = withSpawn(success())
+    const run = createRunner({ spawn, tempRoot })
+    const result = await run("pdf_from_markdown", { markdown: "# Hi" })
 
-describe("subprocess guard", () => {
-  it("runs one fixed script with a JSON payload and reads the declared file", async () => {
-    const { runner, calls } = fake((invocation) => {
-      writeFileSync(join(invocation.cwd, "output.docx"), Buffer.from("PK\u0003\u0004docx"))
-      return { stdout: '{"ok":true,"file":"output.docx"}\n' }
+    expect(result).toMatchObject({
+      ok: true,
+      value: { filename: "report.pdf", mediaType: "application/pdf" },
     })
-    const result = await run(runner, {
-      script: "docx_fill",
-      payload: { title: "Report" },
-      files: { "template.docx": new Uint8Array([0x50, 0x4b]) },
-    })
-
-    expect(result.ok).toBe(true)
-    if (result.ok) {
-      expect(result.value.file?.name).toBe("output.docx")
-      expect(Buffer.from(result.value.file?.bytes ?? []).toString("utf8")).toContain("docx")
-    }
+    if (!result.ok) throw new Error("expected success")
+    expect(result.value.data.toString("utf8")).toBe("pdf")
 
     const call = calls[0]
-    if (!call) throw new Error("no process was started")
-    expect(call.command).toBe("python3")
-    expect(call.args[0]).toBe("-I")
-    expect(call.args[1]).toBe("-B")
-    expect(call.args[2]?.endsWith("docx_fill.py")).toBe(true)
-    expect(call.args[3]).toBe(String(DEFAULT_MEMORY_MB))
-    expect(call.env).toEqual({
-      PATH: "/usr/local/bin:/usr/bin:/bin",
-      HOME: call.cwd,
-      TMPDIR: call.cwd,
-      PYTHONHASHSEED: "0",
-      PYTHONDONTWRITEBYTECODE: "1",
-      LANG: "C.UTF-8",
-      LC_ALL: "C.UTF-8",
+    if (!call) throw new Error("spawn was not called")
+    expect(call.input).toBe(JSON.stringify({ markdown: "# Hi" }))
+    expect(call.env.ARTIFACT_INTERNAL_TOKEN).toBeUndefined()
+    expect(call.env.HOME).toBe(call.cwd)
+    expect(call.cwd.startsWith(tempRoot)).toBe(true)
+    expect(await readdir(tempRoot)).toEqual([])
+  })
+
+  it("writes one JSON object and never a shell string", async () => {
+    const tempRoot = await root()
+    const { spawn, calls } = withSpawn(success())
+    await createRunner({ spawn, tempRoot })("docx_fill", {
+      paragraphs: ["a; echo pwned", "$(id)"],
     })
-    expect(JSON.parse(call.input)).toEqual({
-      title: "Report",
-      output: "output.docx",
-      input: "template.docx",
-    })
-  })
-
-  it("removes the temp dir after a success and after a failure", async () => {
-    const success = fake((invocation) => {
-      writeFileSync(join(invocation.cwd, "output.xlsx"), "xlsx")
-      return { stdout: '{"ok":true,"file":"output.xlsx"}' }
-    })
-    await run(success.runner, { script: "xlsx_write", payload: {} })
-    expect(existsSync(success.calls[0]?.cwd ?? "")).toBe(false)
-
-    const failure = fake(() => ({ status: 1, stdout: "" }))
-    await run(failure.runner, { script: "xlsx_write", payload: {} })
-    expect(existsSync(failure.calls[0]?.cwd ?? "")).toBe(false)
-  })
-
-  it("removes the temp dir after a timeout", async () => {
-    const timeout = fake(() => ({ timedOut: true, status: null }))
-    const result = await run(timeout.runner, { script: "pdf_from_markdown", payload: {} })
-    expect(result).toMatchObject({ ok: false, code: "timeout" })
-    expect(existsSync(timeout.calls[0]?.cwd ?? "")).toBe(false)
-  })
-
-  it("does not leak a stray file on failure either", async () => {
-    const failure = fake((invocation) => {
-      writeFileSync(join(invocation.cwd, "output.docx"), "partial")
-      return { status: 2, stderr: "Traceback (most recent call last):\n  File x\nValueError" }
-    })
-    const result = await run(failure.runner, { script: "docx_fill", payload: {} })
-    expect(result).toMatchObject({ ok: false, code: "crashed" })
-    if (!result.ok) {
-      expect(result.message).not.toContain("Traceback")
-      expect(result.message).not.toContain("ValueError")
-    }
-  })
-
-  it.each([
-    ["a spawn failure", { spawnFailed: true }, "python_missing"],
-    ["a nonzero exit", { status: 1 }, "crashed"],
-    ["malformed stdout", { stdout: "not json\n" }, "invalid_output"],
-    ["empty stdout", { stdout: "" }, "invalid_output"],
-    ["stdout above the cap", { stdoutOverflow: true }, "invalid_output"],
-  ])("maps %s to a fixed code", async (_label, overrides, code) => {
-    const result = await run(fake(() => overrides).runner, {
-      script: "docx_fill",
-      payload: {},
-    })
-    expect(result).toMatchObject({ ok: false, code })
-  })
-
-  it("classifies a MemoryError traceback as a memory failure", async () => {
-    const result = await run(
-      fake(() => ({ status: 1, stderr: "Traceback...\nMemoryError" })).runner,
-      { script: "docx_fill", payload: {} },
-    )
-    expect(result).toMatchObject({ ok: false, code: "memory" })
-  })
-
-  it("maps a script-reported code and falls back for an unknown one", async () => {
-    const macro = await run(
-      fake(() => ({ stdout: '{"ok":false,"code":"macro_document"}' })).runner,
-      { script: "docx_fill", payload: {} },
-    )
-    expect(macro).toMatchObject({ ok: false, code: "macro_document" })
-    if (!macro.ok) expect(macro.message).toContain(".docm")
-
-    const unknown = await run(
-      fake(() => ({ stdout: '{"ok":false,"code":"ZeroDivisionError"}' })).runner,
-      { script: "docx_fill", payload: {} },
-    )
-    expect(unknown).toMatchObject({ ok: false, code: "crashed" })
-  })
-
-  it("returns text for read_document and no file", async () => {
-    const result = await run(
-      fake(() => ({ stdout: '{"ok":true,"text":"# Heading\\n\\nbody"}' })).runner,
-      { script: "read_document", payload: { kind: "docx" }, files: { "input.docx": new Uint8Array([1]) } },
-    )
-    expect(result).toMatchObject({ ok: true, value: { text: "# Heading\n\nbody" } })
-    if (result.ok) expect(result.value.file).toBeUndefined()
-  })
-
-  it("refuses a declared file outside the temp dir", async () => {
-    const outside = mkdtempSync(join(tmpdir(), "python-tool-outside-"))
-    created.push(outside)
-    writeFileSync(join(outside, "secret"), "secret")
-    const result = await run(
-      fake(() => ({ stdout: '{"ok":true,"file":"../secret"}' })).runner,
-      { script: "docx_fill", payload: {} },
-    )
-    expect(result).toMatchObject({ ok: false, code: "invalid_output" })
-  })
-
-  it("refuses a symlinked output", async () => {
-    const outside = mkdtempSync(join(tmpdir(), "python-tool-link-"))
-    created.push(outside)
-    writeFileSync(join(outside, "target"), "target")
-    const result = await run(
-      fake((invocation) => {
-        symlinkSync(join(outside, "target"), join(invocation.cwd, "output.docx"))
-        return { stdout: '{"ok":true,"file":"output.docx"}' }
-      }).runner,
-      { script: "docx_fill", payload: {} },
-    )
-    expect(result).toMatchObject({ ok: false, code: "invalid_output" })
-  })
-
-  it("refuses an output above the byte cap", async () => {
-    const result = await run(
-      fake((invocation) => {
-        writeFileSync(join(invocation.cwd, "output.docx"), Buffer.alloc(MAX_OUTPUT_BYTES + 1))
-        return { stdout: '{"ok":true,"file":"output.docx"}' }
-      }).runner,
-      { script: "docx_fill", payload: {} },
-    )
-    expect(result).toMatchObject({ ok: false, code: "invalid_output" })
-  })
-
-  it("refuses a missing output file", async () => {
-    const result = await run(fake().runner, { script: "docx_fill", payload: {} })
-    expect(result).toMatchObject({ ok: false, code: "invalid_output" })
-  })
-
-  it("refuses unsafe input file names and more than one input", async () => {
-    const unsafe = await run(fake().runner, {
-      script: "docx_fill",
-      payload: {},
-      files: { "../escape.docx": new Uint8Array([1]) },
-    })
-    expect(unsafe).toMatchObject({ ok: false, code: "invalid_output" })
-
-    const two = await run(fake().runner, {
-      script: "docx_fill",
-      payload: {},
-      files: { "a.docx": new Uint8Array([1]), "b.docx": new Uint8Array([2]) },
-    })
-    expect(two).toMatchObject({ ok: false, code: "invalid_output" })
-  })
-
-  it("reports a missing script as an internal fault, not a Python failure", async () => {
-    const missing = await runPython(
-      { script: "docx_fill", payload: {} },
-      {
-        python: "python3",
-        scriptDir: pathToFileURL(`${tempRoot()}/`),
-        runProcess: fake().runner,
-      },
-    )
-    expect(missing).toMatchObject({ ok: false, code: "invalid_output" })
+    const call = calls[0]
+    if (!call) throw new Error("spawn was not called")
+    expect(() => JSON.parse(call.input) as unknown).not.toThrow()
+    expect(call.input).toContain("a; echo pwned")
   })
 })
 
-describe("temp dir", () => {
-  it("removes idempotently", async () => {
-    const dir = await createTempDir(tempRoot())
-    expect(existsSync(dir.path)).toBe(true)
-    await dir.remove()
-    await dir.remove()
-    expect(existsSync(dir.path)).toBe(false)
+describe("runner: error mapping", () => {
+  it("kills on timeout with a fixed message", async () => {
+    const tempRoot = await root()
+    const run = createRunner({
+      spawn: withSpawn({ code: null, stdout: "", stderr: "", timedOut: true }).spawn,
+      tempRoot,
+    })
+    expect(await run("pdf_from_markdown", {})).toEqual({
+      ok: false,
+      error: "timeout: the document tool did not finish in 30 s",
+    })
+    expect(await readdir(tempRoot)).toEqual([])
   })
 
-  it("creates a directory below the injected root", async () => {
-    const root = tempRoot()
-    const dir = await createTempDir(root)
-    expect(dir.path.startsWith(root)).toBe(true)
-    mkdirSync(join(dir.path, "nested"), { recursive: true })
-    await dir.remove()
-    expect(existsSync(dir.path)).toBe(false)
+  it("maps a structured nonzero exit to its fixed message", async () => {
+    const tempRoot = await root()
+    const run = createRunner({
+      spawn: withSpawn({
+        code: 1,
+        stdout: '{"ok":false,"code":"parse_failed"}',
+        stderr: "",
+        timedOut: false,
+      }).spawn,
+      tempRoot,
+    })
+    expect(await run("read_document", {})).toEqual({
+      ok: false,
+      error: "parse: the document could not be read",
+    })
+  })
+
+  it("never returns stderr or a traceback", async () => {
+    const tempRoot = await root()
+    const traceback = "Traceback (most recent call last):\n  File \"x.py\", line 1, in <module>\nSecret"
+    const run = createRunner({
+      spawn: withSpawn({ code: 1, stdout: "", stderr: traceback, timedOut: false }).spawn,
+      tempRoot,
+    })
+    const result = await run("docx_fill", {})
+    expect(result).toEqual({ ok: false, error: "internal: the document tool failed" })
+    if (result.ok) throw new Error("expected failure")
+    expect(result.error).not.toContain("Traceback")
+    expect(result.error).not.toContain("Secret")
+  })
+
+  it("maps a malformed success body without echoing it", async () => {
+    const tempRoot = await root()
+    const run = createRunner({
+      spawn: withSpawn({
+        code: 0,
+        stdout: "not json",
+        stderr: "UPSTREAM-TEXT",
+        timedOut: false,
+      }).spawn,
+      tempRoot,
+    })
+    const result = await run("xlsx_write", {})
+    expect(result).toEqual({
+      ok: false,
+      error: "internal: the document tool answered an unexpected body",
+    })
+    if (result.ok) throw new Error("expected failure")
+    expect(result.error).not.toContain("UPSTREAM-TEXT")
+  })
+
+  it("rejects a file outside the tool's extension or over the cap", async () => {
+    const tempRoot = await root()
+    const wrong = createRunner({
+      spawn: withSpawn(success("report.pdf")).spawn,
+      tempRoot,
+    })
+    expect(await wrong("docx_fill", {})).toEqual({
+      ok: false,
+      error: "internal: the document tool answered an unexpected body",
+    })
+
+    const big = createRunner({
+      spawn: withSpawn(success("big.pdf", "application/pdf", "x".repeat(701 * 1024))).spawn,
+      tempRoot,
+    })
+    expect(await big("pdf_from_markdown", {})).toEqual({
+      ok: false,
+      error: "size: the generated document exceeds the artifact limit",
+    })
+  })
+
+  it("reports a missing interpreter and a spawn failure distinctly", async () => {
+    const tempRoot = await root()
+    const missing = createRunner({
+      spawn: withSpawn({ code: null, stdout: "", stderr: "", timedOut: false, failure: "spawn" }).spawn,
+      tempRoot,
+    })
+    expect(await missing("docx_fill", {})).toEqual({
+      ok: false,
+      error: "python: the document tool could not start; run pnpm run setup:python",
+    })
+
+    const thrown = createRunner({
+      spawn: async () => {
+        throw new Error("boom")
+      },
+      tempRoot,
+    })
+    expect(await thrown("docx_fill", {})).toEqual({
+      ok: false,
+      error: "internal: the document tool failed",
+    })
+    expect(await readdir(tempRoot)).toEqual([])
+  })
+
+  it("stops at the child-output cap", async () => {
+    const tempRoot = await root()
+    const run = createRunner({
+      spawn: withSpawn({ code: null, stdout: "", stderr: "", timedOut: false, failure: "output" }).spawn,
+      tempRoot,
+    })
+    expect(await run("xlsx_write", {})).toEqual({
+      ok: false,
+      error: "internal: the document tool produced too much output",
+    })
   })
 })

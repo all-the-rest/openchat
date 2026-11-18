@@ -1,110 +1,78 @@
-"""read_document: DOCX, XLSX and PDF text as Markdown for the agent."""
+"""read_document: DOCX, XLSX, PPTX, PDF or text to Markdown via markitdown."""
 
+import io
 import os
-import sys
+import zipfile
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from markitdown import MarkItDown, StreamInfo
 
-from common import emit, fail, local_path, run, truncate  # noqa: E402
+from _common import decode_payload, emit, fail, run
 
-
-def markdown_table(rows):
-    if not rows:
-        return []
-    width = max(len(row) for row in rows)
-    normalised = []
-    for row in rows:
-        cells = []
-        for cell in row:
-            value = "" if cell is None else str(cell)
-            cells.append(value.replace("|", "\\|").replace("\n", " ").strip())
-        cells.extend([""] * (width - len(cells)))
-        normalised.append(cells)
-    header, *body = normalised
-    lines = ["| " + " | ".join(header) + " |", "| " + " | ".join(["---"] * width) + " |"]
-    for row in body:
-        lines.append("| " + " | ".join(row) + " |")
-    return lines
+MEDIA_TYPE = "text/markdown"
+TEXT_EXTENSIONS = (".md", ".markdown", ".txt")
+DOCUMENT_MIMETYPES = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".pdf": "application/pdf",
+}
+# An OOXML package is a ZIP with one of these parts. Checking the container
+# first turns a renamed text file into a stable `parse_failed` instead of
+# letting markitdown's text fallback echo the bytes back as Markdown.
+REQUIRED_PART = {
+    ".docx": "word/document.xml",
+    ".xlsx": "xl/workbook.xml",
+    ".pptx": "ppt/presentation.xml",
+}
 
 
-def read_docx(path):
-    from docx import Document
-
-    document = Document(path)
-    parts = []
-    for paragraph in document.paragraphs:
-        text = paragraph.text.strip()
-        if not text:
-            continue
-        style = (paragraph.style.name or "").lower()
-        if style.startswith("heading"):
-            level = style.replace("heading", "").strip()
-            depth = int(level) if level.isdigit() else 2
-            parts.append("#" * max(1, min(depth, 6)) + " " + text)
-        elif style == "title":
-            parts.append("# " + text)
-        else:
-            parts.append(text)
-    for index, table in enumerate(document.tables, start=1):
-        parts.append("## Table %d" % index)
-        rows = []
-        for row in table.rows:
-            rows.append([cell.text.strip() for cell in row.cells])
-        parts.extend(markdown_table(rows))
-    for section_index, section in enumerate(document.sections, start=1):
-        for label, part in (("Header", section.header), ("Footer", section.footer)):
-            text = "\n".join(p.text.strip() for p in part.paragraphs if p.text.strip())
-            if text:
-                parts.append("### %s %d\n\n%s" % (label, section_index, text))
-    return "\n\n".join(parts)
+def verify(data: bytes, extension: str) -> None:
+    if extension == ".pdf":
+        if not data.startswith(b"%PDF-"):
+            fail("parse_failed")
+        return
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            names = set(archive.namelist())
+    except Exception:
+        fail("parse_failed")
+    if REQUIRED_PART[extension] not in names:
+        fail("parse_failed")
 
 
-def read_xlsx(path):
-    from openpyxl import load_workbook
-
-    workbook = load_workbook(path, read_only=True, data_only=False)
-    parts = []
-    for worksheet in workbook.worksheets:
-        parts.append("## " + str(worksheet.title))
-        rows = []
-        for row in worksheet.iter_rows(values_only=True):
-            if row is None or all(cell is None or str(cell).strip() == "" for cell in row):
-                continue
-            rows.append(list(row))
-            if len(rows) >= 5000:
-                break
-        parts.extend(markdown_table(rows) or ["(empty sheet)"])
-    return "\n\n".join(parts)
+def convert(data: bytes, extension: str) -> str:
+    """One markitdown conversion; every failure becomes the same stable code."""
+    try:
+        result = MarkItDown(enable_plugins=False).convert_stream(
+            io.BytesIO(data),
+            stream_info=StreamInfo(
+                extension=extension,
+                mimetype=DOCUMENT_MIMETYPES[extension],
+            ),
+        )
+    except Exception:
+        fail("parse_failed")
+    return str(result.markdown)
 
 
-def read_pdf(path):
-    from pypdf import PdfReader
+def main(payload: dict) -> None:
+    name = str(payload.get("filename") or "")
+    raw = decode_payload(str(payload.get("data") or ""))
+    extension = os.path.splitext(name)[1].lower()
 
-    reader = PdfReader(path)
-    parts = []
-    for index, page in enumerate(reader.pages, start=1):
-        try:
-            text = (page.extract_text() or "").strip()
-        except Exception:
-            text = ""
-        if text:
-            parts.append("## Page %d\n\n%s" % (index, text))
-    return "\n\n".join(parts)
+    if extension in TEXT_EXTENSIONS:
+        text = raw.decode("utf-8", errors="replace")
+    elif extension in DOCUMENT_MIMETYPES:
+        verify(raw, extension)
+        text = convert(raw, extension)
+    else:
+        fail("unsupported")
 
+    if not text.strip():
+        fail("parse_failed")
 
-READERS = {"docx": read_docx, "xlsx": read_xlsx, "pdf": read_pdf}
-
-
-def handler(request):
-    kind = request.get("kind")
-    if kind not in READERS:
-        fail("unsupported_document")
-    path = local_path(request, "input")
-    text = READERS[kind](path)
-    text = truncate(text.strip())
-    if not text:
-        fail("empty_document")
-    emit({"ok": True, "text": text})
+    stem = os.path.splitext(os.path.basename(name))[0] or "document"
+    emit(f"{stem}.md", MEDIA_TYPE, text.encode("utf-8"))
 
 
-run(handler)
+run(main)

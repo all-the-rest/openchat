@@ -42,6 +42,8 @@ export interface ChatFileDraft {
   name: string
   bytes: Buffer
   origin: ChatFileOrigin
+  /** Sniffed MIME from the upload route; extension fallback for agent writes. */
+  mime?: string
 }
 
 export type ChatFileFailureReason =
@@ -269,7 +271,7 @@ export class ChatFilesStore {
           displayName,
           size: bytes.byteLength,
           mtime: stat.mtime.toISOString(),
-          mime: mimeForFile(storedName),
+          mime: draft.mime ?? mimeForFile(storedName),
           origin: draft.origin,
           sha256: createHash("sha256").update(bytes).digest("hex"),
         }

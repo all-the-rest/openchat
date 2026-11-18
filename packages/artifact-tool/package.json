@@ -5,9 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/tool.ts",
-    "./bff": "./src/bff.ts",
-    "./env": "./src/env.ts",
-    "./shell": "./src/shell.ts"
+    "./bff": "./src/bff.ts"
   },
   "scripts": {
     "dev": "tsx src/index.ts",

@@ -173,18 +173,28 @@ msgid "search.lastSource"
 msgstr "At least one source must stay selected."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attach"
+msgstr "Attach files"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentsLabel"
+msgstr "Attachments"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.auto"
 msgstr "Auto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/settings.ts
-msgid "settings.available"
+#: src/i18n/messages/search.ts
+msgid "search.status.available"
 msgstr "Available"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/search.ts
-msgid "search.status.available"
+#: src/i18n/messages/settings.ts
+msgid "settings.available"
 msgstr "Available"
 
 #. js-lingui-explicit-id
@@ -888,6 +898,11 @@ msgid "code.reload"
 msgstr "Reload"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentRemove"
+msgstr "Remove {name}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.mermaidLoading"
 msgstr "Rendering diagram…"
@@ -1238,6 +1253,11 @@ msgid "files.loadFailed"
 msgstr "The file list could not be loaded."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentQuotaError"
+msgstr "The file quota is exhausted."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
 msgid "code.blockedBody"
 msgstr "The frame never finished loading. Open Code in a new tab instead."
@@ -1328,6 +1348,16 @@ msgid "render.retryable"
 msgstr "This error can be retried."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentTooLarge"
+msgstr "This file is too large."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentTypeError"
+msgstr "This file type is not allowed."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.error.unknownServer"
 msgstr "This server is no longer configured."
@@ -1388,9 +1418,19 @@ msgid "session.untitled"
 msgstr "Untitled"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentFailed"
+msgstr "Upload failed."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.origin.upload"
 msgstr "Uploaded"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.attachmentUploading"
+msgstr "Uploading…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts

@@ -4,11 +4,16 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type ClipboardEvent,
+  type DragEvent,
   type KeyboardEvent,
 } from "react"
 import type { DictationInfo } from "@openchat/contracts"
 import { useI18n, useT } from "../i18n/provider"
 import { SendIcon, StopIcon } from "../components/icons"
+import { AttachmentChipList, AttachmentPicker } from "./AttachmentChips"
+import { withAttachmentReferences } from "./attachment-ref"
+import { useAttachments } from "./useAttachments"
 import { HOST_BANNER_ID } from "../components/HostStatusBanner"
 import { useSurfaceOrNull } from "../code/SurfaceProvider"
 import { DictationButton } from "../dictation/DictationButton"
@@ -32,6 +37,10 @@ export interface ComposerProps {
   draftKey?: string
   /** Explicit capability override; omitted means "read `GET /api/info`". */
   dictation?: DictationInfo | null
+  /** Session that owns uploaded files; attachments are disabled without it. */
+  sessionID?: string
+  /** Called after an upload or a send so the file list can refetch. */
+  onAttachmentsChanged?: () => void
 }
 
 const MAX_HEIGHT = 8 * 24
@@ -44,9 +53,19 @@ export function Composer({
   autoFocus = false,
   draftKey,
   dictation: dictationOverride,
+  sessionID,
+  onAttachmentsChanged,
 }: ComposerProps) {
   const t = useT()
   const { locale } = useI18n()
+  const {
+    attachments,
+    uploading,
+    storedNames,
+    addFiles,
+    remove: removeAttachment,
+    clearSent,
+  } = useAttachments(sessionID, () => onAttachmentsChanged?.())
   // The shell's banner explains the outage; here it only disables the send
   // path. Keep the textarea usable so the draft is not lost.
   const hostUnreachable = useSurfaceOrNull()?.hostReachable === false
@@ -125,23 +144,55 @@ export function Composer({
   }, [value])
 
   const submit = useCallback(async () => {
-    if (hostUnreachable) return
+    if (hostUnreachable || uploading) return
     const text = value.trim()
     if (!text || sending) return
     setSending(true)
     try {
-      await onSend(text)
-      // Sent: the draft is consumed. A failure keeps it (and its stored copy).
+      await onSend(withAttachmentReferences(text, sessionID ?? "", storedNames))
+      // Sent: the draft and its uploaded chips are consumed. A failure keeps
+      // both, and an errored chip stays until the owner removes it.
       updateValue("")
+      clearSent()
+      onAttachmentsChanged?.()
     } catch {
       // Keep the draft so a failed request never loses the prompt.
     } finally {
       setSending(false)
     }
-  }, [hostUnreachable, value, sending, onSend, updateValue])
+  }, [
+    hostUnreachable,
+    uploading,
+    value,
+    sending,
+    onSend,
+    updateValue,
+    sessionID,
+    storedNames,
+    clearSent,
+    onAttachmentsChanged,
+  ])
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     updateValue(event.target.value)
+  }
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (disabled || uploading || event.dataTransfer.files.length === 0) return
+    event.preventDefault()
+    addFiles(Array.from(event.dataTransfer.files))
+  }
+
+  const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(event.clipboardData?.items ?? [])
+    const files = items.flatMap((item) => {
+      if (item.kind !== "file") return []
+      const file = item.getAsFile()
+      return file ? [file] : []
+    })
+    if (files.length === 0 || disabled || uploading) return
+    event.preventDefault()
+    addFiles(files)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -157,7 +208,12 @@ export function Composer({
   const recording = dictation.status === "recording" || dictation.status === "requesting"
 
   return (
-    <div className="w-full">
+    <div
+      data-testid="composer-dropzone"
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={handleDrop}
+      className="w-full"
+    >
       {recording ? (
         <RecordingPill
           elapsedMs={dictation.elapsedMs}
@@ -174,6 +230,7 @@ export function Composer({
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           rows={1}
           autoFocus={autoFocus}
           disabled={disabled}
@@ -182,6 +239,7 @@ export function Composer({
           className="max-h-48 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 text-base-content outline-none placeholder:text-muted"
         />
         <div className="flex items-center gap-1">
+          {sessionID ? <AttachmentPicker onPick={addFiles} /> : null}
           {dictation.enabled ? <DictationButton dictation={dictation} /> : null}
           {running ? (
             <button
@@ -199,7 +257,7 @@ export function Composer({
             type="button"
             data-testid="send"
             onClick={() => void submit()}
-            disabled={disabled || hostUnreachable || value.trim().length === 0}
+            disabled={disabled || hostUnreachable || uploading || value.trim().length === 0}
             aria-describedby={hostUnreachable ? HOST_BANNER_ID : undefined}
             aria-label={t("composer.send")}
             title={hostUnreachable ? t("host.unreachable") : t("composer.send")}
@@ -213,6 +271,9 @@ export function Composer({
           </button>
         </div>
       </div>
+      {sessionID && attachments.length > 0 ? (
+        <AttachmentChipList attachments={attachments} onRemove={removeAttachment} />
+      ) : null}
       {dictation.enabled ? <DictationFeedback dictation={dictation} /> : null}
       {coarsePointer ? null : (
         <p className="px-2 pt-1.5 text-xs text-muted">{t("composer.hint")}</p>

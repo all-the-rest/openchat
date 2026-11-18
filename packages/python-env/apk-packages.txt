@@ -1,0 +1,13 @@
+# Alpine packages that provide the native half of the document toolchain.
+# Versions are pinned; the image installs exactly these (`apk add` reads the
+# lines through xargs). requirements-dev.lock pins the same distribution
+# versions for workstations without apk; the lock test keeps the two in sync.
+#
+# py3-openpyxl pulls py3-lxml, py3-pandas and py3-pillow; the explicit lines
+# document the full set and make a silent dependency change a build failure.
+py3-onnxruntime=1.24.4-r1
+py3-pandas=3.0.3-r0
+py3-lxml=6.1.1-r0
+py3-openpyxl=3.1.5-r1
+py3-cryptography=47.0.0-r0
+py3-pillow=12.2.0-r0

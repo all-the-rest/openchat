@@ -1,6 +1,7 @@
 import type {
   AppsResponse,
   ArtifactResponse,
+  ChatFileInfo,
   ChatFilesResponse,
   CodeStatusResponse,
   CodeTicketResponse,
@@ -215,6 +216,19 @@ export const api = {
    */
   chatFileDownloadUrl(sessionID: string, name: string): string {
     return `${sessionPath(sessionID)}/files/${encodeURIComponent(name)}`
+  },
+
+  /**
+   * Raw file bytes for one chat. The name travels in the query and the BFF
+   * sniffs the body, so the browser's `File.type` is never trusted or sent.
+   */
+  uploadChatFile(sessionID: string, name: string, bytes: Blob): Promise<ChatFileInfo> {
+    const params = new URLSearchParams({ name })
+    return request<ChatFileInfo>(`${sessionPath(sessionID)}/files?${params.toString()}`, {
+      method: "POST",
+      body: bytes,
+      headers: { "content-type": "application/octet-stream" },
+    })
   },
 
   deleteChatFile(sessionID: string, name: string): Promise<void> {

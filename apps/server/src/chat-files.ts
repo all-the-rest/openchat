@@ -10,11 +10,14 @@ import type { ChatFileFailureReason } from "./chat-files-store"
 import { isSafeFileName, isSafeSessionID } from "./chat-files-paths"
 import { ChatFilesStore } from "./chat-files-store"
 import type { EnvConfig } from "./env"
+import { extensionMatches, sniffFile } from "./file-sniff"
 import { jsonError, payloadTooLarge } from "./http"
 
 const INVALID_SESSION = "Session id must be a single safe path segment"
 const INVALID_NAME = "File name must be a single safe path segment"
 const EMPTY = "File must not be empty"
+const UNSUPPORTED = "This file type is not allowed"
+const MISMATCH = "The file type does not match the file name"
 const QUOTA_CHAT = "This chat's file quota is exhausted"
 const QUOTA_TOTAL = "The workspace file quota is exhausted"
 const CONFLICT = "A file with this name already exists"
@@ -98,21 +101,32 @@ export function registerChatFilesRoutes(app: Hono<AppEnv>, config: EnvConfig): v
    * The body is the exact file bytes; the name travels in the query so a
    * `Content-Disposition` or multipart parser never sees untrusted input. The
    * route trusts `WORKSPACE_MAX_FILE_BYTES`; the node adapter and the request
-   * guard cap the body at the same value before this handler runs.
+   * guard cap the body at the same value before this handler runs. Magic bytes
+   * decide the type: an extension that disagrees, markup or an unknown binary
+   * is refused before the store sees the body.
    */
   app.post("/api/sessions/:id/files", async (c) => {
     c.header("Cache-Control", "no-store")
     const sessionID = c.req.param("id") ?? ""
-    const invalid = rejected(c, sessionID)
+    const name = c.req.query("name") ?? ""
+    const invalid = rejected(c, sessionID, name)
     if (invalid) return invalid
     const bytes = Buffer.from(await c.req.arrayBuffer())
     if (bytes.byteLength > config.WORKSPACE_MAX_FILE_BYTES) {
       return payloadTooLarge(c, config.WORKSPACE_MAX_FILE_BYTES)
     }
+    const sniffed = sniffFile(bytes)
+    if (!sniffed) {
+      return jsonError(c, 415, "unsupported_media_type", UNSUPPORTED)
+    }
+    if (!extensionMatches(name, sniffed.kind)) {
+      return jsonError(c, 415, "unsupported_media_type", MISMATCH)
+    }
     const result = await store.write(sessionID, {
-      name: c.req.query("name") ?? "",
+      name,
       bytes,
       origin: "upload",
+      mime: sniffed.mime,
     })
     if (!result.ok) {
       return writeFailure(c, result.reason, config.WORKSPACE_MAX_FILE_BYTES)
