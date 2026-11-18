@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process"
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -77,9 +78,18 @@ function composeRender(escaped: string): string {
 
 const DIGEST = "$2b$12$spVi86mZhum2ngLrW8ZH7Om0ROPu20t.XaZYoEML6L42PCyOhQuQq"
 
+/** Multi-arch index digest from `docker buildx imagetools inspect`. */
+const OPENCODE_INDEX_DIGEST =
+  "sha256:be07cc4afd6d668d91b77accf1bc4338c87b39fbacc0a61666eb003781015f5a"
+
 describe("derived OpenCode image", () => {
-  it("pins the official 2.3.2 base and never uses latest", () => {
-    expect(DOCKERFILE).toContain("ARG OPENCODE_BASE=ghcr.io/anomalyco/opencode:2.3.2")
+  it("pins the official 2.3.2 base by tag and index digest", () => {
+    expect(DOCKERFILE).toContain(
+      `ARG OPENCODE_BASE=ghcr.io/anomalyco/opencode:2.3.2@${OPENCODE_INDEX_DIGEST}`,
+    )
+    expect(DOCKERFILE).toMatch(
+      /^ARG OPENCODE_BASE=ghcr\.io\/anomalyco\/opencode:2\.3\.2@sha256:[0-9a-f]{64}$/m,
+    )
     expect(DOCKERFILE).toContain("FROM ${OPENCODE_BASE}")
     // `latest` is the stale 1.19.6 line (measured); no image may use it.
     expect(DOCKERFILE).not.toMatch(/^ARG OPENCODE_BASE=.*:latest$/m)
@@ -306,6 +316,23 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
     expect(bash([SEED, "--stack-dir", stack]).status).toBe(0)
     expect(readFileSync(file, "utf8")).toBe(`${text}\n`)
     expect(statSync(file).mtimeMs).toBe(stamp)
+  })
+
+  it("repairs a pre-existing world-readable config without touching its bytes", () => {
+    const stack = temp("openchat-seed-mode-")
+    const dir = join(stack, "opencode-config")
+    mkdirSync(dir, { recursive: true })
+    const file = join(dir, "opencode.json")
+    const body = '{"mcp":{"openchat":{"type":"local"}}}\n'
+    writeFileSync(file, body)
+    chmodSync(file, 0o644)
+    expect(statSync(file).mode & 0o777).toBe(0o644)
+
+    const result = bash([SEED, "--stack-dir", stack])
+    expect(result.status, result.stderr).toBe(0)
+    expect(statSync(file).mode & 0o777).toBe(0o600)
+    expect(readFileSync(file, "utf8")).toBe(body)
+    expect(result.stdout).toContain("repaired mode")
   })
 })
 

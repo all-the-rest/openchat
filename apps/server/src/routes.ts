@@ -21,7 +21,7 @@ import {
   sessionCookie,
   verifyCredentials,
 } from "./auth"
-import type { AuthSettings } from "./auth"
+import type { AuthSettings, CredentialVerifier } from "./auth"
 import type { AppEnv } from "./app"
 import type { EnvConfig } from "./env"
 import {
@@ -41,15 +41,22 @@ import { registerArtifactInternalRoute } from "./artifacts-internal"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
-import type { FixedWindowThrottle } from "./throttle"
+import type { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { SSE_RETRY_FRAME } from "./sse"
 import { registerTranscribeRoute } from "./transcribe"
+
+/** Fixed `Retry-After` for a login rejected by the concurrency gate. */
+export const LOGIN_BUSY_RETRY_AFTER_SECONDS = 1
 
 export interface RouteDeps {
   config: EnvConfig
   backend: ChatBackend
   settings: AuthSettings
   loginThrottle: FixedWindowThrottle
+  /** Caps concurrent bcrypt rounds; shared by every login request. */
+  verificationGate: VerificationGate
+  /** Injected by tests to hold a verification open; defaults to bcrypt. */
+  verify?: CredentialVerifier
   promptThrottle: FixedWindowThrottle
   /** Upstream STT deadline; injectable so tests need not wait 30 s. */
   sttTimeoutMs: number
@@ -86,7 +93,8 @@ function sseHeaders(): Record<string, string> {
 }
 
 function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
-  const { config, settings, loginThrottle } = deps
+  const { config, settings, loginThrottle, verificationGate } = deps
+  const verify = deps.verify ?? verifyCredentials
 
   app.post("/api/auth/login", async (c) => {
     const body = await readJson(c)
@@ -106,13 +114,27 @@ function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
       return jsonError(c, 429, "too_many_requests", "Too many failed login attempts")
     }
 
-    const user = await verifyCredentials(
-      parsed.data.user,
-      parsed.data.password,
-      settings,
-    )
+    // Every attempt is counted before the password check, so a parallel burst
+    // cannot all reach bcrypt while the budget still reads empty. A success
+    // resets the bucket, exactly as before: a successful attempt therefore does
+    // not stay counted for the rest of the window, it clears the failures in
+    // front of it. An address that never succeeds is blocked on the attempt
+    // after its tenth inside the window, whether that attempt was cheap or not.
+    loginThrottle.record(address)
+    if (!verificationGate.tryAcquire()) {
+      c.header("Retry-After", String(LOGIN_BUSY_RETRY_AFTER_SECONDS))
+      return jsonError(c, 429, "server_busy", "Too many concurrent login attempts")
+    }
+
+    let user: string | null
+    try {
+      user = await verify(parsed.data.user, parsed.data.password, settings)
+    } finally {
+      // Also runs when bcrypt throws on a malformed hash, so a bad row in the
+      // environment cannot wedge the gate shut.
+      verificationGate.release()
+    }
     if (!user) {
-      loginThrottle.record(address)
       return jsonError(c, 401, "invalid_credentials", "Invalid user or password")
     }
     loginThrottle.reset(address)

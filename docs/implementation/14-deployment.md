@@ -275,10 +275,11 @@ Domains (the only place hostnames are configured — `deploy/env.example`):
 
 Cookie rules (they are the reason the three origins stay separate):
 
-- **App session.** `HttpOnly`, `Secure` (`COOKIE_SECURE=1`, required in
-  production), `SameSite=Lax`, `Path=/`, **no `Domain` attribute** — host-only,
-  so it is never sent to the code or artifact origin, and never to a sibling
-  subdomain.
+- **App session.** `__Host-oc_session` when `COOKIE_SECURE=1` (the `__Host-`
+  prefix makes a `Domain` attribute invalid to the browser; development keeps
+  `oc_session`), `HttpOnly`, `Secure` in production, `SameSite=Lax`, `Path=/`,
+  **no `Domain` attribute** — host-only, so it is never sent to the code or
+  artifact origin, and never to a sibling subdomain.
 - **Code host session.** `__Host-oc_code` (the `__Host-` prefix makes a `Domain`
   attribute invalid to the browser) with the same `HttpOnly`/`Secure`/
   `SameSite=Lax` shape. It is minted only by the single-use ticket exchange

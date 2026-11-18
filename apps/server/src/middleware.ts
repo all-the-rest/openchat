@@ -6,9 +6,11 @@ import type { AppEnv } from "./app"
 import type { EnvConfig } from "./env"
 import { jsonError, payloadTooLarge } from "./http"
 import { ARTIFACT_BODY_MAX_BYTES, MAX_BODY_BYTES } from "./limits"
+import type { FixedWindowThrottle } from "./throttle"
 import { TRANSCRIBE_PATH } from "./transcribe"
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
+const LOGIN_PATH = "/api/auth/login"
 const LOGOUT_PATH = "/api/auth/logout"
 const ARTIFACTS_PATH = "/api/artifacts"
 
@@ -154,22 +156,48 @@ export function registerRequestGuards(app: Hono<AppEnv>): void {
   })
 }
 
+export interface AuthGuardDeps {
+  config: EnvConfig
+  loginThrottle: FixedWindowThrottle
+}
+
+/**
+ * `AUTH_MODE=basic` is kept for scripted deployments (a cron job or a health
+ * probe that can send an `Authorization` header); production runs session mode.
+ * Basic verifies the header on every `/api/*` request, so it shares the login
+ * budget: otherwise any route would be an unthrottled credential oracle.
+ */
 export function registerAuthentication(
   app: Hono<AppEnv>,
   settings: AuthSettings,
+  deps: AuthGuardDeps,
 ): void {
+  const { config, loginThrottle } = deps
   app.use("/api/*", async (c, next) => {
-    if (c.req.path === "/api/auth/login") {
+    if (c.req.path === LOGIN_PATH) {
       await next()
       return
     }
+
+    let address: string | undefined
+    if (settings.mode === "basic") {
+      address = clientAddress(c, config.TRUST_PROXY)
+      const throttle = loginThrottle.check(address)
+      if (throttle.limited) {
+        c.header("Retry-After", String(throttle.retryAfterSeconds))
+        return jsonError(c, 429, "too_many_requests", "Too many failed login attempts")
+      }
+    }
+
     const user = authenticate(c.req.raw, settings)
     if (!user) {
+      if (address !== undefined) loginThrottle.record(address)
       if (settings.mode === "basic") {
         c.header("WWW-Authenticate", 'Basic realm="OpenChat"')
       }
       return jsonError(c, 401, "unauthorized", "Authentication required")
     }
+    if (address !== undefined) loginThrottle.reset(address)
     c.set("user", user)
     await next()
   })

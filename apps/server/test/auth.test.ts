@@ -37,7 +37,7 @@ describe("session auth", () => {
     expect(cookie).not.toContain("Secure")
   })
 
-  it("marks the cookie Secure when COOKIE_SECURE=1", async () => {
+  it("uses the __Host- name with Secure when COOKIE_SECURE=1", async () => {
     const server = makeServer({ env: { COOKIE_SECURE: "1" } })
     const response = await server.app.request("/api/auth/login", {
       method: "POST",
@@ -45,7 +45,28 @@ describe("session auth", () => {
       body: JSON.stringify({ user: "owner", password: "secret-password" }),
     })
     const cookie = response.headers.get("set-cookie") ?? ""
+    expect(cookie.startsWith("__Host-oc_session=")).toBe(true)
     expect(cookie).toContain("Secure")
+    expect(cookie).toContain("Path=/")
+    expect(cookie).not.toContain("Domain")
+  })
+
+  it("ignores a stale unprefixed cookie when Secure is on", async () => {
+    const server = makeServer({ env: { COOKIE_SECURE: "1" } })
+    const cookie = await login(server)
+    expect(cookie.startsWith("__Host-oc_session=")).toBe(true)
+
+    // An older release or a sibling subdomain could plant this name; only the
+    // active `__Host-` name may authenticate.
+    const stale = cookie.replace("__Host-oc_session=", "oc_session=")
+    const rejected = await server.app.request("/api/auth/me", {
+      headers: { cookie: stale },
+    })
+    expect(rejected.status).toBe(401)
+
+    const accepted = await server.app.request("/api/auth/me", { headers: { cookie } })
+    expect(accepted.status).toBe(200)
+    expect(await json(accepted)).toEqual({ user: "owner" })
   })
 
   it("returns the user for a valid cookie and 401 without one", async () => {
@@ -121,6 +142,20 @@ describe("session auth", () => {
     const cleared = response.headers.get("set-cookie") ?? ""
     expect(cleared).toContain("oc_session=;")
     expect(cleared).toContain("Max-Age=0")
+  })
+
+  it("clears the active __Host- name on a Secure deployment", async () => {
+    const server = makeServer({ env: { COOKIE_SECURE: "1" } })
+    const cookie = await login(server)
+    const response = await server.app.request("/api/auth/logout", {
+      method: "POST",
+      headers: { cookie },
+    })
+    expect(response.status).toBe(204)
+    const cleared = response.headers.get("set-cookie") ?? ""
+    expect(cleared.startsWith("__Host-oc_session=;")).toBe(true)
+    expect(cleared).toContain("Secure")
+    expect(cleared).not.toContain("Domain")
   })
 })
 

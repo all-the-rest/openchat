@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { BackendError } from "@openchat/opencode"
 import type { ChatBackend } from "@openchat/opencode"
+import type { CredentialVerifier } from "./auth"
 import { APPS_ACTION_LIMIT, APPS_ACTION_WINDOW_MS } from "./apps"
 import { AppsCache } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
@@ -16,7 +17,7 @@ import {
 } from "./middleware"
 import { registerRoutes } from "./routes"
 import { SSE_HEARTBEAT_MS } from "./sse"
-import { FixedWindowThrottle } from "./throttle"
+import { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { STT_TIMEOUT_MS } from "./transcribe"
 
 export const SERVER_VERSION = "2.0.0"
@@ -55,6 +56,10 @@ export interface AppOptions {
   artifactsThrottle?: FixedWindowThrottle
   /** Clock for signed artifact URLs; tests advance it. */
   artifactsNow?: () => number
+  /** Credential verifier; tests inject one they can hold open. */
+  verify?: CredentialVerifier
+  /** Login concurrency gate; tests shrink it to one permit. */
+  verificationGate?: VerificationGate
 }
 
 export interface AppVariables {
@@ -76,6 +81,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
   const version = options.version ?? SERVER_VERSION
   const settings = authSettings(config)
   const loginThrottle = new FixedWindowThrottle()
+  const verificationGate = options.verificationGate ?? new VerificationGate()
   const promptThrottle = new FixedWindowThrottle({
     limit: PROMPT_LIMIT,
     windowMs: PROMPT_WINDOW_MS,
@@ -113,12 +119,14 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
   )
 
   registerRequestGuards(app)
-  registerAuthentication(app, settings)
+  registerAuthentication(app, settings, { config, loginThrottle })
   registerRoutes(app, {
     config,
     backend,
     settings,
     loginThrottle,
+    verificationGate,
+    verify: options.verify,
     promptThrottle,
     sttTimeoutMs: options.sttTimeoutMs ?? STT_TIMEOUT_MS,
     sseHeartbeatMs: options.sseHeartbeatMs ?? SSE_HEARTBEAT_MS,

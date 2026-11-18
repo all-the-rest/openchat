@@ -62,7 +62,7 @@ Measured on `root@reisinger.pictures` before this layer was written:
 4. Bootstrap `/opt/stacks/openchat/.env` **once**. An existing file is kept
    byte-for-byte; a deploy never rotates a secret.
 5. Seed `/opt/stacks/openchat/opencode-config/opencode.json` **once** with the
-   artifact MCP entry.
+   artifact MCP entry. Later runs keep its bytes and repair its mode to `0600`.
 6. With `--with-dind`, read `/proc/meminfo` and refuse below the headroom.
 7. Build the five images on the host: `bff`, `code-host`, `artifact-host`,
    `opencode`, `tools`. The image cache lives beside the predecessor's; nothing
@@ -437,8 +437,9 @@ it refuses by name). The config seed carries both variables the tool reads:
 `OPENCHAT_BFF_URL=http://bff:8787` and `ARTIFACT_INTERNAL_TOKEN`.
 
 If a future OpenCode release changes the config schema, `seed-config.sh` is the
-one place to adjust; it creates the file once and reports the entry count instead
-of rewriting an agent-edited file.
+one place to adjust; it creates the file once, repairs its mode to `0600` on
+later runs, and reports the entry count instead of rewriting an agent-edited
+file.
 
 ## What the tests pin
 
