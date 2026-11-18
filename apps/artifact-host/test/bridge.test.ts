@@ -116,6 +116,8 @@ function harness(): Harness {
 }
 
 const INIT = { type: "artifact:init", id: "a".repeat(64), nonce: "n-1", theme: "dark", locale: "de" }
+/** Documented result-title cap, in code points. */
+const TITLE_MAX = 200
 
 describe("artifact bridge shim", () => {
   it("installs exactly the documented API and sends nothing before init", () => {
@@ -198,6 +200,22 @@ describe("artifact bridge shim", () => {
     // 65 KiB of text is over the cap; the frame keeps it instead of posting.
     expect(host.openchat.result({ text: "x".repeat(65 * 1024) })).toBe(false)
     expect(host.posted).toEqual([])
+  })
+
+  it("truncates a result title by code points, like the viewer", () => {
+    const host = harness()
+    host.dispatch(INIT)
+    host.posted.length = 0
+
+    // 199 ASCII characters plus one emoji: a UTF-16 slice would keep a lone
+    // high surrogate as the 200th unit, which the viewer would then drop.
+    const title = `${"a".repeat(TITLE_MAX - 1)}😀`
+    expect(host.openchat.result({ title })).toBe(true)
+
+    const posted = host.posted[0]?.message.title as string
+    expect(Array.from(posted)).toHaveLength(TITLE_MAX)
+    expect(posted.endsWith("😀")).toBe(true)
+    expect(posted.length).toBe(TITLE_MAX + 1)
   })
 
   it("observes #root and clamps setHeight to the documented band", () => {

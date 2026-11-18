@@ -65,6 +65,12 @@ test("presents the artifact, leaves with Escape and resets in place", async ({ p
   const frame = page.getByTestId("artifact-frame")
   await expect(frame).toHaveAttribute("src", SIGNED_URL)
   const firstSrc = await frame.getAttribute("src")
+  const artifact = page.frameLocator('[data-testid="artifact-frame"]')
+  await expect(artifact.getByRole("heading", { name: E2E_ARTIFACT_TITLE })).toBeVisible()
+  // A reported height only arrives after the shim accepted `artifact:init`,
+  // so the handshake is done and Reset will take the bridge path instead of
+  // remounting the frame.
+  await expect(frame).toHaveAttribute("style", /height: \d+px/)
 
   await page.getByTestId("artifact-present").click()
   await expect(page.getByTestId("artifact-present-layer")).toBeVisible()
@@ -76,6 +82,14 @@ test("presents the artifact, leaves with Escape and resets in place", async ({ p
   await expect(page.getByTestId("artifact-present-layer")).toHaveCount(0)
   await expect(page.getByTestId("artifact-present")).toBeFocused()
 
+  // Two probes tell the in-place path apart from the remount fallback: React
+  // would recreate the iframe element on a remount, and only a reload replaces
+  // the document inside it.
+  await frame.evaluate((element) => element.setAttribute("data-probe", "same-node"))
+  await artifact.locator("body").evaluate((body) => {
+    body.setAttribute("data-probe", "first-document")
+  })
+
   // Reset restarts the app with the same signed URL: no metadata read, no new
   // signature, no navigation away from the artifact origin.
   let reads = 0
@@ -86,7 +100,10 @@ test("presents the artifact, leaves with Escape and resets in place", async ({ p
   await page.getByTestId("artifact-reset").click()
   await expect(page.getByTestId("artifact-frame")).toHaveAttribute("src", firstSrc ?? "")
   await expect(page.getByTestId("artifact-frame")).toHaveAttribute("src", SIGNED_URL)
-  const artifact = page.frameLocator('[data-testid="artifact-frame"]')
+  // Same element (no remount), fresh document (the shim reloaded it), and the
+  // app is rendered again.
+  await expect(frame).toHaveAttribute("data-probe", "same-node")
+  await expect(artifact.locator("body")).not.toHaveAttribute("data-probe", "first-document")
   await expect(artifact.getByRole("heading", { name: E2E_ARTIFACT_TITLE })).toBeVisible()
   expect(reads).toBe(0)
 

@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ArtifactViewer } from "../src/artifacts/ArtifactViewer"
 import type { ArtifactResult } from "../src/artifacts/bridge"
+import { ARTIFACT_RESIZE_MAX, ARTIFACT_RESIZE_MIN, clampHeight } from "../src/artifacts/bridge"
 import { I18nProvider } from "../src/i18n/provider"
 import { ThemeProvider } from "../src/theme/provider"
 
@@ -277,6 +278,24 @@ describe("artifact bridge", () => {
     expect(frame).toHaveAttribute("referrerpolicy", "no-referrer")
   })
 
+  it("clears the init repost timer on unmount", async () => {
+    // An already-expired URL keeps the pre-expiry refresh timer out of the
+    // picture, so the one pending timer is the bridge's repost.
+    mocks.artifact.mockResolvedValue({ ...artifact(), expiresAt: "2020-01-01T00:00:00.000Z" })
+    vi.useFakeTimers()
+    const view = render(providers(<ArtifactViewer />))
+    await act(async () => {})
+    const { frame } = frames()
+    fireEvent.load(frame)
+    expect(vi.getTimerCount()).toBe(1)
+
+    view.unmount()
+    // Unmounted, no repost may survive to fire into a viewer that is gone.
+    expect(vi.getTimerCount()).toBe(0)
+    act(() => vi.advanceTimersByTime(5_000))
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it("drops unknown message types such as an undocumented artifact:error", async () => {
     const results: ArtifactResult[] = []
     await openViewer((result) => results.push(result))
@@ -288,5 +307,17 @@ describe("artifact bridge", () => {
     await act(async () => {})
     expect(results).toEqual([])
     expect(frame.style.height).toBe("")
+  })
+})
+
+describe("clampHeight", () => {
+  it("clamps to the documented band and refuses a non-finite height", () => {
+    expect(clampHeight(10)).toBe(ARTIFACT_RESIZE_MIN)
+    expect(clampHeight(9_000)).toBe(ARTIFACT_RESIZE_MAX)
+    expect(clampHeight(321.6)).toBe(322)
+    // Not a height at all: the minimum, never `NaN` in the frame style.
+    expect(clampHeight(Number.NaN)).toBe(ARTIFACT_RESIZE_MIN)
+    expect(clampHeight(Number.POSITIVE_INFINITY)).toBe(ARTIFACT_RESIZE_MIN)
+    expect(clampHeight(Number.NEGATIVE_INFINITY)).toBe(ARTIFACT_RESIZE_MIN)
   })
 })

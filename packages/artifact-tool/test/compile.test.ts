@@ -15,6 +15,19 @@ const APP = `function App() {
 
 const CSS = "body { font-family: system-ui }"
 
+/**
+ * App code that really contains a script terminator, as a string and inside a
+ * template literal. The compiler must escape both, or the shell's bridge
+ * `<script>` element would end early.
+ */
+const ESCAPING_APP = [
+  "function App() {",
+  '  const literal = "</script><script>alert(1)</script>"',
+  "  const template = `</script>`",
+  "  return <p>{literal}{template}</p>",
+  "}",
+].join("\n")
+
 async function compileOrThrow(code: string): Promise<string> {
   const result = await compileModule(code)
   if ("error" in result) throw new Error(result.error)
@@ -101,7 +114,9 @@ describe("shell", () => {
       tools: { esbuild: ESBUILD_VERSION, preact: PREACT_VERSION },
     })
     expect(document.startsWith('<!doctype html><html lang="en" data-oc="')).toBe(true)
-    expect(document).toContain('data-oc="1"')
+    // Generation 2 is the document that carries the bridge shim.
+    expect(document).toContain('data-oc="2"')
+    expect(SHELL_VERSION).toBe("2")
     expect(document).toContain('<meta charset="utf-8">')
     expect(document).toContain('<meta name="viewport" content="width=device-width,initial-scale=1">')
     expect(document).toContain('<meta name="color-scheme" content="light dark">')
@@ -133,20 +148,29 @@ describe("shell", () => {
     expect(document.indexOf(bridgeTag)).toBeLessThan(document.indexOf(bundleTag))
     expect(document.indexOf(bridgeTag)).toBeGreaterThan(document.indexOf('<div id="root"></div>'))
     expect(document.match(/<script>/g)).toHaveLength(2)
+    // The shim installs `window.openchat`; the document text has to carry it.
+    expect(document).toContain("window.openchat")
     expect(document).not.toContain('<script type="module"')
   })
 
-  it("does not let the app code close the bridge or bundle element early", async () => {
-    const script = await compileOrThrow(APP)
+  it("escapes a </script> the app code really contains", async () => {
+    const script = await compileOrThrow(ESCAPING_APP)
+    // The fixture contains the terminator twice: in a string and in a
+    // template literal. esbuild emits both as `<\/script`, so the document
+    // keeps exactly two script elements instead of breaking out early.
+    expect(ESCAPING_APP).toContain("</script><script>alert(1)</script>")
+    expect(ESCAPING_APP).toContain("`</script>`")
+    expect(script.toLowerCase()).not.toContain("</script")
+    expect(script).toContain("<\\/script")
+
     const document = buildDocument({
       title: "Counter",
       css: "",
       script,
       tools: { esbuild: ESBUILD_VERSION, preact: PREACT_VERSION },
     })
-    // Exactly two terminators: the bridge and the bundle. A `</script` in the
-    // app code would add a third and break the document out of its element.
-    expect(script.toLowerCase()).not.toContain("</script")
+    // The bridge and the bundle: a third terminator would mean an escape
+    // failed somewhere between app source and the stored document.
     expect(document.match(/<\/script>/g)).toHaveLength(2)
   })
 

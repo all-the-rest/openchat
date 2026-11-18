@@ -50,15 +50,19 @@ load timeout.
 ## Identity, not origin
 
 - The viewer accepts a message only when `event.source === iframe.contentWindow`
-  **and** `data.nonce` equals the nonce minted for this frame instance.
+  **and** `data.nonce` equals the nonce minted for this viewer epoch (see
+  below).
 - `event.origin` is never consulted. A document under `sandbox="allow-scripts"`
   without `allow-same-origin` has an opaque origin and reports `"null"`; an
   origin check would reject the real artifact and accept any other opaque frame.
 - The shim accepts `artifact:init` only from `window.parent`. Same rule, mirrored.
 - The nonce is 16 random bytes as 32 hex characters (`crypto.getRandomValues`).
   It is not a credential: it proves "this is the frame I created", nothing more.
-  An in-place reset keeps the nonce because it is the same document; a reset
-  that remounts the frame mints a new one, so the old frame's messages die.
+  It is scoped to the viewer epoch (`useMemo(…, [epoch])`), not to one document:
+  an in-place reset reloads the document and keeps the nonce, and a new URL on
+  the same epoch (pre-expiry refresh, recovery, retry) reuses it too. A reset
+  that remounts the frame bumps the epoch and mints a new one, so the old
+  frame's messages die.
 - Everything else is dropped without a response: a foreign source, a wrong
   nonce, an unknown type, a malformed body.
 
@@ -215,10 +219,10 @@ renders `<div id="root"></div>`) and sets `data-theme` and `color-scheme` on
 | File | Pins |
 | --- | --- |
 | `apps/artifact-host/test/bridge.test.ts` | API shape; no send before init; init only from `window.parent`; queued/immediate `onInit`; result shape, nonce and 64 KiB refusal; `ResizeObserver` height plus `setHeight` clamping; reset nonce; no `fetch`/storage/`eval`/`window.open`/`</script` in the script text; sandbox policy; document policy; the `cdn` fixture and the validator oracle; the four fixtures. |
-| `apps/web/test/artifact-bridge.test.tsx` | init payload/target/nonce on load; exactly two reposts with the same nonce; ready stops reposts; resize clamp and frame height; foreign source and wrong nonce dropped; 65 KiB dropped; 10 Hz stream rate-limited; the callback and the panel's field value come from one result, no HTML injection; bridge reset with a ready frame; remount reset with the same URL and a fresh nonce; sandbox attribute; unknown type dropped. |
+| `apps/web/test/artifact-bridge.test.tsx` | init payload/target/nonce on load; exactly two reposts with the same nonce; ready stops reposts; the repost timer is cleared on unmount; resize clamp and frame height; `clampHeight` refuses `NaN`/`±Infinity`; foreign source and wrong nonce dropped; 65 KiB dropped; 10 Hz stream rate-limited; the callback and the panel's field value come from one result, no HTML injection; bridge reset with a ready frame; remount reset with the same URL and a fresh nonce; sandbox attribute; unknown type dropped. |
 | `apps/web/test/artifact-viewer.test.tsx` | (slice 2, updated) reset reuses the signed URL and performs no metadata read; present/Escape unchanged; a result renders locally with no callback; no panel before the first result. |
 | `apps/web/test/artifact-draft.test.tsx` | no panel before the first result; title/text/JSON `data` prefilled; generic title fallback; an untouched draft follows the artifact; an edited draft keeps its text and only offers a labelled "New result available" that replaces on click; Copy writes the draft to the clipboard and resets its acknowledgement; Dismiss clears and the next result shows again; `<img src=x onerror=…>` stays literal text; focus is not stolen; the callback and the panel come from one result path. |
-| `apps/web/e2e/artifacts.spec.ts` | (slice 2, updated) reset keeps the same signed URL and issues no `/api/artifacts/:id` read. |
+| `apps/web/e2e/artifacts.spec.ts` | (slice 2, updated) the seeded document is built through the real shell, so the handshake happens; reset keeps the same iframe element and signed URL, reloads the document in place and issues no `/api/artifacts/:id` read. |
 
 ## Deliberately not in this slice
 

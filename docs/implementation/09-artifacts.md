@@ -225,7 +225,7 @@ with one owner-visible deviation (esbuild instead of `Bun.build`, below).
 | Tool package | `packages/artifact-tool/` | stdio MCP server `openchat-artifacts` exposing `openchat_app_write`; own `package.json`, `tsconfig.json` and tests. |
 | Validator | `packages/artifact-tool/src/validate.ts` | Pure rule table over `title`/`code`/`css`; no I/O, no compiler dependency. |
 | Compiler | `packages/artifact-tool/src/compile.ts` | Syntax pass, then one esbuild IIFE bundling Preact plus the app; output stays in memory. |
-| Shell | `packages/artifact-tool/src/shell.ts` | The document from the architecture: meta, tokens, user CSS, `#root`, inline bundle, `data-oc="1"`. |
+| Shell | `packages/artifact-tool/src/shell.ts` | The document from the architecture: meta, tokens, user CSS, `#root`, the inline bridge and bundle, `data-oc="2"` (the generation that carries the bridge). |
 | BFF client | `packages/artifact-tool/src/bff.ts` | One redirect-free POST to the internal route, fixed status mapping, no upstream text. |
 | MCP surface | `packages/artifact-tool/src/mcp.ts` | Newline-delimited JSON-RPC on stdio: `initialize`, `ping`, `tools/list`, `tools/call`. |
 | Internal route | `apps/server/src/artifacts-internal.ts` | `POST /internal/artifacts`: bearer token, 20/min, store write, `{ artifactID, title, bytes }`. |
@@ -316,9 +316,10 @@ Two consequences:
 
 - **No minification.** The architecture's Bun snippet passes `minify: true`;
   here the output is unminified so the downloaded document stays inspectable.
-  A reference app (Preact 10.29.8 + hooks + a counter) compiles to about
-  20 KiB raw, 7 KiB gzipped, inside a 21 KiB document — far below the 1 MiB
-  document cap.
+  Measured at generation 2 with the compile-test app (Preact 10.29.8 + hooks +
+  a counter): **20,046 bytes of bundle plus the 5,680-byte bridge inside a
+  26,600-byte document**, 8,633 bytes gzipped — far below the 1 MiB document
+  cap.
 - **`preact` is a dependency of the tool**, resolved from the tool package's own
   `node_modules` through `resolveDir`. The artifact never fetches a runtime.
 
@@ -334,21 +335,24 @@ The tool assembles the documented document and posts it as the artifact's
 
 | Part | Content |
 | --- | --- |
-| `<html lang="en" data-oc="1">` | Runtime generation marker; a test asserts it. |
+| `<html lang="en" data-oc="2">` | Runtime generation marker; generation 2 is the document that carries the bridge. A test asserts it. |
 | `<meta charset>`, viewport, `color-scheme` | The three meta tags from the design. |
 | `<title>` | The validated title, HTML-escaped. |
 | `<style>` (first) | Reset plus `--bg`, `--fg`, `--muted`, `--accent`, `--radius` and a `prefers-color-scheme` pair. |
 | `<style>` (second) | The validated user CSS. |
 | `<div id="root">` | The only mount point; the bundle throws a named error if it is absent. |
-| `<script>` | The Preact + app IIFE, ending in `render(h(App), root)`. |
-| Comment | `openchat artifact shell 1; esbuild <version>; preact <version>` — toolchain drift shows up in a diff. |
+| `<script>` (first) | The `window.openchat` shim from `apps/artifact-host/src/bridge.ts`, inlined as a classic script so it is installed before the bundle runs. |
+| `<script>` (second) | The Preact + app IIFE, ending in `render(h(App), root)`. |
+| Comment | `openchat artifact shell 2; esbuild <version>; preact <version>` — toolchain drift shows up in a diff. |
 
 - **The runtime is injected at write time**, never per request, so the preview,
   the download and a re-render of stored bytes are the same document.
-- **No bridge yet.** `bridgeScript()` is the single placeholder slice 4 fills;
-  it returns `""` today, the shell then emits no bridge `<script>` at all, and a
-  test asserts that `window.openchat` is absent and that the document has
-  exactly one script element.
+- **The bridge is inline, not a URL.** `bridgeScript()` returns the
+  `BRIDGE_SCRIPT` constant from `apps/artifact-host/src/bridge.ts`; the shell
+  emits it as a `<script>` immediately after `#root` and before the bundle, so
+  `window.openchat` exists when the IIFE runs. `compile.test.ts` asserts the
+  bridge text, its position ahead of the bundle, that `window.openchat` is
+  present, and exactly two script elements.
 - **CSP is unchanged.** The document carries no meta policy; the host headers
   from slice 1 are the enforced policy (`script-src 'unsafe-inline'`,
   `connect-src 'none'`, no `'unsafe-eval'`). The bundle needs no eval and no
@@ -467,7 +471,7 @@ a tool ran.
 | File | Covers |
 | --- | --- |
 | `packages/artifact-tool/test/validate.test.ts` | every construct in the table (import, dynamic import, require, five network APIs, three URL forms, eval/new Function/document.write, four storage forms, three window forms, `</script`), CSS `@import`/URL/`</style`, missing `App`, input shape, title cap (code points, emoji), 64 KiB and 32 KiB caps at the exact byte, UTF-8 byte counting, first-hit line, the `//` comment exception, data URIs accepted. |
-| `packages/artifact-tool/test/compile.test.ts` | self-contained IIFE, mount into `#root`, no import statement, no `</script`, deterministic bytes, all documented hooks compile, syntax error with `code:line:column` inside the module, toolchain versions, shell structure, bridge inlined before the bundle, title escaping, exactly two script terminators. |
+| `packages/artifact-tool/test/compile.test.ts` | self-contained IIFE, mount into `#root`, no import statement, deterministic bytes, all documented hooks compile, syntax error with `code:line:column` inside the module, toolchain versions, shell structure, bridge inlined before the bundle with `window.openchat` present, title escaping, an app fixture that really contains `</script` escaped to exactly two script terminators. |
 | `packages/artifact-tool/test/tool.test.ts` | receipt only, URL/bearer/redirect-free envelope, compiled HTML in the body with the bridge ahead of the bundle, validator stops before the network, status table (400/401/403/413/415/429/503/500/418) without upstream text, redirect refused, unreachable BFF, malformed receipts. |
 | `packages/artifact-tool/test/mcp.test.ts` | initialize version negotiation and fallback, ping, tool listing and schema, argument passthrough, `isError`, unknown tool/method, notification silence, throwing handler, stdio framing and parse-error recovery. |
 | `packages/artifact-tool/test/env.test.ts` | default BFF URL, trailing slash, path prefix, missing token refusal, URL validation table, no token in a refusal. |
@@ -479,11 +483,15 @@ runs in-process and writes nothing.
 
 ### Not implemented in slice 3
 
+**Snapshot of slice 3.** The bridge and the in-frame reset shipped in slice 4
+([`18-artifact-bridge.md`](18-artifact-bridge.md)); the remaining items still
+stand.
+
 - **The `window.openchat` bridge** (`artifact:init`, nonce, `artifact:resize`,
-  `artifact:result`). `bridgeScript()` is the hook slice 4 fills.
+  `artifact:result`). `bridgeScript()` was the hook slice 4 filled.
 - **The read UI's bridge-dependent action** (in-frame reset without a new URL).
   The artifact card, iframe, present mode and download shipped in slice 2; the
-  bridge path is slice 4.
+  bridge path was slice 4.
 - **The runtime migration job** that re-renders stored artifacts on `get()`.
 - **A fake tool execution.** See the fake-path note above.
 - **A Dockerfile/compose entry for the tool.** It runs next to OpenCode, not in
@@ -532,30 +540,34 @@ Two smaller deviations follow from the same slice:
 | Signing key shorter than 32 characters | BFF and host refuse the boot; the message names the variable. |
 | Store directory missing | List is `[]`, reads 404; the first write creates it. |
 | Disk full / unwritable directory | The store throws, `onError` answers `500 internal_error` without detail; nothing is logged with a path. |
-| Expired URL | Host answers 403; the viewer re-reads the metadata once and then shows its recoverable stale panel (see slice 2). |
+| Expired URL | Host answers 403 with a JSON body; the frame still fires `load`, so the viewer shows that body and runs no recovery read. Reload re-reads and re-signs; Reset reuses the stale URL (see slice 2). |
 | Forged or truncated signature | 403 before any filesystem access. |
 | Artifact deleted while a page is open | 404 on the next read; the UI shows "unavailable" for that frame. |
 | Document over 1 MiB | `400 artifacts_invalid`, nothing written. |
 | Missing document header | `400 artifacts_invalid` with the rule phrase. |
 
-## Not implemented in slice 1
+## Still not implemented
 
-Slices 1, 2 and 3 have shipped: storage, signing, the host, the read-only
-viewer and the write path. What remains is the bridge — the UI is slice 2, the
-bridge is slice 4 — plus the packaging and runtime gaps listed here.
+Slices 1 to 4 have shipped: storage, signing, the host, the read-only viewer,
+the write path and the bridge. What is left is packaging and runtime work, not
+protocol:
 
-- **No `postMessage` bridge** (`artifact:init`, `artifact:ready`,
-  `artifact:resize`, `artifact:result`, nonce). Slice 3 leaves the
-  `bridgeScript()` placeholder empty.
-- **No compose/Dockerfile for the tool or the host**; the deployment docs
-  already describe the host container (read-only, no egress,
-  `ARTIFACT_SIGNING_KEY` only).
+- **No separate image for the artifact tool.** It runs as an MCP process next to
+  OpenCode, not inside the artifact host's containment; the host and the other
+  services do have images ([`14-deployment.md`](14-deployment.md)).
 - **No runtime migration job.** The stored bytes are served verbatim; the
   "re-render on `get()`" migration in
   [`07-artifact-runtime.md`](../architecture/07-artifact-runtime.md) belongs to
   a later slice, which owns the runtime version.
-- **No rate limit on reads** and no per-artifact result quota: both depend on
-  the bridge.
+- **No rate limit on reads.** Writes are limited (20 accepted creations per
+  minute per client address on the public route and 20 on the internal route);
+  reads are not. The bridge has per-message and per-viewer bounds instead: the
+  64 KiB result cap on both ends, the height band in both halves, and one
+  accepted result per 500 ms in the viewer
+  (`apps/web/src/artifacts/bridge.ts`). The rate limit is viewer-only on
+  purpose: a limit in the untrusted half would be advisory.
+- **No per-artifact result quota beyond that 500 ms window.** A daily quota has
+  no product requirement.
 - Conditional requests (`If-None-Match`) are not answered with 304; the header
   is `no-store`, so a browser should not ask.
 
@@ -573,7 +585,7 @@ bridge is slice 4 — plus the packaging and runtime gaps listed here.
 | `apps/web/test/artifact-viewer.test.tsx` | signed URL verbatim, sandbox and title, loading, deleted artifact, failed read with retry, pre-expiry re-mint, one recovery read then a recoverable stale panel, reset in place with the same URL, present mode plus Escape focus return, download bytes and filename, failed download, hostile titles, refresh margin. |
 | `apps/web/test/app-shell.test.tsx` | the sidebar artifacts entry appears only when `artifacts.available` is true. |
 | `apps/web/test/api-client.test.ts` | list, single read, same-origin download and structured download errors. |
-| `apps/web/e2e/artifacts.spec.ts` | one seeded document through the real artifact host: list, frame attributes, rendered content, byte-identical download, present/Escape focus return, reset with the same signed URL and no metadata read. |
+| `apps/web/e2e/artifacts.spec.ts` | one seeded document through the real artifact host: list, frame attributes, rendered content, byte-identical download, present/Escape focus return, in-place reset through the bridge handshake (same iframe element, reloaded document, same signed URL, no metadata read). |
 
 No test starts a real OpenCode, signs a URL for the network or calls an external
 host. Host tests use an ephemeral loopback listener, as the Code host tests do,
@@ -633,6 +645,7 @@ lives in [`18-artifact-bridge.md`](18-artifact-bridge.md).
 | Missing | `404 artifacts_unknown` | "Artifact not available" with the list link |
 | Viewer error | any other failed read | localised error, Retry and the list link |
 | Stale URL | frame `error`, or no `load` within 10 s | one metadata re-read and a fresh URL; a second failure shows "This artifact link has expired" with Reload |
+| Expired URL answered with 403 | frame fires `load` (measured) | the frame shows the host's JSON 403 body; no automatic recovery runs. The chrome's Reload re-reads the metadata and mints a fresh URL; Reset keeps the same, stale URL and reads nothing |
 | Download failure | download route rejected | error banner; the frame stays |
 | Refresh failure | pre-expiry re-read rejected | error banner; the last working URL stays until it expires |
 | Present | Present button | the artifact fills the content area, page chrome hides, Escape leaves and returns focus to the trigger |
@@ -643,14 +656,22 @@ arrives within one minute of expiry is replaced by a second read before the
 frame mounts, and an open viewer re-reads shortly before expiry. Both use the
 same BFF route; neither constructs a URL.
 
-**Why a frame failure is the stale signal.** With `sandbox="allow-scripts"` and
-no `allow-same-origin`, the parent cannot read the frame's HTTP status: an
-expired or refused URL is not an observable 403 on this side. The viewer treats
-the two signals it does get — an `error` event and a missing `load` within 10 s —
-as a refused URL, re-reads the metadata exactly once and then shows the
-recoverable panel. The pre-expiry re-read keeps the 403 path rare. An explicit
-host-to-app refusal message belongs to the bridge slice, which owns the nonce
-and message schema.
+**Why `error` is not the stale signal for an expired URL.** With
+`sandbox="allow-scripts"` and no `allow-same-origin`, the parent cannot read the
+frame's HTTP status. A 403 from the host is an ordinary document as far as the
+browser is concerned: measured in Chromium, a sandboxed iframe pointed at the
+host's `403 application/json` body fires **`load`**, not `error`. The viewer
+therefore marks the frame loaded, disarms the 10 s timer, takes its normal
+ready/live path, and the raw JSON 403 is what the user sees inside the frame.
+The one-shot recovery read (metadata re-read, then the recoverable stale panel)
+only runs on a transport `error` or when no `load` arrives within 10 s — useful
+for a dead host, not for an expired signature. The pre-expiry re-read keeps that
+case rare. What the user does about it: the chrome's **Reload** re-reads the
+metadata and mints a fresh URL; **Reset** keeps the same URL — in place when
+the frame had handshaked, otherwise by remounting — and an expired one lands in
+the same 403. A handshake-based stale detector — an `artifact:error` or a
+"ready expected" watchdog — is a follow-up, not shipped: slice 4 deliberately
+has no `artifact:error` ([`18-artifact-bridge.md`](18-artifact-bridge.md)).
 
 ### Download
 
@@ -693,4 +714,4 @@ file contains only the stored bytes. The server's fallback filename is
 | `apps/web/test/artifact-viewer.test.tsx` | signed URL verbatim, sandbox/title/referrer, loading, missing, retry, pre-expiry re-mint, one recovery read then the stale panel, reset in place with the same URL, present/Escape focus return, download bytes and filename, failed download, hostile titles, freshness margin. |
 | `apps/web/test/app-shell.test.tsx` | the sidebar entry is present only with `artifacts.available`. |
 | `apps/web/test/api-client.test.ts` | list, single read, download path and structured download error. |
-| `apps/web/e2e/artifacts.spec.ts` | seeded document through the real host: list, frame attributes and rendered document, byte-identical download, present/Escape focus return, reset with the same signed URL. The E2E config seeds the store and starts `apps/artifact-host` with the same key; no external host is contacted. |
+| `apps/web/e2e/artifacts.spec.ts` | seeded document through the real host: list, frame attributes and rendered document, byte-identical download, present/Escape focus return, in-place reset through the bridge handshake (same iframe element, reloaded document, same signed URL, no metadata read). The E2E config seeds the store and starts `apps/artifact-host` with the same key; no external host is contacted. |
