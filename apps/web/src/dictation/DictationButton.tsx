@@ -77,7 +77,11 @@ export function DictationButton({ dictation }: DictationButtonProps) {
       onKeyDown={handleKeyDown}
       onClick={handleClick}
       onContextMenu={(event) => event.preventDefault()}
-      className="btn btn-ghost btn-circle min-h-9 min-w-9 touch-manipulation select-none"
+      // The idle mic carries the same soft surface as the send disc, so it
+      // reads as a control rather than as decoration next to it (UI-8).
+      className={`btn btn-circle min-h-9 min-w-9 touch-manipulation select-none ${
+        status === "recording" ? "btn-ghost" : "btn-soft"
+      }`}
     >
       {busy ? (
         <span className="loading loading-spinner loading-sm" aria-hidden="true" />

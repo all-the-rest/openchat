@@ -33,6 +33,16 @@ describe("dictation control", () => {
     expect(getUserMedia).not.toHaveBeenCalled()
   })
 
+  it("gives the idle microphone a button surface (UI-8)", () => {
+    renderComposer()
+
+    const mic = screen.getByTestId("dictation")
+    // The send control beside it is a filled disc; a bare glyph reads as
+    // decoration. Recording switches back to a ghost surface.
+    expect(mic.className).toContain("btn-soft")
+    expect(mic.className).not.toContain("btn-ghost")
+  })
+
   it("never requests the microphone on mount", () => {
     renderComposer()
 

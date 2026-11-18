@@ -20,10 +20,9 @@ configured state; the "no STT configured" state (control absent) is covered by
 unit tests, not by a capture.
 
 Verdict: **APPROVED** — no `critical` or `high` findings. One medium finding was
-fixed during the first review round and six more were fixed on 2026-11-18 (all
-but UI-8); the remaining low finding is tracked in
-[#27](https://github.com/all-the-rest/openchat/issues/27) and listed in
-`ratchet.findings.json`.
+fixed during the first review round and seven more were fixed on 2026-11-18
+(UI-1 and UI-3 to UI-8); every finding is `fixed` in `ratchet.findings.json`
+with a regression test.
 
 ## Coverage
 
@@ -92,7 +91,7 @@ notice and the German pill are asserted by unit and E2E tests but not captured.
 | — | — | — | — | — | — | `empty/desktop/login.png` | Coverage: card centered at 384 px, top-right locale/theme controls, disabled submit clearly disabled. No defect. | — |
 | UI-3 | low | fixed | orchestrator | #27 | `apps/web/src/pages/LoginPage.tsx:71` | `empty/desktop/login.png` | No product branding on the login card; the app header elsewhere shows "OpenChat". | Fixed 2026-11-18: the `app.name` wordmark sits above the card; regression test in `apps/web/test/login.test.tsx`. |
 | UI-4 | low | fixed | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx:147` | `empty/desktop/chat-empty-sec0.png` | Empty chat was one muted line pinned under the header while the landing hero is centered. | Fixed 2026-11-18: both routes render the shared `components/ChatHero.tsx`, vertically centered in an empty transcript; regression test in `apps/web/test/transcript.test.tsx`. |
-| UI-8 | low | open | orchestrator | #27 | `apps/web/src/dictation/DictationButton.tsx:77` | `empty/desktop/landing.png` | The dictation microphone is a bare glyph in a transparent circle next to the filled send disc, so it reads as an icon rather than a control. | Give the idle mic the same surface as send, or make both ghost. |
+| UI-8 | low | fixed | orchestrator | #27 | `apps/web/src/dictation/DictationButton.tsx:77` | `empty/desktop/landing.png` | The dictation microphone is a bare glyph in a transparent circle next to the filled send disc, so it reads as an icon rather than a control. | Fixed 2026-11-18: the idle mic carries the same soft surface as the send disc; recording keeps the ghost surface. |
 | UI-2 | medium | fixed | orchestrator | #27 | `apps/web/src/chat/Transcript.tsx` | `filled/desktop/chat-error-sec0.png` | Error card promised a retry that did not exist. | Fixed 2026-11-17: Continue/Retry actions render under the last assistant message; regression test in `apps/web/test/transcript.test.tsx`. |
 
 ## Empty · Mobile
@@ -101,7 +100,7 @@ notice and the German pill are asserted by unit and E2E tests but not captured.
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
 | UI-5 | low | fixed | orchestrator | #27 | `apps/web/src/chat/Composer.tsx:60` | `empty/mobile/landing.png`, `empty/mobile/landing-de.png` | "Enter sends, Shift+Enter adds a line" was shown on a touch viewport (German copy did the same). | Fixed 2026-11-18: the hint is dropped under `(pointer: coarse)`; regression test in `apps/web/test/composer.test.tsx`. |
 | UI-7 | low | fixed | orchestrator | #27 | `apps/web/src/styles.css:211` | `empty/mobile/login.png`, `empty/mobile/login-dark.png`, `empty/mobile/login-de.png` | Password focus showed an outline plus border as a heavy double ring, close to an error affordance. | Fixed 2026-11-18: both login fields use the single `field-input` ring in the focus token; regression test in `apps/web/test/login.test.tsx`. |
-| UI-8 | low | open | orchestrator | #27 | `apps/web/src/dictation/DictationButton.tsx:77` | `empty/mobile/landing.png` | Same bare mic next to the filled send disc; at 390 px the icon is the only hint that dictation exists. | As above. |
+| UI-8 | low | fixed | orchestrator | #27 | `apps/web/src/dictation/DictationButton.tsx:77` | `empty/mobile/landing.png` | Same bare mic next to the filled send disc; at 390 px the icon is the only hint that dictation exists. | As above. |
 
 ## Filled · Desktop
 
@@ -142,7 +141,7 @@ notice and the German pill are asserted by unit and E2E tests but not captured.
 | Id | Severity | Status | Owner | Ticket | File:Line | Screenshot | Finding | Suggested fix |
 |----|----------|--------|-------|--------|-----------|------------|---------|---------------|
 | — | — | — | — | — | — | `empty/desktop/chat-empty-recording-sec0.png`, `empty/mobile/chat-empty-recording-sec0.png` | Coverage: recording pill above the composer with a pulsing dot, `0:01` clock, level meter, stop and cancel; the mic in the composer stays visible and turns red (`aria-pressed`). The pill spans the composer width and pushes the composer down without clipping; at 390 px the stop and cancel targets stay 36 px square with 4 px gaps. No defect. | — |
-| UI-8 | low | open | orchestrator | #27 | `apps/web/src/dictation/DictationButton.tsx:77` | `empty/desktop/landing.png`, `empty/mobile/landing.png` | Resting state: the ghost mic has no surface, unlike the send disc. In the recording state it gains the same grey disc, so the affordance changes shape between states. | Give the idle mic the same surface as send, or make both ghost. |
+| UI-8 | low | fixed | orchestrator | #27 | `apps/web/src/dictation/DictationButton.tsx:77` | `empty/desktop/landing.png`, `empty/mobile/landing.png` | Resting state: the ghost mic has no surface, unlike the send disc. In the recording state it gains the same grey disc, so the affordance changes shape between states. | Fixed 2026-11-18: the idle mic carries the same soft surface as the send disc; recording keeps the ghost surface. |
 
 ## Mobile drawer (390 px)
 
