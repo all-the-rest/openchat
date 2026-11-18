@@ -3,7 +3,7 @@ import {
   ARTIFACT_HEIGHT_MIN,
   ARTIFACT_RESULT_MAX_BYTES,
   ARTIFACT_RESULT_TITLE_MAX,
-} from "@openchat/contracts"
+} from "./caps"
 
 /**
  * The artifact-side half of the bridge: `window.openchat`, injected by the
@@ -20,9 +20,13 @@ import {
  * opaque origin, so `event.origin` is the string `"null"` — and so is every
  * other opaque frame's.
  *
- * The numeric caps are the viewer's, from `@openchat/contracts`: they are
- * interpolated here, so the emitted script and the viewer can never disagree.
- * The values are numbers, so they cannot introduce a `</script` terminator.
+ * The numeric caps are the viewer's, from `./caps`: they are interpolated
+ * here, so the emitted script and the viewer can never disagree. The values
+ * are numbers, so they cannot introduce a `</script` terminator.
+ *
+ * Import it as `@openchat/contracts/artifacts/bridge`. It is a subpath, not a
+ * re-export of the package root: the tool needs the script text, and the web
+ * bundle must not carry it.
  */
 export const BRIDGE_SCRIPT = `(function () {
   "use strict";

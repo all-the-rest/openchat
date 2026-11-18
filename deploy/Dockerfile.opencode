@@ -57,7 +57,6 @@ RUN pnpm install --frozen-lockfile --prod --filter @openchat/artifact-tool...
 
 COPY tsconfig.base.json ./
 COPY packages/artifact-tool ./packages/artifact-tool
-COPY apps/artifact-host ./apps/artifact-host
 COPY packages/contracts ./packages/contracts
 
 FROM ${OPENCODE_BASE} AS runtime

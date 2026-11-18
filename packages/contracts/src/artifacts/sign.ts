@@ -1,12 +1,17 @@
+import { Buffer } from "node:buffer"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { ARTIFACT_URL_TTL_SECONDS } from "@openchat/contracts"
+import { ARTIFACT_URL_TTL_SECONDS } from "./index"
+import { isArtifactId } from "./id"
 
 /**
  * Signed artifact URLs, shared verbatim by the BFF (mints them) and the
  * artifact host (verifies them). The module is pure: no HTTP, no filesystem.
+ *
+ * Import it as `@openchat/contracts/artifacts/sign`. It is a subpath, not a
+ * re-export of the package root: the module needs `node:crypto`, and the root
+ * index is what the browser bundle imports.
  */
 
-const ID_PATTERN = /^[0-9a-f]{64}$/
 /** Unix seconds, digits only; a `+`, a space or a fractional part is refused. */
 const EXP_PATTERN = /^[0-9]{1,15}$/
 /** HMAC-SHA256 is 32 bytes, which is 43 unpadded base64url characters. */
@@ -69,7 +74,7 @@ export class ArtifactSigner {
    * an expired URL is rejected only when its signature was valid.
    */
   verify(id: string, exp: string, sig: string): boolean {
-    if (!ID_PATTERN.test(id)) return false
+    if (!isArtifactId(id)) return false
     if (!EXP_PATTERN.test(exp)) return false
     if (!SIGNATURE_PATTERN.test(sig)) return false
 

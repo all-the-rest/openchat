@@ -4,7 +4,7 @@
  * It injects the runtime, so the stored document is portable on its own: the
  * download and the preview are the same bytes. No network, no `eval`.
  */
-import { BRIDGE_SCRIPT } from "@openchat/artifact-host/bridge"
+import { BRIDGE_SCRIPT } from "@openchat/contracts/artifacts/bridge"
 
 /**
  * Bumped when the shell itself changes; asserted by a test. Generation 2 is
@@ -26,9 +26,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 /**
  * The `window.openchat` shim (`artifact:init`, nonce, `setHeight`, `result`),
- * owned by `apps/artifact-host/src/bridge.ts` and inlined as a classic script
- * **before** the app bundle so the shim exists when the IIFE runs. It stays
- * unminified and unwrapped: the document is one portable classic-script page.
+ * owned by `@openchat/contracts/artifacts/bridge` and inlined as a classic
+ * script **before** the app bundle so the shim exists when the IIFE runs. It
+ * stays unminified and unwrapped: the document is one portable classic-script
+ * page.
  */
 export function bridgeScript(): string {
   return BRIDGE_SCRIPT

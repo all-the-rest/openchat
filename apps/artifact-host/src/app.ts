@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { ArtifactSigner } from "@openchat/server/artifacts-sign"
+import { ArtifactSigner } from "@openchat/contracts/artifacts/sign"
 import type { EnvConfig } from "./env"
 import { ArtifactReader } from "./store"
 

@@ -15,7 +15,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@openchat/artifact-host": "workspace:*",
     "@openchat/contracts": "workspace:*",
     "esbuild": "^0.28.2",
     "preact": "^10.29.8",

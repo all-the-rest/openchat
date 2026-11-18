@@ -8,7 +8,7 @@ import {
   ARTIFACT_URL_TTL_SECONDS,
 } from "@openchat/contracts"
 import type { ArtifactResponse } from "@openchat/contracts"
-import { ArtifactSigner } from "../src/artifacts-sign"
+import { ArtifactSigner } from "@openchat/contracts/artifacts/sign"
 import { ARTIFACT_BODY_MAX_BYTES } from "../src/limits"
 import { FixedWindowThrottle } from "../src/throttle"
 import { json, login, makeServer } from "./helpers"
