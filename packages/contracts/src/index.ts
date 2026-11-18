@@ -1,8 +1,10 @@
 import { z } from "zod"
 
 import type { AppsSurfaceInfo } from "./apps"
+import type { ArtifactsSurfaceInfo } from "./artifacts"
 
 export * from "./apps"
+export * from "./artifacts"
 
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"
@@ -89,6 +91,7 @@ export interface InfoResponse {
   dictation: DictationInfo
   code: CodeSurfaceInfo
   apps: AppsSurfaceInfo
+  artifacts: ArtifactsSurfaceInfo
 }
 
 /**

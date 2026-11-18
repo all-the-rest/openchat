@@ -36,6 +36,7 @@ import { clientAddress } from "./middleware"
 import { registerAppsRoutes } from "./apps"
 import { AppsCache, probeApps } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
+import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
@@ -68,6 +69,10 @@ export interface RouteDeps {
   appsCacheMs?: number
   /** Injected clock for the app snapshot cache. */
   appsNow?: () => number
+  /** Artifact creation throttle, per client address. */
+  artifactsThrottle: FixedWindowThrottle
+  /** Injected clock for signed artifact URLs. */
+  artifactsNow?: () => number
 }
 
 function sseHeaders(): Record<string, string> {
@@ -149,6 +154,7 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
         expectedVersion: PINNED_OPENCODE_VERSION,
       } satisfies CodeSurfaceInfo,
       apps: { available: appsAvailable } satisfies AppsSurfaceInfo,
+      artifacts: artifactsSurface(config),
     } satisfies InfoResponse)
   })
 }
@@ -319,6 +325,11 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     cache: appsCache,
     config: deps.config,
     actionThrottle: deps.appsActionThrottle,
+  })
+  registerArtifactsRoutes(app, {
+    config: deps.config,
+    createThrottle: deps.artifactsThrottle,
+    now: deps.artifactsNow,
   })
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
