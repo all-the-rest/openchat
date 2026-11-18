@@ -49,8 +49,8 @@ export interface UiReviewViewportSize {
 
 export interface UiReviewClickStep {
   kind: "click"
-  /** `app-bar` is the chat app bar (`data-testid="app-bar"`), not a landmark. */
-  scope: "banner" | "complementary" | "main" | "app-bar"
+  /** Landmarks; the chat app bar and the Code bar are both `banner`. */
+  scope: "banner" | "complementary" | "main"
   role: "link" | "button"
   name?: string
   within?: string
@@ -368,7 +368,7 @@ export const uiReviewConfig: UiReviewConfig = {
       nav: [
         {
           kind: "click",
-          scope: "app-bar",
+          scope: "banner",
           role: "button",
           name: "Code",
         },

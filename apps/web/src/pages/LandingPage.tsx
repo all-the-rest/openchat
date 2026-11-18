@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Composer } from "../chat/Composer"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
+import { NEW_DRAFT_KEY, clearDraft } from "../chat/drafts"
 import { useSessions } from "../chat/sessions"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useT } from "../i18n/provider"
@@ -18,6 +19,8 @@ export function LandingPage() {
     setFailed(false)
     try {
       const session = await create()
+      // The prompt now belongs to a real session; the landing draft is done.
+      clearDraft(NEW_DRAFT_KEY)
       navigate(`/c/${session.id}`, { state: { pendingPrompt: text } })
     } catch (error) {
       setFailed(true)
@@ -46,6 +49,7 @@ export function LandingPage() {
           onStop={() => undefined}
           running={false}
           disabled={creating}
+          draftKey={NEW_DRAFT_KEY}
           autoFocus
         />
       </div>

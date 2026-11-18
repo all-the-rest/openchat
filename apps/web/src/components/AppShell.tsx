@@ -120,6 +120,7 @@ export function AppShell() {
       >
         {onCode ? null : (
           <div
+            role="banner"
             data-testid="app-bar"
             className="flex h-12 shrink-0 items-center gap-2 border-b border-subtle px-2"
           >
@@ -130,7 +131,9 @@ export function AppShell() {
               className="lg:hidden"
             />
             <SurfaceSwitch />
-            <span className="min-w-0 flex-1 truncate px-1 text-sm font-semibold">
+            {/* The desktop sidebar already shows the name; below `lg` it is the
+                only place it appears, and the switch plus Reload must not wrap. */}
+            <span className="min-w-0 flex-1 truncate px-1 text-sm font-semibold lg:hidden">
               {t("app.name")}
             </span>
           </div>

@@ -26,13 +26,14 @@ export const CODE_FRAME_ALLOW = "clipboard-read; clipboard-write"
 type Phase = "loading" | "ready" | "down" | "signedOut" | "blocked"
 type Failure = "ticket" | "status"
 
-const STATE_KEYS: Record<Phase | "offline", MessageKey> = {
+const STATE_KEYS: Record<Phase | "offline" | "narrow", MessageKey> = {
   loading: "code.state.loading",
   ready: "code.state.ready",
   down: "code.state.down",
   signedOut: "code.state.signedOut",
   blocked: "code.state.blocked",
   offline: "code.state.offline",
+  narrow: "code.state.narrow",
 }
 
 function Panel({
@@ -130,12 +131,14 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
     }
   }, [next, attempt, online])
 
-  // A framed Code UI that never loads is usually blocked by a frame policy.
+  // A framed Code UI that never fires `load` is the only blocked case this side
+  // can see (a frame refused by a policy fires `load`, see implementation 07).
+  // The narrow layout mounts no frame at all, so it never starts this timer.
   useEffect(() => {
-    if (phase !== "ready" || loaded || !frameUrl) return
+    if (!wide || phase !== "ready" || loaded || !frameUrl) return
     const timer = window.setTimeout(() => setPhase("blocked"), loadTimeoutMs)
     return () => window.clearTimeout(timer)
-  }, [phase, loaded, frameUrl, loadTimeoutMs])
+  }, [wide, phase, loaded, frameUrl, loadTimeoutMs])
 
   const codeOrigin = useMemo(() => {
     if (!frameUrl) return null
@@ -176,11 +179,16 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
   }, [])
 
   const frameVisible = wide && online && phase === "ready"
-  const state: Phase | "offline" = !online
+  // Below `lg` no frame is mounted, so neither "Loading…" nor "Embedding
+  // blocked" describes that layout: it gets its own explicit state.
+  const state: Phase | "offline" | "narrow" = !online
     ? "offline"
-    : phase === "ready" && !loaded
-      ? "loading"
-      : phase
+    : !wide
+      ? "narrow"
+      : phase === "ready" && !loaded
+        ? "loading"
+        : phase
+  const ticketFailure = failure === "ticket"
 
   const newTabLink = (short: boolean, testId = "code-new-tab") => (
     <a
@@ -191,7 +199,7 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
       title={t("code.openNewTab")}
       aria-disabled={newTabUrl ? undefined : true}
       onClick={newTabUrl ? undefined : (event) => event.preventDefault()}
-      className={`btn btn-sm ${newTabUrl ? "btn-ghost" : "btn-disabled btn-ghost"}`}
+      className={`btn btn-sm ${newTabUrl ? "btn-outline" : "btn-disabled btn-outline"}`}
     >
       {short ? t("code.openNewTabShort") : t("code.openNewTab")}
       <span className="sr-only"> ({t("code.opensInNewTab")})</span>
@@ -202,11 +210,11 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
     <div className="flex min-h-0 flex-1 flex-col bg-app">
       <div
         ref={barRef}
-        role="region"
+        role="banner"
         tabIndex={-1}
         aria-label={t("code.barLabel")}
         data-testid="code-bar"
-        className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-subtle px-2 py-1 outline-none"
+        className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-subtle px-2 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
       >
         <SurfaceSwitch />
         <span
@@ -228,17 +236,17 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
           disabled={!online}
           aria-label={t("code.reload")}
           title={t("code.reload")}
-          className="btn btn-ghost btn-sm"
+          className="btn btn-outline btn-sm"
         >
           {t("code.reload")}
         </button>
-        {newTabLink(false)}
+        {newTabLink(!wide)}
         {frameVisible ? (
           <button
             type="button"
             data-testid="code-focus-frame"
             onClick={() => frameRef.current?.focus()}
-            className="btn btn-ghost btn-sm"
+            className="btn btn-outline btn-sm"
           >
             {t("code.focusFrame")}
           </button>
@@ -276,14 +284,14 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
       ) : phase === "down" ? (
         <Panel
           alert
-          title={t("code.downTitle")}
-          body={failure === "ticket" ? t("code.downTicket") : t("code.downStatus")}
+          title={ticketFailure ? t("code.ticketTitle") : t("code.downTitle")}
+          body={ticketFailure ? t("code.ticketBody") : t("code.downStatus")}
         >
-          <p className="w-full text-xs text-muted">
-            {status?.expectedVersion
-              ? t("code.expectedVersion", { version: status.expectedVersion })
-              : null}
-          </p>
+          {!ticketFailure && status?.expectedVersion ? (
+            <p className="w-full text-xs text-muted">
+              {t("code.expectedVersion", { version: status.expectedVersion })}
+            </p>
+          ) : null}
           <button type="button" onClick={reload} className="btn btn-primary btn-sm">
             {t("code.retry")}
           </button>

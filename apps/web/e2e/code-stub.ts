@@ -22,10 +22,10 @@
  *
  * **Deliberate rejection switch.** A ticket is rejected when its validated
  * `next` path is exactly `/signed-out`, even if the ticket itself is valid. The
- * app reaches it with the deep link `/code/signed-out`, so the signed-out state
- * is deterministic per request and needs no second server. `/signed-out` is not
- * a route the app or the fake backend produces, so normal tests cannot trigger
- * it by accident.
+ * app reaches it by hand-typing `/code/signed-out`: the catch-all `/code/*`
+ * route forwards `signed-out` as `next=/signed-out`, and the stub answers `401`
+ * by design. No link, switch or fake-backend flow produces that path, so the
+ * signed-out state cannot trigger by accident.
  *
  * **Two request kinds.** The stub also plays the OpenCode upstream: rendering an
  * authenticated page performs one loopback `GET /__upstream` carrying the same

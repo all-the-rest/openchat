@@ -7,6 +7,12 @@
  */
 export const DRAFT_PREFIX = "openchat.draft."
 
+/**
+ * Draft key for the landing page, which has no session yet. Its stored entry is
+ * `openchat.draft.new` and is cleared as soon as the session is created.
+ */
+export const NEW_DRAFT_KEY = "new"
+
 export function draftStorageKey(sessionID: string): string {
   return `${DRAFT_PREFIX}${sessionID}`
 }

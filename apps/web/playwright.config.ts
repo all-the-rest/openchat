@@ -37,7 +37,10 @@ export default defineConfig({
       command: "pnpm --filter @openchat/server start",
       cwd: REPO_ROOT,
       url: "http://localhost:8787/healthz",
-      reuseExistingServer: REUSE_EXISTING,
+      // Never reuse: this server needs CODE_HOST_ORIGIN, CODE_TICKET_SECRET and
+      // TRUST_PROXY below. A developer's running BFF would ignore them, and the
+      // suite would fail with a misleading 429 instead of saying so.
+      reuseExistingServer: false,
       timeout: 60_000,
       env: {
         PORT: "8787",

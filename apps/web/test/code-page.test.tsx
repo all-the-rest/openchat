@@ -104,6 +104,7 @@ describe("Code page", () => {
     expect(frame).toHaveAttribute("src", `${CODE_ORIGIN}/__auth?ticket=t1&next=%2F`)
     expect(frame).toHaveAttribute("title", "OpenCode workspace")
     expect(frame).toHaveAttribute("allow", "clipboard-read; clipboard-write")
+    expect(screen.getByTestId("code-new-tab")).toHaveTextContent("Open Code in a new tab")
 
     // The new tab gets its own single-use ticket.
     expect(screen.getByTestId("code-new-tab")).toHaveAttribute(
@@ -138,12 +139,19 @@ describe("Code page", () => {
     await waitFor(() => expect(screen.getByTestId("code-state")).toHaveTextContent("Connected"))
   })
 
-  it("shows the ticket error and recovers on Retry", async () => {
+  it("reports a failed ticket as its own error without the expected version", async () => {
     const user = userEvent.setup()
     mocks.codeTicket.mockRejectedValueOnce(new Error("throttled"))
 
     renderCode()
-    expect(await screen.findByText("No sign-in ticket could be created.")).toBeInTheDocument()
+    expect(await screen.findByText("No Code sign-in ticket")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "The app could not create a sign-in ticket. The ticket limit may be exhausted; wait a minute and try again.",
+      ),
+    ).toBeInTheDocument()
+    // The Code host itself is not the failure here, so no version line.
+    expect(screen.queryByText("This app expects version 2.3.0.")).toBeNull()
     expect(screen.queryByTestId("code-frame")).toBeNull()
     expect(screen.getByTestId("code-state")).toHaveTextContent("Not reachable")
 
@@ -241,6 +249,32 @@ describe("Code page", () => {
     )
   })
 
+  it("shows a narrow bar state instead of Loading or Blocked", async () => {
+    stubViewport(false)
+
+    renderCode("/code", { loadTimeoutMs: 20 })
+    expect(await screen.findByText("Code needs a larger screen")).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByTestId("code-new-tab-fallback")).toHaveAttribute(
+        "href",
+        expect.stringContaining("__auth"),
+      ),
+    )
+
+    // Longer than the load timeout: the skipped timer must never flip the bar.
+    await new Promise((resolve) => setTimeout(resolve, 60))
+
+    const state = screen.getByTestId("code-state")
+    expect(state).toHaveTextContent("Desktop only")
+    expect(state).not.toHaveTextContent("Loading")
+    expect(state).not.toHaveTextContent("Blocked")
+    expect(screen.queryByTestId("code-frame")).toBeNull()
+    expect(screen.getByTestId("code-bar")).toHaveAttribute("role", "banner")
+    // The narrow bar uses the short label so it stays on one row.
+    expect(screen.getByTestId("code-new-tab")).toHaveTextContent("New tab")
+    expect(screen.getByTestId("code-new-tab")).not.toHaveTextContent("Open Code in a new tab")
+  })
+
   it("re-mints the ticket on reload and keeps one switch in the bar", async () => {
     const user = userEvent.setup()
     renderCode()
@@ -266,7 +300,11 @@ describe("Code page", () => {
     expect(frame).toHaveFocus()
 
     fireEvent.keyDown(window, { key: "Escape" })
+    expect(document.activeElement).toBe(bar)
     expect(bar).toHaveFocus()
+    // A visible replacement indicator, not just the removed `outline-none`.
+    expect(bar.className).toMatch(/focus-visible:outline-2/)
+    expect(bar.className).toMatch(/focus-visible:outline-focus-ring/)
   })
 })
 

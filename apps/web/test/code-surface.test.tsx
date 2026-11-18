@@ -206,6 +206,7 @@ describe("surface layout", () => {
   it("keeps the switch in the app bar and hides the chat sidebar on /code", async () => {
     const chat = renderShell("/")
     expect(await screen.findByTestId("app-bar")).toBeInTheDocument()
+    expect(screen.getByTestId("app-bar")).toHaveAttribute("role", "banner")
     expect(screen.getByTestId("app-drawer")).toBeInTheDocument()
     await waitFor(() => expect(screen.getByTestId("surface-switch")).toBeInTheDocument())
     chat.unmount()

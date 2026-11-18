@@ -1,10 +1,44 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ComponentProps } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { MemoryRouter, Route, Routes } from "react-router-dom"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { Composer } from "../src/chat/Composer"
 import { clearDraft, draftStorageKey, readDraft, writeDraft } from "../src/chat/drafts"
+import { SurfaceProvider } from "../src/code/SurfaceProvider"
+import { SurfaceSwitch } from "../src/code/SurfaceSwitch"
 import { I18nProvider } from "../src/i18n/provider"
+import { LandingPage } from "../src/pages/LandingPage"
+
+const mocks = vi.hoisted(() => ({
+  info: vi.fn(),
+  create: vi.fn(),
+}))
+
+vi.mock("../src/api/client", () => ({ api: { info: mocks.info } }))
+vi.mock("../src/api/events", () => ({
+  useEventStream: () => ({ connection: "open", reconnect: 0 }),
+}))
+vi.mock("../src/chat/sessions", () => ({
+  useSessions: () => ({
+    sessions: [],
+    loading: false,
+    failed: false,
+    refresh: vi.fn(),
+    create: mocks.create,
+  }),
+}))
+
+beforeEach(() => {
+  mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2.3.0" } })
+  mocks.create.mockResolvedValue({
+    id: "ses_new",
+    title: "",
+    directory: "",
+    created: 0,
+    updated: 0,
+  })
+})
 
 function memoryStorage(): Storage {
   const map = new Map<string, string>()
@@ -122,5 +156,37 @@ describe("Composer drafts", () => {
     view.rerender(view.tree({ draftKey: "ses_1" }))
     await waitFor(() => expect(textarea().value).toBe("first"))
     expect(readDraft("ses_2")).toBe("second")
+  })
+})
+
+describe("Landing draft", () => {
+  function renderLanding() {
+    return render(
+      <I18nProvider initialLocale="en">
+        <MemoryRouter initialEntries={["/"]}>
+          <SurfaceProvider>
+            <SurfaceSwitch />
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/code" element={<p>code surface</p>} />
+              <Route path="/code/*" element={<p>code surface</p>} />
+            </Routes>
+          </SurfaceProvider>
+        </MemoryRouter>
+      </I18nProvider>,
+    )
+  }
+
+  it("keeps a prompt typed on / across a Code switch", async () => {
+    const user = userEvent.setup()
+    renderLanding()
+
+    await user.type(await screen.findByTestId("composer"), "landing draft")
+    await user.click(await screen.findByTestId("surface-code"))
+    expect(await screen.findByText("code surface")).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("surface-chat"))
+    await waitFor(() => expect(screen.getByTestId("composer")).toHaveValue("landing draft"))
+    expect(readDraft("new")).toBe("landing draft")
   })
 })

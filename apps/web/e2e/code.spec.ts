@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
-import { CODE_STUB_ORIGIN } from "./code-stub"
+import { mintTicket } from "@openchat/code-ticket"
+import { CODE_STUB_ORIGIN, CODE_STUB_SECRET } from "./code-stub"
 import { guardExternalRequests, login } from "./helpers"
 
 /**
@@ -101,13 +102,21 @@ test("a rejected ticket shows the sign-in state and foreign messages are ignored
   await expect(frame(page)).toBeVisible()
 
   // The app accepts the unauthenticated state only from the frame's own origin.
-  // A message posted from the app origin itself must change nothing.
+  // A synthetic message with a foreign origin must change nothing; if the
+  // origin check were deleted, React would unmount the frame synchronously.
   await page.evaluate(() => {
-    window.postMessage({ type: "openchat:code-state", state: "unauthenticated" }, "*")
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: "https://evil.test",
+        data: { type: "openchat:code-state", state: "unauthenticated" },
+      }),
+    )
   })
+  // Bounded wait, then assert on the settled visible state.
+  await page.waitForTimeout(300)
+  await expect(page.getByTestId("code-sign-in")).toHaveCount(0)
   await expect(page.locator(FRAME)).toBeVisible()
   await expect(frame(page)).toBeVisible()
-  await expect(page.getByTestId("code-sign-in")).toHaveCount(0)
 
   // `/code/signed-out` arrives as `next=/signed-out`, which the stub rejects on
   // purpose even for a valid ticket; its 401 page posts the state to the app.
@@ -118,6 +127,43 @@ test("a rejected ticket shows the sign-in state and foreign messages are ignored
   await expect(page.getByTestId("code-sign-in")).toBeEnabled()
 
   expect(external).toEqual([])
+})
+
+test("the stub rejects garbage and wrong-secret tickets and accepts a real one", async ({
+  request,
+}) => {
+  const authUrl = (ticket: string) =>
+    `${CODE_STUB_ORIGIN}/__auth?ticket=${encodeURIComponent(ticket)}&next=%2Fvalid`
+
+  // Garbage: no signature at all.
+  const garbage = await request.get(authUrl("not-a-ticket"), { maxRedirects: 0 })
+  expect(garbage.status()).toBe(401)
+  expect(garbage.headers()["set-cookie"]).toBeUndefined()
+
+  // Structurally valid claims, signed with the wrong secret.
+  const wrongSecret = mintTicket({
+    sub: "e2e",
+    codeHost: CODE_STUB_ORIGIN,
+    secret: "definitely-not-the-shared-secret",
+    ttlSeconds: 60,
+  })
+  const forged = await request.get(authUrl(wrongSecret), { maxRedirects: 0 })
+  expect(forged.status()).toBe(401)
+  expect(forged.headers()["set-cookie"]).toBeUndefined()
+
+  // The same claims with the shared secret are accepted and exchanged for a
+  // session cookie, so the two rejections above prove `readTicket` is load
+  // bearing rather than a sheet of paper taped over the route.
+  const valid = mintTicket({
+    sub: "e2e",
+    codeHost: CODE_STUB_ORIGIN,
+    secret: CODE_STUB_SECRET,
+    ttlSeconds: 60,
+  })
+  const accepted = await request.get(authUrl(valid), { maxRedirects: 0 })
+  expect(accepted.status()).toBe(302)
+  expect(accepted.headers()["location"]).toBe("/valid")
+  expect(accepted.headers()["set-cookie"]).toContain("oc_code=")
 })
 
 test("the upstream credential never reaches the browser", async ({ page }) => {
