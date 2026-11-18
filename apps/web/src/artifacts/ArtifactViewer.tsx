@@ -15,7 +15,8 @@ import {
   needsFreshURL,
   saveBlob,
 } from "./files"
-import { ARTIFACT_LOAD_TIMEOUT_MS, ArtifactFrame, Panel } from "./parts"
+import { DraftPanel } from "./DraftPanel"
+import { ARTIFACT_LOAD_TIMEOUT_MS, ArtifactFrame, Panel, PresentBar, ViewerChrome } from "./parts"
 
 type Phase = "loading" | "ready" | "missing" | "error"
 
@@ -30,8 +31,11 @@ function isNotFound(error: unknown): boolean {
  *
  * Reset is the exception: it restarts the app in the current frame with the
  * same signed URL, so it neither mints nor loses the viewer's present mode.
- * A result from the artifact's bridge is handed to `onArtifactResult`; this
- * route has no composer, so the caller owns the draft.
+ *
+ * A result from the artifact's bridge becomes an editable draft in the panel
+ * below the frame, and is handed to `onArtifactResult` when the caller passed
+ * one (an inline chat card's insert seam). One result handler feeds both; there
+ * is no second path that could disagree about what the artifact returned.
  */
 export function ArtifactViewer({
   loadTimeoutMs = ARTIFACT_LOAD_TIMEOUT_MS,
@@ -55,6 +59,7 @@ export function ArtifactViewer({
   const [present, setPresent] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloadFailed, setDownloadFailed] = useState(false)
+  const [result, setResult] = useState<ArtifactResult | null>(null)
 
   const alive = useRef(true)
   const frameRef = useRef<HTMLIFrameElement>(null)
@@ -65,13 +70,24 @@ export function ArtifactViewer({
   const recovering = useRef(false)
   const refreshedURLs = useRef(new Set<string>())
 
+  // The single result path: the draft panel always sees the accepted result,
+  // and the optional callback sees the same value. A new result is a new prop;
+  // the panel decides whether it may replace what the user typed.
+  const onResult = useCallback(
+    (next: ArtifactResult) => {
+      setResult(next)
+      onArtifactResult?.(next)
+    },
+    [onArtifactResult],
+  )
+
   const bridge = useArtifactBridge({
     frameRef,
     artifactId: id,
     theme,
     locale,
     epoch,
-    onResult: onArtifactResult,
+    onResult,
   })
 
   useEffect(() => {
@@ -80,6 +96,12 @@ export function ArtifactViewer({
       alive.current = false
     }
   }, [])
+
+  // A draft belongs to the document that produced it: opening another artifact
+  // in the same viewer starts without the previous result.
+  useEffect(() => {
+    setResult(null)
+  }, [id])
 
   // One metadata read per attempt. A URL that arrives at the edge of its
   // lifetime is replaced by a second read, so the frame never starts on a link
@@ -298,73 +320,30 @@ export function ArtifactViewer({
         }
       >
         {present ? (
-          <div
-            role="region"
-            aria-label={t("artifacts.presentRegion")}
-            data-testid="artifact-present-bar"
-            className="flex min-h-12 shrink-0 items-center gap-2 border-b border-subtle px-3 py-1"
-          >
-            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{meta?.title}</h1>
-            <button
-              ref={exitRef}
-              type="button"
-              data-testid="artifact-exit-present"
-              onClick={() => {
-                restoreFocus.current = true
-                setPresent(false)
-              }}
-              className="btn btn-outline btn-sm"
-            >
-              {t("artifacts.exitPresent")}
-            </button>
-          </div>
+          <PresentBar
+            title={meta?.title}
+            exitRef={exitRef}
+            onExit={() => {
+              restoreFocus.current = true
+              setPresent(false)
+            }}
+          />
         ) : (
-          <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-subtle px-3 py-2">
-            <Link to="/artifacts" data-testid="artifact-back" className="btn btn-ghost btn-sm">
-              {t("artifacts.back")}
-            </Link>
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-sm font-semibold">
-                {meta ? meta.title : t("artifacts.viewerTitle")}
-              </h1>
-              {metaLine ? (
-                <p data-testid="artifact-viewer-meta" className="text-xs text-muted">
-                  {metaLine}
-                </p>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              data-testid="artifact-download"
-              onClick={() => void download()}
-              disabled={!meta || downloading}
-              className="btn btn-outline btn-sm"
-            >
-              {downloading ? t("artifacts.downloading") : t("artifacts.download")}
-            </button>
-            <button
-              type="button"
-              data-testid="artifact-reset"
-              onClick={reset}
-              disabled={phase === "loading"}
-              className="btn btn-outline btn-sm"
-            >
-              {t("artifacts.reset")}
-            </button>
-            <button
-              ref={presentRef}
-              type="button"
-              data-testid="artifact-present"
-              onClick={() => {
-                restoreFocus.current = false
-                setPresent(true)
-              }}
-              disabled={phase !== "ready" || frameFailed}
-              className="btn btn-outline btn-sm"
-            >
-              {t("artifacts.present")}
-            </button>
-          </header>
+          <ViewerChrome
+            title={meta?.title ?? null}
+            metaLine={metaLine}
+            hasMeta={meta !== null}
+            loading={phase === "loading"}
+            downloading={downloading}
+            canPresent={phase === "ready" && !frameFailed}
+            presentRef={presentRef}
+            onDownload={() => void download()}
+            onReset={reset}
+            onPresent={() => {
+              restoreFocus.current = false
+              setPresent(true)
+            }}
+          />
         )}
 
         {downloadFailed && !present ? (
@@ -391,6 +370,10 @@ export function ArtifactViewer({
         >
           {content}
         </div>
+
+        {!present && result ? (
+          <DraftPanel result={result} onDismiss={() => setResult(null)} />
+        ) : null}
       </div>
     </div>
   )

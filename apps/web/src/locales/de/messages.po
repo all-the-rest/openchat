@@ -1161,3 +1161,53 @@ msgstr "Deine Nachricht konnte nicht gesendet werden."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Deine Nachricht wartet, bis der aktuelle Lauf abgeschlossen ist."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftCopied"
+msgstr "Kopiert"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftCopy"
+msgstr "Kopieren"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftData"
+msgstr "Daten"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftDataNote"
+msgstr "Strukturierte Daten aus dem Artefakt, als JSON gezeigt — kein Dokument."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftDismiss"
+msgstr "Verwerfen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftLabel"
+msgstr "Artefakt-Ergebnis"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftNewResult"
+msgstr "Neues Ergebnis verfügbar"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftText"
+msgstr "Text"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftTitle"
+msgstr "Titel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftTitleFallback"
+msgstr "Ergebnis aus diesem Artefakt"

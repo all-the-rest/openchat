@@ -208,8 +208,11 @@ describe("artifact bridge", () => {
     await act(async () => {})
 
     expect(results).toEqual([{ text: "<b>not markup</b>" }])
-    expect(screen.queryByText("<b>not markup</b>")).toBeNull()
+    // Visible since the draft panel exists, but as a field value: no element
+    // and no handler is created from it.
     expect(document.querySelector("b")).toBeNull()
+    expect(document.querySelector("[onerror]")).toBeNull()
+    expect(screen.getByTestId("artifact-draft-text")).toHaveTextContent("<b>not markup</b>")
   })
 
   it("asks a ready artifact to reset over the bridge without remounting", async () => {
