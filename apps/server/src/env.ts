@@ -49,6 +49,12 @@ export interface EnvConfig {
   ARTIFACT_SIGNING_KEY: string
   /** Directory holding one subdirectory per artifact. */
   ARTIFACTS_DIR: string
+  /**
+   * Bearer token for `POST /internal/artifacts`, shared with the MCP tool.
+   * Generated for a development boot; required in production once the surface
+   * is configured.
+   */
+  ARTIFACT_INTERNAL_TOKEN: string
 }
 
 export interface LoadEnvOptions {
@@ -277,6 +283,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     {
       hostUrl: read(source, "ARTIFACT_HOST_URL"),
       signingKey: readSecret(source, "ARTIFACT_SIGNING_KEY"),
+      internalToken: readSecret(source, "ARTIFACT_INTERNAL_TOKEN"),
     },
     { production, warn },
   )
@@ -377,5 +384,6 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     ARTIFACT_HOST_URL: artifacts.hostUrl,
     ARTIFACT_SIGNING_KEY: artifacts.signingKey,
     ARTIFACTS_DIR: read(source, "ARTIFACTS_DIR") ?? join(workspaceDir, ARTIFACT_DIR_NAME),
+    ARTIFACT_INTERNAL_TOKEN: artifacts.internalToken,
   }
 }

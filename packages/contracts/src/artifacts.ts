@@ -11,6 +11,12 @@ export const ARTIFACT_MAX_BYTES = 1_048_576
 /** Longest stored title, after trimming and control-character removal. */
 export const ARTIFACT_TITLE_MAX = 120
 
+/** Largest `code` input of `openchat_app_write`: one JSX module, 64 KiB. */
+export const ARTIFACT_CODE_MAX_BYTES = 65_536
+
+/** Largest `css` input of `openchat_app_write`: 32 KiB, inlined into one style. */
+export const ARTIFACT_CSS_MAX_BYTES = 32_768
+
 /**
  * Signed-URL lifetime: 15 minutes, the ceiling from the sandbox design. A URL
  * is minted fresh on every read, so a client never holds a stale one.
@@ -46,6 +52,27 @@ export interface ArtifactCreateRequest {
   title: string
   /** The stored bytes; must start with `<!doctype html` or `<html`. */
   html: string
+}
+
+/**
+ * Body of `POST /internal/artifacts`, the bearer-authenticated route the MCP
+ * tool posts to. The tool has already validated and compiled the document, so
+ * the route applies the same store validation and nothing else.
+ */
+export type ArtifactInternalCreateRequest = ArtifactCreateRequest
+
+/**
+ * Receipt of `POST /internal/artifacts` and of `openchat_app_write`. It carries
+ * no URL: the tool never re-emits the document or hands a signed link to the
+ * model.
+ */
+export interface ArtifactWriteReceipt {
+  /** 64 lowercase hex characters: the SHA-256 of the stored document. */
+  artifactID: string
+  /** The stored title, after store sanitisation. */
+  title: string
+  /** Size of the stored document in bytes. */
+  bytes: number
 }
 
 /**
