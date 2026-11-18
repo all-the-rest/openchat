@@ -1,0 +1,20 @@
+# Python dependencies for the document tools (issue #24).
+#
+# This file records intent; requirements.lock and requirements-dev.lock carry
+# the exact pins. Everything is pinned with `==` and installed with
+# `--no-deps`, so the closure must be complete.
+#
+# markitdown is the Microsoft converter and the owner-required reader. Only the
+# four format extras are requested: `all` would also pull audio/video
+# transcription and Azure cloud clients. XLSX brings pandas, DOCX brings lxml;
+# both are native packages and therefore live in requirements-dev.lock (and in
+# apk-packages.txt for the image).
+#
+# Native packages (onnxruntime, numpy, pandas, lxml, openpyxl, cryptography,
+# pillow) are Alpine packages in the image and PyPI wheels in the development
+# virtualenv. pandoc is absent: a ~150 MB binary with no consumer here.
+markitdown[docx,xlsx,pptx,pdf]==0.1.9
+python-docx==1.2.0
+openpyxl==3.1.5
+reportlab==5.1.0
+pillow==12.2.0

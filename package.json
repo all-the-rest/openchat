@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
+    "setup:python": "node scripts/setup-python.ts",
+    "python:check": "node scripts/check-python.ts",
     "lint": "node scripts/lint-i18n.ts && pnpm -r run lint",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
@@ -14,7 +16,7 @@
     "release:bump": "node scripts/release.ts bump",
     "release:changelog": "node scripts/release.ts changelog",
     "release:check": "node scripts/release.ts check",
-    "gates:fast": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && ratchet check --tier fast",
+    "gates:fast": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run python:check && ratchet check --tier fast",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "engines": {

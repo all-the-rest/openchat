@@ -1,0 +1,37 @@
+# Pip-installed half of the document toolchain, as installed in the
+# production image. Alpine 3.24.4 / Python 3.14.10, resolved once with
+# `pip install --only-binary :all:`. Every distribution is pinned with `==`;
+# there are no extras, markers, URLs or pre-releases. The image installs it
+# offline:
+#   python3 -m pip install --no-deps --no-index --find-links /wheels \
+#       -r /wheels/requirements.lock
+#
+# The native half (requirements-dev.lock on a workstation, apk-packages.txt in
+# the image) supplies onnxruntime, numpy, pandas, lxml, openpyxl, cryptography
+# and pillow. pypdfium2 is deliberately absent: pdfplumber only imports it for
+# the optional page-renderer, which read_document never uses; the image smoke
+# test converts a real PDF on a network-less build step.
+beautifulsoup4==4.15.0
+certifi==2026.10.23
+charset-normalizer==3.5.2
+click==8.5.1
+cobble==0.1.4
+defusedxml==0.7.1
+et_xmlfile==2.0.0
+idna==3.20
+magika==1.0.3
+mammoth==1.13.0
+markdownify==1.2.3
+markitdown==0.1.9
+pdfminer.six==20260107
+pdfplumber==0.11.10
+protobuf==7.36.2
+python-docx==1.2.0
+python-pptx==1.0.2
+reportlab==5.1.0
+requests==2.34.2
+six==1.17.0
+soupsieve==4.1.1
+typing_extensions==4.16.0
+urllib3==2.8.0
+xlsxwriter==3.3.1

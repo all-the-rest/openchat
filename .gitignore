@@ -7,6 +7,9 @@ dist
 .DS_Store
 references/raw
 
+# Development Python environment (`pnpm run setup:python`); the lock is tracked.
+.venv/
+
 # Default artifact store of a development run (`ARTIFACTS_DIR`).
 .openchat-artifacts/
 

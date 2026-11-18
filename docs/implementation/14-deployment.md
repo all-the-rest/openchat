@@ -177,6 +177,89 @@ user namespaces enabled (`newuidmap`/`newgidmap` present, `kernel.unprivileged_u
 on kernels that still gate it) and `fs.inotify.max_user_instances` raised, which
 Docker's own rootless documentation requires.
 
+### Python document toolchain
+
+The OpenCode image carries Python so the document tools work offline. The base
+is Alpine 3.24.4, whose repository has **Python 3.14.10** and no 3.13 package;
+the issue asked for 3.13, so this is the one owner-visible deviation.
+
+Three files are the contract:
+
+- `packages/python-env/requirements.lock` — the pip-installed half, exact `==`
+  pins, installed with `--no-deps`. It carries `markitdown 0.1.9` with the four
+  format extras (`docx`, `xlsx`, `pptx`, `pdf`), `python-docx 1.2.0`,
+  `reportlab 5.1.0` and their pure-Python closure (`magika 1.0.3`,
+  `mammoth 1.13.0`, `pdfminer.six 20260107`, `pdfplumber 0.11.10`,
+  `python-pptx 1.0.2`, `charset-normalizer`, `typing_extensions`, …).
+- `packages/python-env/requirements-dev.lock` — the native half for a
+  workstation, resolved from PyPI at the versions the Alpine packages provide.
+- `packages/python-env/apk-packages.txt` — the same native half as Alpine
+  packages, pinned to `py3-onnxruntime=1.24.4-r1`, `py3-pandas=3.0.3-r0`,
+  `py3-lxml=6.1.1-r0`, `py3-openpyxl=3.1.5-r1`, `py3-cryptography=47.0.0-r0`
+  and `py3-pillow=12.2.0-r0`. `onnxruntime` publishes no musllinux wheel, so
+  pip cannot provide it on Alpine at all; the apk packages also share their
+  libraries instead of vendoring a second copy.
+
+`markitdown` is mandatory and available two ways: the CLI is on `PATH`
+(`markitdown <file> > out.md`) and `read_document` calls its Python API for
+DOCX, XLSX, PPTX and PDF. The magika model is part of the wheel (3.1 MiB under
+`magika/models`), so the first conversion does no network call. The image
+proves that structurally: a build step runs with `--network=none`, creates a
+real DOCX/XLSX/PPTX/PDF, converts all four with both the CLI and
+`read_document.py`, and checks that a corrupt DOCX yields `parse_failed` with no
+traceback (`deploy/python-smoke.py`). The `all` extra is never requested — it
+would add audio/video transcription and Azure clients.
+
+Two deliberate omissions: `pypdfium2` (pdfplumber imports it only for its
+optional page renderer, which `read_document` never uses; the offline PDF
+conversion above covers the code path) and the `pandoc` binary (~150 MB, no
+consumer). `pypdf` went with the switch to markitdown.
+
+A `python-wheels` stage downloads the pip half once with
+`pip download --only-binary :all:` on the target architecture; the runtime
+installs the apk pins first, then the wheels with
+`--no-index --find-links /wheels --no-deps`, checks `python3 --version`, imports
+the whole set and resolves the `markitdown` CLI in the same `RUN`, then removes
+the wheelhouse, the pip cache, `py3-pip` and every `__pycache__`. No compiler
+exists in either stage.
+
+Measured on arm64: on a bare `alpine:3.24.4` (13,502,455 bytes) the same steps
+produce a 391,869,234-byte image, a **378,366,779-byte (378.4 MB / 360.8 MiB)
+delta** — the worst case, because a bare base shares none of the C libraries.
+In the real OpenCode image the Python step is a **268 MB layer**
+(`docker history`), because Node/git already provide `libssl`, `libstdc++` and
+the other shared objects the apk packages need. Both numbers are below the
++400 MB budget. Installed site-packages are 156.3 MiB:
+
+| Package | Installed |
+| --- | --- |
+| onnxruntime (+ 14.4 MiB shared library, 10.4 MiB openblas) | 34.0 MiB |
+| pandas (markitdown's xlsx extra) | 23.8 MiB |
+| numpy | 19.0 MiB |
+| sympy | 16.5 MiB |
+| pdfminer.six | 9.1 MiB |
+| reportlab | 4.7 MiB |
+| lxml | 4.2 MiB |
+| magika (incl. bundled model) | 3.3 MiB |
+| cryptography | 3.2 MiB |
+| python-pptx | 2.5 MiB |
+| python-docx | 2.3 MiB |
+| pillow | 2.0 MiB |
+| remainder (markitdown, mammoth, pdfplumber, requests, …) | 31.7 MiB |
+
+The markitdown family — markitdown, magika, onnxruntime, numpy, sympy and the
+shared libraries — is about 102 MB, plus 24 MB for pandas through the xlsx
+extra. That is the item to cut first if the budget ever tightens; dropping the
+`xlsx` extra (and the pandas path in `read_document`) would be the smallest
+functional loss.
+
+Development uses `pnpm run setup:python` (Node only, no new JS dependency;
+creates `.venv` from `python3` 3.12+, installs both locks with `--no-deps`,
+verifies the imports, refuses a venv whose major/minor differs from the host)
+and `pnpm run python:check` (offline; skips when `.venv` is absent). On Apple
+silicon the cp314 native wheels need macOS 14+; the download path was verified
+for `macosx_14_0_arm64` (45 wheels).
+
 The tool image is deliberately **not** the application image: it has a shell on
 purpose. Do not attach the BFF or the artifact host to `dind`.
 

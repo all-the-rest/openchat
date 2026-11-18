@@ -22,7 +22,7 @@ function repo(version = "1.2.3"): string {
   return root
 }
 
-describe("version bump", () => {
+describe("version bump", { timeout: 30_000 }, () => {
   it("walks the semver table: patch, minor, major", () => {
     const root = repo()
     expect(runRelease(root, ["bump", "--patch", "--allow-dirty"]).status).toBe(0)

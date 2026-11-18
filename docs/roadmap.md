@@ -123,7 +123,7 @@ Five capabilities were added to v1 after M0 and are tracked as issues:
 | --- | --- | --- |
 | #21 | File upload and download for agent-produced files | M3 (transport) + M4 (file cards) |
 | #22 | Office documents: DOCX create/fill, XLSX, PDF conversion | M4 |
-| #23 | Python toolchain (python-docx, openpyxl, pypdf, markitdown, pillow) in dev and the production image | M3 setup, M7 image |
+| #23 | Python toolchain (python-docx, openpyxl, python-pptx, markitdown, pillow) in dev and the production image | M3 setup, M7 image |
 | #24 | PWA: installable shell, offline state, generated icon set | M6 |
 | #25 | Per-chat working files directory with quotas and path safety | M3 |
 

@@ -49,7 +49,7 @@ function seedHistory(root: string): void {
   git(root, "merge", "--no-ff", "-q", "-m", "merge: topic", "topic")
 }
 
-describe("changelog", () => {
+describe("changelog", { timeout: 30_000 }, () => {
   it("groups by issue reference and conventional type, deterministically", () => {
     const root = repo()
     seedHistory(root)

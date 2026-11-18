@@ -112,7 +112,10 @@ describe("derived OpenCode image", () => {
     expect(DOCKERFILE).toContain("sha256sum -c")
     expect(DOCKERFILE).toContain("ARG TARGETARCH=amd64")
     expect(DOCKERFILE).toContain("/opt/artifact-tool/node_modules/.bin/tsx")
-    expect(DOCKERFILE).toMatch(/pnpm install [^\n]*--prod[^\n]*--filter @openchat\/artifact-tool/)
+    // The install line wraps; join continuations before matching.
+    expect(DOCKERFILE.replace(/\\\n/g, " ")).toMatch(
+      /pnpm install [^\n]*--prod[^\n]*--filter @openchat\/artifact-tool/,
+    )
     expect(DOCKERFILE).toContain(
       "COPY --from=tool /repo /opt/artifact-tool",
     )
@@ -311,6 +314,10 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
     expect(text).toContain("/opt/artifact-tool/packages/artifact-tool/src/index.ts")
     expect(text).toContain('"OPENCHAT_BFF_URL": "http://bff:8787"')
     expect(text).toContain(token)
+
+    expect(text).toContain('"openchat-python"')
+    expect(text).toContain("/opt/artifact-tool/packages/python-tool/src/index.ts")
+    expect(text).toContain('"OPENCHAT_PYTHON": "/usr/bin/python3"')
 
     writeFileSync(file, `${text}\n`)
     const stamp = statSync(file).mtimeMs

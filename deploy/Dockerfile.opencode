@@ -5,7 +5,10 @@
 #
 #   base   ghcr.io/anomalyco/opencode:2.3.2   Alpine, root, entrypoint `opencode`
 #   added  git, ripgrep, curl/ca-certificates, Docker CLI (static, verified),
-#          Node.js (the artifact MCP tool runs through `tsx`), the tool tree
+#          Node.js (the MCP tools run through `tsx`), Python 3.14 with the
+#          document toolchain (markitdown, python-docx, openpyxl, reportlab;
+#          native packages from apk, pip wheels offline, no compiler), the
+#          tool trees
 #
 # The entrypoint (`opencode`), the user (root) and the working directory are the
 # upstream contract and stay untouched. Compose passes `serve --hostname …
@@ -32,6 +35,23 @@ ARG OPENCODE_BASE=ghcr.io/anomalyco/opencode:2.3.2@sha256:be07cc4afd6d668d91b77a
 # intact, and build it on Alpine so the tree matches the runtime's libc.
 ARG NODE_IMAGE=node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
 
+# Python wheels are resolved once in a throwaway stage on the same Alpine and
+# architecture as the runtime. The image is 3.24.4, whose `python3` is 3.14.10;
+# the issue asked for 3.13, which this base does not carry (the deviation is
+# recorded in docs/implementation/14-deployment.md). No compiler is installed
+# in either stage: the pip half is pure Python or ships a musllinux wheel, and
+# the native half (onnxruntime, pandas, lxml, openpyxl, cryptography, pillow)
+# comes from apk, because onnxruntime publishes no musllinux wheel and the
+# shared libraries are smaller than a second vendored copy.
+ARG PYTHON_IMAGE=alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+
+FROM ${PYTHON_IMAGE} AS python-wheels
+RUN apk add --no-cache python3 py3-pip
+COPY packages/python-env/requirements.lock /wheels/requirements.lock
+RUN python3 -m pip download --disable-pip-version-check --no-deps \
+      --only-binary :all: --dest /wheels \
+      -r /wheels/requirements.lock
+
 FROM ${NODE_IMAGE} AS tool
 WORKDIR /repo
 ENV CI=true
@@ -48,16 +68,20 @@ COPY packages/code-ticket/package.json ./packages/code-ticket/package.json
 COPY packages/contracts/package.json ./packages/contracts/package.json
 COPY packages/opencode/package.json ./packages/opencode/package.json
 COPY packages/artifact-tool/package.json ./packages/artifact-tool/package.json
+COPY packages/python-tool/package.json ./packages/python-tool/package.json
 
-# The tool, its workspace dependencies and `tsx` (the runtime command, a
+# The tools, their workspace dependencies and `tsx` (the runtime command, a
 # regular dependency so the production install keeps it); `--frozen-lockfile`
 # turns manifest drift into a build failure, `--prod` keeps vitest, jsdom and
 # the TypeScript toolchain out of the shipped image.
-RUN pnpm install --frozen-lockfile --prod --filter @openchat/artifact-tool...
+RUN pnpm install --frozen-lockfile --prod \
+      --filter @openchat/artifact-tool... \
+      --filter @openchat/python-tool...
 
 COPY tsconfig.base.json ./
 COPY packages/artifact-tool ./packages/artifact-tool
 COPY packages/contracts ./packages/contracts
+COPY packages/python-tool ./packages/python-tool
 
 FROM ${OPENCODE_BASE} AS runtime
 
@@ -65,6 +89,32 @@ FROM ${OPENCODE_BASE} AS runtime
 # what OpenCode's own tools shell out to; curl is used by agent workflows and by
 # the Docker CLI download below. ripgrep is already in the upstream image.
 RUN apk add --no-cache ca-certificates curl git nodejs
+
+# The document toolchain. Native packages are pinned in apk-packages.txt and
+# installed first, so pip never downloads a second compiled copy. The
+# wheelhouse was produced once in `python-wheels` on this exact Alpine/arch;
+# the install below is offline (`--no-index`, `--no-deps`), needs no compiler
+# and leaves no pip or wheelhouse behind. `--break-system-packages` is the
+# Alpine/PEP 668 way to install into the system interpreter; after the install
+# `py3-pip` is removed, so the runtime image has no package installer at all.
+# The markitdown CLI lands in /usr/bin and reads the bundled magika model; the
+# conversion smoke test runs later with `--network=none`. The wheelhouse is a
+# bind mount, not a layer, so it cannot survive in the final filesystem even as
+# a whiteout.
+COPY packages/python-env/apk-packages.txt /tmp/apk-packages.txt
+RUN --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels \
+    apk add --no-cache python3 py3-pip \
+ && grep -v '^#' /tmp/apk-packages.txt | xargs apk add --no-cache \
+ && python3 -m pip install --disable-pip-version-check --break-system-packages \
+      --no-index --find-links /wheels --no-deps --no-cache-dir \
+      -r /wheels/requirements.lock \
+ && python3 --version \
+ && python3 -c "import docx, openpyxl, reportlab, PIL, markitdown, magika, onnxruntime, pandas; print('imports ok', markitdown.__version__, magika.__version__, onnxruntime.__version__)" \
+ && command -v markitdown \
+ && find /usr/lib/python3.14 -name '__pycache__' -prune -exec rm -rf {} + \
+ && rm -rf /root/.cache/pip /tmp/apk-packages.txt \
+ && apk del py3-pip \
+ && python3 -c "import docx, openpyxl, reportlab, PIL, markitdown, magika, onnxruntime, pandas; print('post-del imports ok')"
 
 # Docker CLI only, from the static release tarball, exactly as the tool image
 # does it: a CLI, never a daemon. The sidecar `<tarball>.sha256` is fetched from
@@ -94,6 +144,14 @@ RUN set -eu; \
 # must not be able to shadow the tool's source or its `node_modules`.
 COPY --from=tool /repo /opt/artifact-tool
 
+# The owner requirement is that markitdown works without a first-call download.
+# `--network=none` makes the proof structural: fixtures for all four formats,
+# the CLI and `read_document.py` must succeed with no route to PyPI or Hugging
+# Face, and a corrupt DOCX must map to `parse_failed` without a traceback.
+COPY deploy/python-smoke.py /opt/python-smoke.py
+RUN --network=none python3 /opt/python-smoke.py \
+      /opt/artifact-tool/packages/python-tool/python
+
 # Stable command path. pnpm installs `tsx` next to the package that depends on
 # it, not at the workspace root; the MCP config names one path, so pin it here.
 RUN mkdir -p /opt/artifact-tool/node_modules/.bin \
@@ -104,7 +162,10 @@ RUN node --version \
   && git --version \
   && rg --version | head -1 \
   && test -x /opt/artifact-tool/node_modules/.bin/tsx \
-  && /opt/artifact-tool/node_modules/.bin/tsx --version
+  && /opt/artifact-tool/node_modules/.bin/tsx --version \
+  && test -f /opt/artifact-tool/packages/python-tool/src/index.ts \
+  && test -f /opt/artifact-tool/packages/python-tool/python/docx_fill.py \
+  && python3 --version
 
 # No ENTRYPOINT, CMD or USER: all three are the official image's. Compose
 # supplies the `serve` arguments; `working_dir: /workspace` comes from compose.

@@ -32,6 +32,8 @@ DRY_RUN=0
 TOOL_DIR=/opt/artifact-tool/packages/artifact-tool
 TOOL_COMMAND_TSX=/opt/artifact-tool/node_modules/.bin/tsx
 TOOL_ENTRY=/opt/artifact-tool/packages/artifact-tool/src/index.ts
+PYTHON_TOOL_ENTRY=/opt/artifact-tool/packages/python-tool/src/index.ts
+PYTHON_BIN=/usr/bin/python3
 BFF_URL=http://bff:8787
 
 usage() {
@@ -105,7 +107,7 @@ main() {
   [ -n "$token" ] || die "$STACK_DIR/.env has no ARTIFACT_INTERNAL_TOKEN"
 
   if [ "$DRY_RUN" -eq 1 ]; then
-    note "would: write $file (0600) with one local MCP entry for $BFF_URL"
+    note "would: write $file (0600) with local MCP entries for $BFF_URL"
     return 0
   fi
 
@@ -123,6 +125,16 @@ main() {
         "OPENCHAT_BFF_URL": "$BFF_URL",
         "ARTIFACT_INTERNAL_TOKEN": "$token"
       }
+    },
+    "openchat-python": {
+      "type": "local",
+      "command": ["$TOOL_COMMAND_TSX", "$PYTHON_TOOL_ENTRY"],
+      "enabled": true,
+      "environment": {
+        "OPENCHAT_BFF_URL": "$BFF_URL",
+        "ARTIFACT_INTERNAL_TOKEN": "$token",
+        "OPENCHAT_PYTHON": "$PYTHON_BIN"
+      }
     }
   }
 }
@@ -130,8 +142,8 @@ JSON
   chmod 600 "$tmp"
   mv "$tmp" "$file"
 
-  note "config: wrote $file (0600, one local MCP entry for $BFF_URL); token not shown"
-  note "config: tool = $TOOL_DIR; re-check after an OpenCode config-schema upgrade"
+  note "config: wrote $file (0600, local MCP entries for $BFF_URL); token not shown"
+  note "config: tools = $TOOL_DIR and $PYTHON_TOOL_ENTRY; re-check after an OpenCode config-schema upgrade"
 }
 
 main "$@"
