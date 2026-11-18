@@ -1,0 +1,8 @@
+# Test-only dependencies of the document tool scripts. None of this is
+# installed in the agent image: `pypdf` reads the PDF text layer in
+# `packages/python-tool/python/tests/test_pdf_fonts.py`, while the build-time
+# image smoke test uses the `pdfminer.six` that markitdown already pulls in.
+#
+# Installed by `pnpm run setup:python` into `.venv`; pinned exactly like the
+# other locks so a local test run and a future CI job agree.
+pypdf==7.1.1

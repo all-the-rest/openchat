@@ -39,4 +39,16 @@ describe("Python document toolchain image", () => {
       expect(smoke).toContain(`"${extension}"`)
     }
   })
+
+  it("installs the DejaVu fonts and proves the PDF text layer offline", () => {
+    expect(DOCKERFILE).toMatch(/apk add --no-cache python3 py3-pip font-dejavu=/)
+    expect(DOCKERFILE).toContain("/usr/share/fonts/dejavu/DejaVuSans.ttf")
+    const smoke = read("deploy", "python-smoke.py")
+    // The Cyrillic and Greek samples cannot come from a Base-14 font.
+    expect(smoke).toContain("Привет")
+    expect(smoke).toContain("Ω")
+    expect(smoke).toContain("DejaVuSans")
+    expect(smoke).toContain("docx_from_text.py")
+    expect(smoke).toContain("not reproducible")
+  })
 })

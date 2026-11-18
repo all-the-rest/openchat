@@ -1,4 +1,4 @@
-"""Shared plumbing for the four document scripts.
+"""Shared plumbing for the document scripts.
 
 Every script reads one JSON object on stdin and writes one JSON object on
 stdout. Nothing is read from the filesystem except the process working

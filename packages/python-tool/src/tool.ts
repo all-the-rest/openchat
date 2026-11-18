@@ -1,7 +1,7 @@
 import type { BffOptions } from "@openchat/artifact-tool/bff"
 import { getDocument, postDocument } from "@openchat/artifact-tool/bff"
 import type { ArtifactInternalCreateRequest } from "@openchat/contracts"
-import { writeChatOutputs } from "./chat-output"
+import { writeChatFile, writeChatOutputs } from "./chat-output"
 import type { DocumentsClient } from "./documents-client"
 import { ARTIFACT_MAX_BYTES, MAX_FILE_BYTES, MAX_TITLE, READ_PREVIEW_BYTES } from "./limits"
 import { buildFileArtifact, parseFileArtifact } from "./render"
@@ -132,6 +132,34 @@ export async function runDocumentTool(
       })
       if (!run.ok) return run
       return storeFile(deps, input.title, run.value.filename, run.value.mediaType, run.value.data)
+    }
+
+    case "docx_from_text": {
+      const input = call.value
+      const workspaceDir = deps.workspaceDir
+      if (!workspaceDir) return { ok: false, error: "chatPath: WORKSPACE_DIR is not configured" }
+      const run = await deps.runner("docx_from_text", {
+        filename: input.filename,
+        ...(input.documentTitle === undefined ? {} : { title: input.documentTitle }),
+        blocks: input.blocks,
+      })
+      if (!run.ok) return run
+      if (run.value.data.byteLength > MAX_FILE_BYTES) {
+        return { ok: false, error: "size: the generated document exceeds the artifact limit" }
+      }
+      // The chat file exists before the card is stored, so a rejected card can
+      // never leave a download pointing at bytes that were never written.
+      const written = await writeChatFile(workspaceDir, input.chatPath, run.value.data)
+      if (!written.ok) return { ok: false, error: written.error }
+      const stored = await storeFile(
+        deps,
+        input.title,
+        written.name,
+        run.value.mediaType,
+        run.value.data,
+      )
+      if (!stored.ok) return stored
+      return { ok: true, value: { ...stored.value, files: [written.name] } }
     }
 
     case "xlsx_write": {

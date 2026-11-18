@@ -4,7 +4,7 @@ import type { Readable, Writable } from "node:stream"
 import { TOOL_NAMES } from "./validate"
 
 /**
- * The MCP surface: one stdio server exposing the four document tools, newline
+ * The MCP surface: one stdio server exposing the document tools, newline
  * delimited JSON-RPC. The protocol is intentionally the same small subset the
  * artifact tool uses (`initialize`, `ping`, `tools/list`, `tools/call`); a
  * tool error is a result, never a crash, and no argument is echoed back.
@@ -48,6 +48,62 @@ export const DOCX_TOOL = {
       },
     },
     required: ["title"],
+    additionalProperties: false,
+  },
+} as const
+
+export const DOCX_FROM_TEXT_TOOL = {
+  name: "docx_from_text",
+  title: "Create a Word document from blocks or Markdown",
+  description: [
+    "Create a new DOCX from typed `blocks` or from a small Markdown subset (h1-h3, paragraphs,",
+    "`-`/`*` bullets, fenced code, pipe tables with a header row). Pass exactly one of `blocks` and",
+    "`markdown`. The page is A4 with 2 cm margins and a fixed style set; identical input produces",
+    "identical bytes. The file is written into the chat folder at `chatPath`",
+    "(`<sessionID>/files/<name>.docx`, relative to WORKSPACE_DIR/chats) and stored as a downloadable",
+    "artifact card as well. No HTML, no images, no template. Block errors name the parsed block.",
+    RETRY,
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      title: {
+        type: "string",
+        description: "Optional artifact title and document heading, at most 120 characters.",
+      },
+      chatPath: {
+        type: "string",
+        description: "Where to create the file: <sessionID>/files/<name>.docx. Never absolute.",
+      },
+      blocks: {
+        type: "array",
+        description: "1–500 blocks; 20 000 characters of text and 50×8 table cells in total.",
+        items: {
+          type: "object",
+          properties: {
+            kind: {
+              type: "string",
+              enum: ["heading", "paragraph", "bullet", "code", "table"],
+            },
+            text: { type: "string", description: "Required for every kind except table." },
+            level: { type: "integer", enum: [1, 2, 3], description: "Heading level." },
+            rows: {
+              type: "array",
+              description: "Table rows; the first row is the header. Same width in every row.",
+              items: { type: "array", items: { type: "string" } },
+            },
+          },
+          required: ["kind"],
+          additionalProperties: false,
+        },
+      },
+      markdown: {
+        type: "string",
+        description:
+          "Markdown source, at most 20 000 characters; converted to the same blocks. No HTML.",
+      },
+    },
+    required: ["chatPath"],
     additionalProperties: false,
   },
 } as const
@@ -172,6 +228,7 @@ export const DOCUMENTS_CONVERT_TOOL = {
 
 export const TOOLS = [
   DOCX_TOOL,
+  DOCX_FROM_TEXT_TOOL,
   XLSX_TOOL,
   PDF_TOOL,
   READ_TOOL,

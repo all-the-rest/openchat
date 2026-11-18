@@ -18,6 +18,11 @@ export const LOCK_FILE = join(REPO_ROOT, "packages", "python-env", "requirements
  * environments run the same distributions.
  */
 export const DEV_LOCK_FILE = join(REPO_ROOT, "packages", "python-env", "requirements-dev.lock")
+/**
+ * Test-only pins for the Python unit tests of the tool scripts. Never part of
+ * the image, which proves the same behaviour through `deploy/python-smoke.py`.
+ */
+export const TEST_LOCK_FILE = join(REPO_ROOT, "packages", "python-env", "requirements-test.lock")
 
 /** The image is 3.14; anything older than 3.12 is outside the support window. */
 export const MIN_MINOR = 12
@@ -122,7 +127,7 @@ export function warnIfNotTarget(version: PythonVersion): void {
 }
 
 export function ensureLockFile(): void {
-  for (const file of [LOCK_FILE, DEV_LOCK_FILE]) {
+  for (const file of [LOCK_FILE, DEV_LOCK_FILE, TEST_LOCK_FILE]) {
     if (!existsSync(file)) {
       fail(`missing ${file}; the lock is part of the repository`)
     }

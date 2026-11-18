@@ -10,18 +10,21 @@ import {
   MAX_VALUE_CHARS,
   MAX_VALUES,
 } from "./limits"
+import type { DocxFromTextInput } from "./validate-from-text"
+import { validateDocxFromText } from "./validate-from-text"
 import type { DocumentsConvertInput, DocumentsFillInput } from "./validate-documents"
 import { validateDocumentsConvert, validateDocumentsFill } from "./validate-documents"
 
 /**
- * Argument validation for the four document tools. Every rejection is one
- * short line with a field name, never a value and never a stack trace. The
- * order is cheap shape first, then elements, then cross-field rules, so the
- * model gets one decisive message per call.
+ * Argument validation for the document tools. Every rejection is one short
+ * line with a field name, never a value and never a stack trace. The order is
+ * cheap shape first, then elements, then cross-field rules, so the model gets
+ * one decisive message per call.
  */
 
 export const TOOL_NAMES = [
   "docx_fill",
+  "docx_from_text",
   "xlsx_write",
   "pdf_from_markdown",
   "read_document",
@@ -61,6 +64,7 @@ export interface ReadDocumentInput {
 
 export type ValidatedCall =
   | { name: "docx_fill"; value: DocxFillInput }
+  | { name: "docx_from_text"; value: DocxFromTextInput }
   | { name: "xlsx_write"; value: XlsxWriteInput }
   | { name: "pdf_from_markdown"; value: PdfFromMarkdownInput }
   | { name: "read_document"; value: ReadDocumentInput }
@@ -370,6 +374,8 @@ export function validateTool(name: string, input: unknown): ValidationResult {
   switch (name) {
     case "docx_fill":
       return validateDocx(input)
+    case "docx_from_text":
+      return validateDocxFromText(input)
     case "xlsx_write":
       return validateXlsx(input)
     case "pdf_from_markdown":

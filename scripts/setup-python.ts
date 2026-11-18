@@ -10,6 +10,7 @@ import {
   DEV_LOCK_FILE,
   IMPORT_CHECK,
   LOCK_FILE,
+  TEST_LOCK_FILE,
   VENV_DIR,
   ensureLockFile,
   fail,
@@ -64,6 +65,8 @@ function main(): void {
       LOCK_FILE,
       "-r",
       DEV_LOCK_FILE,
+      "-r",
+      TEST_LOCK_FILE,
     ],
     true,
   )
