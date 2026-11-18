@@ -7,6 +7,11 @@
 # This unit is installed by deploy/remote/deploy.sh and enabled at boot. It does
 # not use /etc/fstab: the images are deployment state, and an fstab entry is a
 # host-wide change the stack has no business making implicitly.
+#
+# `Before=docker.service` only orders the start; it cannot stop Docker if this
+# unit fails. The stack therefore also refuses to start: every disk consumer in
+# deploy/remote/compose.yaml waits for the `disks-ready` gate, which fails when a
+# `.openchat-disk` marker written by mount-disks.sh is missing.
 Description=Mount the size-capped ext4 images of the OpenChat stack
 Documentation=file:/opt/stacks/openchat/current/compose.yaml
 DefaultDependencies=no

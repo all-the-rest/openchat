@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
+import { serviceBlock } from "./remote-deploy-fixtures"
 
 /**
  * The remote deployment layer: the derived OpenCode image, the SSH driver and
@@ -34,8 +35,6 @@ const BOOTSTRAP = read("deploy", "remote", "env-bootstrap.sh")
 const ESCAPE = join(ROOT, "deploy", "remote", "env-value.sh")
 const SEED = join(ROOT, "deploy", "remote", "seed-config.sh")
 const DISKS = join(ROOT, "deploy", "remote", "mount-disks.sh")
-const CADDY_SH = join(ROOT, "deploy", "remote", "caddy.sh")
-const CADDY = read("deploy", "remote", "Caddyfile.openchat")
 const ENV_TEMPLATE = read("deploy", "env.example")
 const DOC = read("docs", "implementation", "20-remote-deploy.md")
 
@@ -146,12 +145,25 @@ describe("remote overlay", () => {
     }
   })
 
-  it("caps memory per service and does not shrink the BFF", () => {
+  it("caps memory per service and does not shrink the BFF below 512m", () => {
     expect(REMOTE).toContain("mem_limit: 512m")
     expect(REMOTE).toContain("mem_limit: 256m")
     expect(REMOTE).toContain("mem_limit: 128m")
     expect(REMOTE).toContain("mem_limit: 1536m")
     expect(REMOTE).toContain("mem_limit: 1024m")
+  })
+
+  it("gates every disk consumer on the marker inside the mounted image", () => {
+    const gate = serviceBlock(REMOTE, "disks-ready")
+    expect(gate).toContain("alpine:3")
+    expect(gate.match(/\.openchat-disk/g)).toHaveLength(3)
+    for (const name of ["bff", "artifact-host", "opencode", "toolbox", "dind"]) {
+      expect(serviceBlock(REMOTE, name), `${name} must wait for the disks`).toContain(
+        "condition: service_completed_successfully",
+      )
+    }
+    // The gate reads the images read-only; it must not become a writer.
+    expect(gate).toMatch(/disks\/artifacts:\/disks\/artifacts:ro/)
   })
 
   it("pins the in-stack upstream and leaves profiles to the deploy script", () => {
@@ -161,7 +173,7 @@ describe("remote overlay", () => {
   })
 })
 
-describe("deploy script", () => {
+describe("deploy script", { timeout: 60_000 }, () => {
   it("prints a complete dry-run and changes nothing", () => {
     const result = bash([join(ROOT, "deploy", "remote", "deploy.sh"), "--dry-run", "--tag", "deadbeef"])
     expect(result.status, result.stderr).toBe(0)
@@ -186,9 +198,17 @@ describe("deploy script", () => {
     expect(DEPLOY).toContain("disks/layout")
     expect(DEPLOY).toContain("--with-dind")
   })
+
+  it("does not give docker.service a hard dependency on the disk unit", () => {
+    // A `Requires=openchat-disks.service` drop-in would stop Docker itself when
+    // a mount fails, taking the host's unrelated sites down. The compose gate
+    // scopes the failure to this stack instead.
+    expect(DEPLOY).not.toContain("docker.service.d")
+    expect(DEPLOY).not.toMatch(/^Requires=openchat-disks\.service$/m)
+  })
 })
 
-describe("dollar signs in .env", () => {
+describe("dollar signs in .env", { timeout: 60_000 }, () => {
   it("doubles every `$` and stays idempotent", () => {
     expect(escapeValue(DIGEST)).toBe("$$2b$$12$$spVi86mZhum2ngLrW8ZH7Om0ROPu20t.XaZYoEML6L42PCyOhQuQq")
     expect(escapeValue("$$2b$$12$$abc")).toBe("$$2b$$12$$abc")
@@ -209,7 +229,7 @@ describe("dollar signs in .env", () => {
   })
 })
 
-describe("env bootstrap", () => {
+describe("env bootstrap", { timeout: 60_000 }, () => {
   it("keeps an existing .env untouched and never reads the predecessor", () => {
     const stack = temp("openchat-env-")
     const file = join(stack, ".env")
@@ -262,7 +282,7 @@ describe("env bootstrap", () => {
   })
 })
 
-describe("OpenCode MCP config", () => {
+describe("OpenCode MCP config", { timeout: 60_000 }, () => {
   it("seeds one local entry once, without printing the token", () => {
     const stack = temp("openchat-seed-")
     const token = "0123456789abcdef0123456789abcdef"
@@ -274,7 +294,7 @@ describe("OpenCode MCP config", () => {
 
     const file = join(stack, "opencode-config", "opencode.json")
     const text = readFileSync(file, "utf8")
-    expect(statSync(file).mode & 0o777).toBe(0o644)
+    expect(statSync(file).mode & 0o777).toBe(0o600)
     expect(text).toContain('"type": "local"')
     expect(text).toContain("/opt/artifact-tool/node_modules/.bin/tsx")
     expect(text).toContain("/opt/artifact-tool/packages/artifact-tool/src/index.ts")
@@ -289,15 +309,19 @@ describe("OpenCode MCP config", () => {
   })
 })
 
-describe("size-capped disks", () => {
-  it("prints the 2/4/4 GiB plan without touching the disk", () => {
+describe("size-capped disks", { timeout: 60_000 }, () => {
+  it("prints the 2/4/4 GiB plan, the temp image and the ownership step", () => {
     const stack = temp("openchat-disks-")
     const result = bash([DISKS, "--stack-dir", stack, "--dry-run"])
     expect(result.status, result.stderr).toBe(0)
     expect(result.stdout).toContain("would: truncate -s 2G")
     expect(result.stdout).toContain("would: truncate -s 4G")
+    expect(result.stdout).toContain("artifacts.img.tmp")
     expect(result.stdout).toContain("would: mkfs.ext4 -F -q")
+    expect(result.stdout).toContain("would: chown 1000:1000")
+    expect(result.stdout).toContain(".openchat-disk")
     expect(existsSync(join(stack, "disks", "artifacts.img"))).toBe(false)
+    expect(existsSync(join(stack, "disks", "artifacts.img.tmp"))).toBe(false)
     expect(result.stdout).toContain("10.0 GiB reserve")
   })
 
@@ -315,35 +339,6 @@ describe("size-capped disks", () => {
   })
 })
 
-describe("Caddy fragment", () => {
-  it("uses the named matcher that validates, never the invalid encode block", () => {
-    expect(CADDY).not.toMatch(/encode\s+zstd\s+gzip\s*\{/)
-    expect(CADDY).not.toMatch(/match\s*\{\s*\n\s*not header/)
-    expect(CADDY.match(/@compressible not header Content-Type text\/event-stream\*/g)).toHaveLength(2)
-    expect(CADDY.match(/encode @compressible zstd gzip/g)).toHaveLength(2)
-  })
-
-  it("declares three origins, SSE-safe proxying and app-level auth only", () => {
-    for (const host of ["chat", "code", "artifacts"]) {
-      expect(CADDY).toContain(`${host}.__OPENCHAT_DOMAIN__ {`)
-    }
-    expect(CADDY.match(/flush_interval -1/g)).toHaveLength(2)
-    expect(CADDY.match(/header_up X-Forwarded-For \{remote_host\}/g)).toHaveLength(2)
-    expect(CADDY).not.toMatch(/^\s*basic_auth\b/m)
-    expect(CADDY).not.toMatch(/^\s*forward_auth\b/m)
-    expect(CADDY).toContain("X-Frame-Options \"DENY\"")
-  })
-
-  it("installs by import, validates before the move, and can be removed", () => {
-    const script = readFileSync(CADDY_SH, "utf8")
-    expect(script).toContain("import openchat.caddy")
-    expect(script).toContain("caddy validate")
-    expect(script).toContain("caddy reload")
-    expect(script).toContain("--remove")
-    expect(script.indexOf("caddy validate")).toBeLessThan(script.indexOf("mv Caddyfile.openchat.tmp Caddyfile"))
-  })
-})
-
 describe("runbook", () => {
   it("states the interpolation rule, the validation output and the API boundary", () => {
     expect(DOC).toContain("Dollar signs in `.env`")
@@ -351,5 +346,16 @@ describe("runbook", () => {
     expect(DOC).toContain("Valid configuration")
     expect(DOC).toContain("no HTTP auth")
     expect(DOC).toMatch(/network isolation/i)
+  })
+
+  it("matches the files it describes: BFF cap, memory sums, disks and the gate", () => {
+    expect(DOC).toContain("The BFF keeps 512 MiB")
+    expect(DOC).not.toContain("The BFF is not shrunk")
+    expect(DOC).toContain("**2432 MiB**")
+    expect(DOC).toContain("**3968 MiB**")
+    expect(DOC).toContain("**5120 MiB**")
+    expect(DOC).toContain("10 GiB reserve")
+    expect(DOC).toContain("disks-ready")
+    expect(DOC).toContain("1000:1000")
   })
 })

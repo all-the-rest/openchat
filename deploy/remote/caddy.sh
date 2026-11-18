@@ -5,16 +5,20 @@
 # this script never edits their blocks.
 #
 # The mechanism is additive and reversible:
-#   1. copy the rendered fragment to /etc/caddy/openchat.caddy (a mounted volume)
-#   2. add `import openchat.caddy` to the existing Caddyfile **once**
-#   3. validate a candidate copy in the same directory (imports resolve relative
-#      to the importing file, so the candidate must sit beside the fragment)
-#   4. only after a successful validate, move the candidate into place and
-#      reload — a broken fragment never reaches the running configuration
+#   1. stage the rendered fragment as `.openchat-stage/openchat.caddy`, beside a
+#      copy of the host Caddyfile that carries `import openchat.caddy`
+#   2. `caddy validate` that exact pair in the staging directory: imports
+#      resolve relative to the importing file, so validation sees the same
+#      names and bytes the live directory will have
+#   3. only after a successful validate, move the fragment and then the
+#      Caddyfile into place and reload. A broken fragment leaves both live files
+#      byte-identical, so the next Caddy start (a reboot) still finds a valid
+#      import.
 #
-# `caddy reload` asks the running process through its local admin API. If the
-# reload fails, the Caddyfile on disk is already the new one; the caller sees a
-# non-zero exit and can inspect/restore with the printed backup path.
+# The first install keeps the original host Caddyfile as
+# /etc/caddy/Caddyfile.openchat.bak and prints that path; later runs leave an
+# existing backup alone. If `caddy reload` fails, the files on disk are the
+# validated pair, so a restart comes up on them rather than on a broken config.
 #
 # Only the `caddy` container is touched; the script refuses when it is missing
 # or stopped. It prints file names and reload results, never file contents.
@@ -28,6 +32,8 @@ REMOVE=0
 DRY_RUN=0
 CADDYFILE=/etc/caddy/Caddyfile
 TARGET=/etc/caddy/openchat.caddy
+BACKUP=/etc/caddy/Caddyfile.openchat.bak
+STAGE=/etc/caddy/.openchat-stage
 IMPORT_LINE="import openchat.caddy"
 
 usage() {
@@ -45,8 +51,9 @@ Options:
   --dry-run          print the plan; change nothing
   --help
 
-The fragment is written to /etc/caddy/openchat.caddy; `import openchat.caddy`
-is added to the existing Caddyfile once. Validate precedes reload.
+The fragment is staged and validated as /etc/caddy/openchat.caddy before either
+live file moves. `import openchat.caddy` is added to the existing Caddyfile
+once; the first install keeps Caddyfile.openchat.bak. Validate precedes reload.
 EOF
 }
 
@@ -88,54 +95,60 @@ container_running() {
 
 install_fragment() {
   if [ "$DRY_RUN" -eq 1 ]; then
-    plan "docker exec -i $CONTAINER sh -c 'cat > $TARGET' < $FRAGMENT"
-  else
-    docker exec -i "$CONTAINER" sh -c "cat > $TARGET" < "$FRAGMENT"
-  fi
-  note "caddy: fragment written to $TARGET"
-
-  # One shell, one candidate: cd into /etc/caddy so `import openchat.caddy`
-  # resolves beside the candidate, then validate before the move.
-  local script="
-set -eu
-cd /etc/caddy
-cp Caddyfile Caddyfile.openchat.tmp
-cleanup() { rm -f Caddyfile.openchat.tmp; }
-trap cleanup EXIT
-grep -qxF '$IMPORT_LINE' Caddyfile.openchat.tmp || printf '\n%s\n' '$IMPORT_LINE' >> Caddyfile.openchat.tmp
-caddy validate --config Caddyfile.openchat.tmp --adapter caddyfile
-mv Caddyfile.openchat.tmp Caddyfile
-"
-  if [ "$DRY_RUN" -eq 1 ]; then
-    plan "docker exec $CONTAINER sh -c '<copy Caddyfile, add $IMPORT_LINE once, caddy validate>'"
+    plan "docker exec -i $CONTAINER sh -c 'rm -rf $STAGE && mkdir -p $STAGE && cat > $STAGE/openchat.caddy' < $FRAGMENT"
+    plan "docker exec $CONTAINER sh -c '<keep $BACKUP once, copy Caddyfile to $STAGE, add $IMPORT_LINE, caddy validate the staged pair>'"
+    plan "docker exec $CONTAINER sh -c '<move $STAGE/openchat.caddy to $TARGET, then $STAGE/Caddyfile to $CADDYFILE>'"
     plan "docker exec $CONTAINER caddy reload --config $CADDYFILE --adapter caddyfile"
     return 0
   fi
+
+  docker exec -i "$CONTAINER" sh -c \
+    "rm -rf $STAGE && mkdir -p $STAGE && cat > $STAGE/openchat.caddy" < "$FRAGMENT"
+
+  # One shell, one staged pair. `import openchat.caddy` resolves beside the
+  # staged Caddyfile, exactly as it will beside the live one.
+  local script="
+set -eu
+cd /etc/caddy
+stage=$STAGE
+cleanup() { rm -rf \"\$stage\"; }
+trap cleanup EXIT
+if [ ! -f Caddyfile.openchat.bak ]; then
+  cp Caddyfile Caddyfile.openchat.bak
+  printf 'caddy: pre-install Caddyfile kept at /etc/caddy/Caddyfile.openchat.bak\n'
+fi
+cp Caddyfile \"\$stage/Caddyfile\"
+grep -qxF '$IMPORT_LINE' \"\$stage/Caddyfile\" || printf '\n%s\n' '$IMPORT_LINE' >> \"\$stage/Caddyfile\"
+caddy validate --config \"\$stage/Caddyfile\" --adapter caddyfile
+mv \"\$stage/openchat.caddy\" openchat.caddy
+mv \"\$stage/Caddyfile\" Caddyfile
+"
   docker exec "$CONTAINER" sh -c "$script"
   docker exec "$CONTAINER" caddy reload --config "$CADDYFILE" --adapter caddyfile
   note "caddy: imported $TARGET and reloaded"
 }
 
 remove_fragment() {
-  local script="
-set -eu
-cd /etc/caddy
-cp Caddyfile Caddyfile.openchat.tmp
-cleanup() { rm -f Caddyfile.openchat.tmp; }
-trap cleanup EXIT
-grep -vxF '$IMPORT_LINE' Caddyfile.openchat.tmp > Caddyfile.openchat.next || true
-mv Caddyfile.openchat.next Caddyfile.openchat.tmp
-caddy validate --config Caddyfile.openchat.tmp --adapter caddyfile
-mv Caddyfile.openchat.tmp Caddyfile
-"
   if [ "$DRY_RUN" -eq 1 ]; then
-    plan "docker exec $CONTAINER sh -c '<copy Caddyfile, drop $IMPORT_LINE, caddy validate>'"
-    plan "docker exec $CONTAINER sh -c 'rm -f $TARGET'"
+    plan "docker exec $CONTAINER sh -c '<copy Caddyfile to $STAGE, drop $IMPORT_LINE, caddy validate>'"
+    plan "docker exec $CONTAINER sh -c '<move $STAGE/Caddyfile to $CADDYFILE, then rm -f $TARGET>'"
     plan "docker exec $CONTAINER caddy reload --config $CADDYFILE --adapter caddyfile"
     return 0
   fi
+
+  local script="
+set -eu
+cd /etc/caddy
+stage=$STAGE
+cleanup() { rm -rf \"\$stage\"; }
+trap cleanup EXIT
+mkdir -p \"\$stage\"
+grep -vxF '$IMPORT_LINE' Caddyfile > \"\$stage/Caddyfile\" || true
+caddy validate --config \"\$stage/Caddyfile\" --adapter caddyfile
+mv \"\$stage/Caddyfile\" Caddyfile
+rm -f openchat.caddy
+"
   docker exec "$CONTAINER" sh -c "$script"
-  docker exec "$CONTAINER" sh -c "rm -f $TARGET"
   docker exec "$CONTAINER" caddy reload --config "$CADDYFILE" --adapter caddyfile
   note "caddy: removed $TARGET and its import, reloaded"
 }
@@ -155,7 +168,7 @@ main() {
   else
     install_fragment
   fi
-  [ "$DRY_RUN" -eq 1 ] && note "dry run: Caddy was not touched"
+  if [ "$DRY_RUN" -eq 1 ]; then note "dry run: Caddy was not touched"; fi
 }
 
 main "$@"

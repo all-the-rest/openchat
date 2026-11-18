@@ -25,16 +25,48 @@
 # Profiles are untouched. The deploy script exports COMPOSE_PROFILES=opencode
 # (plus `,tools,dind` with --with-dind), which is what makes `opencode` start
 # with the application services.
+#
+# The overlay is additive: a service that exists only in the base file keeps the
+# base defaults in production. Anything added to compose.yaml needs an entry
+# here for its memory cap and its disk binds; `remote-compose-merge.test.ts`
+# fails on the merged config when it does not.
 
 name: openchat
 
 services:
+  # Gate for the loopback disks. `mount-disks.sh` writes `.openchat-disk` into
+  # each mounted image; an unmounted bind directory is empty and fails here.
+  # Without this, a failed mount would let Docker start the stack on the root
+  # filesystem, silently without the size caps and with an empty workspace.
+  # `alpine:3` is the smallest stock image; the check is three `test -f`s.
+  disks-ready:
+    image: alpine:3
+    # A one-shot `test -f`; the cap is here only so the merged config has one
+    # memory limit per service and nothing can be added without one.
+    mem_limit: 64m
+    mem_reservation: 16m
+    command:
+      - sh
+      - -c
+      - >-
+        test -f /disks/artifacts/.openchat-disk &&
+        test -f /disks/workspace/.openchat-disk &&
+        test -f /disks/dind/.openchat-disk
+    restart: "no"
+    volumes:
+      - /opt/stacks/openchat/disks/artifacts:/disks/artifacts:ro
+      - /opt/stacks/openchat/disks/workspace:/disks/workspace:ro
+      - /opt/stacks/openchat/disks/dind:/disks/dind:ro
+
   bff:
     image: openchat-bff:${OPENCHAT_TAG:-local}
     # The BFF is the availability-critical process: it owns the login, the SSE
     # stream and every /api route. It keeps its share while OpenCode is capped.
     mem_limit: 512m
     mem_reservation: 192m
+    depends_on:
+      disks-ready:
+        condition: service_completed_successfully
     environment:
       # The in-stack service always wins; a stale OPENCODE_URL in .env cannot
       # point the BFF at the predecessor's instance by accident.
@@ -70,6 +102,9 @@ services:
     image: openchat-artifact-host:${OPENCHAT_TAG:-local}
     mem_limit: 128m
     mem_reservation: 48m
+    depends_on:
+      disks-ready:
+        condition: service_completed_successfully
     networks:
       edge:
         aliases:
@@ -90,6 +125,9 @@ services:
     # See the memory budget in the runbook before lowering it.
     mem_limit: 1536m
     mem_reservation: 768m
+    depends_on:
+      disks-ready:
+        condition: service_completed_successfully
     environment:
       # The artifact tool's writes go through the BFF on `backend`.
       OPENCHAT_BFF_URL: http://bff:8787
@@ -111,6 +149,9 @@ services:
     image: openchat-tools:${OPENCHAT_TAG:-local}
     mem_limit: 512m
     mem_reservation: 192m
+    depends_on:
+      disks-ready:
+        condition: service_completed_successfully
     networks:
       backend: {}
       dind: {}
@@ -122,6 +163,9 @@ services:
     # image layer store and build cache live in RAM until they are written.
     mem_limit: 1024m
     mem_reservation: 512m
+    depends_on:
+      disks-ready:
+        condition: service_completed_successfully
     volumes:
       - /opt/stacks/openchat/disks/dind:/home/rootless/.local/share/docker
 
