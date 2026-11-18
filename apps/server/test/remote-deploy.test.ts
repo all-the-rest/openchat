@@ -386,3 +386,28 @@ describe("runbook", () => {
     expect(DOC).toContain("1000:1000")
   })
 })
+
+describe("image build set", () => {
+  const DEPLOY_SH = join(ROOT, "deploy", "remote", "deploy.sh")
+
+  it("builds the toolbox image only for the dind profile", () => {
+    const plain = spawnSync("/bin/bash", [DEPLOY_SH, "--dry-run", "--tag", "abc1234"], {
+      encoding: "utf8",
+    })
+    const withDind = spawnSync(
+      "/bin/bash",
+      [DEPLOY_SH, "--dry-run", "--tag", "abc1234", "--with-dind"],
+      { encoding: "utf8" },
+    )
+
+    expect(plain.status).toBe(0)
+    expect(withDind.status).toBe(0)
+    expect(plain.stdout).toContain(
+      "'build' 'bff' 'code-host' 'artifact-host' 'opencode'\n",
+    )
+    expect(plain.stdout).not.toContain("'toolbox'")
+    expect(withDind.stdout).toContain(
+      "'build' 'bff' 'code-host' 'artifact-host' 'opencode' 'toolbox'",
+    )
+  })
+})

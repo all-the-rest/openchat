@@ -292,7 +292,10 @@ check_dind_headroom() {
 
 build_images() {
   step "build images on the host"
-  remote_compose build bff code-host artifact-host opencode toolbox
+  # `toolbox` (663 MB) is the dind tool runtime; no profile, no build.
+  local services="bff code-host artifact-host opencode"
+  [ "$WITH_DIND" -eq 1 ] && services="$services toolbox"
+  remote_compose build $services
 }
 
 render_release() {
