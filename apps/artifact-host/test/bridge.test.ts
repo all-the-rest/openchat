@@ -1,4 +1,10 @@
 import { runInNewContext } from "node:vm"
+import {
+  ARTIFACT_HEIGHT_MAX,
+  ARTIFACT_HEIGHT_MIN,
+  ARTIFACT_RESULT_MAX_BYTES,
+  ARTIFACT_RESULT_TITLE_MAX,
+} from "@openchat/contracts"
 import { describe, expect, it, vi } from "vitest"
 import { SANDBOX_POLICY, documentPolicy } from "../src/app"
 import { BRIDGE_SCRIPT } from "../src/bridge"
@@ -116,7 +122,11 @@ function harness(): Harness {
 }
 
 const INIT = { type: "artifact:init", id: "a".repeat(64), nonce: "n-1", theme: "dark", locale: "de" }
-/** Documented result-title cap, in code points. */
+/**
+ * Protocol pin from `docs/implementation/18-artifact-bridge.md` "Limits", in
+ * code points. The shim reads the cap from `@openchat/contracts`; this literal
+ * makes a silent wire change fail here instead of passing unnoticed.
+ */
 const TITLE_MAX = 200
 
 describe("artifact bridge shim", () => {
@@ -274,6 +284,17 @@ describe("artifact bridge shim", () => {
     ]) {
       expect(BRIDGE_SCRIPT).not.toContain(forbidden)
     }
+  })
+
+  it("is built from the contract's caps instead of retyping them", () => {
+    // The declarations the shim runs carry the values @openchat/contracts
+    // owns. Comparing against the constants (not a literal) is what makes a
+    // contract change flow into the emitted script; the viewer imports the
+    // same module.
+    expect(BRIDGE_SCRIPT).toContain(`var RESULT_MAX_BYTES = ${ARTIFACT_RESULT_MAX_BYTES};`)
+    expect(BRIDGE_SCRIPT).toContain(`var TITLE_MAX = ${ARTIFACT_RESULT_TITLE_MAX};`)
+    expect(BRIDGE_SCRIPT).toContain(`var RESIZE_MIN = ${ARTIFACT_HEIGHT_MIN};`)
+    expect(BRIDGE_SCRIPT).toContain(`var RESIZE_MAX = ${ARTIFACT_HEIGHT_MAX};`)
   })
 })
 

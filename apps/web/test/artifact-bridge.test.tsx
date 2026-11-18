@@ -6,7 +6,12 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ArtifactViewer } from "../src/artifacts/ArtifactViewer"
 import type { ArtifactResult } from "../src/artifacts/bridge"
-import { ARTIFACT_RESIZE_MAX, ARTIFACT_RESIZE_MIN, clampHeight } from "../src/artifacts/bridge"
+import {
+  ARTIFACT_HEIGHT_MAX,
+  ARTIFACT_HEIGHT_MIN,
+  clampHeight,
+  readResult,
+} from "../src/artifacts/bridge"
 import { I18nProvider } from "../src/i18n/provider"
 import { ThemeProvider } from "../src/theme/provider"
 
@@ -312,12 +317,31 @@ describe("artifact bridge", () => {
 
 describe("clampHeight", () => {
   it("clamps to the documented band and refuses a non-finite height", () => {
-    expect(clampHeight(10)).toBe(ARTIFACT_RESIZE_MIN)
-    expect(clampHeight(9_000)).toBe(ARTIFACT_RESIZE_MAX)
+    expect(clampHeight(10)).toBe(ARTIFACT_HEIGHT_MIN)
+    expect(clampHeight(9_000)).toBe(ARTIFACT_HEIGHT_MAX)
     expect(clampHeight(321.6)).toBe(322)
     // Not a height at all: the minimum, never `NaN` in the frame style.
-    expect(clampHeight(Number.NaN)).toBe(ARTIFACT_RESIZE_MIN)
-    expect(clampHeight(Number.POSITIVE_INFINITY)).toBe(ARTIFACT_RESIZE_MIN)
-    expect(clampHeight(Number.NEGATIVE_INFINITY)).toBe(ARTIFACT_RESIZE_MIN)
+    expect(clampHeight(Number.NaN)).toBe(ARTIFACT_HEIGHT_MIN)
+    expect(clampHeight(Number.POSITIVE_INFINITY)).toBe(ARTIFACT_HEIGHT_MIN)
+    expect(clampHeight(Number.NEGATIVE_INFINITY)).toBe(ARTIFACT_HEIGHT_MIN)
+  })
+})
+
+describe("readResult", () => {
+  /**
+   * Protocol pin from `docs/implementation/18-artifact-bridge.md` "Limits", in
+   * code points. The viewer truncates with the cap from `@openchat/contracts`;
+   * this literal makes a silent wire change fail here instead of passing.
+   */
+  const PROTOCOL_TITLE_MAX = 200
+
+  it("truncates the title at the protocol cap, whole code points only", () => {
+    // One emoji past the last allowed code point: a UTF-16 slice would keep a
+    // lone surrogate, which is exactly what both ends avoid.
+    const title = `${"a".repeat(PROTOCOL_TITLE_MAX - 1)}😀`
+    const accepted = readResult({ title })
+    expect(accepted).not.toBeNull()
+    expect(Array.from(accepted?.result.title ?? "")).toHaveLength(PROTOCOL_TITLE_MAX)
+    expect(accepted?.result.title?.endsWith("😀")).toBe(true)
   })
 })

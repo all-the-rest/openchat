@@ -562,10 +562,10 @@ protocol:
 - **No rate limit on reads.** Writes are limited (20 accepted creations per
   minute per client address on the public route and 20 on the internal route);
   reads are not. The bridge has per-message and per-viewer bounds instead: the
-  64 KiB result cap on both ends, the height band in both halves, and one
-  accepted result per 500 ms in the viewer
-  (`apps/web/src/artifacts/bridge.ts`). The rate limit is viewer-only on
-  purpose: a limit in the untrusted half would be advisory.
+  result byte cap, title cap and height band from
+  `packages/contracts/src/bridge.ts` on both ends, and one accepted result per
+  500 ms in the viewer (`apps/web/src/artifacts/bridge.ts`). The rate limit is
+  viewer-only on purpose: a limit in the untrusted half would be advisory.
 - **No per-artifact result quota beyond that 500 ms window.** A daily quota has
   no product requirement.
 - Conditional requests (`If-None-Match`) are not answered with 304; the header

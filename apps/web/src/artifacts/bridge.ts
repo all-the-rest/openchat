@@ -1,3 +1,9 @@
+import {
+  ARTIFACT_HEIGHT_MAX,
+  ARTIFACT_HEIGHT_MIN,
+  ARTIFACT_RESULT_MAX_BYTES,
+  ARTIFACT_RESULT_TITLE_MAX,
+} from "@openchat/contracts"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { RefObject } from "react"
 import type { Locale } from "../i18n"
@@ -9,23 +15,25 @@ import type { Theme } from "../theme/provider"
  * `allow-same-origin`, so its origin is the string `"null"`; identity is
  * `event.source === iframe.contentWindow` plus a per-frame nonce, never
  * `event.origin`.
+ *
+ * The caps come from `@openchat/contracts` and are the same ones the host shim
+ * interpolates; they are re-exported here for the viewer's callers and tests.
  */
+
+export {
+  ARTIFACT_HEIGHT_MAX,
+  ARTIFACT_HEIGHT_MIN,
+  ARTIFACT_RESULT_MAX_BYTES,
+  ARTIFACT_RESULT_TITLE_MAX,
+}
 
 /** Repost `artifact:init` when no `artifact:ready` arrived in this window. */
 export const ARTIFACT_INIT_TIMEOUT_MS = 1_000
 /** The docs allow two reposts; after that the artifact stays mute. */
 export const ARTIFACT_INIT_MAX_REPOSTS = 2
 
-/** Height bounds for `artifact:resize`; the frame scrolls above the max. */
-export const ARTIFACT_RESIZE_MIN = 80
-export const ARTIFACT_RESIZE_MAX = 4_000
-
-/** One result, serialised as JSON, may not exceed 64 KiB. */
-export const ARTIFACT_RESULT_MAX_BYTES = 64 * 1024
 /** At most one accepted result per window, per viewer. */
 export const ARTIFACT_RESULT_INTERVAL_MS = 500
-/** A title is a label for the draft, not a second payload. */
-export const ARTIFACT_RESULT_TITLE_MAX = 200
 
 export type BridgeStatus = "idle" | "waiting" | "ready"
 
@@ -84,10 +92,10 @@ export function createNonce(): string {
  * height: fall back to the minimum instead of letting `NaN` reach the style.
  */
 export function clampHeight(value: number): number {
-  if (!Number.isFinite(value)) return ARTIFACT_RESIZE_MIN
+  if (!Number.isFinite(value)) return ARTIFACT_HEIGHT_MIN
   const rounded = Math.round(value)
-  if (rounded < ARTIFACT_RESIZE_MIN) return ARTIFACT_RESIZE_MIN
-  if (rounded > ARTIFACT_RESIZE_MAX) return ARTIFACT_RESIZE_MAX
+  if (rounded < ARTIFACT_HEIGHT_MIN) return ARTIFACT_HEIGHT_MIN
+  if (rounded > ARTIFACT_HEIGHT_MAX) return ARTIFACT_HEIGHT_MAX
   return rounded
 }
 
