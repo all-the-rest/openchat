@@ -8,6 +8,11 @@ msgstr ""
 "Language: de\n"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackCapValue"
+msgstr "{cap, plural, one {# kostenpflichtiger Turn pro Tag} other {# kostenpflichtige Turns pro Tag}}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.schedules.runs"
 msgstr "{count, plural, one {# Lauf} other {# Läufe}}"
@@ -563,6 +568,11 @@ msgid "tasks.status.completed"
 msgstr "Abgeschlossen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackReadOnly"
+msgstr "Auf dem Server konfiguriert. Diese Seite liest nur die wirksamen Einstellungen."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.confirm"
 msgstr "Löschen von {title} bestätigen"
@@ -1048,6 +1058,11 @@ msgid "search.status.failed"
 msgstr "Fehlgeschlagen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackLoadFailed"
+msgstr "Die Fallback-Einstellungen konnten nicht geladen werden."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.favorites"
 msgstr "Favoriten"
@@ -1081,6 +1096,11 @@ msgstr "Beendet: {when}"
 #: src/i18n/messages/code.ts
 msgid "code.focusFrame"
 msgstr "Fokus auf Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackFree"
+msgstr "Kostenlos"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/palette.ts
@@ -1348,6 +1368,11 @@ msgid "chat.modelLabel"
 msgstr "Modell"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallback"
+msgstr "Modell-Fallback"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.activeChoice"
 msgstr "Modell: {model} · Agent: {agent}"
@@ -1431,6 +1456,11 @@ msgstr "Noch keine Chats."
 #: src/i18n/messages/code.ts
 msgid "code.ticketTitle"
 msgstr "Kein Anmelde-Ticket für Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackUnconfigured"
+msgstr "Es ist keine Fallback-Kette konfiguriert."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1521,6 +1551,11 @@ msgstr "Nicht gesetzt"
 #: src/i18n/messages/memory.ts
 msgid "memory.trust.observed"
 msgstr "Beobachtet"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackCapOff"
+msgstr "Aus"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1626,6 +1661,16 @@ msgstr "Ausgabe"
 #: src/i18n/messages/chat.ts
 msgid "usage.output"
 msgstr "Ausgabe-Token"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackPaidTurnsToday"
+msgstr "Kostenpflichtige Turns heute"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackPaidCap"
+msgstr "Limit für kostenpflichtige Turns"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1836,6 +1881,11 @@ msgstr "Ergebnis aus diesem Artefakt"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.resume"
 msgstr "{title} fortsetzen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackRetry"
+msgstr "Erneut versuchen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -2693,6 +2743,11 @@ msgid "memory.col.trust"
 msgstr "Vertrauen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackTurnsToday"
+msgstr "Turns heute"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.prompt"
 msgstr "Gib einen Suchbegriff ein."
@@ -2741,6 +2796,11 @@ msgstr "Server-Erkennung nutzen"
 #: src/i18n/messages/chat.ts
 msgid "auth.userLabel"
 msgstr "Benutzername"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackVariant"
+msgstr "Variante: {variant}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts

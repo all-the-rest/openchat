@@ -25,6 +25,13 @@ const mocks = vi.hoisted(() => ({
   hostDefaultModel: vi.fn(async () => ({
     model: { id: "gpt-x", name: "GPT X", providerID: "openai" },
   })),
+  fallback: vi.fn(async () => ({
+    configured: false,
+    chain: [],
+    paidDailyCap: 0,
+    paidTurnsToday: 0,
+    turnsToday: 0,
+  })),
 }))
 
 vi.mock("../src/api/client", () => ({ api: mocks }))

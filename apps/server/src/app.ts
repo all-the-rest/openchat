@@ -78,6 +78,11 @@ export interface AppOptions {
   fallback?: FallbackEngine
   /** Injected resolved chat policy; tests narrow the chain. */
   chatPolicy?: TurnPolicy
+  /**
+   * Ledger `/api/fallback` reads. Defaults to the engine's ledger; tests point
+   * it at a temporary directory instead of the deployment's usage path.
+   */
+  usageLedger?: UsageLedger
   /** Boot warning sink; tests capture it, production defaults to `console.warn`. */
   warn?: (message: string) => void
 }
@@ -149,9 +154,12 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     paidDailyTurns: config.FALLBACK_PAID_DAILY_CAP,
     contextSoftCap: config.CHAT_CONTEXT_SOFT_CAP,
   })
+  // One ledger for both the engine's writes and the settings read, so the
+  // reported counters are the ones the paid cap is checked against.
+  const usageLedger = options.usageLedger ?? new UsageLedger({ directory: config.FALLBACK_USAGE_DIR })
   const fallback = options.fallback ?? new FallbackEngine({
     backend,
-    ledger: new UsageLedger({ directory: config.FALLBACK_USAGE_DIR }),
+    ledger: usageLedger,
     warn,
   })
 
@@ -199,6 +207,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     compactionWaitMs: options.compactionWaitMs,
     fallback,
     chatPolicy,
+    usageLedger,
   })
 
   return app
