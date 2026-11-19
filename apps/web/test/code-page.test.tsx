@@ -104,7 +104,7 @@ describe("Code page", () => {
     const frame = await screen.findByTestId("code-frame")
     expect(frame).toHaveAttribute("src", `${CODE_ORIGIN}/__auth?ticket=t1&next=%2F`)
     expect(frame).toHaveAttribute("title", "OpenCode workspace")
-    expect(frame).toHaveAttribute("allow", "clipboard-read; clipboard-write")
+    expect(frame).toHaveAttribute("allow", "clipboard-write")
     expect(screen.getByTestId("code-new-tab")).toHaveTextContent("Open Code in a new tab")
 
     // The new tab gets its own single-use ticket.
