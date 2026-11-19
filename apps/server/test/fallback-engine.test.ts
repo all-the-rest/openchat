@@ -1,10 +1,11 @@
 import type { ModelRef, TurnPolicy } from "@openchat/contracts"
 import { EVENT } from "@openchat/contracts"
 import type { PromptInput } from "@openchat/opencode"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import type { EngineEvent, FallbackEngineDeps } from "../src/fallback-engine"
 import { FallbackEngine } from "../src/fallback-engine"
+import { UsageLedgerError } from "../src/usage-ledger"
 
 const A: ModelRef = { providerID: "acme", modelID: "a" }
 const B: ModelRef = { providerID: "acme", modelID: "b", variant: "think" }
@@ -22,6 +23,14 @@ function policy(overrides: Partial<TurnPolicy> = {}): TurnPolicy {
 
 interface DepsOptions {
   promptImpl?: (sessionID: string, input: PromptInput) => Promise<{ messageID: string; queued?: boolean }>
+  recordImpl?: (entry: {
+    providerID: string
+    modelID: string
+    turns: number
+    costMicros: number
+    isFree?: boolean
+  }) => Promise<void>
+  warn?: (message: string) => void
   paidTurns?: number
   now?: number
 }
@@ -46,6 +55,7 @@ function makeDeps(options: DepsOptions = {}) {
     },
     ledger: {
       async record(entry) {
+        if (options.recordImpl) return options.recordImpl(entry)
         recorded.push(entry)
       },
       async paidTurnsToday() {
@@ -53,6 +63,7 @@ function makeDeps(options: DepsOptions = {}) {
       },
     },
     now: () => now,
+    ...(options.warn === undefined ? {} : { warn: options.warn }),
   }
   return { deps, calls, recorded, now }
 }
@@ -243,6 +254,36 @@ describe("FallbackEngine", () => {
     expect(recorded).toEqual([
       { providerID: FREE.providerID, modelID: FREE.modelID, turns: 1, costMicros: 0, isFree: true },
     ])
+  })
+
+  it("warns exactly once when the ledger is full and leaks no row or path", async () => {
+    const warn = vi.fn()
+    const { deps } = makeDeps({
+      warn,
+      recordImpl: async () => {
+        throw new UsageLedgerError(
+          "usage_ledger_full",
+          "Usage ledger 2026-11-18 is beyond its cap: /workspace/chats/.usage/2026-11-18.jsonl",
+        )
+      },
+    })
+    const engine = new FallbackEngine(deps)
+
+    engine.begin("s1", { text: "first secret prompt" }, policy(), A)
+    const first = await engine.onSuccess(successEvent())
+    engine.begin("s2", { text: "second secret prompt" }, policy(), A)
+    const second = await engine.onSuccess(successEvent({ sessionID: "s2" }))
+
+    // The turn outcome still reaches the client; only accounting stopped.
+    expect(first).toHaveLength(1)
+    expect(second).toHaveLength(1)
+    expect(warn).toHaveBeenCalledTimes(1)
+    const message = String(warn.mock.calls[0]?.[0] ?? "")
+    expect(message).toContain("usage_ledger_full")
+    expect(message).not.toContain("secret")
+    expect(message).not.toContain(".jsonl")
+    expect(message).not.toContain("/workspace")
+    expect(message).not.toContain("acme")
   })
 
   it("records the answered fallback model and reports fellBack on success", async () => {

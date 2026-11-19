@@ -23,6 +23,7 @@ import type { PromptInput } from "@openchat/opencode"
 
 import type { TurnFailure } from "./fallback-policy"
 import { classifyFailure, isFreeModel, nextModel, shouldFallback } from "./fallback-policy"
+import { UsageLedgerError } from "./usage-ledger"
 
 /** More than this many simultaneous sessions are never tracked. */
 const MAX_TRACKED_SESSIONS = 512
@@ -45,6 +46,8 @@ export interface FallbackEngineDeps {
     paidTurnsToday(): Promise<number>
   }
   now?: () => number
+  /** Boot/log sink; defaults to the server's `console.warn` prefix. */
+  warn?: (message: string) => void
 }
 
 export interface TurnState {
@@ -88,15 +91,19 @@ function failureFrom(data: Record<string, unknown>): TurnFailure {
 export class FallbackEngine {
   private readonly deps: FallbackEngineDeps
   private readonly now: () => number
+  private readonly warn: (message: string) => void
   private readonly turns = new Map<string, TurnState>()
   /** State `begin` replaced, restored when the submit is abandoned. */
   private readonly replaced = new Map<string, TurnState>()
   /** Sessions with a retry in flight; guards concurrent subscribers. */
   private readonly retrying = new Set<string>()
+  /** A full ledger rejects every later row too; one warning per process. */
+  private ledgerFullWarned = false
 
   constructor(deps: FallbackEngineDeps) {
     this.deps = deps
     this.now = deps.now ?? (() => Date.now())
+    this.warn = deps.warn ?? ((message) => console.warn(`[openchat] ${message}`))
   }
 
   /**
@@ -286,13 +293,29 @@ export class FallbackEngine {
 
     const answered = state.requested
     const isFree = isFreeModel(answered) ? true : undefined
-    await this.deps.ledger.record({
-      providerID: answered.providerID,
-      modelID: answered.modelID,
-      turns: 1,
-      costMicros: 0,
-      ...(isFree === undefined ? {} : { isFree }),
-    })
+    try {
+      await this.deps.ledger.record({
+        providerID: answered.providerID,
+        modelID: answered.modelID,
+        turns: 1,
+        costMicros: 0,
+        ...(isFree === undefined ? {} : { isFree }),
+      })
+    } catch (error) {
+      // A full ledger keeps refusing for the rest of the day, so the paid-turn
+      // cap freezes at its last readable value. Say so once, with a fixed
+      // message: the row and the ledger path never belong in a log.
+      if (error instanceof UsageLedgerError && error.code === "usage_ledger_full") {
+        if (!this.ledgerFullWarned) {
+          this.ledgerFullWarned = true
+          this.warn(
+            "usage_ledger_full: paid-turn accounting stays frozen until the day rolls over",
+          )
+        }
+      } else {
+        throw error
+      }
+    }
     const outcome: TurnOutcomeData = {
       sessionID,
       requested: state.initial,

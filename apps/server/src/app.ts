@@ -152,6 +152,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
   const fallback = options.fallback ?? new FallbackEngine({
     backend,
     ledger: new UsageLedger({ directory: config.FALLBACK_USAGE_DIR }),
+    warn,
   })
 
   const app = new Hono<AppEnv>()

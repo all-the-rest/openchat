@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import { MEMORY_INDEX_MAX_TOKENS } from "@openchat/contracts"
 import type { MemoryWriteInput } from "@openchat/contracts"
 import { readAuditTail, MemoryStoreFullError } from "../src/memory-files"
-import { createMemoryStore } from "../src/memory-store"
+import { createMemoryStore, MEMORY_INDEX_BEGIN, MEMORY_INDEX_END } from "../src/memory-store"
 
 const cleanups: Array<() => Promise<void>> = []
 const DAY = 86_400_000
@@ -286,6 +286,15 @@ describe("derived index", () => {
     expect(lines).toHaveLength(result.entries)
     for (const line of lines) expect(line.endsWith(line.trimEnd())).toBe(true)
     expect(result.index.length / 4).toBeLessThanOrEqual(MEMORY_INDEX_MAX_TOKENS + 8)
+  })
+
+  it("marks the index as data on both ends and keeps the token budget", async () => {
+    const { store } = await setup()
+    store.write([input()], "agent")
+    const { index } = store.index()
+    expect(index.startsWith(MEMORY_INDEX_BEGIN)).toBe(true)
+    expect(index.trimEnd().endsWith(MEMORY_INDEX_END)).toBe(true)
+    expect(index).toContain("# Memory Index")
   })
 
   it("drops superseded and expired facts from the index", async () => {

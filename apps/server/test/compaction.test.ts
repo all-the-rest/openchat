@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
 import { EVENT } from "@openchat/contracts"
-import type { Message, PromptResponse, SessionInfo } from "@openchat/contracts"
+import type { Message, PromptResponse, SessionInfo, TurnPolicy } from "@openchat/contracts"
 import { BackendError } from "@openchat/opencode"
+import { ContextSoftCap } from "../src/context-cap"
 import { json, login, makeConfig, makeServer, openEvents } from "./helpers"
 import type { TestServer } from "./helpers"
 
@@ -144,6 +145,76 @@ describe("prompt admission with the soft cap", () => {
     const second = await prompt(server, cookie, session.id, "second")
     expect(second.notices).toBeUndefined()
     expect(server.backend.compactionRecord(session.id).count).toBe(0)
+  })
+
+  it("admits below the policy cap even when the environment value is lower", async () => {
+    const server = makeServer({
+      env: { CHAT_CONTEXT_SOFT_CAP: "1000" },
+      usageTokens: 1000,
+      chatPolicy: chatPolicy(5000),
+    })
+    const cookie = await login(server)
+    const session = await createSession(server, cookie)
+    await prompt(server, cookie, session.id, "first")
+    await waitComplete(server, session.id)
+
+    const second = await prompt(server, cookie, session.id, "second")
+    expect(second.notices).toBeUndefined()
+    expect(server.backend.compactionRecord(session.id).count).toBe(0)
+  })
+
+  it("compacts at the policy cap even when the environment value is higher", async () => {
+    const server = makeServer({
+      env: { CHAT_CONTEXT_SOFT_CAP: "500000" },
+      usageTokens: 1000,
+      chatPolicy: chatPolicy(1000),
+    })
+    const cookie = await login(server)
+    const session = await createSession(server, cookie)
+    await prompt(server, cookie, session.id, "first")
+    await waitComplete(server, session.id)
+
+    const second = await prompt(server, cookie, session.id, "second")
+    expect(second.notices).toEqual(["contextCompacted"])
+    expect(server.backend.compactionRecord(session.id).count).toBe(1)
+    await waitComplete(server, session.id)
+  })
+})
+
+function chatPolicy(contextSoftCap: number): TurnPolicy {
+  return { surface: "chat", chain: [], paidDailyTurns: 0, contextSoftCap }
+}
+
+describe("context soft cap bookkeeping", () => {
+  function capBackend(used: number) {
+    const compacted: string[] = []
+    return {
+      compacted,
+      sessionContext: async () => ({
+        usage: { input: used, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        streaming: false,
+      }),
+      compact: async (sessionID: string) => {
+        compacted.push(sessionID)
+        return { status: "ended" as const }
+      },
+    }
+  }
+
+  it("keeps the last-attempt map bounded and evicts the oldest session", async () => {
+    const backend = capBackend(5000)
+    const softCap = new ContextSoftCap({ backend, cap: 1000, waitMs: 1 })
+    for (let index = 0; index < 513; index += 1) {
+      expect((await softCap.admit(`s${index}`)).reason).toBe("ended")
+    }
+
+    expect(softCap.trackedCount()).toBe(512)
+    // The oldest level was evicted, so that session may compact again; the
+    // newest one is still remembered and reports the same level as a repeat.
+    const before = backend.compacted.length
+    expect((await softCap.admit("s0")).reason).toBe("ended")
+    expect(backend.compacted.length).toBe(before + 1)
+    expect((await softCap.admit("s512")).reason).toBe("repeat")
   })
 })
 
