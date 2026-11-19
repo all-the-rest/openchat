@@ -1,15 +1,24 @@
-# 24 — Voice input (browser-side and server-side)
+# 24 — Voice input (browser-side, server as an escape hatch)
 
-Issue #47 adds an optional **on-device** dictation path while keeping the
-existing server path untouched. The microphone is rendered whenever *either*
-path is available; a visible label always says which one is active.
+The documented state is the **on-device** dictation path: pinned whisper-base
+weights in a Web Worker, no audio leaving the browser. The owner decision of
+2026-11-19 (#10) keeps that as the product state; the server path described
+below stays an optional operator escape hatch behind `STT_URL` and is not part
+of the documented baseline. The microphone is rendered whenever *either* path is
+available; a visible label always says which one is active.
 
 ## Paths and preference
 
 | Path | Trigger | Transcript route | Network during recording |
 | --- | --- | --- | --- |
-| local | pinned model files present and consent given | Web Worker → Transformers.js → composer | `/models/…` on first use only, then Cache Storage |
-| server | `STT_URL` configured, or local failed | `POST /api/transcribe` → `STT_URL` | audio leaves the device |
+| local (documented state) | pinned model files present and consent given | Web Worker → Transformers.js → composer | `/models/…` on first use only, then Cache Storage |
+| server (optional) | `STT_URL` configured, or local failed | `POST /api/transcribe` → `STT_URL` | audio leaves the device |
+
+The server path is technically viable — `apps/server/src/transcribe.ts` is a
+plain Whisper-compatible proxy (`/audio/transcriptions`, `whisper-1`, 30 s
+timeout, streamed byte cap, stable error codes) — but it buys nothing the local
+path does not already give an operator on this host, and it moves audio off the
+device. It therefore stays opt-in and undocumented as a product feature.
 
 Preference is automatic: local first, otherwise server. There is no manual
 override control in v1 — the consent dialog's **Use server STT** action and the
