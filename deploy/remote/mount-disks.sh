@@ -334,6 +334,19 @@ ensure_chat_files() {
   run chown "$DISK_OWNER" "$target"
 }
 
+# The memory store is a nested bind inside the read-only workspace bind
+# (`disks/memory:/workspace/.memory` on top of `disks/workspace:/workspace:ro`).
+# Docker cannot create that mountpoint inside a read-only bind, so it has to
+# exist on the workspace disk before the BFF starts. The BFF image bakes
+# `/workspace/.memory` as node:node 0700 (deploy/Dockerfile.bff), so the host
+# directory mirrors that mode; only uid 1000 may traverse the store.
+ensure_memory_mountpoint() {
+  local target=$1
+  run mkdir -p "$target"
+  run chown "$DISK_OWNER" "$target"
+  run chmod 700 "$target"
+}
+
 # The marker is written inside the mounted image. A dry run must not create it,
 # so it does not go through `run` (whose redirection would still execute).
 mark_disk() {
@@ -362,6 +375,7 @@ main() {
   ensure_disk artifacts "$ARTIFACTS_SIZE"
   ensure_disk workspace "$WORKSPACE_SIZE"
   ensure_chat_files "$STACK_DIR/disks/workspace/chats"
+  ensure_memory_mountpoint "$STACK_DIR/disks/workspace/.memory"
   ensure_disk dind "$DIND_SIZE"
   ensure_disk memory "$MEMORY_SIZE"
   # OpenCode's own state (issue #43): the service runs as root, so the disk is

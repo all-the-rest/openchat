@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import { DISKS, cleanupTemp, run, stub, temp } from "./remote-deploy-fixtures"
@@ -138,6 +138,29 @@ describe("mount-disks.sh failure paths", { timeout: 60_000 }, () => {
     expect(existsSync(join(test.stack, "disks", "workspace", "chats"))).toBe(true)
     expect(mount, "the workspace must be mounted first").toBeGreaterThanOrEqual(0)
     expect(chown, "chats must be chowned after the workspace mount").toBeGreaterThan(mount)
+  })
+
+  it("creates the memory mountpoint inside the workspace disk for the nested bind", () => {
+    const test = fixture()
+    const result = run(DISKS, ["--stack-dir", test.stack], test.env)
+    expect(result.status, result.stderr).toBe(0)
+    const log = lines(test.log)
+    const mount = log.findIndex(
+      (line) => line.startsWith("mount -o loop") && line.endsWith("/workspace"),
+    )
+    const chown = log.findIndex(
+      (line) =>
+        line.startsWith("chown 1000:1000 ") && line.endsWith("/disks/workspace/.memory"),
+    )
+    // `disks/memory` is bound over `/workspace/.memory` on top of the read-only
+    // workspace bind, so Docker cannot create the mountpoint itself; it must
+    // already exist on the workspace disk, owned by the BFF uid and mode 0700
+    // like the image (deploy/Dockerfile.bff).
+    const target = join(test.stack, "disks", "workspace", ".memory")
+    expect(existsSync(target)).toBe(true)
+    expect(statSync(target).mode & 0o777).toBe(0o700)
+    expect(mount, "the workspace must be mounted first").toBeGreaterThanOrEqual(0)
+    expect(chown, ".memory must be chowned after the workspace mount").toBeGreaterThan(mount)
   })
 
   it("stops before starting the next disk when a chown fails", () => {

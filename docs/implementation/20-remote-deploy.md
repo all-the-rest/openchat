@@ -223,7 +223,12 @@ the BFF only at `/workspace/.memory`, mode `0700`, owned by uid 1000. The
 OpenCode container has no memory mount; its MCP tool writes through
 `POST /internal/memory` with the shared `MEMORY_INTERNAL_TOKEN`. A plain named
 volume would not be size-capped, so this disk is the production equivalent of
-the base file's `memory-data` volume.
+the base file's `memory-data` volume. The workspace bind is read-only
+(`/workspace:ro`) and this bind nests inside it, so Docker cannot create the
+mountpoint: `mount-disks.sh` makes `disks/workspace/.memory` on the workspace
+disk, owned `1000:1000` with mode `0700` like the directory the BFF image bakes.
+Without it the start fails with `mkdirat … /workspace/.memory: read-only file
+system`.
 
 Arithmetic against the 48 GiB free: 11.5 GiB loopback images + roughly 4 GiB for
 the five images and the build cache + the 10 GiB reserve = **25.5 GiB**, leaving
