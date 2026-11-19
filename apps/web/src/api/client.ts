@@ -1,4 +1,5 @@
 import { providerEndpoints } from "./providers"
+import { worktreeEndpoints } from "./worktrees"
 import type {
   AppsResponse,
   ArtifactResponse,
@@ -54,6 +55,7 @@ const schedulePath = (id: string) => `/api/schedules/${encodeURIComponent(id)}`
 
 export const api = {
   ...providerEndpoints(request),
+  ...worktreeEndpoints(request),
 
   me(): Promise<LoginResponse> {
     return request<LoginResponse>("/api/auth/me")

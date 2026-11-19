@@ -19,6 +19,7 @@ export * from "./stt-model"
 export * from "./transcript"
 export * from "./tasks"
 export * from "./turn-policy"
+export * from "./worktrees"
 
 /** Lifecycle of a model as reported by the OpenCode host. */
 export type ModelStatus = "active" | "alpha" | "beta" | "deprecated"

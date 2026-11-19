@@ -31,7 +31,7 @@ import type { HostModelInfo, ModelHostInfo } from "./live-model"
 import { normalizePermissionRequest, replyHostPermission } from "./live-permissions"
 import { createToolEventState, normalizeEvent } from "./live-events"
 import { liveSearch } from "./live-search"
-import { LiveTaskApi } from "./live-task-api"
+import { LiveWorktreeApi } from "./live-worktrees"
 import { normalizeMessage, normalizeSession } from "./live-normalize"
 
 // The normalizers stay importable from this module; the BFF only needs the
@@ -64,7 +64,7 @@ function base64(value: string): string {
  * adapter never starts one itself. It typechecks against
  * `@opencode/client@2.3.0`; there is no live test in CI.
  */
-export class LiveBackend extends LiveTaskApi implements ChatBackend {
+export class LiveBackend extends LiveWorktreeApi implements ChatBackend {
   private readonly workspace: string
   /** Per-subscriber normalizer state is created in `subscribe`. */
   private readonly subscribers = new Set<EventQueue<V2Event>>()
@@ -83,7 +83,7 @@ export class LiveBackend extends LiveTaskApi implements ChatBackend {
         headers: { authorization: `Basic ${credentials}` },
       })
     }
-    super(client)
+    super(client, options.workspace)
     this.workspace = options.workspace
   }
 

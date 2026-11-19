@@ -5,6 +5,7 @@ import type {
   BackgroundJob,
   CompactionOutcome,
   CompactionReason,
+  CreateWorktreeRequest,
   EventEnvelope,
   InboxEntry,
   Message,
@@ -22,10 +23,12 @@ import type {
   ServerInfo,
   SessionContext,
   SessionInfo,
+  WorktreeInfo,
 } from "@openchat/contracts"
 
 export { BackendError } from "./errors"
 export type { BackendErrorCode } from "./errors"
+export { WorktreeDirtyError } from "./worktree-errors"
 export {
   mapScheduleError,
   normalizeJob,
@@ -229,6 +232,15 @@ export interface ChatBackend {
   deleteSchedule(id: string): Promise<void>
   /** Running and finished shell, subagent and image jobs, flat. */
   listJobs(): Promise<BackgroundJob[]>
+  /** Git worktrees of the workspace project; the host needs a project id. */
+  listWorktrees(): Promise<WorktreeInfo[]>
+  /** Creates a worktree for a task; `branch` is required, `from`/`name` optional. */
+  createWorktree(input: CreateWorktreeRequest): Promise<WorktreeInfo>
+  /**
+   * Removes one worktree. A tree with uncommitted changes is refused with a
+   * `WorktreeDirtyError` unless `force` is set; the adapter never forces.
+   */
+  removeWorktree(directory: string, force: boolean): Promise<void>
   subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope>
 }
 
