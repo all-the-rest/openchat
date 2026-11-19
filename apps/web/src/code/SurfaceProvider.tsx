@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -134,7 +135,10 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
 
   // Cmd/Ctrl+Shift+M toggles the mode ("M" for mode). Cmd+M minimizes the
   // window and the Shift chord is free; Shift+O belongs to new chat (spec 09).
-  useEffect(() => {
+  // Layout effect, not passive: the listener must be armed in the same commit
+  // that reveals the switch, or a chord pressed between commit and effect flush
+  // is lost under a loaded runner (the same race the palette's E2E hit).
+  useLayoutEffect(() => {
     if (configured !== true) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.altKey) return
