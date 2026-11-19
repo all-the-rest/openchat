@@ -255,6 +255,7 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
       text: parsed.data.text,
       delivery: parsed.data.delivery ?? "queue",
       model: parsed.data.model,
+      variant: parsed.data.variant,
       agent: parsed.data.agent,
     })
     const response: PromptResponse = { ok: true, messageID: result.messageID }

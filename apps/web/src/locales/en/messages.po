@@ -1557,3 +1557,63 @@ msgstr "Your message could not be sent."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Your message is queued until the current run finishes."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.activeChoiceVariant"
+msgstr "Model: {model} · Variant: {variant} · Agent: {agent}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.modelSearch"
+msgstr "Search models or providers"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favorites"
+msgstr "Favorites"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.allModels"
+msgstr "All models"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.noModels"
+msgstr "No matching models"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favoriteAdd"
+msgstr "Add {name} to favorites"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favoriteRemove"
+msgstr "Remove {name} from favorites"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.stale"
+msgstr "Stale"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deprecated"
+msgstr "Deprecated"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityTools"
+msgstr "Tools"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityReasoning"
+msgstr "Reasoning"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityImage"
+msgstr "Image input"

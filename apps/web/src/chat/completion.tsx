@@ -9,16 +9,24 @@ import {
   type ReactNode,
 } from "react"
 import { api } from "../api/client"
+import {
+  favoriteKey,
+  readFavorites,
+  writeFavorites,
+  type ModelFavorite,
+} from "./favorites"
 
 /** Per-browser default for every new chat; a chat never overrides it. */
 export const COMPLETION_STORAGE_KEY = "openchat.completion"
 
 export interface Completion {
   model: string | null
+  /** Selected variant of `model`, or `null` for the model default. */
+  variant: string | null
   agent: string | null
 }
 
-const EMPTY: Completion = { model: null, agent: null }
+const EMPTY: Completion = { model: null, variant: null, agent: null }
 
 export function readCompletion(): Completion {
   try {
@@ -29,6 +37,8 @@ export function readCompletion(): Completion {
     const record = value as Record<string, unknown>
     return {
       model: typeof record.model === "string" && record.model ? record.model : null,
+      variant:
+        typeof record.variant === "string" && record.variant ? record.variant : null,
       agent: typeof record.agent === "string" && record.agent ? record.agent : null,
     }
   } catch {
@@ -45,13 +55,29 @@ export function writeCompletion(value: Completion): void {
   }
 }
 
+/** The model choice safe to send: unknown models and variants are dropped. */
+export function completeModelValue(
+  choice: Pick<Completion, "model" | "variant">,
+  models: readonly ModelInfo[],
+): { model: string | undefined; variant: string | undefined } {
+  const found = models.find((entry) => entry.id === choice.model)
+  // A favourite whose model disappeared is never sent to the host.
+  if (!found) return { model: undefined, variant: undefined }
+  // A variant the model no longer offers is dropped from the switch.
+  const variant =
+    choice.variant && found.variants.includes(choice.variant) ? choice.variant : undefined
+  return { model: found.id, variant }
+}
+
 export interface CompletionValue extends Completion {
   models: ModelInfo[]
   agents: AgentInfo[]
   /** False until `/api/models` and `/api/agents` have both settled. */
   loaded: boolean
-  setModel: (model: string | null) => void
+  favorites: ModelFavorite[]
+  setModel: (model: string | null, variant?: string | null) => void
   setAgent: (agent: string | null) => void
+  toggleFavorite: (favorite: ModelFavorite) => void
 }
 
 const CompletionContext = createContext<CompletionValue | null>(null)
@@ -69,6 +95,7 @@ export function CompletionProvider({ children, initial, catalogue }: CompletionP
   const [models, setModels] = useState<ModelInfo[]>(catalogue?.models ?? [])
   const [agents, setAgents] = useState<AgentInfo[]>(catalogue?.agents ?? [])
   const [loaded, setLoaded] = useState(catalogue !== undefined)
+  const [favorites, setFavorites] = useState<ModelFavorite[]>(() => readFavorites())
 
   useEffect(() => {
     if (catalogue) return
@@ -84,9 +111,11 @@ export function CompletionProvider({ children, initial, catalogue }: CompletionP
     }
   }, [catalogue])
 
-  const setModel = useCallback((model: string | null) => {
+  const setModel = useCallback((model: string | null, variant: string | null = null) => {
     setChoice((current) => {
-      const next = { ...current, model }
+      // Switching from another model never carries its variant over.
+      const nextVariant = current.model !== null && current.model !== model ? null : variant
+      const next = { ...current, model, variant: nextVariant }
       writeCompletion(next)
       return next
     })
@@ -100,9 +129,23 @@ export function CompletionProvider({ children, initial, catalogue }: CompletionP
     })
   }, [])
 
+  const toggleFavorite = useCallback((favorite: ModelFavorite) => {
+    setFavorites((current) => {
+      const key = favoriteKey(favorite)
+      const next = current.some((entry) => favoriteKey(entry) === key)
+        ? current.filter((entry) => favoriteKey(entry) !== key)
+        : [...current, favorite]
+      writeFavorites(next)
+      return next
+    })
+  }, [])
+
   const value = useMemo<CompletionValue>(
-    () => ({ ...choice, models, agents, loaded, setModel, setAgent }),
-    [choice, models, agents, loaded, setModel, setAgent],
+    () => ({
+      ...choice, models, agents, loaded, favorites,
+      setModel, setAgent, toggleFavorite,
+    }),
+    [choice, models, agents, loaded, favorites, setModel, setAgent, toggleFavorite],
   )
 
   return <CompletionContext.Provider value={value}>{children}</CompletionContext.Provider>

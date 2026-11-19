@@ -23,7 +23,8 @@ import type {
 import { EventQueue } from "./events"
 import { BackendError } from "./errors"
 import { liveAppAction, liveApps } from "./live-apps"
-import { applyCompletion } from "./live-model"
+import { applyCompletion, mapHostModel } from "./live-model"
+import type { HostModelInfo, ModelHostInfo } from "./live-model"
 import { normalizePermissionRequest, replyHostPermission } from "./live-permissions"
 import { createToolEventState, normalizeEvent } from "./live-events"
 import { liveSearch } from "./live-search"
@@ -65,8 +66,8 @@ export class LiveBackend implements ChatBackend {
   /** Per-subscriber normalizer state is created in `subscribe`. */
   private readonly subscribers = new Set<EventQueue<V2Event>>()
   private upstream?: AsyncIterator<V2Event>
-  /** modelID → providerID, warmed by `listModels` (the BFF's info call). */
-  private modelProviders?: Map<string, string>
+  /** modelID → host ref data, warmed by `listModels` (the BFF's info call). */
+  private modelHostInfo?: ModelHostInfo
 
   constructor(options: LiveBackendOptions) {
     this.workspace = options.workspace
@@ -112,8 +113,8 @@ export class LiveBackend implements ChatBackend {
 
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {
     await applyCompletion(this.client, sessionID, input, async () => {
-      if (!this.modelProviders) await this.listModels()
-      return this.modelProviders ?? new Map()
+      if (!this.modelHostInfo) await this.listModels()
+      return this.modelHostInfo ?? new Map()
     })
     const entry = await this.client.session.prompt({
       sessionID,
@@ -169,13 +170,32 @@ export class LiveBackend implements ChatBackend {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    const response = await this.client.model.list({ types: ["chat"] })
-    this.modelProviders = new Map(response.data.map((model) => [model.modelID, model.providerID]))
-    return response.data.map((model) => ({
-      id: model.modelID,
-      name: model.name,
-      providerID: model.providerID,
-    }))
+    const [response, providerNames] = await Promise.all([
+      this.client.model.list({ types: ["chat"] }),
+      this.providerNames(),
+    ])
+    this.modelHostInfo = new Map(
+      response.data.map((model) => [
+        model.modelID,
+        { providerID: model.providerID, variants: model.variants?.map((v) => v.id) ?? [] },
+      ]),
+    )
+    return response.data.map((model) =>
+      mapHostModel(
+        model as HostModelInfo,
+        providerNames.get(model.providerID) ?? model.providerID,
+      ),
+    )
+  }
+
+  /** Provider display names; a failed probe degrades to the raw provider ids. */
+  private async providerNames(): Promise<Map<string, string>> {
+    try {
+      const response = await this.client.provider.list()
+      return new Map(response.data.map((provider) => [provider.id, provider.name]))
+    } catch {
+      return new Map()
+    }
   }
 
   async listAgents(): Promise<AgentInfo[]> {

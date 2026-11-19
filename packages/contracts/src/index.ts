@@ -68,10 +68,28 @@ export interface SessionInfo {
   updated: number
 }
 
+/** Lifecycle of a model as reported by the OpenCode host. */
+export type ModelStatus = "active" | "alpha" | "beta" | "deprecated"
+
+/** Capabilities the picker shows as badges; all three are optional per model. */
+export interface ModelCapabilities {
+  tools: boolean
+  reasoning: boolean
+  image: boolean
+}
+
 export interface ModelInfo {
   id: string
   name: string
   providerID: string
+  /** Display name of the provider, used to group the picker. */
+  providerName: string
+  /** Named variants of this model; empty when it has none. */
+  variants: string[]
+  /** Input context window in tokens; 0 when the host does not report one. */
+  contextLimit: number
+  capabilities: ModelCapabilities
+  status: ModelStatus
 }
 
 export interface AgentInfo {
@@ -221,6 +239,8 @@ export interface PromptRequest {
   delivery?: "queue"
   /** Persisted model id; forwarded to the host when present. */
   model?: string
+  /** Persisted variant of that model; forwarded only when the model still offers it. */
+  variant?: string
   /** Persisted agent id; forwarded to the host when present. */
   agent?: string
 }
@@ -330,6 +350,7 @@ export const promptRequestSchema = z.object({
   /** `queue` accepts a prompt while a run is active instead of rejecting it. */
   delivery: z.literal("queue").optional(),
   model: z.string().min(1).max(200).optional(),
+  variant: z.string().min(1).max(200).optional(),
   agent: z.string().min(1).max(200).optional(),
 })
 

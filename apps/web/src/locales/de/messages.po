@@ -1557,3 +1557,63 @@ msgstr "Deine Nachricht konnte nicht gesendet werden."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Deine Nachricht wartet, bis der aktuelle Lauf abgeschlossen ist."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.activeChoiceVariant"
+msgstr "Modell: {model} · Variante: {variant} · Agent: {agent}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.modelSearch"
+msgstr "Modelle oder Anbieter suchen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favorites"
+msgstr "Favoriten"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.allModels"
+msgstr "Alle Modelle"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.noModels"
+msgstr "Keine passenden Modelle"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favoriteAdd"
+msgstr "{name} zu Favoriten hinzufügen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.favoriteRemove"
+msgstr "{name} aus Favoriten entfernen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.stale"
+msgstr "Veraltet"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deprecated"
+msgstr "Eingestellt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityTools"
+msgstr "Werkzeuge"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityReasoning"
+msgstr "Begründung"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.capabilityImage"
+msgstr "Bildeingabe"
