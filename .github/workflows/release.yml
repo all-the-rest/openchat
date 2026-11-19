@@ -79,7 +79,10 @@ jobs:
       contents: read
       packages: write
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # The opencode image resolves Python wheels and installs the full document
+    # toolchain for linux/arm64 under QEMU; a cold run exceeds 45 minutes and
+    # would be cancelled mid-build. The other images finish in minutes.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
