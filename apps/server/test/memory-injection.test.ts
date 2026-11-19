@@ -155,3 +155,63 @@ describe("memory invalidation", () => {
     )
   })
 })
+
+describe("memory discovery beyond the chat route", () => {
+  it("plants the index into a session the BFF did not create", async () => {
+    const server = serverFor(await tempDir())
+    const cookie = await login(server)
+    // The Code UI talks to OpenCode directly: the session only ever exists in
+    // the backend's list, never in a `POST /api/sessions` of this app.
+    const external = await server.backend.createSession({
+      directory: server.config.WORKSPACE_DIR,
+    })
+    expect(server.backend.getInstruction(external.id, MEMORY_INDEX_KEY)).toBeUndefined()
+
+    const response = await server.app.request("/api/sessions", { headers: { cookie } })
+    expect(response.status).toBe(200)
+    expect(server.backend.getInstruction(external.id, MEMORY_INDEX_KEY)).toContain(
+      "# Memory Index",
+    )
+  })
+
+  it("never injects the index into a session twice", async () => {
+    const server = serverFor(await tempDir())
+    const cookie = await login(server)
+    const created = await json<SessionInfo>(
+      await server.app.request("/api/sessions", {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: "{}",
+      }),
+    )
+    expect(server.backend.getInstruction(created.id, MEMORY_INDEX_KEY)).toContain("# Memory Index")
+
+    const put = vi.spyOn(server.backend, "putInstruction")
+    await server.app.request("/api/sessions", { headers: { cookie } })
+    await server.app.request("/api/sessions", { headers: { cookie } })
+    // The create route already planted it; discovery must skip the session
+    // instead of writing a second copy on every list.
+    expect(put.mock.calls.filter(([sessionID]) => sessionID === created.id)).toHaveLength(0)
+  })
+
+  it("plants a backend-only session once across repeated discovery passes", async () => {
+    const server = serverFor(await tempDir())
+    const cookie = await login(server)
+    const external = await server.backend.createSession({
+      directory: server.config.WORKSPACE_DIR,
+    })
+    const put = vi.spyOn(server.backend, "putInstruction")
+    await server.app.request("/api/sessions", { headers: { cookie } })
+    await server.app.request("/api/sessions", { headers: { cookie } })
+    expect(put.mock.calls.filter(([sessionID]) => sessionID === external.id)).toHaveLength(1)
+  })
+
+  it("reuses the session list the route already read", async () => {
+    const server = serverFor(await tempDir())
+    const cookie = await login(server)
+    await server.backend.createSession({ directory: server.config.WORKSPACE_DIR })
+    const list = vi.spyOn(server.backend, "listSessions")
+    await server.app.request("/api/sessions", { headers: { cookie } })
+    expect(list).toHaveBeenCalledTimes(1)
+  })
+})

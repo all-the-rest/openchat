@@ -21,7 +21,6 @@ const ChatPage = lazy(() => import("./pages/ChatPage").then((m) => ({ default: m
 const SearchPage = lazy(() =>
   import("./search/SearchPage").then((m) => ({ default: m.SearchPage })),
 )
-const CodePage = lazy(() => import("./code/CodePage").then((m) => ({ default: m.CodePage })))
 const AppsPage = lazy(() => import("./apps/AppsPage").then((m) => ({ default: m.AppsPage })))
 const ArtifactsPage = lazy(() =>
   import("./artifacts/ArtifactsPage").then((m) => ({ default: m.ArtifactsPage })),
@@ -67,7 +66,10 @@ function ProtectedShell() {
 
 /**
  * `/code` is unavailable unless `/api/info` reports a configured Code host;
- * a direct visit falls back to chat, exactly like the hidden switch.
+ * a direct visit falls back to chat, exactly like the hidden switch. The page
+ * itself is hosted by `CodeSurfaceHost` outside the route switch, so this
+ * element only gates the route and renders nothing once the surface is ready;
+ * that is what keeps the frame mounted across a Chat round trip.
  */
 export function CodeRoute() {
   const { configured } = useSurface()
@@ -80,7 +82,7 @@ export function CodeRoute() {
       </div>
     )
   }
-  return <CodePage />
+  return null
 }
 
 /**

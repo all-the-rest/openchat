@@ -118,11 +118,26 @@ boundary, not spliced mid-turn. Store changes trigger a re-put for still-active
 sessions. A BFF restart starts with no remembered sessions, so before each
 re-put the invalidator reads the backend's `listSessions()` and notes those ids
 first (deduped and capped at `MAX_ACTIVE_MEMORY_SESSIONS`); sessions that
-pre-date the restart therefore receive the refreshed index too. Host-created
-child sessions (subagents, schedules) do not go through
-the BFF create route; backfilling those via a `session.created` listener is a
-tracked gap, not part of this slice. The bare `session.instructions.*` surface
-is deprecated — use the `experimental.` namespace.
+pre-date the restart therefore receive the refreshed index too. The bare
+`session.instructions.*` surface is deprecated — use the `experimental.`
+namespace.
+
+**Discovery for sessions the BFF did not create.** Code mode is the upstream
+OpenCode web UI in a separate-origin iframe, so its sessions never pass
+through `POST /api/sessions`. The BFF therefore discovers sessions it did not
+create: before answering `GET /api/sessions`, and at the start of every memory
+invalidation, it reads the backend's `listSessions()` and plants `INDEX.md`
+into every session without an index. The pass is O(sessions), deduped per
+process, capped at `MAX_ACTIVE_MEMORY_SESSIONS`, and a session that already
+received the index (including one created by the chat route) is skipped, so
+nothing is injected twice. Store and host failures are ignored and retried on
+the next pass; discovery never fails a request.
+
+The backend stream already carries `session.created`, but the BFF has no
+long-lived server-side consumer for it, so discovery is used instead of an
+event subscription. The intentional difference: a session created in Code
+receives its index at the next session list or memory mutation, not
+synchronously at creation.
 
 **Fake backend:** `FakeBackend` is extended with instruction-entry simulation
 (`putInstruction` plus a `getInstruction` test probe), so tests can assert the
@@ -215,7 +230,17 @@ and the artifact sandbox stay outside the model's reach.
 - **Injection (fake):** a new session gets the `memory.index` entry; a store
   change re-puts it for active sessions; a superseded fact disappears from the
   push layer; the key is slash-free; host put failures never fail session
-  creation.
+  creation; a session that exists only in the backend's `listSessions()` (never
+  POSTed through the chat route) receives the index on the next list, and a
+  chat-created session is not injected a second time.
+- **Chat and Code parity (documented contract):** Code mode is upstream
+  OpenCode in a separate-origin iframe. The memory index, the OpenCode host,
+  the model catalogue and ticket/session recovery apply to both surfaces;
+  chat-only BFF features (fallback chain, context soft cap, chat
+  files/attachments, dictation, chat drafts) intentionally do not. The two
+  parity gaps closed here are the surviving Code frame
+  ([07](./07-code-ui.md)) and this discovery path; the remaining difference is
+  that discovery is list-driven, not event-driven at creation time.
 - **UI:** `/memory` browse/edit/delete/export/audit, plain-text rendering and
   keyboard reachability; `en`/`de` strings present with no hard-coded text.
 - **Route (fake backend):** a fact written through the internal route appears

@@ -235,7 +235,13 @@ function registerSessionRoutes(
 
   app.get("/api/sessions", async (c) => {
     const sessions = await backend.listSessions()
-    return c.json(sessions)
+    // Sessions created in the Code UI (or by the host) never pass through the
+    // create route below. Listing sessions is the bounded discovery point that
+    // plants the memory index into those sessions; a session that already got
+    // it is skipped, so this stays O(sessions), writes once and reuses the
+    // list the route already paid for.
+    await memory.invalidator.discover(sessions)
+    return c.json(sessions satisfies SessionInfo[])
   })
 
   app.post("/api/sessions", async (c) => {
@@ -260,8 +266,11 @@ function registerSessionRoutes(
       // store and host errors are both ignored here.
       const value = memory.store.index().index
       await backend.putInstruction(session.id, MEMORY_INDEX_KEY, value)
+      // Discovery must not plant a second copy into this session.
+      memory.invalidator.markInjected(session.id)
     } catch {
       // Session creation succeeds even when the host has no instruction port.
+      // Without the mark, the next discovery pass retries the index.
     }
     return c.json(session satisfies SessionInfo)
   })

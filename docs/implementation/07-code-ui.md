@@ -17,7 +17,8 @@ Spec: [`../spec/13-code-surface.md`](../spec/13-code-surface.md). Architecture:
 | `src/code/surface.ts` | Pure surface helpers: storage key, route mapping, `next` mapping. |
 | `src/code/SurfaceProvider.tsx` | `code.configured` from `/api/info`, persistence, shortcut, `/` restore. |
 | `src/code/SurfaceSwitch.tsx` | The segmented control. |
-| `src/code/CodePage.tsx` | `/code` and `/code/*`: bar, ticket minting, states, frame. |
+| `src/code/CodeSurfaceHost.tsx` | Keeps the Code page mounted outside the route switch; lazy chunk, visibility only. |
+| `src/code/CodePage.tsx` | `/code` and `/code/*`: bar, ticket minting, states, frame, hidden mode. |
 | `src/chat/drafts.ts` | Pure `sessionStorage` draft helpers. |
 | `src/api/client.ts` | `codeTicket(next)` and `codeStatus()`. |
 | `src/lib/useOnline.ts` | `navigator.onLine` with the window's online/offline events. |
@@ -60,6 +61,9 @@ Spec: [`../spec/13-code-surface.md`](../spec/13-code-surface.md). Architecture:
 app bar is not rendered at all and the Code page's own slim bar carries the
 switch, so exactly one switch is in the DOM. Hiding the drawer on `/code` also
 keeps the chat sidebar out of the way; the Code surface owns the full width.
+While Chat is active the Code page is still mounted but renders no bar, so the
+hidden surface contributes no second switch, banner or button (see
+[Chat and Code parity](#chat-and-code-parity)).
 
 ## Routes
 
@@ -99,12 +103,12 @@ the BFF's 20-per-minute limit.
 The frame is only mounted once the ticket and a reachable status are known; the
 frame area itself is always rendered while loading, so the layout does not
 jump. `src` is the ticket URL, `title` is translated, and `allow` is
-`clipboard-read; clipboard-write`. That attribute delegates clipboard access
-only: it neither grants nor blocks popups or top-level navigation, which an
-`allow` list does not control at all — only a `sandbox` would. The frame has no
-sandbox (see the deviations), so browser defaults govern those, not this
-attribute. Camera, microphone and geolocation are not listed and stay with the
-app.
+`clipboard-write`. That attribute delegates copy-out only: the frame cannot
+read the clipboard (paste stays the app composer's job), and it neither grants
+nor blocks popups or top-level navigation, which an `allow` list does not
+control at all — only a `sandbox` would. The frame has no sandbox (see the
+deviations), so browser defaults govern those, not this attribute. Camera,
+microphone and geolocation are not listed and stay with the app.
 
 ## States
 
@@ -206,6 +210,43 @@ navigates to `/c/<id>` and hands the text over as the pending prompt.
   spike and the Code host's own suite.
 - **The screenshot frame is the stub.** `ui-review` captures the `code-stub`
   route, not the OpenCode UI; the route name and note say so.
+
+## Chat and Code parity
+
+Code mode is the upstream OpenCode web UI in a separate-origin iframe, not a
+second BFF-rendered chat. The contract between the surfaces:
+
+| Applies to both surfaces | Chat only (intentionally) |
+| --- | --- |
+| The OpenCode host and its model catalogue, `/api/code/status`, ticket minting, session recovery and the memory index (implementation 34) | The fallback chain, the context soft cap, chat files/attachments, dictation and chat drafts |
+
+**The frame survives a surface switch.** `CodeSurfaceHost` lives in `AppShell`
+outside the route switch. It mounts on the first Code visit (a chat-only boot
+never downloads the Code chunk) and then stays mounted for the rest of the
+app session. Chat → Code → Chat hides it instead of unmounting it: the root
+gets `hidden`, `inert` and `aria-hidden`, the bar (and with it the switch) is
+not rendered at all, and the iframe drops out of the tab order. An unsent
+prompt inside the Code UI, its document state, its scroll position and its
+current route therefore survive, and returning reuses the same iframe element
+and ticket URL — no new host session, no new mint. A frame that loaded is
+never reminted for a switch. A minted URL that never loaded is reused only for
+`CODE_TICKET_REUSE_MS` (55 s, safely under the 60 s ticket TTL) and reminted
+after that.
+
+**Status reading is visibility-bound.** While the surface is visible the BFF
+status is re-read every `CODE_STATUS_POLL_MS` (10 s, matching the BFF's 10 s
+probe cache). Hiding clears the interval; returning refreshes once and
+restarts it. A reopened event stream or a host recovering from unreachable
+triggers the same refresh, so a `/code` that opened while the host was down
+recovers without Reload. A status read never tears down a live frame — it only
+updates the version warning or recovers a surface that has nothing to show.
+
+**Remaining intentional differences.** After the first mint the frame owns its
+route: `/code/*` in the app address bar is an entry deep link only, so typing
+a different `/code` path while a live frame exists does not remount it. The
+hidden frame still runs its own JavaScript and network activity — that is what
+preserves the prompt. The two tickets per mint and the new-tab link's TTL are
+unchanged (see the deviations above).
 
 ## Known limitations
 
@@ -318,7 +359,7 @@ notice. PNGs stay out of git; `ui-review/` is ignored.
 
 | File | Covers |
 | --- | --- |
-| `test/code-surface.test.tsx` | switch renders with `aria-pressed` and follows the route; storage round trip; `/` restores Code; `Cmd/Ctrl+Shift+M` toggles while `Shift+O` and other key shapes do not; hidden and inert when unconfigured; app bar (`role="banner"`) and sidebar absent on `/code`; sidebar navigation stores `chat`; helper tables (route mapping, malformed/denied storage, deep-link mapping). |
+| `test/code-surface.test.tsx` | switch renders with `aria-pressed` and follows the route; storage round trip; `/` restores Code; `Cmd/Ctrl+Shift+M` toggles while `Shift+O` and other key shapes do not; hidden and inert when unconfigured; app bar (`role="banner"`) and sidebar absent on `/code`; sidebar navigation stores `chat`; **Chat → Code → Chat reuses the same iframe element and ticket URL while hidden/inert and out of the tab order; the status poll pauses while hidden and refreshes once on return; an unreachable host recovers on the poll without Reload**; helper tables (route mapping, malformed/denied storage, deep-link mapping). |
 | `test/code-page.test.tsx` | deep-link suffix reaches the ticket call; root `next`; frame `src`, `title`, `allow`; distinct new-tab ticket; loading state and `load`; ticket failure has its own title/body, no expected-major line and a "Sign-in failed" bar, then Retry; unreachable status with the supported major; a minor skew loads without a warning and a major skew warns without blocking; foreign-origin message ignored, Code-host origin signs out, sign-in re-mints; blocked timeout; a frame that fired `load` stays Connected past the timeout and mounted; offline; mobile notice; narrow bar says "Desktop only" and never Loading/Blocked; reload re-mints and keeps one switch; `Escape` focus reaches the bar and its visible outline class; unconfigured `/code` redirect. |
 | `test/drafts.test.tsx` | per-session set/get/clear, empty write removes, missing session/storage; Composer survives a remount, keeps a failed draft, clears on success, reloads the draft when the key changes; a landing prompt survives a Chat → Code → Chat switch under `openchat.draft.new`; a landing send creates the session and the landing draft is already gone when the new route runs, with no draft for the new session id. |
 | `test/app-shell.test.tsx` | existing drawer behaviour with the switch inside the app bar. |
