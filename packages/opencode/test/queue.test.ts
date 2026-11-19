@@ -116,8 +116,14 @@ describe("FakeBackend queueing", () => {
     const session = await backend.createSession({ directory: "/workspace" })
     const result = await backend.prompt(session.id, { text: "hello", delivery: "queue" })
     expect(result.queued).toBeFalsy()
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    const messages = await backend.listMessages(session.id)
+    // `delayMs: 0` still settles on the microtask queue, so poll instead of
+    // sleeping a fixed slice: a loaded CI worker must not turn this red.
+    let messages = await backend.listMessages(session.id)
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      if (messages.every((message) => message.status === "complete")) break
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      messages = await backend.listMessages(session.id)
+    }
     expect(messages.map((message) => message.status)).toEqual(["complete", "complete"])
   })
 })
