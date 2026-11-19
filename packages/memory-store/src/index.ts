@@ -1,0 +1,8 @@
+export { MemoryStore } from "./mutations"
+export { defaultMemoryDir, FACTS_FILE, INDEX_FILE, AUDIT_FILE, LOCK_FILE, isFactId } from "./paths"
+export { renderIndex, isInjectable } from "./index-render"
+export { findFacts } from "./find"
+export { planPrune } from "./prune"
+export { checkText, isDuplicate, similarity, wordBag, validateDraft, validateUpdate } from "./validate"
+export * from "./limits"
+export type * from "./types"

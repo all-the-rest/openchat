@@ -38,6 +38,26 @@ export interface CreateSessionInput {
   directory: string
 }
 
+/**
+ * The host's rejection of an oversized instruction value. The BFF catches this
+ * shape by tag and trims by rank instead of failing session creation.
+ */
+export interface InstructionTooLarge {
+  readonly _tag: "InstructionEntryValueTooLargeError"
+  readonly actualBytes: number
+  readonly maxBytes: number
+  readonly message: string
+}
+
+export function isInstructionTooLarge(value: unknown): value is InstructionTooLarge {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { _tag?: unknown })._tag === "InstructionEntryValueTooLargeError" &&
+    typeof (value as { maxBytes?: unknown }).maxBytes === "number"
+  )
+}
+
 export interface SearchInput {
   /** Trimmed, validated by the route; 1–200 characters. */
   query: string
@@ -81,6 +101,11 @@ export interface ChatBackend {
   info(): Promise<ServerInfo>
   listSessions(): Promise<SessionInfo[]>
   createSession(input: CreateSessionInput): Promise<SessionInfo>
+  /**
+   * Puts one keyed instruction entry on a session. The BFF uses it for the
+   * bounded `memory/index` block; the change lands at the next step boundary.
+   */
+  putInstruction(sessionID: string, key: string, value: string): Promise<void>
   listMessages(sessionID: string): Promise<Message[]>
   prompt(sessionID: string, input: PromptInput): Promise<PromptResult>
   /** Pending turns of a session, oldest first. */

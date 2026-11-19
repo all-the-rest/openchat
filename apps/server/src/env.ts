@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto"
 import { join } from "node:path"
 import type { FakeScenario } from "@openchat/contracts"
 import { isFakeScenario } from "@openchat/opencode"
+import { defaultMemoryDir } from "@openchat/memory-store"
 import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
 import { loadWorkspaceEnv, type WorkspaceFileEnv } from "./env-workspace"
 import { loadCredentialEnv } from "./env-auth"
@@ -60,6 +61,8 @@ export interface EnvConfig extends WorkspaceFileEnv {
    * is configured.
    */
   ARTIFACT_INTERNAL_TOKEN: string
+  /** Shared memory directory; defaults to `WORKSPACE_DIR/chats/.memory`. */
+  MEMORY_DIR: string
 }
 
 export interface LoadEnvOptions {
@@ -391,5 +394,6 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     ARTIFACT_SIGNING_KEY: artifacts.signingKey,
     ARTIFACTS_DIR: read(source, "ARTIFACTS_DIR") ?? join(workspaceDir, ARTIFACT_DIR_NAME),
     ARTIFACT_INTERNAL_TOKEN: artifacts.internalToken,
+    MEMORY_DIR: read(source, "MEMORY_DIR") ?? defaultMemoryDir(workspaceDir),
   }
 }

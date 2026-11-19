@@ -99,6 +99,12 @@ export class LiveBackend implements ChatBackend {
     return normalizeSession(session, input.directory)
   }
 
+  async putInstruction(sessionID: string, key: string, value: string): Promise<void> {
+    // The pinned 2.3.0 client exposes the experimental path; the deprecated
+    // `client.session.instructions.entry` is kept only for older majors.
+    await this.client.experimental.session.instructions.entry.put({ sessionID, key, value })
+  }
+
   async listMessages(sessionID: string): Promise<Message[]> {
     const response = await this.client.message.list({ sessionID })
     const messages: Message[] = []

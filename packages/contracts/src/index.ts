@@ -8,6 +8,7 @@ export * from "./artifacts"
 export * from "./files"
 export * from "./artifacts/caps"
 export * from "./permissions"
+export * from "./memory"
 
 /** Roles that can appear in a transcript. */
 export type Role = "user" | "assistant" | "system"

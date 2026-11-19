@@ -16,6 +16,7 @@ import {
   registerRequestGuards,
 } from "./middleware"
 import { registerRoutes } from "./routes"
+import { MemoryInjector } from "./memory-inject"
 import { SSE_HEARTBEAT_MS } from "./sse"
 import { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { STT_TIMEOUT_MS } from "./transcribe"
@@ -58,6 +59,8 @@ export interface AppOptions {
   artifactsNow?: () => number
   /** Credential verifier; tests inject one they can hold open. */
   verify?: CredentialVerifier
+  /** Memory injector; tests pass one bound to a recording backend. */
+  memoryInjector?: MemoryInjector
   /** Login concurrency gate; tests shrink it to one permit. */
   verificationGate?: VerificationGate
 }
@@ -105,6 +108,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       windowMs: ARTIFACT_CREATE_WINDOW_MS,
     })
   const app = new Hono<AppEnv>()
+  const memoryInjector = options.memoryInjector ?? new MemoryInjector({ backend })
 
   app.onError((error, c) => {
     if (error instanceof BackendError) {

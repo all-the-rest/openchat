@@ -99,6 +99,9 @@ export class FakeBackend implements ChatBackend {
   private readonly events: FakeEvents
   private readonly permissions: FakePermissions
   private readonly recorded = new Map<string, RecordedPrompt>()
+  /** Fake-mode record of keyed instruction entries, for BFF injection probes. */
+  private readonly instructions = new Map<string, Map<string, string>>()
+  private instructionMaxBytes?: number
   private readonly parts: PartWriter
 
   constructor(options: FakeBackendOptions = {}) {
@@ -144,6 +147,32 @@ export class FakeBackend implements ChatBackend {
       sessionID: info.id, title: info.title, directory: info.directory,
     }, true)
     return clone(info)
+  }
+
+  async putInstruction(sessionID: string, key: string, value: string): Promise<void> {
+    this.requireSession(sessionID)
+    const bytes = new TextEncoder().encode(value).byteLength
+    if (this.instructionMaxBytes !== undefined && bytes > this.instructionMaxBytes) {
+      throw {
+        _tag: "InstructionEntryValueTooLargeError",
+        actualBytes: bytes,
+        maxBytes: this.instructionMaxBytes,
+        message: "instruction value too large",
+      }
+    }
+    const entries = this.instructions.get(sessionID) ?? new Map<string, string>()
+    entries.set(key, value)
+    this.instructions.set(sessionID, entries)
+  }
+
+  /** Fake-mode probe: the last injected value for one instruction key. */
+  recordedInstruction(sessionID: string, key: string): string | undefined {
+    return this.instructions.get(sessionID)?.get(key)
+  }
+
+  /** Fake-mode control: make the host reject values above this byte cap. */
+  setInstructionMaxBytes(maxBytes?: number): void {
+    this.instructionMaxBytes = maxBytes
   }
 
   async listMessages(sessionID: string): Promise<Message[]> {
