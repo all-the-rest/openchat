@@ -43,9 +43,9 @@ import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
 import type { ArtifactStatFsFn } from "./artifacts-internal"
 import { registerArtifactInternalRoute } from "./artifacts-internal"
 import { registerChatFilesRoutes } from "./chat-files"
-import type { MemoryInvalidator } from "./memory-route"
+import type { MemoryInvalidator } from "./memory-instructions"
+import { createMemoryInvalidator } from "./memory-instructions"
 import {
-  createMemoryInvalidator,
   registerMemoryInternalRoute,
   registerMemoryRoutes,
 } from "./memory-route"

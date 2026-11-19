@@ -3,14 +3,12 @@ import { existsSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Hono } from "hono"
-import { afterEach, describe, expect, it, vi } from "vitest"
-import { MEMORY_INDEX_KEY } from "@openchat/contracts"
-import type { MemoryOp, MemoryOpResult, SessionInfo } from "@openchat/contracts"
+import { afterEach, describe, expect, it } from "vitest"
+import type { MemoryOp, MemoryOpResult } from "@openchat/contracts"
 import type { AppEnv } from "../src/app"
 import { makeConfig, json, login, makeServer } from "./helpers"
 import type { TestServer } from "./helpers"
 import {
-  createMemoryInvalidator,
   INTERNAL_MEMORY_PATH,
   MEMORY_BODY_MAX_BYTES,
   registerMemoryInternalRoute,
@@ -323,99 +321,5 @@ describe("memory public routes", () => {
     const body = await json<{ facts: unknown[]; audit: unknown[]; index: string }>(response)
     expect(body.facts).toHaveLength(1)
     expect(body.audit.length).toBeGreaterThan(0)
-  })
-})
-
-describe("memory injection on session create", () => {
-  it("puts a fact written through the internal route into the next session", async () => {
-    const server = serverFor(await tempDir())
-    const id = await seed(server, "Prefers oat milk")
-    const cookie = await login(server)
-    const created = await json<SessionInfo>(
-      await server.app.request("/api/sessions", {
-        method: "POST",
-        headers: { cookie, "content-type": "application/json" },
-        body: "{}",
-      }),
-    )
-    const injected = server.backend.getInstruction(created.id, MEMORY_INDEX_KEY) ?? ""
-    expect(injected).toContain(id)
-    expect(injected).toContain("Prefers oat milk")
-
-    await post(server, {
-      op: "update",
-      updates: [{ id, text: "Prefers soy milk" }],
-      actor: "test",
-    })
-    const next = await json<SessionInfo>(
-      await server.app.request("/api/sessions", {
-        method: "POST",
-        headers: { cookie, "content-type": "application/json" },
-        body: "{}",
-      }),
-    )
-    const updated = server.backend.getInstruction(next.id, MEMORY_INDEX_KEY) ?? ""
-    expect(updated).not.toContain(id)
-    expect(updated).toContain("Prefers soy milk")
-  })
-})
-
-describe("memory invalidation", () => {
-  it("re-puts the index to a noted session after a write", async () => {
-    const dir = await tempDir()
-    const server = serverFor(dir)
-    const put = vi.spyOn(server.backend, "putInstruction")
-    const cookie = await login(server)
-    const created = await json<SessionInfo>(
-      await server.app.request("/api/sessions", {
-        method: "POST",
-        headers: { cookie, "content-type": "application/json" },
-        body: "{}",
-      }),
-    )
-    put.mockClear()
-    await post(server, writeOp())
-    expect(put).toHaveBeenCalledWith(created.id, MEMORY_INDEX_KEY, expect.stringContaining("# Memory Index"))
-  })
-
-  it("recovers sessions listed by the backend after a restart", async () => {
-    const dir = await tempDir()
-    const store = createMemoryStore({ dir })
-    const sessionID = `ses_after_restart_${dir}`
-    const backend = {
-      putInstruction: vi.fn(async () => {}),
-      listSessions: vi.fn(async () => [{ id: sessionID }]),
-    }
-    // A fresh route instance owns a fresh invalidator, as after a restart.
-    const app = new Hono<AppEnv>()
-    registerMemoryInternalRoute(app, {
-      config: makeConfig(env(dir)),
-      store,
-      backends: backend,
-    })
-    const response = await post({ app }, writeOp())
-    expect(response.status).toBe(200)
-    expect(backend.listSessions).toHaveBeenCalled()
-    expect(backend.putInstruction).toHaveBeenCalledWith(
-      sessionID, MEMORY_INDEX_KEY, expect.stringContaining("# Memory Index"),
-    )
-  })
-
-  it("ignores host errors on a re-put", async () => {
-    const dir = await tempDir()
-    const store = createMemoryStore({ dir })
-    const backend = { putInstruction: vi.fn(async () => { throw new Error("host down") }) }
-    const invalidator = createMemoryInvalidator(backend, store)
-    const sessionID = `session-host-error-${dir}`
-    invalidator.noteSession(sessionID)
-    registerMemoryInternalRoute(new Hono<AppEnv>(), {
-      config: makeConfig(env(dir)),
-      store,
-      invalidator,
-    })
-    await expect(invalidator.invalidate()).resolves.toBeUndefined()
-    expect(backend.putInstruction).toHaveBeenCalledWith(
-      sessionID, MEMORY_INDEX_KEY, expect.stringContaining("# Memory Index"),
-    )
   })
 })

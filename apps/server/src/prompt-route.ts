@@ -71,9 +71,11 @@ async function resolveClientModel(
  */
 export function registerPromptRoute(app: Hono<AppEnv>, deps: PromptRouteDeps): void {
   const { config, backend, promptThrottle } = deps
+  // The resolved policy owns the cap when one is supplied; the environment
+  // value is the fallback for a caller that registers the route without it.
   const softCap = new ContextSoftCap({
     backend,
-    cap: config.CHAT_CONTEXT_SOFT_CAP,
+    cap: deps.chatPolicy?.contextSoftCap ?? config.CHAT_CONTEXT_SOFT_CAP,
     waitMs: deps.compactionWaitMs ?? COMPACTION_WAIT_MS,
   })
 

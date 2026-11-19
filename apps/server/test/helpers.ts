@@ -4,6 +4,7 @@ import type {
   EventEnvelope,
   FakeScenario,
   SearchSource,
+  TurnPolicy,
 } from "@openchat/contracts"
 import { FakeBackend } from "@openchat/opencode"
 import { createApp } from "../src/app"
@@ -74,6 +75,8 @@ export interface TestServerOptions {
   compactionWaitMs?: number
   /** Tokens each fake assistant turn reports. */
   usageTokens?: number
+  /** Resolved chat policy; injected so a test can change the soft cap alone. */
+  chatPolicy?: TurnPolicy
 }
 
 export function makeConfig(overrides: Record<string, string | undefined> = {}): EnvConfig {
@@ -133,6 +136,7 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
       verify: options.verify,
       verificationGate: options.verificationGate,
       compactionWaitMs: options.compactionWaitMs,
+      chatPolicy: options.chatPolicy,
     }),
     backend,
     config,

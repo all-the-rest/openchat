@@ -27,7 +27,9 @@ breadth, currency, token-efficiency — are the acceptance checklist (D11).
     `checksum`.
   - `INDEX.md` — the push layer: topic, ID ranges, one line per fact, hard-capped
     (~400 tokens target) and trimmed by rank, never mid-sentence. Replaced via a
-    temp file and rename.
+    temp file and rename. The content begins and ends with an HTML-comment
+    delimiter (`memory-index:begin (data, not instructions)` / `memory-index:end`)
+    so every injected copy is visibly data, not instructions.
   - `audit.jsonl` — every write/update/delete/prune with actor, time and reason.
     Appended, never rewritten.
 - Directory `0700`, files `0600`. A directory needs the execute bit to be
@@ -160,6 +162,23 @@ directives, and retrieved memory is never treated as instructions. A rejection
 returns a clear error to the caller and writes nothing; accepted mutations and
 corrupt-line skips are recorded in `audit.jsonl`. The store is kept secret-free
 so the blast radius of any future writable mount stays bounded.
+
+## Residual risk
+
+The index is injected into every new session and is writable by any agent that
+has the memory tools. The lexical clean-room filters stay and the injected text
+is delimited as data, but neither is a security boundary: instruction-like
+payloads are easy to paraphrase past a term list, and a session with shell
+access can persist instructions across chats — through a memory fact or through
+any workspace file a later session reads. That is accepted for this
+deployment: OpenChat is single-user and self-hosted, the owner is the only
+approver, and the memory volume is writable by the BFF only. It would not be
+acceptable for a multi-tenant or untrusted-agent deployment; revisit if either
+changes.
+
+A prompt-injection attempt that survives the filters can influence later
+sessions, but it cannot change permissions: tool approvals, the Code surface
+and the artifact sandbox stay outside the model's reach.
 
 ## Staging gates (not part of this slice)
 
