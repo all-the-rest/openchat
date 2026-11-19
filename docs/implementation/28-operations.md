@@ -47,7 +47,7 @@ Example of a healthy stack:
 release    ok   current -> releases/20261118T141759Z (tag 20261118T141759Z)
 containers ok   5/5 running, 5 healthy
 uptime     ok   Up 3 days (healthy); restarts 0
-healthz    ok   200 ok:true, mode live, version 2.2.0
+healthz    ok   200 ok:true, mode live, version 2.5.0
 restarts   ok    artifact-host=0 bff=0 code-host=0 documents=0 opencode=0
 disk       ok   warn 85%, crit 95%: / 41% (26.0/48.0 GiB free), stack 41% ...
 ram        ok   2740 MiB of 3900 MiB available (70%)

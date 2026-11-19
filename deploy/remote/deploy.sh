@@ -4,7 +4,8 @@
 #
 # The driver; only the helper scripts under deploy/remote/ and deploy/swap.sh
 # run on the target, from the synced release source tree. One run: sync, install
-# the boot unit and mount the size-capped ext4 images (2/4/4/1 GiB), bootstrap .env
+# the boot unit and mount the size-capped ext4 images (2/4/4/1 GiB plus 512 MiB
+# for OpenCode's state), bootstrap .env
 # once, seed the MCP entry once, build six images, render the release
 # (`config --no-interpolate`, no secret in a file), validate and swap, and
 # install the Caddy fragment last: a failed deploy never takes the existing
@@ -36,11 +37,13 @@ ARTIFACTS_SIZE=2G
 WORKSPACE_SIZE=4G
 DIND_SIZE=4G
 MEMORY_SIZE=1G
+OPENCODE_DATA_SIZE=512M
 RESERVE=10G
 # MemAvailable the host must still have before the tool + dind profile starts.
-# 5120 MiB = the dind-enabled limit sum (~3.9 GiB) plus ~1 GiB for the host and
-# the predecessor stack. Below it the containers would start and then OOM.
-DIND_MIN_AVAILABLE_MIB=5120
+# 6144 MiB = the dind-enabled limit sum (~4.9 GiB: the default services incl.
+# documents plus dind) plus ~1.1 GiB for the host and the predecessor stack.
+# Below it the containers would start and then OOM.
+DIND_MIN_AVAILABLE_MIB=6144
 
 REQUIRED_FILES=(
   compose.yaml deploy/swap.sh
@@ -76,6 +79,7 @@ Options:
   --workspace-size SIZE   workspace image (default: 4G)
   --dind-size SIZE        dind image (default: 4G)
   --memory-size SIZE      memory image (default: 1G)
+  --opencode-data-size SIZE  OpenCode state image (default: 512M)
   --reserve SIZE          free space that must remain (default: 10G)
   --dry-run               print every step ('would: …'), change nothing
   --unmount               unmount the disk images; refuses while the stack runs
@@ -137,6 +141,7 @@ parse_args() {
       --workspace-size) require_value "$@"; WORKSPACE_SIZE=$2; shift 2 ;;
       --dind-size) require_value "$@"; DIND_SIZE=$2; shift 2 ;;
       --memory-size) require_value "$@"; MEMORY_SIZE=$2; shift 2 ;;
+      --opencode-data-size) require_value "$@"; OPENCODE_DATA_SIZE=$2; shift 2 ;;
       --reserve) require_value "$@"; RESERVE=$2; shift 2 ;;
       --with-dind) WITH_DIND=1; shift ;;
       --with-guards) WITH_GUARDS=1; shift ;;
@@ -262,7 +267,7 @@ install_boot_unit() {
   remote "$(quote_cmd install -m 644 "$SRC/deploy/remote/openchat-disks.service" /etc/systemd/system/openchat-disks.service)"
   remote "$(quote_cmd install -m 644 "$SRC/deploy/remote/openchat-guard.service" /etc/systemd/system/openchat-guard.service)"
   remote "systemctl daemon-reload && systemctl enable openchat-disks.service openchat-guard.service"
-  remote "printf 'artifacts=%s\nworkspace=%s\ndind=%s\nmemory=%s\nreserve=%s\n' $(shquote "$ARTIFACTS_SIZE") $(shquote "$WORKSPACE_SIZE") $(shquote "$DIND_SIZE") $(shquote "$MEMORY_SIZE") $(shquote "$RESERVE") > $(shquote "$STACK_DIR/disks/layout")"
+  remote "printf 'artifacts=%s\nworkspace=%s\ndind=%s\nmemory=%s\nopencode-data=%s\nreserve=%s\n' $(shquote "$ARTIFACTS_SIZE") $(shquote "$WORKSPACE_SIZE") $(shquote "$DIND_SIZE") $(shquote "$MEMORY_SIZE") $(shquote "$OPENCODE_DATA_SIZE") $(shquote "$RESERVE") > $(shquote "$STACK_DIR/disks/layout")"
 }
 
 mount_disks() {
@@ -273,6 +278,7 @@ mount_disks() {
     --workspace-size "$WORKSPACE_SIZE" \
     --dind-size "$DIND_SIZE" \
     --memory-size "$MEMORY_SIZE" \
+    --opencode-data-size "$OPENCODE_DATA_SIZE" \
     --reserve "$RESERVE"
 }
 

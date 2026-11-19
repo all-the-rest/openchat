@@ -100,8 +100,11 @@ export function groupCommits(commits: RawCommit[]): SectionEntries {
 
 function renderEntry(entry: ChangelogEntry): string {
   const text = entry.subjects.join("; ")
+  // Commit subjects often carry `Refs #N` already; the generated suffix must
+  // not repeat it.
+  const body = text.replace(/\s*\(Refs? #\d+(?:, #\d+)*\)\s*$/i, "").trim()
   const refs = entry.issues.length === 0 ? "" : ` (${entry.issues.map((issue) => `#${issue}`).join(", ")})`
-  return `- ${entry.breaking ? "**Breaking:** " : ""}${text}${refs}`
+  return `- ${entry.breaking ? "**Breaking:** " : ""}${body}${refs}`
 }
 
 /** The `## [version] - date` block, or null when there is nothing to note. */

@@ -12,16 +12,26 @@
 #   disks/workspace.img  4 GiB  ->  disks/workspace   opencode, toolbox, bff (ro)
 #   disks/dind.img       4 GiB  ->  disks/dind        dind rootless storage
 #   disks/memory.img     1 GiB  ->  disks/memory      bff (rw) — agent memory store
+#   disks/opencode-data.img 512 MiB -> disks/opencode-data  opencode (rw) — issue #43
 #
 # The images are created once (`truncate` + `mkfs.ext4`) and then only mounted.
 # Rerunning is a no-op; `--umount` detaches them and refuses while an OpenChat
 # container is running.
 #
+# The OpenCode image starts empty. OpenCode's state used to live in the
+# `<project>_opencode-data` named volume, which is unbounded and sits on the root
+# filesystem (issue #43, finding 7); deploy/remote/migrate-opencode-data.sh
+# copies that volume into this image once. Run it before the first deploy that
+# mounts the disk, or OpenCode starts on an empty data directory (recoverable:
+# the volume keeps the original bytes and the migration adopts an empty disk).
+#
 # Ownership: a bind mount from the root of a fresh ext4 image is root:root 0755,
 # unlike a named volume, which inherits the mode of the directory baked into the
 # image. The BFF, the artifact host and the tools image run as uid/gid 1000, and
 # the rootless dind daemon is uid 1000 inside its container, so each mount root
-# is chowned to that owner after mounting (not recursive: the root only).
+# is chowned to that owner after mounting (not recursive: the root only). The
+# OpenCode service runs as root, like the named volume it replaces, so its data
+# disk keeps root:root (the mkfs default, repaired explicitly).
 #
 # Free space: before creating anything, the script requires the free space that
 # remains *after* the missing images to be at least `--reserve` (default 10 GiB).
@@ -43,12 +53,15 @@ ARTIFACTS_SIZE=2G
 WORKSPACE_SIZE=4G
 DIND_SIZE=4G
 MEMORY_SIZE=1G
+OPENCODE_DATA_SIZE=512M
 RESERVE=10G
 SIZE_FLAGS=""
 UMOUNT=0
 DRY_RUN=0
 # The service processes that write here run as uid/gid 1000 (see the header).
 DISK_OWNER=1000:1000
+# The OpenCode service runs as root, so its data disk is root-owned.
+OPENCODE_DATA_OWNER=0:0
 # File the compose guard checks; it lives inside the image, so an empty host
 # directory (failed mount) cannot satisfy it.
 DISK_MARKER=.openchat-disk
@@ -66,6 +79,8 @@ Options:
   --workspace-size SIZE  workspace image size (default: 4G)
   --dind-size SIZE       dind image size (default: 4G)
   --memory-size SIZE     memory image size (default: 1G)
+  --opencode-data-size SIZE
+                         OpenCode state image size (default: 512M)
   --reserve SIZE         free space that must remain (default: 10G)
   --umount               unmount the images; refuses while the stack runs
   --dry-run              print the plan; create, mount and unmount nothing
@@ -114,6 +129,7 @@ parse_args() {
       --workspace-size) require_value "$@"; WORKSPACE_SIZE=$2; SIZE_FLAGS="$SIZE_FLAGS workspace"; shift 2 ;;
       --dind-size) require_value "$@"; DIND_SIZE=$2; SIZE_FLAGS="$SIZE_FLAGS dind"; shift 2 ;;
       --memory-size) require_value "$@"; MEMORY_SIZE=$2; SIZE_FLAGS="$SIZE_FLAGS memory"; shift 2 ;;
+      --opencode-data-size) require_value "$@"; OPENCODE_DATA_SIZE=$2; SIZE_FLAGS="$SIZE_FLAGS opencode-data"; shift 2 ;;
       --reserve) require_value "$@"; RESERVE=$2; SIZE_FLAGS="$SIZE_FLAGS reserve"; shift 2 ;;
       --umount) UMOUNT=1; shift ;;
       --dry-run) DRY_RUN=1; shift ;;
@@ -150,6 +166,11 @@ apply_layout() {
     *" memory "*) ;;
     *) value=$(layout_value memory); [ -n "$value" ] && MEMORY_SIZE=$value ;;
   esac
+  # Issue #43: the OpenCode state disk. deploy.sh records it like the others.
+  case " $SIZE_FLAGS " in
+    *" opencode-data "*) ;;
+    *) value=$(layout_value opencode-data); [ -n "$value" ] && OPENCODE_DATA_SIZE=$value ;;
+  esac
   case " $SIZE_FLAGS " in
     *" reserve "*) ;;
     *) value=$(layout_value reserve); [ -n "$value" ] && RESERVE=$value ;;
@@ -177,6 +198,7 @@ validate_sizes() {
   validate_size "--workspace-size" "$WORKSPACE_SIZE"
   validate_size "--dind-size" "$DIND_SIZE"
   validate_size "--memory-size" "$MEMORY_SIZE"
+  validate_size "--opencode-data-size" "$OPENCODE_DATA_SIZE"
   validate_size "--reserve" "$RESERVE"
 }
 
@@ -226,7 +248,7 @@ compose_running() {
 
 do_umount() {
   local name
-  for name in artifacts workspace dind memory; do
+  for name in artifacts workspace dind memory opencode-data; do
     local target="$STACK_DIR/disks/$name"
     if [ ! -d "$target" ] || ! is_mounted "$target"; then
       note "disk: $name is not mounted"
@@ -245,13 +267,14 @@ do_umount() {
 
 check_free_space() {
   local missing_kib=0 name
-  for name in artifacts workspace dind memory; do
+  for name in artifacts workspace dind memory opencode-data; do
     if [ ! -f "$STACK_DIR/disks/$name.img" ]; then
       case "$name" in
         artifacts) missing_kib=$((missing_kib + $(to_kib "$ARTIFACTS_SIZE"))) ;;
         workspace) missing_kib=$((missing_kib + $(to_kib "$WORKSPACE_SIZE"))) ;;
         dind) missing_kib=$((missing_kib + $(to_kib "$DIND_SIZE"))) ;;
         memory) missing_kib=$((missing_kib + $(to_kib "$MEMORY_SIZE"))) ;;
+        opencode-data) missing_kib=$((missing_kib + $(to_kib "$OPENCODE_DATA_SIZE"))) ;;
       esac
     fi
   done
@@ -267,7 +290,8 @@ check_free_space() {
 }
 
 ensure_disk() {
-  local name=$1 size=$2 img="$STACK_DIR/disks/$1.img" target="$STACK_DIR/disks/$1"
+  local name=$1 size=$2 owner=${3:-$DISK_OWNER}
+  local img="$STACK_DIR/disks/$1.img" target="$STACK_DIR/disks/$1"
   local tmp="$img.tmp"
 
   if [ ! -f "$img" ]; then
@@ -295,8 +319,8 @@ ensure_disk() {
   fi
 
   # Repair on every run: a bind mount from a fresh ext4 root is root:root, and
-  # the services write as uid/gid 1000. Only the mount root, never recursive.
-  run chown "$DISK_OWNER" "$target"
+  # the services write as uid/gid 1000 (OpenCode as root: its own disk owner).
+  run chown "$owner" "$target"
   mark_disk "$name" "$target"
 }
 
@@ -340,6 +364,14 @@ main() {
   ensure_chat_files "$STACK_DIR/disks/workspace/chats"
   ensure_disk dind "$DIND_SIZE"
   ensure_disk memory "$MEMORY_SIZE"
+  # OpenCode's own state (issue #43): the service runs as root, so the disk is
+  # root-owned. An empty image is fine — the migration adopts it — but a deploy
+  # before the migration starts OpenCode on an empty data directory, so say so.
+  if [ ! -f "$STACK_DIR/disks/opencode-data.img" ]; then
+    note "disk: opencode-data starts empty; run deploy/remote/migrate-opencode-data.sh --apply"
+    note "disk: before this deploy if the <project>_opencode-data volume still holds sessions"
+  fi
+  ensure_disk opencode-data "$OPENCODE_DATA_SIZE" "$OPENCODE_DATA_OWNER"
   # A fresh ext4 root is 0755; the BFF image bakes 0700 into the named volume's
   # mount point, so the host bind must match it (issue #49, §6.1). Only the BFF's
   # uid (1000) may traverse the memory store.

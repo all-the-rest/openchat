@@ -13,10 +13,10 @@
 #      registry in the loop yet (GHCR is an owner step), so the tag is the short
 #      commit sha the deploy script exports as OPENCHAT_TAG.
 #   3. Storage is bounded. Memory gets a per-service limit that fits beside the
-#      predecessor stack, and the four large directories are mounted from ext4
+#      predecessor stack, and the five large directories are mounted from ext4
 #      images the deploy script creates, mounts and size-caps (artifacts 2 GiB,
-#      workspace 4 GiB, dind 4 GiB, memory 1 GiB). Without `--with-dind` the
-#      dind image is mounted but unused.
+#      workspace 4 GiB, dind 4 GiB, memory 1 GiB, OpenCode state 512 MiB).
+#      Without `--with-dind` the dind image is mounted but unused.
 #
 # The loopback `ports:` entries from the base file stay: they are the
 # validation path `deploy/swap.sh` probes, and 127.0.0.1 is not reachable from
@@ -59,13 +59,15 @@ services:
         test -f /disks/artifacts/.openchat-disk &&
         test -f /disks/workspace/.openchat-disk &&
         test -f /disks/dind/.openchat-disk &&
-        test -f /disks/memory/.openchat-disk
+        test -f /disks/memory/.openchat-disk &&
+        test -f /disks/opencode-data/.openchat-disk
     restart: "no"
     volumes:
       - /opt/stacks/openchat/disks/artifacts:/disks/artifacts:ro
       - /opt/stacks/openchat/disks/workspace:/disks/workspace:ro
       - /opt/stacks/openchat/disks/dind:/disks/dind:ro
       - /opt/stacks/openchat/disks/memory:/disks/memory:ro
+      - /opt/stacks/openchat/disks/opencode-data:/disks/opencode-data:ro
 
   bff:
     image: openchat-bff:${OPENCHAT_TAG:-local}
@@ -84,6 +86,11 @@ services:
       # The soft cap is a deployment knob, not a build constant: 0 turns the
       # BFF-side compaction off for hosts that only want the host policy.
       CHAT_CONTEXT_SOFT_CAP: ${CHAT_CONTEXT_SOFT_CAP:-200000}
+      # Fallback chain (#54): empty by default, so nothing changes until the
+      # owner names a chain and a paid-turn budget.
+      FALLBACK_CHAIN_JSON: ${FALLBACK_CHAIN_JSON:-}
+      FALLBACK_PAID_DAILY_CAP: ${FALLBACK_PAID_DAILY_CAP:-0}
+      FALLBACK_USAGE_DIR: ${FALLBACK_USAGE_DIR:-/workspace/chats/.usage}
     networks:
       # The alias is the DNS name the host Caddyfile uses (`openchat-bff:8787`);
       # the Compose service name alone would resolve as `bff`.
@@ -182,6 +189,16 @@ services:
       # The base file gives this target its own volume; on the host it must be
       # the same directory the BFF writes into (issue #25).
       - /opt/stacks/openchat/disks/workspace/chats:/workspace/chats
+      # OpenCode's state (sessions, auth storage) was the last unbounded
+      # directory on the root filesystem: the `<project>_opencode-data` volume,
+      # ~26 MiB today (issue #43, finding 7). It is the fifth loopback disk —
+      # 512 MiB, created by mount-disks.sh and filled once by
+      # deploy/remote/migrate-opencode-data.sh. The base named volume stays the
+      # fallback until that migration ran: it keeps the original bytes, and a
+      # rollback returns to it. Run the migration before the first deploy that
+      # carries this line, or OpenCode starts on an empty data directory (the
+      # volume is untouched and the migration then adopts the empty disk).
+      - /opt/stacks/openchat/disks/opencode-data:/root/.local/share/opencode
       # Bind mount, not the named volume: the deploy script seeds the one MCP
       # entry there once, and the agent may keep editing the file afterwards.
       # The official image runs as root with `HOME=/root`.

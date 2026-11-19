@@ -330,13 +330,14 @@ a warning. A prune failure warns and leaves the deploy intact.
 ## Memory budget
 
 The overlay's limits: `bff` 512m, `code-host` 256m, `artifact-host` 128m,
-`opencode` 1536m, `toolbox` 512m, `dind` 1024m.
+`opencode` 1536m, `documents` 1024m, `toolbox` 512m (profile), `dind` 1024m
+(profile).
 
-- Without `--with-dind`: **2432 MiB** of limits (512+256+128+1536). That fits the
-  measured ~3.6 GiB `MemAvailable` with room for page cache.
-- With `--with-dind`: **3968 MiB**, which does not fit. The driver therefore
-  reads `MemAvailable` and refuses below **5120 MiB** (the limit sum plus ~1 GiB
-  for the host and the predecessor). Stop the predecessor or drop the flag.
+- Without `--with-dind`: **3456 MiB** of limits (512+256+128+1536+1024). That
+  fits the measured ~3.6 GiB `MemAvailable` with room for page cache.
+- With `--with-dind`: **4992 MiB**, which does not fit. The driver therefore
+  reads `MemAvailable` and refuses below **6144 MiB** (the limit sum plus ~1.1
+  GiB for the host and the predecessor). Stop the predecessor or drop the flag.
 - The BFF keeps 512 MiB. The base file gives it 768m, so the overlay does lower
   it, but only to the same cap as `toolbox`; it is not cut further to make dind
   fit. It owns the login, the SSE stream and every API route, and is the

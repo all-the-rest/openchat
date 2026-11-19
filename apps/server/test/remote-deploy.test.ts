@@ -220,7 +220,7 @@ describe("deploy script", { timeout: 60_000 }, () => {
   })
 
   it("records the disk layout and gates dind on available memory", () => {
-    expect(DEPLOY).toContain("DIND_MIN_AVAILABLE_MIB=5120")
+    expect(DEPLOY).toContain("DIND_MIN_AVAILABLE_MIB=6144")
     expect(DEPLOY).toContain("/proc/meminfo")
     expect(DEPLOY).toContain("disks/layout")
     expect(DEPLOY).toContain("--memory-size")
@@ -358,9 +358,9 @@ describe("runbook", () => {
   it("matches the files it describes: BFF cap, memory sums, disks and the gate", () => {
     expect(DOC).toContain("The BFF keeps 512 MiB")
     expect(DOC).not.toContain("The BFF is not shrunk")
-    expect(DOC).toContain("**2432 MiB**")
-    expect(DOC).toContain("**3968 MiB**")
-    expect(DOC).toContain("**5120 MiB**")
+    expect(DOC).toContain("**3456 MiB**")
+    expect(DOC).toContain("**4992 MiB**")
+    expect(DOC).toContain("**6144 MiB**")
     expect(DOC).toContain("10 GiB reserve")
     expect(DOC).toContain("disks-ready")
     expect(DOC).toContain("1000:1000")

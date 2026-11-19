@@ -17,11 +17,11 @@ const WIDE_QUERY = "(min-width: 1024px)"
 export const CODE_LOAD_TIMEOUT_MS = 15_000
 
 /**
- * Only clipboard access is delegated: the Code UI copies code and output and
- * pastes into its editor. Camera, microphone, geolocation and popups stay with
- * the app and are not granted to the frame.
+ * Only copy-out is delegated: the Code UI copies code and output. Reading the
+ * clipboard is the app's job (paste into the composer), and camera, microphone,
+ * geolocation and popups stay with the app, never the frame.
  */
-export const CODE_FRAME_ALLOW = "clipboard-read; clipboard-write"
+export const CODE_FRAME_ALLOW = "clipboard-write"
 
 type Phase = "loading" | "ready" | "down" | "signedOut" | "blocked"
 type Failure = "ticket" | "status"

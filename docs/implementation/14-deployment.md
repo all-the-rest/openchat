@@ -148,6 +148,7 @@ Every service carries `mem_limit`, `mem_reservation`, `cpus`, `pids_limit`,
 | bff | 768 MiB (reserve 256) | 256 | 1.5 |
 | code-host | 384 MiB (reserve 128) | 192 | 1.0 |
 | artifact-host | 256 MiB (reserve 64) | 128 | 0.5 |
+| documents | 1500 MiB (reserve 256) | 256 | 1.0 |
 | opencode | 4 GiB (reserve 1 GiB) | 2048 | 2.0 |
 | toolbox | 2 GiB (reserve 512 MiB) | 512 | 2.0 |
 | dind | 4 GiB (reserve 2 GiB) | 1024 | 2.0 |
@@ -387,7 +388,7 @@ is missing is worse than no guard.
 **Measured baseline** (#44 physical review, 2026-11-18 16:15 UTC, 56 min after the
 second deploy): `MemTotal` **7648 MiB**, `MemAvailable` **3688 MiB**, 16 GiB swap
 with 2.7 GiB used and `si/so` ≈ 0, the four application containers at **183 MiB**
-total, compose memory caps summing **2432 MiB** without dind. The box is not
+total, compose memory caps summing **3456 MiB** without dind. The box is not
 under pressure at baseline; the guard exists for the next build or agent burst,
 not for the happy path.
 
@@ -459,7 +460,7 @@ rehearsal remains issue #36's acceptance item. Everything above is pinned by
 `apps/server/test/host-guards.test.ts` against stubbed `docker`, `systemctl`, `df`
 and `install`; the units were rendered into a temp directory, not loaded by
 systemd. The dind GC cannot be proven while the `dind` profile is off:
-`MemAvailable` measured 3688 MiB is below the 5120 MiB gate `deploy.sh` requires
+`MemAvailable` measured 3688 MiB is below the 6144 MiB gate `deploy.sh` requires
 for `--with-dind`, so the daemon and its bridge were not running. The artifact
 check is alert-only; no `prjquota`/XFS quota exists on `/`, and the 2 GiB loop is
 the only hard bound.
@@ -610,5 +611,5 @@ While the tunnel is down:
 5. Install the host guards (`deploy/host/install.sh --stack-dir /opt/stacks/openchat`),
    run each script once with `--dry-run`, then drop `MemAvailable` artificially
    and watch only `opencode` stop and return on the next high tick. The dind GC
-   needs `--with-dind` and therefore the 5120 MiB gate; it remains unproven until
+   needs `--with-dind` and therefore the 6144 MiB gate; it remains unproven until
    the predecessor stack is gone.

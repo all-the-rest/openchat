@@ -25,6 +25,9 @@ Deployment itself is [`14-deployment.md`](14-deployment.md).
 - `apps/server/package.json`
 - `apps/code-host/package.json`
 - `apps/artifact-host/package.json`
+- `apps/documents/package.json`
+- `packages/memory-tool/package.json`
+- `packages/python-tool/package.json`
 - `packages/artifact-tool/package.json` — the MCP handshake reads its `version`
   at runtime; the first bump inserts the field
 - `packages/code-ticket/package.json`
@@ -150,7 +153,8 @@ Each step starts from the previous one green:
    `git tag -a v2.0.0 -m "OpenChat 2.0.0" && git push origin v2.0.0`. The tag
    name must be `v` plus the `VERSION` content; the workflow fails otherwise.
 8. **Workflow.** `release.yml` re-runs `gates:fast`, builds `bff`,
-   `code-host`, `artifact-host`, `opencode` and `tools` for `linux/amd64` and
+   `code-host`, `artifact-host`, `documents`, `opencode` and `tools` for
+   `linux/amd64` and
    `linux/arm64` with buildx, pushes
    `ghcr.io/all-the-rest/openchat/<image>:2.0.0` and `:latest`, attaches SBOM
    and provenance, then creates the GitHub release from the changelog section.
@@ -223,7 +227,7 @@ There are three layers; use the smallest one that fixes the problem.
 3. **A bad tag or image.** Owner actions, in this order:
    - `gh release delete v2.0.0 --yes --cleanup-tag` (or delete the tag in the
      UI) and `git push origin :refs/tags/v2.0.0`.
-   - Delete the five GHCR package versions for `2.0.0`, one per image
+   - Delete the six GHCR package versions for `2.0.0`, one per image
      (GitHub → Packages → the image → delete the version). Deleting the git tag
      alone leaves pullable images.
    - Re-point `latest` at the last good version, so a convenience pull cannot
