@@ -1,6 +1,6 @@
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { DEFAULT_MEMORY_DATA_DIR, DEFAULT_MEMORY_MAX_FACTS_BYTES } from "../src/env-memory"
+import { DEFAULT_MEMORY_DATA_DIR, DEFAULT_MEMORY_MAX_FACTS, DEFAULT_MEMORY_MAX_FACTS_BYTES } from "../src/env-memory"
 import { loadEnv } from "../src/env"
 import type { EnvConfig } from "../src/env"
 
@@ -66,9 +66,10 @@ describe("memory environment: data directory validation", () => {
 })
 
 describe("memory environment: write cap", () => {
-  it("defaults to 64 MiB", () => {
+  it("defaults to 8 MiB and 20k parsed facts", () => {
     expect(load().MEMORY_MAX_FACTS_BYTES).toBe(DEFAULT_MEMORY_MAX_FACTS_BYTES)
-    expect(DEFAULT_MEMORY_MAX_FACTS_BYTES).toBe(64 * 1024 * 1024)
+    expect(DEFAULT_MEMORY_MAX_FACTS_BYTES).toBe(8 * 1024 * 1024)
+    expect(DEFAULT_MEMORY_MAX_FACTS).toBe(20_000)
   })
 
   it("honours a positive override", () => {

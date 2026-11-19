@@ -160,7 +160,9 @@ const MUTATING_OPS = new Set<MemoryOp["op"]>(["write", "update", "delete", "prun
 function dispatch(store: MemoryStore, op: MemoryOp): MemoryOpResult {
   switch (op.op) {
     case "index": {
-      const result = store.index()
+      // A read op computes the push layer without rewriting `INDEX.md`; every
+      // mutation already refreshed the stored copy.
+      const result = store.renderIndex()
       return { ok: true, index: result.index, entries: result.entries, dropped: result.dropped }
     }
     case "find":
@@ -289,13 +291,15 @@ export function registerMemoryRoutes(
   app.get(PUBLIC_MEMORY_PATH, (c) => {
     const facts: MemoryFact[] = store.facts()
     const audit: MemoryAuditEntry[] = store.audit()
-    return c.json({ facts, audit, index: store.index().index })
+    // Read path: render the stored push layer. Regenerating here would write
+    // `INDEX.md` on every page load; mutations keep it current.
+    return c.json({ facts, audit, index: store.readIndex() })
   })
 
   // Registered before `/:id` so "export" cannot be read as a fact id.
   app.get(`${PUBLIC_MEMORY_PATH}/export`, (c) => {
     const payload = {
-      facts: store.facts(), audit: store.audit(), index: store.index().index,
+      facts: store.facts(), audit: store.audit(), index: store.readIndex(),
       exportedAt: new Date().toISOString(),
     }
     c.header("Content-Type", "application/json; charset=utf-8")

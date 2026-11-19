@@ -1,5 +1,5 @@
 import { mkdtemp, rm } from "node:fs/promises"
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Hono } from "hono"
@@ -255,6 +255,53 @@ describe("memory public routes", () => {
     expect(body.facts).toHaveLength(1)
     expect(body.audit.length).toBeGreaterThan(0)
     expect(body.index).toContain("# Memory Index")
+  })
+
+  it("renders the stored index on GET instead of regenerating it", async () => {
+    const dir = await tempDir()
+    const server = serverFor(dir)
+    await seed(server)
+    const indexPath = join(dir, "INDEX.md")
+    expect(readFileSync(indexPath, "utf8")).toContain("# Memory Index")
+    // A GET must answer from the file and leave it untouched; a regenerated
+    // copy would overwrite this sentinel.
+    writeFileSync(indexPath, "stored-index-sentinel\n")
+    const cookie = await login(server)
+    const body = await json<{ index: string }>(
+      await server.app.request("/api/memory", { headers: { cookie } }),
+    )
+    expect(body.index).toBe("stored-index-sentinel\n")
+    expect(readFileSync(indexPath, "utf8")).toBe("stored-index-sentinel\n")
+  })
+
+  it("does not create INDEX.md when a GET finds no stored copy", async () => {
+    const dir = await tempDir()
+    const server = serverFor(dir)
+    await seed(server)
+    const indexPath = join(dir, "INDEX.md")
+    rmSync(indexPath)
+    const cookie = await login(server)
+    const body = await json<{ index: string }>(
+      await server.app.request("/api/memory", { headers: { cookie } }),
+    )
+    expect(body.index).toContain("# Memory Index")
+    expect(existsSync(indexPath)).toBe(false)
+  })
+
+  it("refreshes the stored index on the mutation path", async () => {
+    const dir = await tempDir()
+    const server = serverFor(dir)
+    const id = await seed(server, "Prefers tea")
+    const cookie = await login(server)
+    const before = readFileSync(join(dir, "INDEX.md"), "utf8")
+    await server.app.request(`/api/memory/${id}`, {
+      method: "PATCH",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ text: "Prefers coffee", confirm: true }),
+    })
+    const after = readFileSync(join(dir, "INDEX.md"), "utf8")
+    expect(after).not.toBe(before)
+    expect(after).toContain("Prefers coffee")
   })
 
   it("patches a fact through the owner route", async () => {

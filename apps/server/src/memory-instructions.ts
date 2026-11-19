@@ -117,10 +117,11 @@ export function createMemoryInvalidator(
     }
     if (candidates.length === 0) return
     // Memory is a convenience: an unavailable store must not fail a session
-    // list. The next pass retries.
+    // list. The next pass retries. Rendering (not `index()`) keeps this read
+    // path free of an `INDEX.md` write; mutations persist the copy.
     let index: string
     try {
-      index = store.index().index
+      index = store.renderIndex().index
     } catch { /* store */ return }
     await Promise.all(candidates.flatMap((sessionID) =>
       targets.map(async (target) => {
@@ -149,7 +150,7 @@ export function createMemoryInvalidator(
       await discover()
       const refresh = [...activeSessions].filter((sessionID) => known.has(sessionID))
       if (refresh.length === 0) return
-      const { index } = store.index()
+      const { index } = store.renderIndex()
       await Promise.all(targets.flatMap((target) =>
         refresh.map(async (sessionID) => {
           try { await target.putInstruction(sessionID, MEMORY_INDEX_KEY, index) } catch { /* host */ }

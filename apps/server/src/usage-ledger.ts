@@ -3,14 +3,19 @@
  * directory; rows are appended under a small in-process lock and reads skip a
  * corrupt line instead of failing. The file is capped, and a further row is
  * refused with a stable code rather than rotated away: the day's history is
- * more useful than a silent reset.
+ * more useful than a silent reset. Day files are pruned after
+ * `USAGE_LEDGER_RETENTION_DAYS` so the directory does not grow forever.
  */
 import { constants } from "node:fs"
-import { chmod, lstat, mkdir, open } from "node:fs/promises"
+import { chmod, lstat, mkdir, open, readdir, unlink } from "node:fs/promises"
 import { join } from "node:path"
 
 /** Default cap for one day's file. A few thousand turns fit comfortably. */
 export const USAGE_LEDGER_MAX_BYTES = 4 * 1024 * 1024
+/** Day files older than this many days are removed on the first write of a day. */
+export const USAGE_LEDGER_RETENTION_DAYS = 30
+/** A day file is `YYYY-MM-DD.jsonl`; anything else is not ours to delete. */
+const DAY_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/
 
 export type UsageLedgerErrorCode = "usage_ledger_full" | "usage_ledger_invalid"
 
@@ -32,6 +37,8 @@ export interface UsageLedgerOptions {
   now?: () => number
   /** Cap of one day file in bytes. Defaults to `USAGE_LEDGER_MAX_BYTES`. */
   maxFileBytes?: number
+  /** Days of history to keep. Defaults to `USAGE_LEDGER_RETENTION_DAYS`. */
+  retentionDays?: number
 }
 
 /** One turn to record. `at` is taken from the injected clock. */
@@ -112,6 +119,9 @@ export class UsageLedger {
   private readonly directory: string
   private readonly now: () => number
   private readonly maxFileBytes: number
+  private readonly retentionDays: number
+  /** Last day a prune pass completed; one pass per local day is enough. */
+  private prunedDay: string | null = null
   private tail: Promise<unknown> = Promise.resolve()
 
   constructor(options: UsageLedgerOptions) {
@@ -119,9 +129,14 @@ export class UsageLedger {
     if (!Number.isSafeInteger(maxFileBytes) || maxFileBytes < 1) {
       throw new Error("UsageLedger needs a positive byte cap")
     }
+    const retentionDays = options.retentionDays ?? USAGE_LEDGER_RETENTION_DAYS
+    if (!Number.isSafeInteger(retentionDays) || retentionDays < 1) {
+      throw new Error("UsageLedger needs a positive retention in days")
+    }
     this.directory = options.directory
     this.now = options.now ?? (() => Date.now())
     this.maxFileBytes = maxFileBytes
+    this.retentionDays = retentionDays
   }
 
   /** Serialises writes and reads so a scan never sees a half-appended row. */
@@ -163,6 +178,7 @@ export class UsageLedger {
       const bytes = Buffer.byteLength(line, "utf8")
       const file = this.fileFor(at)
       await this.ensureDirectory()
+      await this.pruneOldDays(at)
       if ((await this.fileSize(file)) + bytes > this.maxFileBytes) {
         throw new UsageLedgerError(
           "usage_ledger_full",
@@ -215,6 +231,36 @@ export class UsageLedger {
     await mkdir(this.directory, { recursive: true, mode: 0o700 })
     // `mode` applies only on creation; tighten a pre-existing directory.
     await chmod(this.directory, 0o700)
+  }
+
+  /**
+   * Removes day files older than the retention window, once per local day, so
+   * the ledger directory cannot grow without bound. Pruning is best-effort: a
+   * read-only directory or a vanished file must never fail the turn's record.
+   * Only names matching the day-file shape are candidates, and symlinks are
+   * left alone.
+   */
+  private async pruneOldDays(at: number): Promise<void> {
+    const day = localDay(at)
+    if (this.prunedDay === day) return
+    const cutoffDate = new Date(at)
+    cutoffDate.setDate(cutoffDate.getDate() - this.retentionDays)
+    const cutoff = localDay(cutoffDate.getTime())
+    let names: string[]
+    try {
+      names = await readdir(this.directory)
+    } catch {
+      return
+    }
+    for (const name of names) {
+      if (!DAY_FILE.test(name) || name.slice(0, 10) >= cutoff) continue
+      const path = join(this.directory, name)
+      try {
+        const stat = await lstat(path)
+        if (stat.isFile() && !stat.isSymbolicLink()) await unlink(path)
+      } catch { /* best-effort */ }
+    }
+    this.prunedDay = day
   }
 
   private async fileSize(file: string): Promise<number> {
