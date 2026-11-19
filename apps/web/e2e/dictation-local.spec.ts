@@ -73,6 +73,10 @@ test.describe("on-device dictation", () => {
     await composer.press("End")
     await mic.click()
     await expect(page.getByTestId("dictation-pill")).toBeVisible()
+    // The recorder only hands over a blob once audio frames exist; a stop
+    // within the first ~500 ms timeslice yields an empty one and would test
+    // the empty-transcript error instead of the happy path.
+    await expect(page.getByTestId("dictation-elapsed")).toHaveText(/^0:0[1-9]$/)
     await page.getByTestId("dictation-stop").click()
 
     await expect(composer).toHaveValue(`Notiz: ${LOCAL_TRANSCRIPT}`)
