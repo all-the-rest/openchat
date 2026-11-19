@@ -81,7 +81,7 @@ stack:
 | --- | --- | --- |
 | `.env` | `/opt/stacks/openchat/.env` | the credential that makes the restored stack the same stack |
 | `opencode-config/` | `/opt/stacks/openchat/opencode-config` | seeded MCP entries and agent edits |
-| `opencode-data/` | `/opt/stacks/openchat/disks/opencode-data` (the named volume `openchat_opencode-data` until the migration of [`20-remote-deploy.md`](20-remote-deploy.md) ran) | OpenCode sessions, config, storage |
+| `opencode-data/` | `/opt/stacks/openchat/disks/opencode-data` once the disk carries the migration stamp `.openchat-migrated`; until then the named volume `openchat_opencode-data` (see [`20-remote-deploy.md`](20-remote-deploy.md)) | OpenCode sessions, config, storage |
 | `artifacts/` | `/opt/stacks/openchat/disks/artifacts` | user documents |
 | `workspace/` | `/opt/stacks/openchat/disks/workspace` | workspace and `chats/` working files |
 
@@ -113,6 +113,12 @@ Behaviour that matters during an incident:
 - **Symlinks are archived as symlinks.** A link inside the workspace that
   points at `/etc` is stored as a link and never read; only the five named
   sources are read.
+- **The source follows the migration stamp.** `opencode-data` is read from the
+  loopback disk only when `disks/opencode-data/.openchat-migrated` exists. While
+  an image exists without the stamp (the migration window), the named volume is
+  still the only copy, so the backup archives the volume; if that volume's
+  mountpoint cannot be resolved the run refuses instead of archiving an empty
+  disk. An unmounted stamped disk is refused the same way.
 - **Retention deletes only its own files.** `openchat-backup-YYYYMMDDTHHMMSSZ.tar.gz`
   plus its exact sidecars; anything else in `--out-dir` is left alone. The
   newest `--keep` archives stay.

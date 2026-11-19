@@ -39,6 +39,7 @@
 set -euo pipefail
 
 PROG=$(basename "$0")
+SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 STACK_DIR=$PWD
 RELEASE=""
 PROJECT=openchat
@@ -47,6 +48,9 @@ EXPECT_VERSION=""
 PROBE_URL=""
 TIMEOUT=30
 DRY_RUN=0
+# Runs before anything moves: refuses to start a candidate whose overlay binds
+# the OpenCode state disk while the named volume still holds the state.
+PREFLIGHT="$SELF_DIR/remote/opencode-data-preflight.sh"
 
 usage() {
   cat <<'EOF'
@@ -161,6 +165,21 @@ compose_from() {
     --env-file "$ENV_FILE" \
     --file "$(compose_file_for "$release")" \
     "$@"
+}
+
+# Issue #43: the overlay binds `disks/opencode-data` over OpenCode's state. If
+# the named volume still holds that state and the disk carries no migration stamp,
+# the first start writes into the empty disk and the migration can no longer adopt
+# it. The helper only reads and refuses with the exact migration command; an
+# empty or missing volume and a stamped disk pass. It also covers a manual swap.
+preflight_state_disk() {
+  local args=(--stack-dir "$STACK_DIR" --release "$RELEASE_DIR" --project "$PROJECT")
+  [ -f "$PREFLIGHT" ] || die "missing $PREFLIGHT (run swap.sh from the release source tree)"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    args+=(--dry-run)
+  fi
+  bash "$PREFLIGHT" "${args[@]}" ||
+    die "refusing to swap: the OpenCode state disk is not migrated yet"
 }
 
 # Fills PROBE_CODE and PROBE_BODY_FILE from one HTTP GET. No secret is involved:
@@ -301,6 +320,8 @@ main() {
   note "current:  ${current:-<none>}"
   note "previous: ${previous:-<none>}"
   note "probe:    $PROBE_URL"
+
+  preflight_state_disk
 
   if [ -n "$current" ] && [ "$current" = "$RELEASE_REL" ]; then
     note "current already points at $RELEASE_REL"

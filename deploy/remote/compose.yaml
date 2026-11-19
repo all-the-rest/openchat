@@ -86,6 +86,9 @@ services:
       # The soft cap is a deployment knob, not a build constant: 0 turns the
       # BFF-side compaction off for hosts that only want the host policy.
       CHAT_CONTEXT_SOFT_CAP: ${CHAT_CONTEXT_SOFT_CAP:-200000}
+      # Hard cap for the fact store (issue #49); the base file forwards it too,
+      # and the overlay repeats both so a production change stays one edit here.
+      MEMORY_MAX_FACTS_BYTES: ${MEMORY_MAX_FACTS_BYTES:-67108864}
       # Fallback chain (#54): empty by default, so nothing changes until the
       # owner names a chain and a paid-turn budget.
       FALLBACK_CHAIN_JSON: ${FALLBACK_CHAIN_JSON:-}

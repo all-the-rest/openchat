@@ -28,7 +28,28 @@ interface Service {
   volumes?: Mount[]
   networks?: Record<string, unknown>
   ports?: unknown[]
-  environment?: Record<string, string>
+  /**
+   * `docker compose config` emits a map for an environment defined in one file
+   * and a `KEY=value` list once two files merge the same service, so both shapes
+   * are read through `environmentOf`.
+   */
+  environment?: Record<string, string> | string[]
+}
+
+function environmentOf(name: string): Record<string, string> {
+  const raw = SERVICES[name]?.environment
+  if (raw === undefined) return {}
+  if (!Array.isArray(raw)) return raw
+  const out: Record<string, string> = {}
+  for (const entry of raw) {
+    const at = entry.indexOf("=")
+    if (at === -1) {
+      out[entry] = ""
+      continue
+    }
+    out[entry.slice(0, at)] = entry.slice(at + 1)
+  }
+  return out
 }
 
 const MERGED = JSON.parse(
@@ -125,7 +146,32 @@ describe("merged remote compose", () => {
     expect(documents?.mem_limit).toBe("1024m")
     expect(documents?.ports).toBeUndefined()
     expect(Object.keys(documents?.networks ?? {})).toEqual(["backend"])
-    expect(documents?.environment?.DOCUMENTS_TOKEN).toMatch(/^\$\{DOCUMENTS_TOKEN:\?/)
+    expect(environmentOf("documents").DOCUMENTS_TOKEN).toMatch(/^\$\{DOCUMENTS_TOKEN:\?/)
+  })
+
+  it("forwards the memory and fallback knobs the template documents to the BFF", () => {
+    // Issue #43, finding 2: the BFF environment is an explicit whitelist, so a
+    // value in .env that is missing here never reaches the process. The merged
+    // config keeps the `${…}` text (`--no-interpolate`), which is the proof that
+    // the knob is forwarded and still comes from the env file.
+    const env = environmentOf("bff")
+    expect(env.MEMORY_MAX_FACTS_BYTES).toBe("${MEMORY_MAX_FACTS_BYTES:-67108864}")
+    expect(env.CHAT_CONTEXT_SOFT_CAP).toBe("${CHAT_CONTEXT_SOFT_CAP:-200000}")
+    expect(env.FALLBACK_CHAIN_JSON).toBe("${FALLBACK_CHAIN_JSON:-}")
+    expect(env.FALLBACK_PAID_DAILY_CAP).toBe("${FALLBACK_PAID_DAILY_CAP:-0}")
+    expect(env.FALLBACK_USAGE_DIR).toBe("${FALLBACK_USAGE_DIR:-/workspace/chats/.usage}")
+  })
+
+  it("keeps every credential in the merged environment a reference, never a value", () => {
+    // `--no-interpolate` cannot leak a secret by accident; this fails if an
+    // edit ever inlines one instead of pointing at .env.
+    const credential = /(SECRET|TOKEN|PASSWORD|SIGNING_KEY|API_KEY)$/
+    for (const name of Object.keys(SERVICES)) {
+      for (const [key, value] of Object.entries(environmentOf(name))) {
+        if (!credential.test(key)) continue
+        expect(value, `${name}.${key} must come from .env`).toMatch(/^\$\{[A-Z_]+:/)
+      }
+    }
   })
 
   it("builds every application image from this tree and only dind from upstream", () => {

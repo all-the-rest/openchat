@@ -187,6 +187,8 @@ test_backs_up_the_migrated_opencode_disk() {
   stack_real=$(cd "$root/stack" && pwd -P)
   mkdir -p "$root/stack/disks/opencode-data"
   printf 'opencode-data\n' > "$root/stack/disks/opencode-data/.openchat-disk"
+  printf 'volume=openchat_opencode-data\nfiles=1\n' \
+    > "$root/stack/disks/opencode-data/.openchat-migrated"
   printf '{"session":2}\n' > "$root/stack/disks/opencode-data/migrated.json"
   : > "$root/stack/disks/opencode-data.img"
 
@@ -209,6 +211,56 @@ test_backs_up_the_migrated_opencode_disk() {
   ok "the migrated disk is the backup source; an unmounted image is refused"
 }
 
+# Issue #43, finding 3: the image can exist before the migration copied anything
+# into it. A backup scheduled in that window must archive the volume, which still
+# holds the only copy, instead of the empty disk.
+test_unstamped_disk_archives_the_volume() {
+  local root listing manifest volume_real; root=$(new_dir)
+  make_stack "$root"
+  volume_real=$(cd "$root/data/opencode-data" && pwd -P)
+  mkdir -p "$root/stack/disks/opencode-data" "$root/bin"
+  printf 'opencode-data\n' > "$root/stack/disks/opencode-data/.openchat-disk"
+  printf '{"session":9}\n' > "$root/stack/disks/opencode-data/premature.json"
+  : > "$root/stack/disks/opencode-data.img"
+  stub_bin "$root/bin" docker '
+case "${1:-} ${2:-}" in
+  "volume inspect")
+    [ -n "${FAKE_MOUNTPOINT:-}" ] || exit 1
+    printf "%s\n" "$FAKE_MOUNTPOINT"
+    exit 0
+    ;;
+esac
+exit 1
+'
+
+  run_capture env PATH="$root/bin:$PATH" FAKE_MOUNTPOINT="$volume_real" \
+    bash "$BACKUP" --stack-dir "$root/stack" --out-dir "$root/out" --stamp 20261118T140000Z
+  [ "$RUN_STATUS" -eq 0 ] || fail "a backup in the migration window exited $RUN_STATUS: $OUTPUT"
+  listing=$(tar -tzf "$root/out/openchat-backup-20261118T140000Z.tar.gz")
+  assert_contains "$listing" "opencode-data/sessions/s1.json" "archive listing"
+  assert_not_contains "$listing" "premature.json" "archive listing"
+  manifest=$(cat "$root/out/openchat-backup-20261118T140000Z.tar.gz.manifest.txt")
+  assert_contains "$manifest" "$volume_real" "manifest"
+  ok "an image without the migration stamp still archives the named volume"
+}
+
+test_unresolvable_volume_is_refused() {
+  local root; root=$(new_dir)
+  make_stack "$root"
+  mkdir -p "$root/stack/disks/opencode-data" "$root/bin"
+  printf 'opencode-data\n' > "$root/stack/disks/opencode-data/.openchat-disk"
+  : > "$root/stack/disks/opencode-data.img"
+  stub_bin "$root/bin" docker 'exit 1'
+
+  run_capture env PATH="$root/bin:$PATH" bash "$BACKUP" \
+    --stack-dir "$root/stack" --out-dir "$root/out" --stamp 20261118T140001Z
+  [ "$RUN_STATUS" -ne 0 ] || fail "a backup without a resolvable source succeeded: $OUTPUT"
+  assert_contains "$OUTPUT" "carries no .openchat-migrated" "refusal"
+  assert_contains "$OUTPUT" "migrate-opencode-data.sh --apply" "refusal"
+  assert_missing "$root/out"
+  ok "an unstamped disk with no resolvable volume is refused, never archived empty"
+}
+
 file_mode() {
   if stat -c %a "$1" >/dev/null 2>&1; then
     stat -c %a "$1"
@@ -225,3 +277,5 @@ test_refuses_missing_or_symlinked_source
 test_inner_symlink_is_archived_not_followed
 test_out_dir_inside_stack_is_refused
 test_backs_up_the_migrated_opencode_disk
+test_unstamped_disk_archives_the_volume
+test_unresolvable_volume_is_refused
