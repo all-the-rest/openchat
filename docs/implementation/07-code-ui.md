@@ -219,7 +219,7 @@ second BFF-rendered chat. The contract between the surfaces:
 | Applies to both surfaces | Chat only (intentionally) |
 | --- | --- |
 | The OpenCode host and its model catalogue, `/api/code/status`, ticket minting, session recovery and the memory index (implementation 34) | The fallback chain, the context soft cap, chat files/attachments, dictation and chat drafts |
-| Sessions created in either surface are listed and resumed from Chat; a Code-created session gets the memory index on the next discovery pass | The chat search palette and `/memory` (the BFF memory manager) are app surfaces, not part of the embedded host UI |
+| Sessions created in either surface are listed and resumed from Chat; switching Code → Chat re-reads the list once, and that read is the discovery pass that plants the memory index in a Code-created session | The chat search palette and `/memory` (the BFF memory manager) are app surfaces, not part of the embedded host UI |
 
 **The frame survives a surface switch.** `CodeSurfaceHost` lives in `AppShell`
 outside the route switch. It mounts on the first Code visit (a chat-only boot
