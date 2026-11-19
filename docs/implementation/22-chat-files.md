@@ -90,7 +90,7 @@ The directory is never served by a static handler: only `WEB_DIST_DIR` is, and
 | --- | --- | --- |
 | `WORKSPACE_QUOTA_PER_CHAT_BYTES` | 104 857 600 (100 MiB) | Fits a filled Office template, PDFs and generated images without letting one chat hoard a volume. |
 | `WORKSPACE_QUOTA_TOTAL_BYTES` | 1 073 741 824 (1 GiB) | Bounds the workspace while leaving room for ten full chats. |
-| `WORKSPACE_MAX_FILE_BYTES` | 26 214 400 (25 MiB) | Matches the dictation cap and covers any DOCX/PDF a chat produces; clamped to 100 MiB. |
+| `WORKSPACE_MAX_FILE_BYTES` | 20 971 520 (20 MiB) | The spec's per-attachment limit (FR-26); covers any DOCX/PDF a chat produces, clamped to 100 MiB. |
 
 A non-integer or non-positive value falls back to the default with one boot
 warning. A per-chat quota above the total is accepted but warned about, because

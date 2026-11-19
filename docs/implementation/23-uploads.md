@@ -109,7 +109,7 @@ through Lingui (`composer.attach*`, `composer.attachment*`); the German PO is
 ## Deliberately not done
 
 - **Streaming uploads.** The whole body is buffered before sniffing; the cap
-  is at most 25 MiB by default and the guard rejects a larger declared length
+  is at most 20 MiB by default and the guard rejects a larger declared length
   before it reaches the socket.
 - **`Range` / resumable downloads.** Downloads return the full bytes with an
   attachment disposition; the optional `Range` support from the issue is left

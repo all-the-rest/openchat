@@ -103,7 +103,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   archive_too_large: "archive: the ZIP expands beyond the 200 MiB uncompressed cap",
   bomb: "archive: refused as a likely zip bomb",
   unsafe_entry: "archive: the ZIP contains an unsafe entry",
-  file_too_large: "size: an extracted file exceeds the 25 MiB chat file cap",
+  file_too_large: "size: an extracted file exceeds the 20 MiB chat file cap",
   quota_exceeded: "quota: the chat file quota would be exceeded",
   already_exists: "already_exists: the target exists; choose another directory",
   internal: "internal: the archive tool failed",

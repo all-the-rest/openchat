@@ -6,8 +6,8 @@
  * Defaults, and why: 100 MiB per chat fits a filled Office template, a few
  * PDFs and generated images without inviting a chat to hoard a disk; 1 GiB
  * across the workspace bounds a single volume while leaving room for ten
- * full chats; 25 MiB per file matches the dictation cap and covers every PDF
- * or DOCX a chat realistically produces. The per-file ceiling is 100 MiB so a
+ * full chats; 20 MiB per file is the spec's attachment limit (FR-26) and covers
+ * every PDF or DOCX a chat realistically produces. The per-file ceiling is 100 MiB so a
  * misconfigured value cannot turn one upload into an out-of-memory event.
  */
 import {

@@ -143,7 +143,7 @@ function extract(name: string, directory: string, overrides: Record<string, unkn
       directory,
       usedBytes: 0,
       quotaBytes: 104_857_600,
-      maxFileBytes: 26_214_400,
+      maxFileBytes: 20_971_520,
       ...overrides,
     }),
   }
@@ -246,7 +246,7 @@ describe.skipIf(!AVAILABLE)("archive_extract.py", () => {
       directory: "bundle",
       usedBytes: 0,
       quotaBytes: 104_857_600,
-      maxFileBytes: 26_214_400,
+      maxFileBytes: 20_971_520,
     })
     expect(codeOf(answer)).toBe("already_exists")
     expect(readFileSync(join(base, "bundle", "notes", "readme.txt"), "utf8")).toBe("keep me")

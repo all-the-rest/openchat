@@ -120,7 +120,7 @@ describe("archive path rules", () => {
     truncateSync(join(files, "huge.zip"), CHAT_FILE_MAX_BYTES + 1)
     expect(await resolveArchiveSource(root, "session-1/files/huge.zip")).toEqual({
       ok: false,
-      error: "zipPath: larger than the 25 MiB chat file cap",
+      error: "zipPath: larger than the 20 MiB chat file cap",
     })
   })
 })

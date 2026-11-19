@@ -51,11 +51,11 @@ in `_archive.py`, so a direct script call is no weaker than the MCP path.
 
 | Cap | Value | Enforced on |
 | --- | --- | --- |
-| Archive size | 25 MiB (`CHAT_FILE_MAX_BYTES`) | source `lstat` |
+| Archive size | 20 MiB (`CHAT_FILE_MAX_BYTES`) | source `lstat` |
 | Entries | 500 | listing and extraction |
 | Depth | 10 path segments | listing and extraction |
 | Total uncompressed | 200 MiB | declared sizes before extraction, actual bytes while writing |
-| Per extracted file | 25 MiB | declared size and actual bytes |
+| Per extracted file | 20 MiB | declared size and actual bytes |
 | Chat quota | 100 MiB (`CHAT_QUOTA_PER_CHAT_BYTES`) | existing on-disk usage + bytes written |
 | Compression ratio | 100:1 above 10 MiB uncompressed | declared sizes for listing, actual bytes for extraction |
 | One name | 1000 chars, 200 per segment | listing and extraction |
@@ -115,7 +115,7 @@ code to one fixed sentence. stderr and tracebacks are never parsed or returned.
 | `too_deep` | `archive: a path nests deeper than 10 directories` |
 | `archive_too_large` | `archive: the ZIP expands beyond the 200 MiB uncompressed cap` |
 | `bomb` | `archive: refused as a likely zip bomb` |
-| `file_too_large` | `size: an extracted file exceeds the 25 MiB chat file cap` |
+| `file_too_large` | `size: an extracted file exceeds the 20 MiB chat file cap` |
 | `quota_exceeded` | `quota: the chat file quota would be exceeded` |
 | `already_exists` | `already_exists: the target exists; choose another directory` |
 | `invalid_input` | `input: the request could not be read` |

@@ -244,7 +244,7 @@ export const ARCHIVE_EXTRACT_TOOL = {
     "`<sessionID>/files/<name>.zip` relative to WORKSPACE_DIR/chats. Nothing is overwritten:",
     "an existing target is refused with `already_exists` and leaves no partial output.",
     "Symlinks, device entries, absolute names, `..` segments and Windows drive prefixes are",
-    "rejected. Caps: 500 entries, depth 10, 200 MiB uncompressed, 25 MiB per file, the chat's",
+    "rejected. Caps: 500 entries, depth 10, 200 MiB uncompressed, 20 MiB per file, the chat's",
     "quota, and a 100:1 compression-ratio bomb guard over both declared and written bytes.",
     "DOCX, XLSX and PPTX are read with `read_document`; `.tar.gz` is not supported.",
     RETRY,

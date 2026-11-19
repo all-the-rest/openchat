@@ -39,8 +39,11 @@ export interface ChatFilesResponse {
 /** Longest accepted file name, in characters. */
 export const CHAT_FILE_NAME_MAX = 200
 
-/** Largest single file by default; `WORKSPACE_MAX_FILE_BYTES` can lower it. */
-export const CHAT_FILE_MAX_BYTES = 26_214_400
+/**
+ * Largest single file by default (spec FR-26: 20 MiB per attachment);
+ * `WORKSPACE_MAX_FILE_BYTES` can lower it.
+ */
+export const CHAT_FILE_MAX_BYTES = 20_971_520
 
 /** Default per-chat quota: 100 MiB. */
 export const CHAT_QUOTA_PER_CHAT_BYTES = 104_857_600
