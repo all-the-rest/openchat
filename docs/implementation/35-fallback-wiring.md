@@ -57,6 +57,13 @@ event carries the assistant message id but neither the queued user text nor its
 message id, so the engine would have to guess which text to retry. The
 limitation is deliberate; the active turn keeps its own state.
 
+One residual race is accepted: while a queued send is being registered, a delta
+that belongs to the still-streaming active turn arrives at the new state and is
+dropped by `abandon`. The restored active turn then has no recorded output and
+could be retried after it printed. It needs a queued send within the same few
+milliseconds as a live delta on a single-user deployment; closing it would mean
+correlating deltas by message id, which the event contract does not carry.
+
 ## Event loop (`events-route.ts`)
 
 The events route feeds observed events to the engine. On
