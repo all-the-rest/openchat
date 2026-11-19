@@ -96,6 +96,31 @@ test_version_mismatch_rolls_back() {
   ok "--expect-version refuses a skewed candidate and restores the previous release"
 }
 
+# Issue #43 / M3: a rollback to a release that predates the migration binds the
+# named volume, which keeps only the pre-migration snapshot. The rollback still
+# happens, but it must say loudly that post-migration sessions are not in it.
+test_rollback_to_a_volume_release_warns() {
+  local root; root=$(new_dir)
+  build_swap_fixture "$root"
+  printf 'services:\n  opencode:\n    volumes:\n      - type: bind\n        source: /opt/stacks/openchat/disks/opencode-data\n        target: /root/.local/share/opencode\n' \
+    > "$root/stack/releases/b/compose.yaml"
+
+  run_capture swap_in "$root" releases/a
+  [ "$RUN_STATUS" -eq 0 ] || fail "first swap exited $RUN_STATUS: $OUTPUT"
+
+  mkdir -p "$root/stack/disks/opencode-data"
+  printf 'volume=openchat_opencode-data\nfiles=1\n' \
+    > "$root/stack/disks/opencode-data/.openchat-migrated"
+  printf 'opencode-data\n' > "$root/stack/disks/opencode-data/.openchat-disk"
+
+  run_capture swap_in "$root" releases/b --expect-version 9.9.9
+  [ "$RUN_STATUS" -eq 1 ] || fail "the skewed candidate exited $RUN_STATUS: $OUTPUT"
+  assert_contains "$OUTPUT" "session data written after the migration is NOT in that copy" "rollback warning"
+  assert_contains "$OUTPUT" "releases/a does not bind disks/opencode-data" "rollback warning"
+  assert_eq "$(readlink "$root/stack/current")" "releases/a" "current after the rollback"
+  ok "a rollback to a volume-bound release warns about the pre-migration snapshot"
+}
+
 test_deploy_dry_run_names_the_upgrade() {
   local root; root=$(new_dir)
   build_swap_fixture "$root"
@@ -111,4 +136,5 @@ test_deploy_dry_run_names_the_upgrade() {
 
 test_upgrade_and_rollback
 test_version_mismatch_rolls_back
+test_rollback_to_a_volume_release_warns
 test_deploy_dry_run_names_the_upgrade

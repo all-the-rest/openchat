@@ -104,7 +104,7 @@ JSON
 
   run_capture seed_in "$root"
   [ "$RUN_STATUS" -eq 0 ] || fail "upgrade seed exited $RUN_STATUS: $OUTPUT"
-  assert_contains "$OUTPUT" "added mcp.openchat-memory to $file" "upgrade seed output"
+  assert_contains "$OUTPUT" "added mcp.openchat-memory in $file" "upgrade seed output"
   assert_no_secret "$OUTPUT"
   [ "$(sha256_of "$file")" != "$before" ] || fail "config should have changed"
 
@@ -138,7 +138,7 @@ JSON
 
   run_capture seed_in "$root"
   [ "$RUN_STATUS" -eq 0 ] || fail "no-mcp seed exited $RUN_STATUS: $OUTPUT"
-  assert_contains "$OUTPUT" "added mcp.openchat-memory to $file" "no-mcp seed output"
+  assert_contains "$OUTPUT" "added mcp.openchat-memory in $file" "no-mcp seed output"
   assert_no_secret "$OUTPUT"
 
   # The entry landed under a new root `mcp` object; the root object had no such
@@ -196,6 +196,44 @@ test_fully_seeded_file_is_unchanged() {
   ok "a fully seeded file is kept byte-for-byte"
 }
 
+# Issue #49 / M9: a rotated MEMORY_INTERNAL_TOKEN (or a changed BFF URL) must not
+# leave the seeded entry behind. Only that entry is replaced; every other byte
+# survives, and no token reaches the output.
+test_rotated_memory_token_is_refreshed() {
+  local root file prefix new_token; root=$(new_dir)
+  build_stack "$root"
+  file="$root/stack/opencode-config/opencode.json"
+  run_capture seed_in "$root"
+  [ "$RUN_STATUS" -eq 0 ] || fail "initial seed exited $RUN_STATUS: $OUTPUT"
+
+  # Give the memory entry a stale URL and rotate the token in .env.
+  awk '/"openchat-memory": \{/ { in_memory = 1 }
+       in_memory && /OPENCHAT_BFF_URL/ { sub(/http:\/\/bff:8787/, "http://stale.invalid:1") }
+       in_memory && /^    \}/ { in_memory = 0 }
+       { print }' "$file" > "$file.tmp"
+  mv "$file.tmp" "$file"
+  chmod 600 "$file"
+  new_token="SENTINEL_ROTATED_MEMORY_TOKEN"
+  sed "s/^MEMORY_INTERNAL_TOKEN=.*/MEMORY_INTERNAL_TOKEN=$new_token/" \
+    "$root/stack/.env" > "$root/stack/.env.new"
+  mv "$root/stack/.env.new" "$root/stack/.env"
+  chmod 600 "$root/stack/.env"
+  prefix=$(sed -n '1,/^    "openchat-memory": {/p' "$file")
+
+  run_capture seed_in "$root"
+  [ "$RUN_STATUS" -eq 0 ] || fail "refresh exited $RUN_STATUS: $OUTPUT"
+  assert_contains "$OUTPUT" "refreshed mcp.openchat-memory" "refresh output"
+  assert_eq "$(json_field "$file" mcp.openchat-memory.environment.MEMORY_INTERNAL_TOKEN)" "$new_token" "rotated token"
+  assert_eq "$(json_field "$file" mcp.openchat-memory.environment.OPENCHAT_BFF_URL)" "http://bff:8787" "restored BFF URL"
+  assert_eq "$(json_field "$file" mcp.openchat.environment.ARTIFACT_INTERNAL_TOKEN)" "$ARTIFACT_TOKEN" "unrelated token"
+  assert_eq "$(grep -c '"openchat-memory"' "$file")" "1" "memory entry count"
+  assert_eq "$(sed -n '1,/^    "openchat-memory": {/p' "$file")" "$prefix" "bytes before the entry"
+  assert_contains "$(cat "$file")" '"compaction": {' "trailing keys"
+  assert_no_secret "$OUTPUT"
+  assert_not_contains "$OUTPUT" "$new_token" "refresh output"
+  ok "a rotated token refreshes only the memory entry and keeps other bytes"
+}
+
 test_dry_run_on_existing_file_writes_nothing() {
   local root file before; root=$(new_dir)
   build_stack "$root"
@@ -206,7 +244,7 @@ test_dry_run_on_existing_file_writes_nothing() {
 
   run_capture seed_in "$root" --dry-run
   [ "$RUN_STATUS" -eq 0 ] || fail "dry run exited $RUN_STATUS: $OUTPUT"
-  assert_contains "$OUTPUT" "would: add mcp.openchat-memory to $file" "dry run output"
+  assert_contains "$OUTPUT" "would: add mcp.openchat-memory in $file" "dry run output"
   assert_no_secret "$OUTPUT"
   assert_eq "$(sha256_of "$file")" "$before" "config bytes"
   ok "a dry run prints the merge plan and writes nothing"
@@ -217,4 +255,5 @@ test_existing_file_gains_only_the_memory_entry
 test_existing_file_without_mcp_gains_the_entry_at_the_root
 test_invalid_merge_leaves_the_file_untouched
 test_fully_seeded_file_is_unchanged
+test_rotated_memory_token_is_refreshed
 test_dry_run_on_existing_file_writes_nothing

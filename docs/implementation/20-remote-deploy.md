@@ -36,7 +36,7 @@ routing probes against `caddy:2-alpine`.
 | Boot unit | `deploy/remote/openchat-disks.service` | mounts the images before Docker |
 | Boot guard | `deploy/remote/openchat-guard.sh` + `.service` | stops only this stack if a mount failed |
 | Retention | `deploy/remote/prune-releases.sh` | keeps `current`/`previous`, drops older releases, `src` and images |
-| Backup | `deploy/remote/backup.sh` | one archive of `.env`, `opencode-config`, `opencode-data`, artifacts and workspace; manifest, checksums, retention, `--restore-check` |
+| Backup | `deploy/remote/backup.sh` | one archive of `.env`, `opencode-config`, `opencode-data`, artifacts, workspace and memory; manifest, checksums, retention, `--restore-check` |
 | Status | `deploy/remote/status.sh` | read-only probes: release, containers, uptime, `/healthz`, restarts, disk, RAM; non-zero when down |
 | Runbook | [`28-operations.md`](28-operations.md) | signals, backup/restore, upgrade and rollback, secret rotation, common failures |
 | Disk gate | `deploy/remote/compose.yaml` (`disks-ready`) | refuses to start services on an unmounted disk |
@@ -321,12 +321,15 @@ never the stack), creates and formats the image (sparse, 512 MiB), mounts it on
 (`docker run --rm -v openchat_opencode-data:/src:ro -v <mount>:/dst`, BusyBox
 `cp -a`) so the data is never read through a host path, verifies the file count,
 writes `.openchat-migrated` inside the image, unmounts and keeps the image. The
-named volume is only ever read; it keeps the original bytes. `backup.sh` switches
-its source to the mounted disk only when the migration stamp is there
-(`disks/opencode-data/.openchat-migrated`); while the image exists without the
-stamp, the named volume is still the only copy, so a backup in that window
-archives the volume, and an unstamped disk whose volume cannot be resolved is a
-refusal, never an empty archive.
+named volume is only ever read; it keeps the original bytes. `backup.sh` reads
+the mounted disk only when the migration stamp is there
+(`disks/opencode-data/.openchat-migrated`). Because the stamp lives inside the
+image, an image that exists but is not mounted hides it: the run refuses, naming
+`openchat-disks.service` (or `mount-disks.sh`) and the migration command, rather
+than archiving the pre-migration volume that may still be the named volume. An
+image that is mounted but not yet stamped is refused too. Only a host with no
+state image at all (a pre-migration host) backs up the named volume; an
+unresolvable volume there is a refusal, never an empty archive.
 
 `deploy/swap.sh` runs `deploy/remote/opencode-data-preflight.sh` before it moves
 `current`, so a deploy and a manual swap both refuse — changing nothing, naming
@@ -335,7 +338,11 @@ and the disk carries no stamp. An empty or never-used volume (compose creates it
 on the first start), a host without the volume and a stamped disk all pass; the
 volume's content is counted with the same throwaway container the migration uses,
 so no host path is read. A release that still binds the named volume is not
-gated, which keeps a rollback to a pre-migration release possible.
+gated, which keeps a rollback to a pre-migration release possible; `swap.sh`
+still warns that such a release reads the pre-migration snapshot and not the
+sessions written after the migration. A dry run performs the same read-only
+checks and prints `would refuse: …` instead of failing, so the plan does not look
+green when the live check would refuse.
 
 Reasons it is safe to rerun and safe to get wrong: a second `--apply` refuses
 because the image carries the migration stamp; an image with foreign data and no
@@ -357,7 +364,9 @@ It detaches the mount, renames the image to
 `opencode-data.img.rollback-<utc>` and prints the compose command that starts
 OpenCode again on the named volume. Running it twice is a no-op ("nothing to
 move"). Bring the previous release back before starting the service, because the
-new overlay binds the disk path.
+new overlay binds the disk path. A previous release that predates the migration
+binds the named volume; `swap.sh` performs that rollback but warns that session
+data written after the migration is not in that copy.
 
 **Owner window.** Running the migration on the live host restarts the OpenCode
 service: the Code frame reconnects, and a request in flight during the stop

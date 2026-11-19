@@ -21,9 +21,14 @@
 # throwaway container, the same way the migration script classifies the volume,
 # so a volume directory is never read through a host path.
 #
+# A dry run still performs the read-only checks (`docker volume inspect` and one
+# read-only bind), so a plan cannot look green while the live check would refuse.
+# It prints `would refuse: …` and exits 0; it starts no service and writes
+# nothing.
+#
 # Usage: opencode-data-preflight.sh --stack-dir DIR --release DIR [options]
-# Exit codes: 0 pass (or, in a dry run, a printed plan), 1 refusal or unreadable
-# volume, 2 usage error.
+# Exit codes: 0 pass (or a dry run, with `would refuse: …` when applicable),
+# 1 refusal or unreadable volume, 2 usage error.
 
 set -euo pipefail
 
@@ -55,7 +60,7 @@ Options:
   --stack-dir DIR   stack root (default: /opt/stacks/openchat)
   --release DIR     candidate release directory (its compose.yaml is inspected)
   --project NAME    compose project name (default: openchat)
-  --dry-run         print what would be checked; run no container
+  --dry-run         run the read-only checks and print 'would refuse: …'; exit 0
   --help
 
 Exit codes: 0 pass, 1 refusal, 2 usage error. The check only reads: it starts no
@@ -65,13 +70,29 @@ EOF
 }
 
 die() { printf '%s: %s\n' "$PROG" "$*" >&2; exit 1; }
+# A dry run reports the same refusal a real run would produce, without failing
+# the plan (swap --dry-run stays a successful, side-effect-free run).
+refuse() {
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would refuse: %s\n' "$*"
+    exit 0
+  fi
+  die "$*"
+}
+refuse_start() {
+  local detail=$1
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would refuse: OpenCode would start on an empty state disk: %s\n' "$detail"
+    exit 0
+  fi
+  die "refusing to start OpenCode on an empty state disk: $detail"
+}
 usage_error() {
   printf '%s: %s\n' "$PROG" "$*" >&2
   printf 'Try %s --help\n' "$PROG" >&2
   exit 2
 }
 note() { printf '%s\n' "$*"; }
-plan() { printf 'would: %s\n' "$*"; }
 require_value() { [ "$#" -ge 2 ] || usage_error "$1 needs a value"; }
 
 parse_args() {
@@ -150,13 +171,13 @@ main() {
     note "state disk: migrated ($STAMP present); the disk is the live copy"
     return 0
   fi
-  if [ "$DRY_RUN" -eq 1 ]; then
-    plan "refuse if volume $VOLUME_REF holds files and $STAMP_PATH is absent"
-    plan "otherwise pass: an empty, never-used or missing volume does not block"
-    return 0
-  fi
-  command -v docker >/dev/null 2>&1 ||
+  if ! command -v docker >/dev/null 2>&1; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      note "state disk: docker is not installed; the read-only volume check cannot run in this dry run"
+      return 0
+    fi
     die "docker is required to inspect the volume $VOLUME_REF; nothing was started"
+  fi
 
   if ! volume_exists; then
     note "state disk: volume $VOLUME_REF does not exist; a fresh host creates the disk with mount-disks.sh"
@@ -165,14 +186,14 @@ main() {
 
   local files
   if ! files=$(volume_files); then
-    die "cannot read volume $VOLUME_REF through docker (output suppressed; run the same docker run by hand to see why), and $STAMP is absent; run $(migration_command) to classify and copy it. Nothing was started"
+    refuse "cannot read volume $VOLUME_REF through docker (output suppressed; run the same docker run by hand to see why), and $STAMP is absent; run $(migration_command) to classify and copy it. Nothing was started"
   fi
   if [ "$files" -eq 0 ]; then
     note "state disk: volume $VOLUME_REF is empty and $STAMP is absent; the disk may start empty"
     return 0
   fi
 
-  die "refusing to start OpenCode on an empty state disk: volume $VOLUME_REF holds $files file(s), $DISK_DIR carries no $STAMP. Run '$(migration_command)' first. Nothing was changed"
+  refuse_start "volume $VOLUME_REF holds $files file(s), $DISK_DIR carries no $STAMP. Run '$(migration_command)' first. Nothing was changed"
 }
 
 main "$@"

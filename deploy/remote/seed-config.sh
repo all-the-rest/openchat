@@ -1,30 +1,19 @@
 #!/usr/bin/env bash
 #
-# Seed the OpenCode MCP configuration once (issue #20).
+# Seed the OpenCode MCP configuration once (issue #20). The artifact, python and
+# memory tools (`packages/*-tool`) run as stdio MCP servers inside the OpenCode
+# container and need the BFF URL plus their shared bearer tokens, which belong to
+# the deployment, so this script writes them into the config volume.
 #
-# The artifact, python and memory tools (`packages/*-tool`) run as stdio MCP
-# servers inside the OpenCode container and need the BFF URL plus their shared
-# bearer tokens. Those belong to the deployment, not to a person, so the deploy
-# script writes them once into the config volume instead of asking the owner to
-# hand-edit a file.
+# `/opt/stacks/openchat/opencode-config/opencode.json` is created when absent.
+# When present, only `mcp.openchat-memory` is added or, after a token rotation,
+# replaced as one block; every other byte survives (issue #49). The mode is
+# repaired to 0600 on every run, and the merged document is parsed before it
+# replaces the original: an invalid result leaves the file byte-for-byte in place.
 #
-# `/opt/stacks/openchat/opencode-config/opencode.json` is created when it does
-# not exist. When it exists, only a missing `mcp.openchat-memory` entry is
-# merged in; every present key keeps its bytes, so an agent's providers, models
-# and unrelated MCP entries survive. That merge is the upgrade path for a host
-# seeded before memory existed (issue #49). Its mode is repaired to 0600 on
-# every run, because an earlier release could have left a world-readable file in
-# place and that would expose the bearer token forever. The merged document is
-# parsed before it replaces the original: an invalid result aborts the run and
-# leaves the existing file byte-for-byte in place.
-#
-# The file is mode 0600. It is bind-mounted into one container that runs as root
-# (the official image sets no user), so the container can read it while host
-# users other than root cannot. That removes the host-user exposure of the
-# tokens: they authorize the `POST /internal/*` write routes on the BFF, which
-# is reachable only from the compose `backend` network and is not published.
-#
-# No value is printed: the script names the path and the number of entries.
+# The file is 0600 in one root container, so other host users cannot read the
+# tokens for the BFF's `POST /internal/*` routes (compose `backend` only). No
+# value is printed: the script names the path and the entry count.
 
 set -euo pipefail
 
@@ -55,8 +44,8 @@ Options:
   --dry-run         print the plan; write nothing
   --help
 
-Creates the file when absent; an existing file gains a missing
-mcp.openchat-memory entry and keeps every other byte. Never prints a token.
+Creates the file when absent; an existing file gains or refreshes
+mcp.openchat-memory only. Never prints a token.
 EOF
 }
 
@@ -89,8 +78,8 @@ file_mode() {
   stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null || true
 }
 
-# The memory MCP entry, written to a 0600 temp file: the token never becomes an
-# awk argument and never reaches stdout. Inner lines keep the seeded indent.
+# The memory entry in a 0600 temp file: the token never becomes an awk argument
+# and never reaches stdout. Inner lines keep the seeded indent.
 memory_entry_snippet() {
   local out=$1
   umask 077
@@ -108,9 +97,9 @@ JSON
 }
 
 # Merges one key into the JSON object that already owns `mcp`, leaving every
-# other byte untouched. The scan is string- and comment-aware, so braces in a
-# provider value or a `//` note cannot move the insertion point. Prints the
-# merged document; a non-zero exit means the file must stay as it is.
+# other byte untouched. If `openchat-memory` has a different token or BFF URL, its
+# key and value are replaced as one block, so a rotation never leaves a stale
+# entry. Exit 0 changed, 10 matches, other parse failure; the scan is quote-aware.
 merge_memory_entry() {
   local file=$1 snippet=$2
   awk -v file="$file" -v snippetfile="$snippet" '
@@ -138,7 +127,7 @@ merge_memory_entry() {
           j = skip_ws(s, n, i + length(key))
           if (substr(s, j, 1) == ":") {
             j = skip_ws(s, n, j + 1)
-            if (substr(s, j, 1) == "{") return j
+            if (substr(s, j, 1) == "{") { KEY_START = i; return j }
           }
         }
         if (c == "\"") { i = skip_string(s, n, i); continue }
@@ -213,6 +202,17 @@ merge_memory_entry() {
       sep = (substr(s, k, 1) == "{") ? "" : ","
       return substr(s, 1, k) sep "\n" indent block "\n  " substr(s, closing)
     }
+    # Quoted value of `key` in from..to, or "". Compares only; never printed.
+    function value_at(s, from, to, key,   i, j, k) {
+      i = index(substr(s, from, to - from + 1), key)
+      if (!i) return ""
+      j = skip_ws(s, to, from + i - 1 + length(key))
+      if (substr(s, j, 1) != ":") return ""
+      j = skip_ws(s, to, j + 1)
+      if (substr(s, j, 1) != "\"") return ""
+      k = skip_string(s, to, j)
+      return substr(s, j + 1, k - j - 2)
+    }
     BEGIN {
       s = ""
       while ((getline line < file) > 0) s = s line "\n"
@@ -222,6 +222,18 @@ merge_memory_entry() {
       close(snippetfile)
       sub(/\n$/, "", snippet)
       n = length(s)
+      open = find_key_object(s, n, "\"openchat-memory\"")
+      if (open) {
+        closing = matching_brace(s, n, open)
+        if (!closing) exit 3
+        key_start = KEY_START
+        ct = value_at(s, open, closing, "\"MEMORY_INTERNAL_TOKEN\"")
+        cu = value_at(s, open, closing, "\"OPENCHAT_BFF_URL\"")
+        if (ct != "" && ct == value_at(snippet, 1, length(snippet), "\"MEMORY_INTERNAL_TOKEN\"") &&
+            cu == value_at(snippet, 1, length(snippet), "\"OPENCHAT_BFF_URL\"")) exit 10
+        printf "%s%s%s", substr(s, 1, key_start - 1), snippet, substr(s, closing + 1)
+        exit 0
+      }
       open = find_key_object(s, n, "\"mcp\"")
       if (open) {
         closing = matching_brace(s, n, open)
@@ -237,11 +249,10 @@ merge_memory_entry() {
   ' 
 }
 
-# Parses a candidate config before it replaces the live one. The merge is
-# textual, so an invalid result (a dangling comma, a stray brace, broken
-# encoding) must never overwrite the only working file. python3 is tried first
-# because the deploy target is a Linux host; node is the fallback this repo's
-# tests already use. Returns 127 when neither parser is available.
+# Parses a candidate config before it replaces the live one: a textual merge must
+# never overwrite the only working file with invalid JSON. python3 is tried first
+# (the deploy target is Linux); node is the fallback this repo's tests use.
+# Returns 127 when neither parser is available.
 validate_json() {
   local file=$1
   if command -v python3 >/dev/null 2>&1; then
@@ -270,13 +281,9 @@ main() {
       note "config: repaired mode of $file (${mode:-unknown} -> 0600); content unchanged"
     fi
 
-    # Only the entry count, never the content.
-    local entries
+    local entries entry_present=0 verb
     entries=$(grep -c '"openchat"' "$file" 2>/dev/null || true)
-    if grep -q '"openchat-memory"' "$file" 2>/dev/null; then
-      note "config: kept $file (openchat entries: ${entries:-0}); content not shown"
-      return 0
-    fi
+    grep -q '"openchat-memory"' "$file" 2>/dev/null && entry_present=1
 
     [ -r "$STACK_DIR/.env" ] || die "missing $STACK_DIR/.env; run env-bootstrap.sh first"
     local memory_token
@@ -284,7 +291,8 @@ main() {
     [ -n "$memory_token" ] || die "$STACK_DIR/.env has no MEMORY_INTERNAL_TOKEN; add a 32+ character token and rerun"
 
     if [ "$DRY_RUN" -eq 1 ]; then
-      note "would: add mcp.openchat-memory to $file; existing keys unchanged"
+      if [ "$entry_present" -eq 1 ]; then verb=refresh; else verb=add; fi
+      note "would: $verb mcp.openchat-memory in $file; other keys unchanged"
       return 0
     fi
 
@@ -292,7 +300,14 @@ main() {
     snippet=$(mktemp "${TMPDIR:-/tmp}/openchat-memory-entry.XXXXXX")
     out=$(mktemp "${TMPDIR:-/tmp}/openchat-memory-config.XXXXXX")
     memory_entry_snippet "$snippet"
-    if ! merge_memory_entry "$file" "$snippet" > "$out"; then
+    merge_status=0
+    merge_memory_entry "$file" "$snippet" > "$out" || merge_status=$?
+    if [ "$merge_status" -eq 10 ]; then
+      rm -f "$snippet" "$out"
+      note "config: kept $file (openchat entries: ${entries:-0}); content not shown"
+      return 0
+    fi
+    if [ "$merge_status" -ne 0 ]; then
       rm -f "$snippet" "$out"
       die "could not merge mcp.openchat-memory into $file; the file is unchanged"
     fi
@@ -308,7 +323,8 @@ main() {
     fi
     mv "$out" "$file"
     rm -f "$snippet"
-    note "config: added mcp.openchat-memory to $file (existing keys unchanged; token not shown)"
+    if [ "$entry_present" -eq 1 ]; then verb=refreshed; else verb=added; fi
+    note "config: $verb mcp.openchat-memory in $file (token/URL from .env; other keys unchanged; token not shown)"
     return 0
   fi
 

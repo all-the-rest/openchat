@@ -74,25 +74,26 @@ hosting decision and is deliberately not part of this stack.
 
 ## Backup
 
-`backup.sh` archives five sources into **one** timestamped file outside the
+`backup.sh` archives six sources into **one** timestamped file outside the
 stack:
 
 | Source | Host path | Why |
 | --- | --- | --- |
 | `.env` | `/opt/stacks/openchat/.env` | the credential that makes the restored stack the same stack |
 | `opencode-config/` | `/opt/stacks/openchat/opencode-config` | seeded MCP entries and agent edits |
-| `opencode-data/` | `/opt/stacks/openchat/disks/opencode-data` once the disk carries the migration stamp `.openchat-migrated`; until then the named volume `openchat_opencode-data` (see [`20-remote-deploy.md`](20-remote-deploy.md)) | OpenCode sessions, config, storage |
+| `opencode-data/` | `/opt/stacks/openchat/disks/opencode-data` once the disk carries the migration stamp `.openchat-migrated`; on a host without the image the named volume `openchat_opencode-data` (see [`20-remote-deploy.md`](20-remote-deploy.md)) | OpenCode sessions, config, storage |
 | `artifacts/` | `/opt/stacks/openchat/disks/artifacts` | user documents |
 | `workspace/` | `/opt/stacks/openchat/disks/workspace` | workspace and `chats/` working files |
+| `memory/` | `/opt/stacks/openchat/disks/memory` | agent memory store (facts, notes) |
 
 The archive contains `manifest.txt` (kind, archive path, bytes, file count and
-source per entry), `checksums.sha256` (one sha256 per payload file) and the five
+source per entry), `checksums.sha256` (one sha256 per payload file) and the six
 sources with their modes, so `.env` stays `0600`. Beside the archive sit
 `<name>.sha256` (the archive's own digest) and `<name>.manifest.txt`.
 No value from `.env` is read into the manifest or printed.
 
 ```bash
-# plan only: prints the five sources, sizes, free-space need and retention
+# plan only: prints the six sources, sizes, free-space need and retention
 /opt/stacks/openchat/bin/backup.sh --stack-dir /opt/stacks/openchat --dry-run
 
 # the real run (default --out-dir /var/backups/openchat, default --keep 14)
@@ -111,26 +112,32 @@ Behaviour that matters during an incident:
   `df` on `--out-dir` and refuses when the archive would not fit. A backup that
   fills the disk is an outage, not a backup.
 - **Symlinks are archived as symlinks.** A link inside the workspace that
-  points at `/etc` is stored as a link and never read; only the five named
+  points at `/etc` is stored as a link and never read; only the six named
   sources are read.
 - **The source follows the migration stamp.** `opencode-data` is read from the
-  loopback disk only when `disks/opencode-data/.openchat-migrated` exists. While
-  an image exists without the stamp (the migration window), the named volume is
-  still the only copy, so the backup archives the volume; if that volume's
-  mountpoint cannot be resolved the run refuses instead of archiving an empty
-  disk. An unmounted stamped disk is refused the same way.
+  loopback disk only when `disks/opencode-data/.openchat-migrated` exists. An
+  unmounted stamped image is refused: the stamp lives inside the image, so an
+  empty mountpoint would otherwise hide it and the run would archive the
+  pre-migration volume without a warning. The refusal names
+  `openchat-disks.service` (or `mount-disks.sh` for the repair) and
+  `migrate-opencode-data.sh --apply`. An image that is mounted but carries no
+  stamp (the migration window) is refused too, as is an image whose volume
+  mountpoint cannot be resolved. Only a host with no state image at all still
+  reads the named volume; it is a pre-migration host and the volume is the live
+  copy.
 - **Retention deletes only its own files.** `openchat-backup-YYYYMMDDTHHMMSSZ.tar.gz`
   plus its exact sidecars; anything else in `--out-dir` is left alone. The
   newest `--keep` archives stay.
-- **A live backup can be inconsistent.** The workspace and the volume are read
-  while the stack runs. If a file changes mid-tar, the run fails, removes the
+- **A live backup can be inconsistent.** The workspace and the state sources are
+  read while the stack runs. If a file changes mid-tar, the run fails, removes the
   partial archive and tells you to use a quiet window. Prefer a time with no
   agent job (the cron example below is 03:15 UTC).
-- **It costs one read of every byte.** Two loop images plus the volume are
+- **It costs one read of every byte.** Three loop images plus the state copy are
   hashed and tarred in one run; on this host that is several GiB of I/O.
 
-Capacity check on this host: `/` had 48 GiB free; the five sources are capped
-at about 4 GiB (workspace) + 2 GiB (artifacts) + `< 1 GiB` (OpenCode data).
+Capacity check on this host: `/` had 48 GiB free; the six sources are capped
+at about 4 GiB (workspace) + 2 GiB (artifacts) + 1 GiB (memory) + `< 1 GiB`
+(OpenCode data).
 Fourteen copies do **not** fit if the disks are full. Start with `--keep 7` and
 watch `df`, or point `--out-dir` at a larger mounted volume. Storage planning is
 an owner decision; the script only refuses to make it worse.
@@ -173,7 +180,7 @@ entry with the stable path:
    ls -la "$scratch"
    ```
 
-4. **Put the five sources back.** `rsync --delete` makes the target match the
+4. **Put the six sources back.** `rsync --delete` makes the target match the
    archive. `opencode-data` lives on its own disk (issue #43), so mount the disks
    first; before that migration it was the named volume's mountpoint (rename the
    image aside with `migrate-opencode-data.sh --rollback` to go back):
@@ -185,6 +192,7 @@ entry with the stable path:
    rsync -a --delete "$scratch/opencode-data/" /opt/stacks/openchat/disks/opencode-data/
    rsync -a --delete "$scratch/artifacts/" /opt/stacks/openchat/disks/artifacts/
    rsync -a --delete "$scratch/workspace/" /opt/stacks/openchat/disks/workspace/
+   rsync -a --delete "$scratch/memory/" /opt/stacks/openchat/disks/memory/
    rm -rf "$scratch"
    ```
 
@@ -261,6 +269,11 @@ deploy/remote/deploy.sh --tag <previous-tag> --expect-version "$(cat VERSION)"
 release that ran before; a failed rollback exits non-zero and leaves the links
 for a human, never a half-swapped stack.
 
+A release from before the migration binds the named volume instead of
+`disks/opencode-data`. The rollback still runs, but `swap.sh` prints a warning
+that the volume holds only the pre-migration snapshot: sessions written after
+the migration are **not** in that copy.
+
 ## Rotate secrets
 
 The keys live only in `/opt/stacks/openchat/.env` (mode `0600`). Rotation is an
@@ -273,6 +286,7 @@ owner action; `env-bootstrap.sh` deliberately refuses to overwrite the file.
 | `ARTIFACT_SIGNING_KEY` | bff, artifact-host | outstanding signed artifact URLs stop working |
 | `ARTIFACT_INTERNAL_TOKEN` | bff, opencode (artifact MCP entry) | the agent's artifact tool fails until both sides carry the new value |
 | `DOCUMENTS_TOKEN` | documents, opencode (`opencode-config/opencode.json`) | document jobs fail until both sides carry the new value |
+| `MEMORY_INTERNAL_TOKEN` | bff, opencode (memory MCP entry) | the agent's memory tool fails with `401` until both sides carry the new value |
 | `OPENCODE_PASSWORD` | bff, code-host, opencode | Basic credential used by the BFF and Code host |
 | `OPENCHAT_PASSWORD` / `OPENCHAT_PASSWORD_HASH` | bff | exactly one shape must be set; both or neither fails the boot |
 
@@ -309,6 +323,11 @@ sed -i "s/\"DOCUMENTS_TOKEN\": \"[^\"]*\"/\"DOCUMENTS_TOKEN\": \"$new\"/" \
   /opt/stacks/openchat/opencode-config/opencode.json
 unset new
 ```
+
+`MEMORY_INTERNAL_TOKEN` does not need a hand edit: rerun
+`deploy/remote/seed-config.sh --stack-dir /opt/stacks/openchat`, which replaces
+only the `openchat-memory` entry when the token or BFF URL differs and leaves
+every other config byte alone.
 
 Then restart `bff artifact-host documents opencode` (and `code-host` for
 `CODE_TICKET_SECRET` or `OPENCODE_PASSWORD`) and run `bin/status.sh`. Take a
@@ -361,9 +380,11 @@ Owner-run, because they need the live host, real images and a browser:
 
 | File | Pins |
 | --- | --- |
-| `deploy/remote/test/backup.test.sh` | dry-run writes nothing; archive paths, modes and manifest; sidecar digest; checksum mismatch detected; retention keeps N and spares foreign files; missing/symlinked source refused; inner symlink not followed; restore-check leaves live data alone; `--out-dir` inside the stack refused |
+| `deploy/remote/test/backup.test.sh` | dry-run writes nothing; archive paths, modes and manifest; sidecar digest; checksum mismatch detected; retention keeps N and spares foreign files; missing/symlinked source refused; inner symlink not followed; a migrated disk is the source; an unmounted state image is refused instead of archiving the stale volume; a host without the image archives the volume; restore-check leaves live data alone; `--out-dir` inside the stack refused |
 | `deploy/remote/test/status.test.sh` | one line per signal; healthz 500, unhealthy/exited container, restart threshold, disk and RAM thresholds exit `1`; `--logs` tails only failing containers; no write under the stack |
-| `deploy/remote/test/upgrade.test.sh` | A → B → rollback; `--expect-version` rollback; deploy dry run plans tag and version |
+| `deploy/remote/test/upgrade.test.sh` | A → B → rollback; `--expect-version` rollback; a rollback to a volume-bound release warns about the pre-migration snapshot; deploy dry run plans tag and version |
+| `deploy/remote/test/opencode-data-preflight.test.sh` | refusal with the exact migration command; empty, missing and stamped volumes pass; a volume-bound release is not blocked; a dry run performs the read-only checks and prints `would refuse: …` with exit 0 |
+| `deploy/remote/test/seed-config.test.sh` | fresh seed; pre-memory upgrade; root-level insert; invalid merge leaves the file; a fully seeded file is kept; a rotated token refreshes only the memory entry |
 
 Not automated, on purpose:
 
