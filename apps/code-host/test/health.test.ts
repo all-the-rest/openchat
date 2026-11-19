@@ -29,6 +29,25 @@ describe("GET /__health", () => {
     }
   })
 
+  it("passes a different upstream major through verbatim", async () => {
+    const upstream = await startUpstream((_request, response) => {
+      response.setHeader("content-type", "application/json")
+      response.end(JSON.stringify({ version: "3.0.0" }))
+    })
+    try {
+      const { app } = makeApp({ OPENCODE_URL: upstream.url })
+      const response = await app.request("/__health")
+
+      expect(response.status).toBe(200)
+      // The Code host passes the real upstream major through; the BFF's
+      // /api/code/status turns it into `matches: false` and the Code surface
+      // warns (pinned in code.test.ts and code-page.test.tsx).
+      expect(await response.json()).toEqual({ ok: true, version: "3.0.0" })
+    } finally {
+      await upstream.close()
+    }
+  })
+
   it("answers 502 when upstream rejects the Basic credential", async () => {
     const upstream = await startUpstream((_request, response) => {
       response.statusCode = 401
