@@ -216,6 +216,35 @@ describe("context soft cap bookkeeping", () => {
     expect(backend.compacted.length).toBe(before + 1)
     expect((await softCap.admit("s512")).reason).toBe("repeat")
   })
+
+  it("makes each attempt's compaction id unique across attempts and a simulated restart", async () => {
+    const ids: string[] = []
+    const backend = {
+      sessionContext: async () => ({
+        usage: { input: 5000, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        streaming: false,
+      }),
+      compact: async (_sessionID: string, options?: { id?: string }) => {
+        if (options?.id !== undefined) ids.push(options.id)
+        return { status: "failed" as const }
+      },
+    }
+
+    const beforeRestart = new ContextSoftCap({ backend, cap: 1000, waitMs: 1 })
+    expect((await beforeRestart.admit("s1")).reason).toBe("failed")
+    // The same level inside one process is still deduped: no second attempt.
+    expect((await beforeRestart.admit("s1")).reason).toBe("repeat")
+
+    // A fresh instance stands in for a BFF restart; its map is empty, so the
+    // same usage level attempts again and must not re-use the host id.
+    const afterRestart = new ContextSoftCap({ backend, cap: 1000, waitMs: 1 })
+    expect((await afterRestart.admit("s1")).reason).toBe("failed")
+
+    expect(ids).toHaveLength(2)
+    expect(ids[0]).toMatch(/^msg_softcap_s1_5000_/)
+    expect(ids[1]).toMatch(/^msg_softcap_s1_5000_/)
+    expect(ids[1]).not.toBe(ids[0])
+  })
 })
 
 describe("manual compaction route", () => {

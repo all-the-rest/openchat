@@ -12,6 +12,14 @@ export const COMPACTION_WAIT_MS = 20_000
  */
 const MAX_TRACKED_SESSIONS = 512
 
+/**
+ * Process-lifetime attempt number for the synthetic compaction id. The host
+ * may treat a `msg_` id as an idempotency key, and `lastAttempt` is only
+ * in-memory: a restart must not re-use the id of a failed attempt at the same
+ * usage level, because the host would dedupe it and never compact.
+ */
+let attemptSeq = 0
+
 /** Why a prompt was admitted with or without an automatic compaction. */
 export type SoftCapReason =
   | "off"
@@ -87,11 +95,12 @@ export class ContextSoftCap {
       if (oldest !== undefined) this.lastAttempt.delete(oldest)
     }
     this.lastAttempt.set(sessionID, used)
+    attemptSeq += 1
 
     let outcome: CompactionOutcome
     try {
       outcome = await this.options.backend.compact(sessionID, {
-        id: `msg_softcap_${sessionID}_${used}`,
+        id: `msg_softcap_${sessionID}_${used}_${attemptSeq}`,
         waitMs: this.waitMs,
         reason: "auto",
       })
