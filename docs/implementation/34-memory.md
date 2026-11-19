@@ -99,7 +99,11 @@ puts one entry via `experimental.session.instructions.entry.put`:
 
 The entry lands as a `<context key="memory.index">` block at the next step
 boundary, not spliced mid-turn. Store changes trigger a re-put for still-active
-sessions. Host-created child sessions (subagents, schedules) do not go through
+sessions. A BFF restart starts with no remembered sessions, so before each
+re-put the invalidator reads the backend's `listSessions()` and notes those ids
+first (deduped and capped at `MAX_ACTIVE_MEMORY_SESSIONS`); sessions that
+pre-date the restart therefore receive the refreshed index too. Host-created
+child sessions (subagents, schedules) do not go through
 the BFF create route; backfilling those via a `session.created` listener is a
 tracked gap, not part of this slice. The bare `session.instructions.*` surface
 is deprecated — use the `experimental.` namespace.

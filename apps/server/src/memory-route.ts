@@ -155,6 +155,8 @@ const MUTATING_OPS = new Set<MemoryOp["op"]>(["write", "update", "delete", "prun
 /** The narrow port another builder added to `ChatBackend`. */
 export interface MemoryInstructionTarget {
   putInstruction(sessionID: string, key: string, value: string): Promise<void>
+  /** Optional: recovers sessions that pre-date a BFF restart. */
+  listSessions?(): Promise<ReadonlyArray<{ id: string }>>
 }
 
 /** Accepts a single port or a list; anything else silently disables re-puts. */
@@ -186,18 +188,36 @@ export function createMemoryInvalidator(
   backends: unknown, store: MemoryStore,
 ): MemoryInvalidator {
   const targets = targetsFrom(backends)
+  const note = (sessionID: unknown): void => {
+    if (typeof sessionID !== "string" || sessionID.length === 0) return
+    activeSessions.delete(sessionID)
+    if (activeSessions.size >= MAX_ACTIVE_MEMORY_SESSIONS) {
+      const oldest = activeSessions.values().next()
+      if (!oldest.done) activeSessions.delete(oldest.value)
+    }
+    activeSessions.add(sessionID)
+  }
+  /**
+   * A restart empties the module-level set, so the first mutation would reach
+   * no session. Reading the backend's list before the re-put restores the
+   * sessions that already existed; the cap above keeps the set bounded.
+   */
+  const discover = async (): Promise<void> => {
+    await Promise.all(targets.map(async (target) => {
+      if (typeof target.listSessions !== "function") return
+      try {
+        for (const session of await target.listSessions()) note(session.id)
+      } catch { /* host */ }
+    }))
+  }
   return {
     noteSession(sessionID) {
-      if (typeof sessionID !== "string" || sessionID.length === 0) return
-      activeSessions.delete(sessionID)
-      if (activeSessions.size >= MAX_ACTIVE_MEMORY_SESSIONS) {
-        const oldest = activeSessions.values().next()
-        if (!oldest.done) activeSessions.delete(oldest.value)
-      }
-      activeSessions.add(sessionID)
+      note(sessionID)
     },
     async invalidate() {
-      if (targets.length === 0 || activeSessions.size === 0) return
+      if (targets.length === 0) return
+      await discover()
+      if (activeSessions.size === 0) return
       const { index } = store.index()
       await Promise.all(targets.flatMap((target) =>
         [...activeSessions].map(async (sessionID) => {

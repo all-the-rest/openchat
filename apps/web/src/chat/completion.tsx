@@ -60,6 +60,14 @@ export function completeModelValue(
   choice: Pick<Completion, "model" | "variant">,
   models: readonly ModelInfo[],
 ): { model: string | undefined; variant: string | undefined } {
+  // An empty catalogue means the read failed, not that the stored model is
+  // gone. Forward the choice and let the host guard reject a truly unknown id.
+  if (models.length === 0) {
+    return {
+      model: choice.model ?? undefined,
+      variant: choice.variant ?? undefined,
+    }
+  }
   const found = models.find((entry) => entry.id === choice.model)
   // A favourite whose model disappeared is never sent to the host.
   if (!found) return { model: undefined, variant: undefined }

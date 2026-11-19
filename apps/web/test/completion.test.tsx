@@ -212,4 +212,13 @@ describe("completion pickers", () => {
       model: "gpt-x", variant: undefined,
     })
   })
+
+  it("forwards the stored model while the catalogue is empty", () => {
+    expect(completeModelValue({ model: "gpt-x", variant: "slow" }, [])).toEqual({
+      model: "gpt-x", variant: "slow",
+    })
+    expect(completeModelValue({ model: null, variant: null }, [])).toEqual({
+      model: undefined, variant: undefined,
+    })
+  })
 })
