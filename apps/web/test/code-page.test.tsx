@@ -59,6 +59,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   Object.defineProperty(navigator, "onLine", { configurable: true, value: true })
 })
@@ -235,15 +236,26 @@ describe("Code page", () => {
   })
 
   it("keeps a frame that fired load connected past the load timeout", async () => {
+    vi.useFakeTimers()
     renderCode("/code", { loadTimeoutMs: 20 })
-    const frame = await screen.findByTestId("code-frame")
+    // Let the ticket and status promises settle so the frame mounts while time
+    // is still frozen; the 20 ms load timer cannot fire until we advance it.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    const frame = screen.getByTestId("code-frame")
 
     fireEvent.load(frame)
-    await waitFor(() => expect(screen.getByTestId("code-state")).toHaveTextContent("Connected"))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(screen.getByTestId("code-state")).toHaveTextContent("Connected")
 
     // Longer than the timeout the mounted frame started: `load` settles the
     // wait, so a loaded frame must never be relabelled as blocked.
-    await new Promise((resolve) => setTimeout(resolve, 60))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60)
+    })
 
     expect(screen.getByTestId("code-state")).toHaveTextContent("Connected")
     expect(screen.getByTestId("code-state")).not.toHaveTextContent("Embedding blocked")
@@ -278,18 +290,23 @@ describe("Code page", () => {
 
   it("shows a narrow bar state instead of Loading or Blocked", async () => {
     stubViewport(false)
+    vi.useFakeTimers()
 
     renderCode("/code", { loadTimeoutMs: 20 })
-    expect(await screen.findByText("Code needs a larger screen")).toBeInTheDocument()
-    await waitFor(() =>
-      expect(screen.getByTestId("code-new-tab-fallback")).toHaveAttribute(
-        "href",
-        expect.stringContaining("__auth"),
-      ),
+    // Flush the ticket promises with the clock frozen, then assert synchronously.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(screen.getByText("Code needs a larger screen")).toBeInTheDocument()
+    expect(screen.getByTestId("code-new-tab-fallback")).toHaveAttribute(
+      "href",
+      expect.stringContaining("__auth"),
     )
 
     // Longer than the load timeout: the skipped timer must never flip the bar.
-    await new Promise((resolve) => setTimeout(resolve, 60))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60)
+    })
 
     const state = screen.getByTestId("code-state")
     expect(state).toHaveTextContent("Desktop only")
@@ -311,12 +328,15 @@ describe("Code page", () => {
     expect(within(bar).getByTestId("surface-switch")).toBeInTheDocument()
     expect(screen.getAllByTestId("surface-switch")).toHaveLength(1)
 
+    const ticketsBefore = mocks.codeTicket.mock.calls.length
     await user.click(screen.getByTestId("code-reload"))
 
     await waitFor(() =>
       expect(screen.getByTestId("code-frame").getAttribute("src")).not.toBe(firstSrc),
     )
-    expect(mocks.codeTicket).toHaveBeenCalledTimes(4)
+    // Assert the semantic result of a reload (a new frame src and newly minted
+    // tickets), not a cumulative count that depends on initial effect batching.
+    expect(mocks.codeTicket.mock.calls.length).toBeGreaterThan(ticketsBefore)
   })
 
   it("moves focus back to the bar on Escape", async () => {

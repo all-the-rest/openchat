@@ -1,7 +1,7 @@
 import type { SessionInfo } from "@openchat/contracts"
 import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { SessionsProvider, useSessions } from "../src/chat/sessions"
 
 const mocks = vi.hoisted(() => ({
@@ -14,6 +14,12 @@ vi.mock("../src/api/client", () => ({ api: mocks }))
 vi.mock("../src/code/SurfaceProvider", () => ({
   useSurfaceOrNull: () => null,
 }))
+
+beforeEach(() => {
+  // A queued one-shot response must not leak into the following test.
+  mocks.listSessions.mockReset()
+  mocks.createSession.mockReset()
+})
 
 function session(id: string): SessionInfo {
   return { id, title: id, directory: "/workspace", created: 1, updated: 1 }

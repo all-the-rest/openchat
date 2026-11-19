@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Composer } from "../src/chat/Composer"
+import { HOLD_THRESHOLD_MS } from "../src/dictation/useDictation"
 import { I18nProvider } from "../src/i18n/provider"
 import {
   DICTATION,
@@ -22,6 +23,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   uninstallMedia()
 })
 
@@ -220,11 +222,21 @@ describe("dictation control", () => {
     await screen.findByTestId("dictation-pill")
     await waitFor(() => expect(FakeMediaRecorder.instances).toHaveLength(1))
 
-    // Longer than the hold threshold: release ends capture, like a walkie-talkie.
-    await new Promise((resolve) => setTimeout(resolve, 400))
+    // Cross the hold threshold deterministically instead of sleeping real time.
+    // The clock starts at the real "now" recorded by the press, so advancing
+    // past HOLD_THRESHOLD_MS makes the release count as a long press.
+    vi.useFakeTimers()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(HOLD_THRESHOLD_MS + 1)
+    })
     fireEvent.pointerUp(mic, { pointerId: 1 })
-    // A real long press still emits its click; it must not restart the capture.
+    // A real long press also emits a click on release. Fire it while the fake
+    // clock is still past the threshold so it exercises the post-release guard
+    // instead of the short-press path; it must not start a second capture.
     fireEvent.click(mic, { detail: 1 })
+    expect(FakeMediaRecorder.instances).toHaveLength(1)
+    // Restore real timers before waiting on the async transcription result.
+    vi.useRealTimers()
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(textarea.value).toBe("held transcript"))

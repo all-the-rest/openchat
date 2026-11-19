@@ -1,5 +1,5 @@
 import type { SearchResponse } from "@openchat/contracts"
-import { screen, waitFor } from "@testing-library/react"
+import { act, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Link } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -156,9 +156,12 @@ describe("search page", () => {
     )
     expect(await screen.findByText("beta.ts")).toBeInTheDocument()
 
-    first.resolve(response())
-    await new Promise((done) => setTimeout(done, 50))
+    // Resolve inside `act` so React commits; a plain waitFor passes vacuously.
+    await act(async () => {
+      first.resolve(response())
+    })
     expect(screen.queryByText("src/alpha.ts")).not.toBeInTheDocument()
+    expect(screen.getByText("beta.ts")).toBeInTheDocument()
   })
 
   it("does not widen the selection when nothing is available", async () => {
@@ -168,7 +171,8 @@ describe("search page", () => {
     expect(
       await screen.findByText("No source is available for this query."),
     ).toBeInTheDocument()
-    // The empty selection must not trigger a second query.
+    // Negative "not called" guard: no new DOM outcome to await, so keep a
+    // bounded delay for any stray effect before checking the count.
     await new Promise((done) => setTimeout(done, 400))
     expect(mocks.search).toHaveBeenCalledTimes(1)
   })
@@ -186,6 +190,7 @@ describe("search page", () => {
     const input = screen.getByLabelText("Search term")
     input.focus()
     await user.keyboard("{Enter}")
+    // Negative guard: bounded delay lets a debounced re-query surface.
     await new Promise((done) => setTimeout(done, 400))
     expect(mocks.search).toHaveBeenCalledTimes(1)
   })

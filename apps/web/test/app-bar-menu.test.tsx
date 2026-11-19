@@ -191,17 +191,18 @@ describe("app bar menu behaviour", () => {
     const user = userEvent.setup()
     renderShell()
 
-    const button = trigger()
-    await waitFor(() => expect(mocks.info).toHaveBeenCalledTimes(1))
-    // Let the provider store `apps.available` before the menu enumerates items.
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    // Open the menu the same way the other behaviour tests do: the click moves
+    // focus to the first item via the ARIA menu pattern, so no synthetic
+    // ArrowDown on the trigger and no timing guess are needed here.
+    const menu = await openMenu(user)
 
-    fireEvent.keyDown(button, { key: "ArrowDown" })
+    // These items only render once the /api/info state reaches the menu, so wait
+    // for them to exist instead of sleeping a fixed delay.
     const items = [
-      screen.getByTestId("menu-search"),
-      screen.getByTestId("menu-apps"),
-      screen.getByTestId("menu-settings"),
-      screen.getByTestId("menu-new-chat"),
+      await within(menu).findByTestId("menu-search"),
+      await within(menu).findByTestId("menu-apps"),
+      await within(menu).findByTestId("menu-settings"),
+      await within(menu).findByTestId("menu-new-chat"),
     ]
     expect(items[0]).toHaveFocus()
 
