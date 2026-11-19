@@ -86,11 +86,37 @@ is vendored in this repository.
 Project configuration in `opencode.json` therefore contains no machine-specific
 paths; local MCP servers live in the user-level config.
 
+## Install and run
+
+Local development (Node ≥ 24, pnpm ≥ 10, an OpenCode ≥ 2.3 server):
+
+```bash
+pnpm install
+cp .env.example .env   # fill in the required secrets, see the comments
+pnpm run dev           # BFF on :8787, web on :5173
+```
+
+Docker Compose (the BFF serves the built SPA on one origin):
+
+```bash
+cp .env.example .env
+docker compose --profile opencode up -d --build
+```
+
+The BFF answers `GET /healthz` with the app version; the chat and code surfaces
+are served from the same origin. For the hardened remote stack — loopback disk
+images, the derived OpenCode image and the deploy driver — follow
+`docs/implementation/20-remote-deploy.md`. It needs `.env` values for
+`OPENCODE_PASSWORD`, `ARTIFACT_HOST_URL`, `ARTIFACT_SIGNING_KEY`,
+`ARTIFACT_INTERNAL_TOKEN`, `MEMORY_INTERNAL_TOKEN` and `CODE_TICKET_SECRET`;
+`deploy/env.example` documents them.
+
 ## Development
 
 ```bash
 pnpm install
 pnpm run dev        # BFF on :8787, web on :5173
+pnpm run gates:fast # lint, typecheck, unit tests, build, ratchet
 ```
 
 Requirements: Node ≥ 24, pnpm ≥ 10, OpenCode ≥ 2.3, optionally Docker for
