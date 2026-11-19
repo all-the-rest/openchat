@@ -17,6 +17,13 @@ import type { FallbackEngine } from "./fallback-engine"
 /** Reconnect delay after the host stream ends or fails. */
 export const FALLBACK_RECONNECT_MS = 1000
 
+/**
+ * A new host stream counts as up after this long without failing. Short enough
+ * that a recovered host reaches a waiting browser quickly, long enough that a
+ * refused connection is never mistaken for an idle one.
+ */
+export const UPSTREAM_SETTLE_MS = 250
+
 /** One queued subscriber may buffer this many events before it is closed. */
 const SUBSCRIBER_BUFFER_LIMIT = 256
 
@@ -99,6 +106,14 @@ export class FallbackObserver {
   private controller?: AbortController
   private reconnectTimer?: ReturnType<typeof setTimeout>
   private wakeReconnect?: () => void
+  /**
+   * Whether a browser stream may be held open. Optimistic at boot (the last
+   * known state was a live host, and a page load is slower than a refused
+   * connect); false from the moment the host stream drops until a new one has
+   * survived `UPSTREAM_SETTLE_MS`.
+   */
+  private upstreamConnected = true
+  private settleTimer?: ReturnType<typeof setTimeout>
 
   constructor(deps: FallbackObserverDeps) {
     this.deps = deps
@@ -119,6 +134,8 @@ export class FallbackObserver {
     this.controller = undefined
     if (this.reconnectTimer !== undefined) clearTimeout(this.reconnectTimer)
     this.reconnectTimer = undefined
+    if (this.settleTimer !== undefined) clearTimeout(this.settleTimer)
+    this.settleTimer = undefined
     this.wakeReconnect?.()
     this.wakeReconnect = undefined
     for (const subscriber of this.subscribers) subscriber.close()
@@ -129,7 +146,10 @@ export class FallbackObserver {
   /** Browser-facing stream: host events after the engine's transformations. */
   subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {
     const queue = new SubscriberQueue()
-    if (signal?.aborted) {
+    // While the host stream is down, hand the browser an ended stream: an SSE
+    // client retries on its own, and each retry is a fresh chance to see the
+    // host come back. Holding the stream open would hide the recovery.
+    if (signal?.aborted || !this.upstreamConnected) {
       queue.close()
       return queue
     }
@@ -144,6 +164,10 @@ export class FallbackObserver {
       const controller = new AbortController()
       this.controller = controller
       let failed = false
+      this.settleTimer = setTimeout(() => {
+        this.settleTimer = undefined
+        this.upstreamConnected = true
+      }, UPSTREAM_SETTLE_MS)
       try {
         for await (const event of this.deps.backend.subscribe(controller.signal)) {
           if (this.stopped) return
@@ -153,7 +177,15 @@ export class FallbackObserver {
         failed = true
       }
       this.controller = undefined
+      if (this.settleTimer !== undefined) clearTimeout(this.settleTimer)
+      this.settleTimer = undefined
+      this.upstreamConnected = false
       if (this.stopped) return
+      // A browser stream must see the same drop the host subscription saw:
+      // closing it is the outage signal the status banner probes on, and an
+      // EventSource reconnects on its own. The observer keeps running, so a
+      // turn still settles with no browser attached.
+      this.dropSubscribers()
       this.warn(
         failed
           ? "fallback event stream failed; reconnecting"
@@ -229,6 +261,12 @@ export class FallbackObserver {
 
   private publish(event: EventEnvelope): void {
     for (const subscriber of this.subscribers) subscriber.push(event)
+  }
+
+  /** Ends every browser stream; a queue's cleanup removes it from the set. */
+  private dropSubscribers(): void {
+    for (const subscriber of this.subscribers) subscriber.close()
+    this.subscribers.clear()
   }
 
   private waitForReconnect(): Promise<void> {

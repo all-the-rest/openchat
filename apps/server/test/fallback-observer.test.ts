@@ -67,6 +67,38 @@ describe("FallbackObserver", () => {
     observer.stop()
   })
 
+  it("closes a browser stream when the host stream drops", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const subscribe = vi.fn(() => ({
+      [Symbol.asyncIterator]: async function* () {
+        await gate
+      },
+    }))
+    const observer = new FallbackObserver({
+      backend: { subscribe },
+      engine: stubEngine(),
+      warn: vi.fn(),
+      reconnectMs: 60_000,
+    })
+
+    observer.start()
+    let ended = false
+    void (async () => {
+      for await (const _event of observer.subscribe()) {
+        // No event is expected; the loop only has to end.
+      }
+      ended = true
+    })()
+
+    release()
+    await until(() => ended)
+    expect(ended).toBe(true)
+    observer.stop()
+  })
+
   it("keeps other sessions flowing while a retry is still being submitted", async () => {
     const backend = new FakeBackend({ delayMs: 0, workspace: "/workspace" })
     const blocked = new Promise<never>(() => {})

@@ -64,9 +64,20 @@ could be retried after it printed. It needs a queued send within the same few
 milliseconds as a live delta on a single-user deployment; closing it would mean
 correlating deltas by message id, which the event contract does not carry.
 
-## Event loop (`events-route.ts`)
+## Ownership (`fallback-observer.ts`)
 
-The events route feeds observed events to the engine. On
+One `FallbackObserver` opens the host subscription at boot and feeds every
+event to the engine whether or not a browser is attached, so a turn that
+finishes after the tab closed still settles its ledger row and its one retry.
+The `/api/events` route only subscribes to the observer's merged stream and
+forwards it; it owns no fallback state. A drop of the host stream is logged
+once, retried, and closes the browser streams: that close is the outage signal
+the status banner probes on. Until a new host stream has stayed up for
+`UPSTREAM_SETTLE_MS` (250 ms), a new browser subscription is handed an already
+ended stream, so an EventSource retry cannot sit on a dead upstream and hide
+the recovery.
+
+On
 `session.execution.failed` the engine classifies the failure and calls
 `shouldFallback`. A switch happens only when **all** hold: chat surface, first
 attempt, no assistant text emitted (whitespace counts as text), a retryable
@@ -83,8 +94,9 @@ When the decision is `true`, the engine:
    retry actually completes.
 
 A synchronous per-session "retrying" guard is set before the first `await` and
-cleared on every exit path, so two `/api/events` subscribers that both see the
-same failure re-prompt only once; the second forwards the original failure.
+cleared on every exit path. With the observer owning the only host
+subscription there is no second observer of the same failure; a duplicate
+report for a turn already retrying is suppressed instead of forwarded twice.
 
 Per the owner decision, **there is no history rewrite**: the failed turn stays
 visible and the retry appends a new attempt on the next model. The host appends
