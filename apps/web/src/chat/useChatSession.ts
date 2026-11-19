@@ -26,6 +26,8 @@ export type ChatError = "load" | "send" | "stop" | "cancel" | "compact" | null
 export interface ChatSessionValue {
   messages: Message[]
   loading: boolean
+  /** True once this session's transcript has been read at least once. */
+  ready: boolean
   error: ChatError
   submitting: boolean
   streaming: boolean
@@ -60,6 +62,7 @@ export interface ChatSessionValue {
 export function useChatSession(sessionID: string): ChatSessionValue {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadedID, setLoadedID] = useState<string | null>(null)
   const [error, setError] = useState<ChatError>(null)
   const [submitting, setSubmitting] = useState(false)
   const [stopped, setStopped] = useState(false)
@@ -102,6 +105,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
         setUsage(lastMessageUsage(list))
         setQueued(false)
         setError(null)
+        setLoadedID(target)
       } catch {
         if (activeSession.current !== target) return
         if (!options.silent) setError("load")
@@ -122,6 +126,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     setUsage(null)
     setCompactions([])
     setError(null)
+    setLoadedID(null)
     void reload()
   }, [reload])
 
@@ -364,6 +369,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
   return {
     messages,
     loading,
+    ready: loadedID === sessionID,
     error,
     submitting,
     streaming,

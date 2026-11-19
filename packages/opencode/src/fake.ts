@@ -34,6 +34,7 @@ import type { FakeProviderRecord } from "./fake-integrations"
 import { FakeTaskStore } from "./fake-tasks"
 import { FakeCompaction } from "./fake-compaction"
 import { FakeEvents } from "./fake-events"
+import { forkSessionState } from "./fake-fork"
 import { FakeRunner } from "./fake-runs"
 import { FakePermissions } from "./fake-permissions"
 import { fakeSearch } from "./fake-search"
@@ -163,6 +164,26 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
 
   async listMessages(sessionID: string): Promise<Message[]> {
     return this.requireSession(sessionID).messages.map((message) => clone(message))
+  }
+
+  async forkSession(sessionID: string, beforeMessageID: string): Promise<SessionInfo> {
+    const parent = this.requireSession(sessionID)
+    const forked = forkSessionState(parent, beforeMessageID, {
+      id: this.events.nextID("ses"),
+      now: this.clock(),
+    })
+    if (!forked) {
+      throw new BackendError("invalid", `Unknown message: ${beforeMessageID}`)
+    }
+    this.sessions.set(forked.info.id, forked)
+    this.events.emit(EVENT.sessionCreated, forked.info.id, {
+      sessionID: forked.info.id,
+      title: forked.info.title,
+      directory: forked.info.directory,
+      branchOf: forked.info.branchOf,
+      branchBefore: forked.info.branchBefore,
+    }, true)
+    return clone(forked.info)
   }
 
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {

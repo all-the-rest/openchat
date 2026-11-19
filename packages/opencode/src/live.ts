@@ -133,6 +133,13 @@ export class LiveBackend extends LiveTaskApi implements ChatBackend {
     return messages
   }
 
+  async forkSession(sessionID: string, beforeMessageID: string): Promise<SessionInfo> {
+    // `before` is the host's exclusive boundary: the fork keeps every message
+    // older than this id. The host copies the fork marker onto the new session.
+    const session = await this.client.session.fork({ sessionID, before: beforeMessageID })
+    return normalizeSession(session, this.workspace)
+  }
+
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {
     await applyCompletion(
       this.client,

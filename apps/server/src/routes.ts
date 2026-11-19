@@ -61,6 +61,7 @@ import { registerTranscribeRoute } from "./transcribe"
 import { localModelAvailable } from "./models"
 import { registerTasksRoutes } from "./tasks"
 import { registerFallbackRoute } from "./fallback-route"
+import { registerBranchRoute } from "./branch-route"
 import type { UsageLedger } from "./usage-ledger"
 
 /** Fixed `Retry-After` for a login rejected by the concurrency gate. */
@@ -347,6 +348,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     connectThrottle: deps.providerConnectThrottle,
   })
   registerSessionRoutes(app, deps, { store: memoryStore, invalidator: memoryInvalidator })
+  registerBranchRoute(app, { backend: deps.backend, noteSession: (id) => memoryInvalidator.noteSession(id) })
   registerPromptRoute(app, deps)
   registerFallbackRoute(app, { policy: deps.chatPolicy, ledger: deps.usageLedger })
   registerPermissionRoutes(app, deps.backend)

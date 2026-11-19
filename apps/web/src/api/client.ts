@@ -192,6 +192,17 @@ export const api = {
     return unwrapList<Message>(body, "messages")
   },
 
+  /**
+   * Forks a chat before one message. The BFF answers the new `SessionInfo`,
+   * marked `branchOf`/`branchBefore`; the original chat is untouched.
+   */
+  forkSession(sessionID: string, messageID: string): Promise<SessionInfo> {
+    return request<SessionInfo>(`${sessionPath(sessionID)}/fork`, {
+      method: "POST",
+      body: JSON.stringify({ messageID }),
+    })
+  },
+
   /** Pending turns of a session; a reload restores the queued markers. */
   async listInbox(sessionID: string): Promise<InboxEntry[]> {
     const body = await request<unknown>(`${sessionPath(sessionID)}/inbox`)

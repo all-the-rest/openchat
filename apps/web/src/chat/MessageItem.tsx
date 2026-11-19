@@ -10,11 +10,17 @@ function MessageActions({
   align,
   onContinue,
   onRetry,
+  onEdit,
+  onBranch,
+  branchCount,
 }: {
   message: Message
   align: "start" | "end"
   onContinue?: () => void
   onRetry?: () => void
+  onEdit?: () => void
+  onBranch?: () => void
+  branchCount?: number
 }) {
   const t = useT()
   const [copied, setCopied] = useState(false)
@@ -55,6 +61,31 @@ function MessageActions({
           {t("chat.retryLast")}
         </button>
       ) : null}
+      {onEdit ? (
+        <button
+          type="button"
+          data-testid="message-edit"
+          onClick={onEdit}
+          className="btn btn-ghost btn-xs"
+        >
+          {t("chat.editMessage")}
+        </button>
+      ) : null}
+      {onBranch ? (
+        <button
+          type="button"
+          data-testid="message-branch"
+          onClick={onBranch}
+          className="btn btn-ghost btn-xs"
+        >
+          {t("chat.branchMessage")}
+        </button>
+      ) : null}
+      {branchCount ? (
+        <span data-testid="message-branch-count" className="text-xs text-muted">
+          {t("chat.branchCount", { count: branchCount })}
+        </span>
+      ) : null}
       <span role="status" aria-live="polite" className="sr-only">
         {copied ? t("chat.copied") : ""}
       </span>
@@ -66,11 +97,20 @@ export function MessageItem({
   message,
   onContinue,
   onRetry,
+  onEdit,
+  onBranch,
+  branchCount = 0,
   highlighted = false,
 }: {
   message: Message
   onContinue?: () => void
   onRetry?: () => void
+  /** Edit this user message; submitting creates a branch from it. */
+  onEdit?: () => void
+  /** Create a branch before this user message without editing it. */
+  onBranch?: () => void
+  /** Branches other chats made before this message. */
+  branchCount?: number
   /** A search result or deep link points at this message. */
   highlighted?: boolean
 }) {
@@ -142,6 +182,9 @@ export function MessageItem({
         align={isUser ? "end" : "start"}
         onContinue={isUser ? undefined : onContinue}
         onRetry={isUser ? undefined : onRetry}
+        onEdit={isUser ? onEdit : undefined}
+        onBranch={isUser ? onBranch : undefined}
+        branchCount={isUser ? branchCount : undefined}
       />
     </article>
   )

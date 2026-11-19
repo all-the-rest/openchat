@@ -104,4 +104,22 @@ describe("subagent sessions in the sidebar", () => {
     expect(screen.getByTestId("session-orphan-badge")).toHaveClass("badge-ghost")
     expect(screen.queryByTestId("session-children-toggle")).toBeNull()
   })
+
+  it("keeps a fork at the top level instead of grouping it as a subagent chat", () => {
+    state.sessions = [
+      session("ses_parent", "Parent chat"),
+      {
+        ...session("ses_fork", "Parent chat"),
+        branchOf: "ses_parent",
+        branchBefore: "msg_u",
+      },
+    ]
+    renderSidebar()
+
+    expect(screen.getAllByTestId("session-item")).toHaveLength(2)
+    expect(screen.queryByTestId("session-children-toggle")).toBeNull()
+    expect(screen.queryByTestId("session-child")).toBeNull()
+    expect(screen.queryByTestId("session-orphan-badge")).toBeNull()
+    expect(screen.queryByText("Agent")).toBeNull()
+  })
 })

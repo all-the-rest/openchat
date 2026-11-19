@@ -88,6 +88,14 @@ export class FakeHostSwitch implements ChatBackend {
     return this.backend.listMessages(sessionID)
   }
 
+  async forkSession(
+    sessionID: string,
+    beforeMessageID: string,
+  ): ReturnType<ChatBackend["forkSession"]> {
+    this.guard()
+    return this.backend.forkSession(sessionID, beforeMessageID)
+  }
+
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {
     this.guard()
     return this.backend.prompt(sessionID, input)
