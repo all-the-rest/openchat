@@ -91,6 +91,24 @@ describe("changelog", () => {
     expect(output.indexOf("## [2.0.0]")).toBeLessThan(output.indexOf("## [1.2.3]"))
   })
 
+  it("does not repeat an issue ref the subject already ends with", () => {
+    const root = repo()
+    commit(root, "feat(ui): polish the sheet (#7)\n\nRefs #7", {
+      "apps/web/src/sheet.ts": "export const sheet = 1\n",
+    })
+    const result = runRelease(root, [
+      "changelog",
+      "--version",
+      "2.0.0",
+      "--date",
+      "2026-11-18",
+      "--dry-run",
+    ])
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain("- polish the sheet (#7)")
+    expect(result.stdout).not.toContain("(#7) (#7)")
+  })
+
   it("replaces a section instead of appending a duplicate", () => {
     const root = repo()
     seedHistory(root)
