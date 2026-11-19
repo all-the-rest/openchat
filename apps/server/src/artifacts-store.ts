@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises"
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises"
 import type { Dirent } from "node:fs"
 import { join } from "node:path"
 import { ARTIFACT_MAX_BYTES, ARTIFACT_TITLE_MAX } from "@openchat/contracts"
@@ -262,6 +262,23 @@ export class ArtifactStore {
    * lexicographically, so no date parsing is needed; the id breaks a tie.
    */
   async list(options: { limit?: number } = {}): Promise<ArtifactMeta[]> {
+    const found = await this.collect()
+    const requested = options.limit ?? ARTIFACT_LIST_LIMIT
+    return found.slice(0, Math.max(1, Math.min(requested, ARTIFACT_LIST_LIMIT)))
+  }
+
+  /** Uncapped newest-first listing for operator tooling such as eviction. */
+  async listAll(): Promise<ArtifactMeta[]> {
+    return this.collect()
+  }
+
+  /** Removes one artifact directory. The id check keeps the path inside the store. */
+  async remove(id: string): Promise<void> {
+    if (!isArtifactId(id)) return
+    await rm(join(this.dir, id), { recursive: true, force: true })
+  }
+
+  private async collect(): Promise<ArtifactMeta[]> {
     let entries: Dirent[]
     try {
       entries = await readdir(this.dir, { withFileTypes: true })
@@ -278,7 +295,6 @@ export class ArtifactStore {
       if (left.createdAt !== right.createdAt) return left.createdAt < right.createdAt ? 1 : -1
       return left.id.localeCompare(right.id)
     })
-    const requested = options.limit ?? ARTIFACT_LIST_LIMIT
-    return found.slice(0, Math.max(1, Math.min(requested, ARTIFACT_LIST_LIMIT)))
+    return found
   }
 }

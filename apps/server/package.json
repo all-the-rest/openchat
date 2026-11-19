@@ -10,6 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "smoke:remote": "tsx src/smoke-cli.ts",
+    "artifacts": "tsx src/artifacts-cli.ts",
     "build": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",

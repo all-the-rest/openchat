@@ -9,6 +9,7 @@ import { FakeBackend } from "@openchat/opencode"
 import { createApp } from "../src/app"
 import type { AppEnv } from "../src/app"
 import type { CredentialVerifier } from "../src/auth"
+import type { ArtifactStatFsFn } from "../src/artifacts-internal"
 import type { CodeProbe } from "../src/code"
 import type { AppsCache, AppsProbe } from "../src/apps-cache"
 import { loadEnv } from "../src/env"
@@ -61,6 +62,10 @@ export interface TestServerOptions {
   /** Artifact creation throttle; tests inject a clock-bound instance. */
   artifactsThrottle?: FixedWindowThrottle
   artifactsNow?: () => number
+  /** Filesystem probe for the artifact capacity guard; tests simulate a full disk. */
+  artifactsStatfs?: ArtifactStatFsFn
+  /** Capacity threshold for the artifact capacity guard. */
+  artifactsFullThreshold?: number
   /** Credential verifier; tests inject one they can hold open. */
   verify?: CredentialVerifier
   /** Login concurrency gate; tests shrink it to one permit. */
@@ -123,6 +128,8 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
       providerConnectThrottle: options.providerConnectThrottle,
       artifactsThrottle: options.artifactsThrottle,
       artifactsNow: options.artifactsNow,
+      artifactsStatfs: options.artifactsStatfs,
+      artifactsFullThreshold: options.artifactsFullThreshold,
       verify: options.verify,
       verificationGate: options.verificationGate,
       compactionWaitMs: options.compactionWaitMs,

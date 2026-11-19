@@ -6,6 +6,7 @@ import { APPS_ACTION_LIMIT, APPS_ACTION_WINDOW_MS } from "./apps"
 import { AppsCache } from "./apps-cache"
 import type { AppsProbe } from "./apps-cache"
 import { ARTIFACT_CREATE_LIMIT, ARTIFACT_CREATE_WINDOW_MS } from "./artifacts"
+import type { ArtifactStatFsFn } from "./artifacts-internal"
 import type { CodeProbe } from "./code"
 import { CODE_TICKET_LIMIT, CODE_TICKET_WINDOW_MS } from "./code"
 import type { EnvConfig } from "./env"
@@ -63,6 +64,10 @@ export interface AppOptions {
   artifactsThrottle?: FixedWindowThrottle
   /** Clock for signed artifact URLs; tests advance it. */
   artifactsNow?: () => number
+  /** Filesystem probe for the artifact write capacity guard; injectable in tests. */
+  artifactsStatfs?: ArtifactStatFsFn
+  /** Capacity threshold for the artifact write guard; injectable in tests. */
+  artifactsFullThreshold?: number
   /** Credential verifier; tests inject one they can hold open. */
   verify?: CredentialVerifier
   /** Login concurrency gate; tests shrink it to one permit. */
@@ -180,6 +185,8 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     appsNow: options.appsNow,
     artifactsThrottle,
     artifactsNow: options.artifactsNow,
+    artifactsStatfs: options.artifactsStatfs,
+    artifactsFullThreshold: options.artifactsFullThreshold,
     compactionWaitMs: options.compactionWaitMs,
     fallback,
     chatPolicy,

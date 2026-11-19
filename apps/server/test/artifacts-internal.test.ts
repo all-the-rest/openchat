@@ -1,8 +1,9 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import type { ArtifactResponse, ArtifactWriteReceipt } from "@openchat/contracts"
+import { ARTIFACT_FULL_THRESHOLD } from "../src/artifacts-internal"
 import { ARTIFACT_BODY_MAX_BYTES } from "../src/limits"
 import { json, login, makeServer } from "./helpers"
 import type { TestServer } from "./helpers"
@@ -194,6 +195,76 @@ describe("internal artifact route: storage", () => {
       bytes: receipt.bytes,
     })
     expect(list[0]?.url).toContain(`/a/${receipt.artifactID}?exp=`)
+  })
+})
+
+describe("internal artifact route: capacity guard", () => {
+  // More than `ARTIFACT_FULL_THRESHOLD` of the blocks are used.
+  const full = async () => ({ blocks: 1000, bavail: 40 })
+  const roomy = async () => ({ blocks: 1000, bavail: 900 })
+
+  it("returns 507 artifacts_full with a fixed message and writes nothing", async () => {
+    const dir = await artifactDir()
+    const server = makeServer({ env: env(dir), artifactsStatfs: full })
+    const response = await post(server, { title: "SECRET-TITLE", html: HTML })
+    expect(response.status).toBe(507)
+    const body = await json<{ error: { code: string; message: string } }>(response)
+    expect(body.error.code).toBe("artifacts_full")
+    expect(body.error.message).toBe("Artifact storage is full")
+    expect(JSON.stringify(body)).not.toContain("SECRET-TITLE")
+    expect(await readdir(dir)).toEqual([])
+  })
+
+  it("still writes when the store has room", async () => {
+    const dir = await artifactDir()
+    const server = makeServer({ env: env(dir), artifactsStatfs: roomy })
+    const response = await post(server, { title: "App", html: HTML })
+    expect(response.status).toBe(201)
+    const receipt = await json<ArtifactWriteReceipt>(response)
+    expect(await readdir(dir)).toEqual([receipt.artifactID])
+  })
+
+  it("accepts the first write when the directory does not exist yet", async () => {
+    const root = await artifactDir()
+    const dir = join(root, "not-created-yet")
+    const missing = async () => {
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" })
+    }
+    const server = makeServer({ env: env(dir), artifactsStatfs: missing })
+    const response = await post(server, { title: "First", html: HTML })
+    expect(response.status).toBe(201)
+    const receipt = await json<ArtifactWriteReceipt>(response)
+    expect(await readFile(join(dir, receipt.artifactID, "index.html"), "utf8")).toBe(HTML)
+  })
+
+  it("allows a write exactly at the threshold", async () => {
+    const dir = await artifactDir()
+    const atThreshold = async () => ({
+      blocks: 1000,
+      bavail: Math.round(1000 * (1 - ARTIFACT_FULL_THRESHOLD)),
+    })
+    const server = makeServer({ env: env(dir), artifactsStatfs: atThreshold })
+    expect((await post(server, { title: "App", html: HTML })).status).toBe(201)
+  })
+
+  it("checks authentication before capacity", async () => {
+    const server = makeServer({ env: env(await artifactDir()), artifactsStatfs: full })
+    const response = await post(server, { title: "App", html: HTML }, { auth: "Bearer wrong" })
+    expect(response.status).toBe(401)
+  })
+
+  it("rejects a malformed envelope before probing capacity", async () => {
+    let probed = false
+    const server = makeServer({
+      env: env(await artifactDir()),
+      artifactsStatfs: async () => {
+        probed = true
+        return full()
+      },
+    })
+    const response = await post(server, { title: "App", html: HTML, data: "eA==" })
+    expect(response.status).toBe(400)
+    expect(probed).toBe(false)
   })
 })
 

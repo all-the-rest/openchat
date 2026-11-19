@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto"
+import { statfs } from "node:fs/promises"
 import type { Hono } from "hono"
 import type { ArtifactWriteReceipt } from "@openchat/contracts"
 import { isArtifactId } from "@openchat/contracts/artifacts/id"
@@ -35,6 +36,47 @@ const UNAVAILABLE_MESSAGE = "Artifact storage is not configured"
 const TOO_MANY_MESSAGE = "Too many artifacts"
 const INVALID_BODY_MESSAGE = "body must be a JSON object"
 const UNKNOWN_MESSAGE = "Artifact not found"
+const FULL_MESSAGE = "Artifact storage is full"
+
+/**
+ * Refuse a write once more than 95% of the store's blocks are used. The guard
+ * only stops writes; it never deletes anything. Kept exported so tests can
+ * exercise the boundary without a real full disk.
+ */
+export const ARTIFACT_FULL_THRESHOLD = 0.95
+
+/** The subset of a filesystem stat the guard needs; injectable in tests. */
+export interface ArtifactStatFs {
+  /** Total data blocks on the filesystem. */
+  blocks: number
+  /** Free blocks available to this user; excludes reserved blocks. */
+  bavail: number
+}
+
+export type ArtifactStatFsFn = (path: string) => Promise<ArtifactStatFs>
+
+/**
+ * Uses `bavail` rather than `bfree`: it is the space this process can actually
+ * write to, so the computed usage is conservative and the guard stops a write
+ * slightly earlier. A missing directory (a fresh store before the first write)
+ * or any stat failure fails open, because a probe error must not turn into a
+ * self-inflicted write outage.
+ */
+export async function artifactStorageFull(
+  dir: string,
+  statfsFn: ArtifactStatFsFn,
+  threshold: number,
+): Promise<boolean> {
+  let info: ArtifactStatFs
+  try {
+    info = await statfsFn(dir)
+  } catch {
+    return false
+  }
+  if (!Number.isFinite(info.blocks) || info.blocks <= 0) return false
+  if (!Number.isFinite(info.bavail)) return false
+  return 1 - info.bavail / info.blocks > threshold
+}
 
 export interface ArtifactInternalRouteDeps {
   config: EnvConfig
@@ -42,6 +84,10 @@ export interface ArtifactInternalRouteDeps {
   now?: () => number
   /** Injected throttle; by default its own 20/min budget. */
   throttle?: FixedWindowThrottle
+  /** Injected filesystem probe; defaults to the real `statfs`. */
+  statfs?: ArtifactStatFsFn
+  /** Injected capacity threshold; defaults to `ARTIFACT_FULL_THRESHOLD`. */
+  fullThreshold?: number
 }
 
 /** Constant-time bearer check; the hash hides the length as well. */
@@ -75,6 +121,8 @@ export function registerArtifactInternalRoute(
 ): void {
   const { config } = deps
   const store = new ArtifactStore({ dir: config.ARTIFACTS_DIR, now: deps.now })
+  const statfsFn = deps.statfs ?? statfs
+  const fullThreshold = deps.fullThreshold ?? ARTIFACT_FULL_THRESHOLD
   const throttle =
     deps.throttle ??
     new FixedWindowThrottle({
@@ -117,6 +165,12 @@ export function registerArtifactInternalRoute(
     const hasHTML = "html" in draft
     if (hasData === hasHTML) {
       return jsonError(c, 400, "artifacts_invalid", "provide exactly one of data or html")
+    }
+    // Capacity is checked only for an otherwise valid write and after auth and
+    // the budget: a bad token or a rejected body never reaches the filesystem,
+    // and a full store deletes nothing.
+    if (await artifactStorageFull(config.ARTIFACTS_DIR, statfsFn, fullThreshold)) {
+      return jsonError(c, 507, "artifacts_full", FULL_MESSAGE)
     }
     const result = hasData
       ? await store.createMedia({ title: draft.title, data: draft.data })
