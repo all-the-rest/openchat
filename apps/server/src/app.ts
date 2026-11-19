@@ -23,6 +23,7 @@ import { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { STT_TIMEOUT_MS } from "./transcribe"
 import { UsageLedger } from "./usage-ledger"
 import { FallbackEngine } from "./fallback-engine"
+import { FallbackObserver } from "./fallback-observer"
 import { resolveChatPolicy, validateChainJson } from "./fallback-config"
 import type { TurnPolicy } from "@openchat/contracts"
 
@@ -162,6 +163,11 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     ledger: usageLedger,
     warn,
   })
+  // The server, not a browser tab, owns fallback observation: one host
+  // subscription at boot feeds every session's outcome and retry. The SSE
+  // route only forwards the merged stream this observer publishes.
+  const observer = new FallbackObserver({ backend, engine: fallback, warn })
+  observer.start()
 
   const app = new Hono<AppEnv>()
 
@@ -208,6 +214,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     fallback,
     chatPolicy,
     usageLedger,
+    events: observer,
   })
 
   return app

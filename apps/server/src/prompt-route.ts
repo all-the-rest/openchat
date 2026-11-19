@@ -17,7 +17,12 @@ import { clientAddress } from "./middleware"
 import type { FixedWindowThrottle } from "./throttle"
 import type { FallbackEngine } from "./fallback-engine"
 import { clientModelRef, offeredVariant, requestedModel } from "./fallback-config"
+import { isFreeModel } from "./fallback-policy"
+import type { UsageLedger } from "./usage-ledger"
 import type { ModelRef, TurnPolicy } from "@openchat/contracts"
+
+/** Stable refusal code for a paid first attempt beyond today's budget. */
+export const PAID_TURN_CAP_ERROR = "paid_turn_cap_reached"
 
 export interface PromptRouteDeps {
   config: EnvConfig
@@ -29,6 +34,8 @@ export interface PromptRouteDeps {
   fallback?: FallbackEngine
   /** Resolved chat policy; empty chain disables fallback. */
   chatPolicy?: TurnPolicy
+  /** Read side of the usage ledger; admission refuses a paid turn at the cap. */
+  usageLedger?: Pick<UsageLedger, "paidTurnsToday">
 }
 
 /**
@@ -111,9 +118,6 @@ export function registerPromptRoute(app: Hono<AppEnv>, deps: PromptRouteDeps): v
     // Count accepted submissions only; a rejected body must not consume the
     // caller's budget.
     promptThrottle.record(address)
-    // The soft cap runs before admission: at/over the cap and idle, one
-    // compaction is requested and awaited. A failure only adds a notice.
-    const decision = await softCap.admit(c.req.param("id"))
     // Spec 03: one active run per session. A second send is queued rather than
     // rejected, so the BFF defaults to the queue delivery mode.
     const sessionID = c.req.param("id")
@@ -127,6 +131,26 @@ export function registerPromptRoute(app: Hono<AppEnv>, deps: PromptRouteDeps): v
       ? ((await resolveClientModel(backend, policy, parsed.data.model, parsed.data.variant)) ??
         requestedModel(policy))
       : undefined
+    // The cap owns every paid turn, not just retries: refuse a paid first
+    // attempt before any compaction or prompt work starts.
+    if (
+      requested !== undefined &&
+      !isFreeModel(requested) &&
+      policy !== undefined &&
+      policy.paidDailyTurns > 0 &&
+      deps.usageLedger !== undefined &&
+      (await deps.usageLedger.paidTurnsToday()) >= policy.paidDailyTurns
+    ) {
+      return jsonError(
+        c,
+        429,
+        PAID_TURN_CAP_ERROR,
+        "Paid turn cap reached for today; try again tomorrow",
+      )
+    }
+    // The soft cap runs before admission: at/over the cap and idle, one
+    // compaction is requested and awaited. A failure only adds a notice.
+    const decision = await softCap.admit(sessionID)
     const payload = {
       text: parsed.data.text,
       delivery: parsed.data.delivery ?? "queue",
@@ -140,22 +164,22 @@ export function registerPromptRoute(app: Hono<AppEnv>, deps: PromptRouteDeps): v
     // still open, and a turn the engine does not know would lose that evidence
     // and be retried after it already printed. The message id is adopted from
     // the response.
-    if (tracked) fallback.begin(sessionID, payload, policy, requested)
+    const submission = tracked ? fallback.begin(sessionID, payload, policy, requested) : undefined
     let result: PromptResult
     try {
       result = await backend.prompt(sessionID, payload)
     } catch (error) {
       // Nothing started, so no turn may linger and be retried later.
-      if (tracked) fallback.abandon(sessionID)
+      if (tracked && submission !== undefined) fallback.abandon(sessionID, submission)
       throw error
     }
-    if (tracked) {
+    if (tracked && submission !== undefined) {
       // A queued send does not start a run; its registration must be dropped so
       // the active turn it replaced keeps its own state. `undefined` from the
       // live queue probe is "not queued": the prompt started the active run and
       // must stay tracked.
-      if (result.queued === true) fallback.abandon(sessionID)
-      else fallback.adopt(sessionID, result.messageID)
+      if (result.queued === true) fallback.abandon(sessionID, submission)
+      else fallback.adopt(sessionID, submission, result.messageID)
     }
     const response: PromptResponse = { ok: true, messageID: result.messageID }
     if (result.queued === true) response.queued = true

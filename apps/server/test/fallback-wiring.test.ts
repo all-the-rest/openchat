@@ -61,7 +61,7 @@ function textOf(message: Message): string {
 /** A fake engine that records calls but never actually retries. */
 function recordingEngine() {
   const observe = vi.fn()
-  const begin = vi.fn()
+  const begin = vi.fn(() => ({}))
   const adopt = vi.fn()
   const abandon = vi.fn()
   const forget = vi.fn()
@@ -125,8 +125,9 @@ describe("fallback wiring", () => {
     expect(payload.modelRef).toEqual({ providerID: "free", modelID: "glm", isFree: true })
     expect(policy.surface).toBe("chat")
     expect(requested.modelID).toBe("glm")
-    // The message id only exists after the response; it is adopted then.
-    expect(adopt).toHaveBeenCalledWith(id, expect.stringContaining("msg"))
+    // The message id only exists after the response; the same submission
+    // token is adopted then.
+    expect(adopt).toHaveBeenCalledWith(id, expect.anything(), expect.stringContaining("msg"))
   })
 
   it("lets the client model win attempt 1 and keeps the chain as the tail", async () => {
