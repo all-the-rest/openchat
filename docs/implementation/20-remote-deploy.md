@@ -28,6 +28,7 @@ routing probes against `caddy:2-alpine`.
 | Driver safety | `deploy/remote/ssh-safe.sh` | quoting and validation for every remote command value |
 | Disks | `deploy/remote/mount-disks.sh` | create/mount/unmount the five ext4 images, chown, marker |
 | State migration | `deploy/remote/migrate-opencode-data.sh` | one-time copy of the `opencode-data` volume onto its disk; dry run by default, `--apply`, `--rollback` |
+| State preflight | `deploy/remote/opencode-data-preflight.sh` | `swap.sh`'s precondition: refuses to start OpenCode on an empty state disk while the volume still holds the state |
 | Env bootstrap | `deploy/remote/env-bootstrap.sh` | writes `.env` once, escaped, `0600`, never printed |
 | Escape filter | `deploy/remote/env-value.sh` | doubles `$` for Compose, idempotent |
 | MCP seed | `deploy/remote/seed-config.sh` | three `local` entries (artifact, Python, memory) in `opencode.json`, `0600`, once; a later run merges a missing `mcp.openchat-memory` entry without touching present keys; the Python entry also carries `WORKSPACE_DIR`, `DOCUMENTS_URL` and `DOCUMENTS_TOKEN` |
@@ -320,10 +321,21 @@ never the stack), creates and formats the image (sparse, 512 MiB), mounts it on
 (`docker run --rm -v openchat_opencode-data:/src:ro -v <mount>:/dst`, BusyBox
 `cp -a`) so the data is never read through a host path, verifies the file count,
 writes `.openchat-migrated` inside the image, unmounts and keeps the image. The
-named volume is only ever read; it keeps the original bytes. `backup.sh` reads
-the volume's mountpoint by default, so it switches its source to the mounted disk
-as soon as the image exists (`disks/opencode-data/.openchat-disk`); an unmounted
-image is a refusal there, not an empty archive.
+named volume is only ever read; it keeps the original bytes. `backup.sh` switches
+its source to the mounted disk only when the migration stamp is there
+(`disks/opencode-data/.openchat-migrated`); while the image exists without the
+stamp, the named volume is still the only copy, so a backup in that window
+archives the volume, and an unstamped disk whose volume cannot be resolved is a
+refusal, never an empty archive.
+
+`deploy/swap.sh` runs `deploy/remote/opencode-data-preflight.sh` before it moves
+`current`, so a deploy and a manual swap both refuse — changing nothing, naming
+the exact command — when the named volume `<project>_opencode-data` holds files
+and the disk carries no stamp. An empty or never-used volume (compose creates it
+on the first start), a host without the volume and a stamped disk all pass; the
+volume's content is counted with the same throwaway container the migration uses,
+so no host path is read. A release that still binds the named volume is not
+gated, which keeps a rollback to a pre-migration release possible.
 
 Reasons it is safe to rerun and safe to get wrong: a second `--apply` refuses
 because the image carries the migration stamp; an image with foreign data and no
@@ -352,9 +364,10 @@ service: the Code frame reconnects, and a request in flight during the stop
 fails. It is an owner action at a quiet moment, with the plan run first
 (`--dry-run` is the default; the plan prints the exact commands), and the
 migration must run **before** the first deploy whose overlay carries the
-`disks/opencode-data` bind — otherwise OpenCode starts on an empty data
-directory. Nothing is lost in that case (the volume is untouched and the
-migration adopts the empty disk), but the sessions are absent until it runs.
+`disks/opencode-data` bind — otherwise OpenCode would start on an empty data
+directory. `swap.sh` refuses that start while the volume holds files and the disk
+is unstamped, so the failure is a stopped deploy with the command to run, not a
+silently empty state that the migration then rejects.
 
 ### Pinned `disks-ready` image
 

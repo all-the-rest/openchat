@@ -52,6 +52,7 @@ REQUIRED_FILES=(
   deploy/remote/env-bootstrap.sh deploy/remote/env-value.sh
   deploy/remote/seed-config.sh deploy/remote/caddy.sh
   deploy/remote/backup.sh deploy/remote/status.sh
+  deploy/remote/opencode-data-preflight.sh deploy/remote/migrate-opencode-data.sh
   deploy/remote/openchat-disks.service deploy/remote/openchat-guard.sh
   deploy/remote/openchat-guard.service deploy/remote/prune-releases.sh deploy/remote/ssh-safe.sh
   deploy/host/install.sh deploy/host/ram-watchdog.sh deploy/host/dind-gc.sh

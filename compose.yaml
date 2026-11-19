@@ -77,6 +77,11 @@ services:
       # Shared with the memory MCP tool; it writes the store through the BFF's
       # /internal/memory route (issue #49). Never in the public allowlist.
       MEMORY_INTERNAL_TOKEN: ${MEMORY_INTERNAL_TOKEN:?set 32+ random characters in .env}
+      # Cap for the fact store; the write that would cross it is refused with
+      # `memory_store_full` (507). Forwarded here because this environment list
+      # is an explicit whitelist: a knob documented in .env.example but missing
+      # here never reaches the process.
+      MEMORY_MAX_FACTS_BYTES: ${MEMORY_MAX_FACTS_BYTES:-67108864}
       CODE_HOST_ORIGIN: ${CODE_HOST_ORIGIN:-https://code.example.com}
       CODE_TICKET_SECRET: ${CODE_TICKET_SECRET:?set 32+ random bytes in .env}
       CODE_TICKET_TTL_SECONDS: ${CODE_TICKET_TTL_SECONDS:-60}
@@ -84,6 +89,14 @@ services:
       STT_API_KEY: ${STT_API_KEY:-}
       DICTATION_MAX_SECONDS: ${DICTATION_MAX_SECONDS:-120}
       DICTATION_MAX_BYTES: ${DICTATION_MAX_BYTES:-26214400}
+      # Chat knobs documented in .env.example. This list, not an `env_file`,
+      # decides what the BFF sees, so each one is forwarded with its documented
+      # default: no BFF-side compaction, no fallback chain, no paid-turn cap and
+      # the ledger beside the chat files on the workspace disk.
+      CHAT_CONTEXT_SOFT_CAP: ${CHAT_CONTEXT_SOFT_CAP:-200000}
+      FALLBACK_CHAIN_JSON: ${FALLBACK_CHAIN_JSON:-}
+      FALLBACK_PAID_DAILY_CAP: ${FALLBACK_PAID_DAILY_CAP:-0}
+      FALLBACK_USAGE_DIR: ${FALLBACK_USAGE_DIR:-/workspace/chats/.usage}
       WEB_DIST_DIR: /app/web
     volumes:
       # Read-write: the BFF is the only writer of artifact documents.

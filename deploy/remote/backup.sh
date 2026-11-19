@@ -49,8 +49,8 @@ Options:
   --out-dir DIR       archive destination outside the stack (default: /var/backups/openchat)
   --project NAME      compose project name (default: openchat)
   --opencode-data DIR OpenCode data directory (default: the mounted
-                      disks/opencode-data once the image exists, else the
-                      mountpoint of the <project>_opencode-data volume)
+                      disks/opencode-data once the migration stamp exists, else
+                      the mountpoint of the <project>_opencode-data volume)
   --keep N            archives to keep, newest first (default: 14)
   --stamp TS          archive stamp, YYYYMMDDTHHMMSSZ (default: now)
   --restore-check     verify the newest archive in a temp dir; live data untouched
@@ -149,16 +149,18 @@ resolve_stack() {
 
 # The mountpoint is the only thing the script needs from docker; the volume
 # lives under /var/lib/docker/volumes/<project>_<name>/_data.
+#
+# Issue #43: the migration stamp, not the image file, decides the source. A disk
+# created but not yet filled still has the named volume as the only copy of the
+# state, so a backup in that window must read the volume; only a stamped disk is
+# the live copy. An unmounted stamped disk is a refusal, never an empty archive.
 resolve_volume() {
-  local mountpoint
+  local mountpoint stamp="$STACK_DIR/disks/opencode-data/.openchat-migrated"
   if [ -n "$VOLUME_DIR" ]; then VOLUME_SOURCE=${VOLUME_DIR%/}; return 0; fi
-  # Issue #43: once the state lives on its own disk, the named volume is only
-  # the rollback copy. The image is the switch; the marker proves it is mounted,
-  # so an unmounted disk refuses instead of archiving an empty directory.
-  if [ -f "$STACK_DIR/disks/opencode-data.img" ]; then
+  if [ -f "$stamp" ]; then
     VOLUME_SOURCE=$STACK_DIR/disks/opencode-data
     [ -f "$VOLUME_SOURCE/.openchat-disk" ] ||
-      die "the opencode-data image exists but is not mounted; run deploy/remote/mount-disks.sh"
+      die "the opencode-data disk is migrated but not mounted; run deploy/remote/mount-disks.sh"
     return 0
   fi
   if [ "$DRY_RUN" -eq 1 ] && ! command -v docker >/dev/null 2>&1; then
@@ -169,7 +171,7 @@ resolve_volume() {
   mountpoint=$(docker volume inspect --format '{{.Mountpoint}}' \
     "${PROJECT}_${VOLUME_NAME}" 2>/dev/null || true)
   [ -n "$mountpoint" ] ||
-    die "docker volume ${PROJECT}_${VOLUME_NAME} not found; pass --opencode-data DIR"
+    die "cannot resolve docker volume ${PROJECT}_${VOLUME_NAME}; the state disk carries no .openchat-migrated, so the volume is still the live copy. Run deploy/remote/migrate-opencode-data.sh --apply, or pass --opencode-data DIR"
   VOLUME_SOURCE=${mountpoint%/}
 }
 
