@@ -10,8 +10,9 @@
 # Against a temporary stack, a fake docker and a fake curl this proves: a volume
 # with files and an unstamped disk is refused with the exact migration command
 # and no swap; an empty (never-used) volume is allowed; a volume that is gone is
-# allowed; a volume with files on a stamped disk is allowed; and a release that
-# still uses the named volume is not blocked.
+# allowed; a volume with files on a stamped disk is allowed; a release that
+# still uses the named volume is not blocked; and a dry run performs the same
+# read-only checks and reports 'would refuse: …' while exiting 0.
 
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -169,15 +170,22 @@ test_release_using_the_volume_is_not_blocked() {
   ok "a release that still starts on the named volume is not blocked by the preflight"
 }
 
-test_dry_run_plans_the_check() {
-  local root; root=$(new_dir)
+test_dry_run_reports_the_refusal() {
+  local root real; root=$(new_dir)
   build_fixture "$root"
+  real=$(stack_real "$root")
 
   run_capture swap_to_b "$root" --dry-run
   [ "$RUN_STATUS" -eq 0 ] || fail "the dry run exited $RUN_STATUS: $OUTPUT"
-  assert_contains "$OUTPUT" "would: refuse if volume $VOLUME_NAME holds files" "dry run"
+  assert_contains "$OUTPUT" "would refuse: OpenCode would start on an empty state disk" "dry run"
+  assert_contains "$OUTPUT" "deploy/remote/migrate-opencode-data.sh --stack-dir $real --apply" "dry run refusal"
   assert_eq "$(readlink "$root/stack/current")" "releases/a" "current after the dry run"
-  ok "a dry run plans the precondition without reading the volume"
+  assert_eq "$(up_calls "$root")" "0" "stack starts after the dry run"
+  # The read-only checks ran: the volume was inspected and counted, no compose call.
+  assert_contains "$(cat "$root/docker.log")" "docker volume inspect" "read-only volume check"
+  assert_contains "$(cat "$root/docker.log")" "docker run --rm" "read-only count"
+  assert_not_contains "$(cat "$root/docker.log")" "compose --project-name openchat" "no compose call"
+  ok "a dry run reads the volume, reports the refusal and still exits 0"
 }
 
 test_refuses_a_volume_with_data_on_an_unstamped_disk
@@ -185,4 +193,4 @@ test_allows_an_empty_never_used_volume
 test_allows_a_missing_volume
 test_allows_a_stamped_disk
 test_release_using_the_volume_is_not_blocked
-test_dry_run_plans_the_check
+test_dry_run_reports_the_refusal

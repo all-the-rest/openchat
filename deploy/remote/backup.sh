@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 #
-# Backup and restore-check for the OpenChat stack (issue #9, M7). Runs on the
-# host, as root, beside the deployed stack.
-#
-# One timestamped archive outside the stack holds the six sources a restore
-# needs: .env (0600), opencode-config/, the opencode-data volume,
-# disks/artifacts/, disks/workspace/ (with chats/) and disks/memory/ (the agent
-# memory store). Inside: manifest.txt and checksums.sha256; beside it:
-# <name>.sha256 and <name>.manifest.txt.
+# Backup and restore-check for the OpenChat stack (issue #9, M7), run as root on
+# the host. One timestamped archive outside the stack holds the six sources a
+# restore needs: .env (0600), opencode-config/, opencode-data, artifacts,
+# workspace (with chats/) and memory. Inside: manifest.txt and checksums.sha256;
+# beside it: <name>.sha256 and <name>.manifest.txt.
 #
 # Safety: a missing, unreadable or symlinked source stops the run before
-# anything is written; inner symlinks are archived as links, never read;
-# retention touches only this script's own names and sidecars; no .env value is
-# read or printed; --dry-run writes nothing; --restore-check extracts into a
-# temp dir and leaves live data alone. Live files that change mid-tar fail the
-# run instead of leaving an archive whose checksums cannot hold.
+# anything is written; inner symlinks are archived as links; retention touches
+# only this script's names and sidecars; no .env value is read or printed;
+# --dry-run writes nothing; --restore-check extracts into a temp dir and leaves
+# live data alone. Live files that change mid-tar fail the run instead of leaving
+# an archive whose checksums cannot hold.
 #
 # Usage: backup.sh [options] | backup.sh --restore-check [--archive FILE]
 # Exit codes: 0 success, 1 backup or verification failure, 2 usage error.
@@ -49,8 +46,8 @@ Options:
   --out-dir DIR       archive destination outside the stack (default: /var/backups/openchat)
   --project NAME      compose project name (default: openchat)
   --opencode-data DIR OpenCode data directory (default: the mounted
-                      disks/opencode-data once the migration stamp exists, else
-                      the mountpoint of the <project>_opencode-data volume)
+                      disks/opencode-data once stamped; else the volume on a
+                      host without the image; an unstamped image is refused)
   --keep N            archives to keep, newest first (default: 14)
   --stamp TS          archive stamp, YYYYMMDDTHHMMSSZ (default: now)
   --restore-check     verify the newest archive in a temp dir; live data untouched
@@ -147,13 +144,12 @@ resolve_stack() {
   STACK_DIR=$(cd "$STACK_DIR" && pwd -P)
 }
 
-# The mountpoint is the only thing the script needs from docker; the volume
-# lives under /var/lib/docker/volumes/<project>_<name>/_data.
-#
-# Issue #43: the migration stamp, not the image file, decides the source. A disk
-# created but not yet filled still has the named volume as the only copy of the
-# state, so a backup in that window must read the volume; only a stamped disk is
-# the live copy. An unmounted stamped disk is a refusal, never an empty archive.
+# The volume lives under /var/lib/docker/volumes/<project>_<name>/_data.
+# Issue #43: the stamp lives INSIDE the image, so an unmounted image hides it;
+# falling through to the volume would archive the pre-migration copy without a
+# warning. Only a host with no image at all (pre-migration) reads the volume; a
+# stamped disk is the live copy, and an image without a visible stamp is a
+# refusal, never a silent volume archive.
 resolve_volume() {
   local mountpoint stamp="$STACK_DIR/disks/opencode-data/.openchat-migrated"
   if [ -n "$VOLUME_DIR" ]; then VOLUME_SOURCE=${VOLUME_DIR%/}; return 0; fi
@@ -162,6 +158,9 @@ resolve_volume() {
     [ -f "$VOLUME_SOURCE/.openchat-disk" ] ||
       die "the opencode-data disk is migrated but not mounted; run deploy/remote/mount-disks.sh"
     return 0
+  fi
+  if [ -f "$STACK_DIR/disks/opencode-data.img" ]; then
+    die "the opencode-data image exists ($STACK_DIR/disks/opencode-data.img) but is not mounted or not migrated yet, so $stamp is invisible. The named volume may be the pre-migration copy, so no archive was written. Repair the mount with 'systemctl start openchat-disks.service' (or deploy/remote/mount-disks.sh), then run deploy/remote/migrate-opencode-data.sh --stack-dir $STACK_DIR --apply if the migration has not run"
   fi
   if [ "$DRY_RUN" -eq 1 ] && ! command -v docker >/dev/null 2>&1; then
     VOLUME_SOURCE="<docker volume ${PROJECT}_${VOLUME_NAME}>"; VOLUME_UNRESOLVED=1; return 0

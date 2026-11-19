@@ -17,24 +17,9 @@
 # container recreate, not a broken deployment.
 #
 # Secrets never leave the environment file: they are read through
-# `docker compose --env-file`, never placed on a command line or echoed.
-#
-# Usage:
-#   deploy/swap.sh --release releases/<name> [options]
-#
-# Options:
-#   --stack-dir DIR       stack root (default: current directory)
-#   --release DIR         candidate release, must live inside the stack root
-#   --project NAME        compose project name (default: openchat)
-#   --prepare pull|build  pull or build the candidate images before the swap
-#   --expect-version V    fail the validation unless /healthz reports V
-#   --probe-url URL       base URL of the BFF (default http://127.0.0.1:${BFF_PORT:-8787})
-#   --timeout SECONDS     probe budget (default 30)
-#   --dry-run             print the plan; build, start, probe and link nothing
-#   --help
-#
-# Exit codes: 0 success (or a validated no-op), 1 failed validation/rollback,
-# 2 usage error.
+# `docker compose --env-file`, never placed on a command line or echoed. `--help`
+# prints the options. Exit codes: 0 success (or a validated no-op), 1 failed
+# validation/rollback, 2 usage error.
 
 set -euo pipefail
 
@@ -67,7 +52,7 @@ Options:
   --expect-version V    fail the validation unless /healthz reports V
   --probe-url URL       base URL of the BFF (default http://127.0.0.1:${BFF_PORT:-8787})
   --timeout SECONDS     probe budget (default 30)
-  --dry-run             print the plan; build, start, probe and link nothing
+  --dry-run             print the plan; change nothing (read-only disk check runs)
   --help
 
 Secrets are read from $STACK_DIR/.env through `docker compose --env-file`;
@@ -182,6 +167,18 @@ preflight_state_disk() {
     die "refusing to swap: the OpenCode state disk is not migrated yet"
 }
 
+# Issue #43, M3: after the migration the disk is live and the named volume holds
+# only the pre-migration snapshot. A release that still binds the volume (the
+# usual rollback shape) starts on that stale copy. Warn loudly, never refuse.
+note_pre_migration_target() {
+  local target=$1 compose="$STACK_DIR/$1/compose.yaml"
+  [ -e "$STACK_DIR/disks/opencode-data/.openchat-migrated" ] || return 0
+  [ -f "$compose" ] || return 0
+  grep -q 'disks/opencode-data' "$compose" && return 0
+  printf '%s: WARNING: %s does not bind disks/opencode-data while the state disk is migrated. It reads the named volume, which holds the pre-migration snapshot: session data written after the migration is NOT in that copy. The swap continues\n' \
+    "$PROG" "$target" >&2
+}
+
 # Fills PROBE_CODE and PROBE_BODY_FILE from one HTTP GET. No secret is involved:
 # both probes are unauthenticated (liveness) or session-gated but answered by the
 # stack itself, and swap.sh never logs a body.
@@ -269,6 +266,7 @@ check_release() {
 # the explicit error path so a failed rollback still exits non-zero.
 rollback() {
   local target=$1
+  note_pre_migration_target "$target"
   printf '%s: validation failed, rolling back to %s\n' "$PROG" "$target" >&2
   ln -sfn "$target" "$STACK_DIR/current"
   if ! compose_from "$target" up -d --wait --wait-timeout 120; then
@@ -322,6 +320,9 @@ main() {
   note "probe:    $PROBE_URL"
 
   preflight_state_disk
+  # Covers the documented fast-path rollback (`--release previous`), which is a
+  # normal swap, as well as a deploy that drops the disk bind by mistake.
+  note_pre_migration_target "$RELEASE_REL"
 
   if [ -n "$current" ] && [ "$current" = "$RELEASE_REL" ]; then
     note "current already points at $RELEASE_REL"
