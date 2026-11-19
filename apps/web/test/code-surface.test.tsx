@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { MemoryRouter, Route, Routes, Link, useLocation } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { CodeRoute } from "../src/App"
 import { SessionSidebar } from "../src/chat/SessionSidebar"
 import { SurfaceHome, SurfaceProvider } from "../src/code/SurfaceProvider"
 import { SurfaceSwitch } from "../src/code/SurfaceSwitch"
@@ -17,7 +18,11 @@ import { AppShell } from "../src/components/AppShell"
 import { I18nProvider } from "../src/i18n/provider"
 import { ThemeProvider } from "../src/theme/provider"
 
-const mocks = vi.hoisted(() => ({ info: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  info: vi.fn(),
+  codeTicket: vi.fn(),
+  codeStatus: vi.fn(),
+}))
 
 vi.mock("../src/api/client", () => ({ api: mocks }))
 
@@ -47,7 +52,19 @@ beforeEach(() => {
   // same tick the chord test presses the key, so the two toggle each other.
   window.localStorage.clear()
   mocks.info.mockReset()
+  mocks.codeTicket.mockReset()
+  mocks.codeStatus.mockReset()
   mocks.info.mockResolvedValue({ code: { configured: true, expectedVersion: "2" } })
+  mocks.codeTicket.mockImplementation(
+    async () => ({ url: "https://code.example.com/__auth?ticket=test&next=%2F" }),
+  )
+  mocks.codeStatus.mockResolvedValue({
+    configured: true,
+    reachable: true,
+    version: "2.3.0",
+    expectedVersion: "2",
+    matches: true,
+  })
 })
 
 afterEach(() => {
@@ -129,7 +146,8 @@ function renderShell(entry: string) {
       <Routes>
         <Route element={<AppShell />}>
           <Route path="/" element={<p>chat home</p>} />
-          <Route path="/code/*" element={<p>code route</p>} />
+          <Route path="/code" element={<CodeRoute />} />
+          <Route path="/code/*" element={<CodeRoute />} />
         </Route>
       </Routes>
     </SurfaceProvider>,
@@ -240,10 +258,12 @@ describe("surface layout", () => {
     chat.unmount()
 
     renderShell("/code/workspace/x")
-    expect(await screen.findByText("code route")).toBeInTheDocument()
+    expect(await screen.findByTestId("code-bar")).toBeInTheDocument()
     expect(screen.queryByTestId("app-bar")).toBeNull()
     expect(screen.queryByTestId("app-drawer")).toBeNull()
-    expect(screen.queryByTestId("surface-switch")).toBeNull()
+    // The Code page's own bar carries the one switch on this surface.
+    expect(screen.getByTestId("surface-switch")).toBeInTheDocument()
+    expect(screen.getAllByTestId("surface-switch")).toHaveLength(1)
   })
 
   it("follows a chat sidebar navigation back to the Chat surface", async () => {
