@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - bound soft-cap bookkeeping and report a full usage ledger; bound memory reads, rotate bookkeeping and keep GET side-effect free (#49, #53, #54)
 - make the soft-cap compaction id unique per attempt (#53)
 - correct fallback model choice, paid-turn cap and turn tracking; own fallback outcomes and retries in the server, not the SSE pump (#54)
+- close browser streams on a host drop so the outage banner recovers (#54)
 - enforce the spec's 20 MiB per-attachment cap (#26)
 - export the extracted event route
 - give the BFF a writable chat-files subtree
@@ -78,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - name the accepted queued-send delta race (#54)
 - name the chat-only surfaces in the parity contract (#50)
 - state the 2.5.0 limits instead of the M1 placeholder list (#5)
+- the 2.5.0 changelog (#18)
 
 ## [2.2.0] - 2026-11-18
 
