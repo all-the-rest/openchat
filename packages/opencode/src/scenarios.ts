@@ -9,6 +9,7 @@ const SCENARIOS: FakeScenario[] = [
   "abort",
   "slow",
   "fallback",
+  "fallback-text",
 ]
 
 export function isFakeScenario(value: string): value is FakeScenario {
@@ -20,7 +21,7 @@ export function isFakeScenario(value: string): value is FakeScenario {
  * Otherwise the constructor scenario wins.
  */
 export function resolveScenario(text: string, fallback: FakeScenario): FakeScenario {
-  const match = /^(rich|reasoning|tools|error|slow|fallback):/.exec(text.trimStart())
+  const match = /^(rich|reasoning|tools|error|slow|fallback-text|fallback):/.exec(text.trimStart())
   const name = match?.[1]
   return name && isFakeScenario(name) ? name : fallback
 }
@@ -142,6 +143,16 @@ export async function runScenario(
 
   if (scenario === "fallback") {
     // Fail before any text part or delta exists, so the BFF can re-prompt.
+    if (!(await runtime.pause())) return "interrupted"
+    throw fallbackFailure()
+  }
+
+  if (scenario === "fallback-text") {
+    // One visible delta before the POST resolves, then the same retryable
+    // failure. A BFF that registers the turn only after the POST would miss
+    // the delta and retry a turn that already printed.
+    const textPart = runtime.addTextPart()
+    runtime.streamText(textPart.id, "early output")
     if (!(await runtime.pause())) return "interrupted"
     throw fallbackFailure()
   }

@@ -9,7 +9,7 @@ function policy(overrides: Record<string, unknown> = {}) {
   return {
     surface: "chat",
     chain: [model("opencode", "free-1", { isFree: true })],
-    paidDailyCap: 0,
+    paidDailyTurns: 0,
     contextSoftCap: 0,
     ...overrides,
   }
@@ -37,12 +37,12 @@ describe("turn policy schema", () => {
   })
 
   it("accepts integer caps at zero and above", () => {
-    expect(accepted({ paidDailyCap: 250_000, contextSoftCap: 128_000 })).toBe(true)
+    expect(accepted({ paidDailyTurns: 250_000, contextSoftCap: 128_000 })).toBe(true)
   })
 
   it.each([
-    ["negative paid cap", { paidDailyCap: -1 }],
-    ["fractional paid cap", { paidDailyCap: 1.5 }],
+    ["negative paid cap", { paidDailyTurns: -1 }],
+    ["fractional paid cap", { paidDailyTurns: 1.5 }],
     ["negative context cap", { contextSoftCap: -1 }],
     ["fractional context cap", { contextSoftCap: 0.5 }],
   ])("rejects %s", (_label, overrides) => {
@@ -87,5 +87,10 @@ describe("turn policy schema", () => {
         chain: [model("provider", "model", { variant: "fast" }), model("provider", "model", { variant: "deep" })],
       }),
     ).toBe(true)
+  })
+
+  it("accepts a positive context window and rejects a non-positive one", () => {
+    expect(accepted({ chain: [model("provider", "model", { contextLimit: 8_192 })] })).toBe(true)
+    expect(accepted({ chain: [model("provider", "model", { contextLimit: 0 })] })).toBe(false)
   })
 })

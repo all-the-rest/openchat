@@ -78,6 +78,8 @@ export interface AppOptions {
   fallback?: FallbackEngine
   /** Injected resolved chat policy; tests narrow the chain. */
   chatPolicy?: TurnPolicy
+  /** Boot warning sink; tests capture it, production defaults to `console.warn`. */
+  warn?: (message: string) => void
 }
 
 export interface AppVariables {
@@ -130,15 +132,21 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     })
   // Model fallback: the ledger is cheap and side-effect-free at construction;
   // an invalid chain JSON only disables fallback rather than failing boot.
+  const warn = options.warn ?? ((message: string) => console.warn(`[openchat] ${message}`))
   let chain: ReturnType<typeof validateChainJson> = []
-  try {
-    chain = validateChainJson(config.FALLBACK_CHAIN_JSON)
-  } catch {
-    // Empty chain: no fallback. A warning would need the loader's `warn`.
+  if (config.FALLBACK_CHAIN_JSON.trim() !== "") {
+    try {
+      chain = validateChainJson(config.FALLBACK_CHAIN_JSON)
+    } catch (error) {
+      // One boot warning, with the validation message only: the raw value can
+      // carry credentials or private endpoints and never belongs in a log.
+      const reason = error instanceof Error ? error.message : "unknown validation error"
+      warn(`FALLBACK_CHAIN_JSON is invalid; fallback stays disabled: ${reason}`)
+    }
   }
   const chatPolicy = options.chatPolicy ?? resolveChatPolicy({
     chain,
-    paidDailyCap: config.FALLBACK_PAID_DAILY_CAP,
+    paidDailyTurns: config.FALLBACK_PAID_DAILY_CAP,
     contextSoftCap: config.CHAT_CONTEXT_SOFT_CAP,
   })
   const fallback = options.fallback ?? new FallbackEngine({

@@ -90,7 +90,7 @@ export interface EnvConfig extends WorkspaceFileEnv {
   CHAT_CONTEXT_SOFT_CAP: number
   /** JSON array of `ModelRef`; empty means no fallback chain. Validated at startup. */
   FALLBACK_CHAIN_JSON: string
-  /** Daily paid-model budget; 0 disables the cap. */
+  /** Paid turns allowed per local day (free turns never count); 0 disables the cap. */
   FALLBACK_PAID_DAILY_CAP: number
   /** Directory for the per-day usage ledger. */
   FALLBACK_USAGE_DIR: string

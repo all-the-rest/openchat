@@ -13,6 +13,11 @@ export interface ModelRef {
   variant?: string
   /** True when this model bills nothing. Absent means paid. */
   isFree?: boolean
+  /**
+   * Prompt-token window of the model, when known. A context-overflow retry is
+   * pointless on a model that cannot hold more than the one that just failed.
+   */
+  contextLimit?: number
 }
 
 /** Which surface owns a turn; only chat applies the fallback chain. */
@@ -26,10 +31,10 @@ export interface TurnPolicy {
    */
   chain: ModelRef[]
   /**
-   * Paid spend allowed per local day, in micros of the billing currency.
-   * `0` turns the cap off.
+   * Paid turns allowed per local day. A turn counts when the answered model is
+   * not marked free. `0` turns the cap off.
    */
-  paidDailyCap: number
+  paidDailyTurns: number
   /** Prompt tokens before compaction is preferred. `0` turns the cap off. */
   contextSoftCap: number
 }
@@ -66,6 +71,7 @@ export const modelRefSchema = z.object({
   modelID: z.string().trim().min(1).max(200),
   variant: z.string().trim().min(1).max(100).optional(),
   isFree: z.boolean().optional(),
+  contextLimit: z.number().int().positive().optional(),
 })
 
 /**
@@ -81,7 +87,7 @@ export const turnPolicySchema = z
   .object({
     surface: z.enum(["chat", "code"]),
     chain: z.array(modelRefSchema).max(MAX_CHAIN_LENGTH),
-    paidDailyCap: z.number().int().min(0),
+    paidDailyTurns: z.number().int().min(0),
     contextSoftCap: z.number().int().min(0),
   })
   .superRefine((policy, ctx) => {

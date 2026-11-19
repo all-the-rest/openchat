@@ -14,15 +14,15 @@ function policy(overrides: Partial<TurnPolicy> = {}): TurnPolicy {
   return {
     surface: "chat",
     chain: [A, B],
-    paidDailyCap: 1000,
+    paidDailyTurns: 1000,
     contextSoftCap: 0,
     ...overrides,
   }
 }
 
 interface DepsOptions {
-  promptImpl?: (sessionID: string, input: PromptInput) => Promise<{ messageID: string }>
-  spent?: number
+  promptImpl?: (sessionID: string, input: PromptInput) => Promise<{ messageID: string; queued?: boolean }>
+  paidTurns?: number
   now?: number
 }
 
@@ -33,6 +33,7 @@ function makeDeps(options: DepsOptions = {}) {
     modelID: string
     turns: number
     costMicros: number
+    isFree?: boolean
   }> = []
   const now = options.now ?? 1000
   const deps: FallbackEngineDeps = {
@@ -47,8 +48,8 @@ function makeDeps(options: DepsOptions = {}) {
       async record(entry) {
         recorded.push(entry)
       },
-      async spentToday() {
-        return options.spent ?? 0
+      async paidTurnsToday() {
+        return options.paidTurns ?? 0
       },
     },
     now: () => now,
@@ -122,7 +123,8 @@ describe("FallbackEngine", () => {
       answered: B,
       fellBack: true,
       reason: "rate_limit",
-      attempts: 1,
+      // The failed first attempt plus the successful retry.
+      attempts: 2,
     })
   })
 
@@ -136,6 +138,7 @@ describe("FallbackEngine", () => {
 
     expect(result).toEqual({ suppress: false, events: [] })
     expect(calls).toHaveLength(0)
+    expect(engine.activeCount()).toBe(0)
   })
 
   it("ignores deltas from other sessions but counts reasoning/tool output as emitted", async () => {
@@ -165,15 +168,31 @@ describe("FallbackEngine", () => {
     expect(calls).toHaveLength(1)
   })
 
+  it("retries once when two subscribers report the same failure concurrently", async () => {
+    const { deps, calls } = makeDeps()
+    const engine = new FallbackEngine(deps)
+    engine.begin("s1", { text: "hi" }, policy(), A)
+
+    const [first, second] = await Promise.all([
+      engine.onFailure(failureEvent()),
+      engine.onFailure(failureEvent()),
+    ])
+
+    // The second subscriber forwards the original failure; only one retry was
+    // submitted.
+    expect([first.suppress, second.suppress].sort()).toEqual([false, true])
+    expect(calls).toHaveLength(1)
+  })
+
   const capCases: Array<[string, ModelRef[], number, boolean]> = [
-    ["paid next with the cap exhausted", [A, B], 100, false],
-    ["paid next with budget left", [A, B], 101, true],
-    ["free next with the cap exhausted", [A, FREE], 100, true],
+    ["paid next with the cap reached", [A, B], 100, false],
+    ["paid next with a turn left", [A, B], 101, true],
+    ["free next with the cap reached", [A, FREE], 100, true],
   ]
   it.each(capCases)("cap decision: %s", async (_name, chain, cap, expected) => {
-    const { deps } = makeDeps({ spent: 100 })
+    const { deps } = makeDeps({ paidTurns: 100 })
     const engine = new FallbackEngine(deps)
-    engine.begin("s1", { text: "hi" }, policy({ chain, paidDailyCap: cap }), A)
+    engine.begin("s1", { text: "hi" }, policy({ chain, paidDailyTurns: cap }), A)
     const result = await engine.onFailure(failureEvent())
     expect(result.suppress).toBe(expected)
   })
@@ -206,13 +225,24 @@ describe("FallbackEngine", () => {
       requested: A,
       answered: A,
       fellBack: false,
-      attempts: 0,
+      attempts: 1,
       costMicros: 0,
     })
     expect(recorded).toEqual([
       { providerID: A.providerID, modelID: A.modelID, turns: 1, costMicros: 0 },
     ])
     expect(engine.activeCount()).toBe(0)
+  })
+
+  it("records the free flag of an answered free model", async () => {
+    const { deps, recorded } = makeDeps()
+    const engine = new FallbackEngine(deps)
+    engine.begin("s1", { text: "hi" }, policy({ chain: [FREE] }), FREE)
+    await engine.onSuccess(successEvent())
+
+    expect(recorded).toEqual([
+      { providerID: FREE.providerID, modelID: FREE.modelID, turns: 1, costMicros: 0, isFree: true },
+    ])
   })
 
   it("records the answered fallback model and reports fellBack on success", async () => {
@@ -227,7 +257,7 @@ describe("FallbackEngine", () => {
       requested: A,
       answered: B,
       fellBack: true,
-      attempts: 1,
+      attempts: 2,
     })
     expect(recorded).toEqual([
       { providerID: B.providerID, modelID: B.modelID, turns: 1, costMicros: 0 },
@@ -256,6 +286,25 @@ describe("FallbackEngine", () => {
 
     expect(result).toEqual({ suppress: false, events: [] })
     expect(calls).toHaveLength(1)
+    // The turn is over; a later failure must not try again.
+    expect(engine.activeCount()).toBe(0)
+  })
+
+  it("abandons a registration without starting a run and restores the replaced turn", async () => {
+    const { deps, calls } = makeDeps()
+    const engine = new FallbackEngine(deps)
+    engine.begin("s1", { text: "first" }, policy(), A)
+
+    // A second prompt replaces the active turn, then turns out to be queued.
+    engine.begin("s1", { text: "second" }, policy(), B)
+    expect(engine.activeCount()).toBe(1)
+    engine.abandon("s1")
+
+    const result = await engine.onFailure(failureEvent())
+    expect(result.suppress).toBe(true)
+    // The restored turn is the first one: its text is re-prompted, not the
+    // queued text.
+    expect(calls[0]?.input.text).toBe("first")
   })
 
   it("forgets a session on request", async () => {

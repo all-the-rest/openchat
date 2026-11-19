@@ -193,7 +193,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
 
     // The `fallback:` scripted failure is one-shot: the first matching prompt
     // fails, the engine's retry (same text, now with a modelRef) succeeds.
-    const wantsFailure = /^fallback:/.test(input.text.trimStart())
+    const wantsFailure = /^fallback(?:-text)?:/.test(input.text.trimStart())
     const alreadyFired = this.fallbackFired.has(sessionID)
     if (wantsFailure) this.fallbackFired.add(sessionID)
     const assistantMessage = this.runner.start(sessionID, input.text, alreadyFired)

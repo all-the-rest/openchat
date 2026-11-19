@@ -50,6 +50,20 @@ describe("fallback fake support", () => {
   it("resolves the fallback scenario prefix", () => {
     expect(resolveScenario("fallback: x", "default")).toBe("fallback")
     expect(resolveScenario("fallback: x", "rich")).toBe("fallback")
+    expect(resolveScenario("fallback-text: x", "default")).toBe("fallback-text")
+  })
+
+  it("streams one delta before the retryable failure", async () => {
+    const backend = new FakeBackend({ delayMs: 0 })
+    const session = await backend.createSession({ directory: "/workspace" })
+    const events = await runUntilTerminal(backend, session.id, "fallback-text: retry")
+
+    const failedIndex = events.findIndex((event) => event.type === EVENT.executionFailed)
+    expect(failedIndex).toBeGreaterThanOrEqual(0)
+    expect(events[failedIndex]?.data.code).toBe("rate_limit")
+    expect(
+      events.slice(0, failedIndex).some((event) => event.type === EVENT.textDelta),
+    ).toBe(true)
   })
 
   it("emits a retryable rate-limit failure before any text", async () => {

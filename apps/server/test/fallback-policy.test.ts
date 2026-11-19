@@ -16,7 +16,7 @@ function chatPolicy(overrides: Partial<TurnPolicy> = {}): TurnPolicy {
   return {
     surface: "chat",
     chain: [FREE, PAID],
-    paidDailyCap: 5_000,
+    paidDailyTurns: 5,
     contextSoftCap: 0,
     ...overrides,
   }
@@ -28,7 +28,7 @@ function decision(overrides: Partial<FallbackDecisionInput> = {}): boolean {
     failure: { code: "rate_limit" },
     emittedText: "",
     attempts: 1,
-    paidSpent: 0,
+    paidTurns: 0,
     next: PAID,
     ...overrides,
   })
@@ -146,27 +146,55 @@ describe("one-retry fallback decision", () => {
     expect(decision({ policy: chatPolicy({ surface: "code" }), next: FREE })).toBe(false)
   })
 
-  it("refuses a paid retry once the daily cap is spent", () => {
-    expect(decision({ paidSpent: 5_000 })).toBe(false)
-    expect(decision({ paidSpent: 6_000 })).toBe(false)
+  it("refuses a paid retry once the daily paid-turn cap is reached", () => {
+    expect(decision({ paidTurns: 5 })).toBe(false)
+    expect(decision({ paidTurns: 6 })).toBe(false)
   })
 
-  it("allows a paid retry while budget remains", () => {
-    expect(decision({ paidSpent: 4_999 })).toBe(true)
+  it("allows a paid retry while paid turns remain", () => {
+    expect(decision({ paidTurns: 4 })).toBe(true)
   })
 
   it("treats a zero cap as off", () => {
-    expect(decision({ policy: chatPolicy({ paidDailyCap: 0 }), paidSpent: 1_000_000 })).toBe(true)
+    expect(decision({ policy: chatPolicy({ paidDailyTurns: 0 }), paidTurns: 1_000_000 })).toBe(true)
   })
 
   it("lets a free entry bypass an exhausted cap", () => {
-    expect(decision({ next: FREE, paidSpent: 1_000_000 })).toBe(true)
+    expect(decision({ next: FREE, paidTurns: 1_000_000 })).toBe(true)
   })
 
   it("does not treat a missing flag as free", () => {
-    expect(decision({ next: { providerID: "acme", modelID: "small" }, paidSpent: 5_000 })).toBe(
-      false,
-    )
+    expect(decision({ next: { providerID: "acme", modelID: "small" }, paidTurns: 5 })).toBe(false)
+  })
+
+  const smallWindow: ModelRef = { providerID: "acme", modelID: "small", contextLimit: 8_192 }
+  const bigWindow: ModelRef = { providerID: "acme", modelID: "big", contextLimit: 32_768 }
+  it("refuses a context-overflow retry on a model without a larger window", () => {
+    expect(
+      decision({ failure: { code: "context_overflow" }, current: smallWindow, next: smallWindow }),
+    ).toBe(false)
+    expect(
+      decision({
+        failure: { code: "context_overflow" },
+        current: bigWindow,
+        next: smallWindow,
+      }),
+    ).toBe(false)
+  })
+
+  it("allows a context-overflow retry on a larger window", () => {
+    expect(
+      decision({ failure: { code: "context_overflow" }, current: smallWindow, next: bigWindow }),
+    ).toBe(true)
+  })
+
+  it("keeps the context-overflow retry when a window is unknown", () => {
+    expect(
+      decision({ failure: { code: "context_overflow" }, current: smallWindow, next: PAID }),
+    ).toBe(true)
+    expect(
+      decision({ failure: { code: "context_overflow" }, current: PAID, next: smallWindow }),
+    ).toBe(true)
   })
 })
 
