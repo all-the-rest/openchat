@@ -64,6 +64,19 @@ const session = await opencode.sessions.create({
 await opencode.sessions.prompt({ sessionID: session.id, text: "Hello" })
 ```
 
+## Prompt text and slash commands
+
+`LiveBackend.prompt()` forwards composer text verbatim to
+`client.session.prompt(...)`. OpenCode's `/prompt` endpoint stores `text` as a
+plain user message and never parses slash commands; registered commands such as
+`/goal` use the separate `POST /api/session/{id}/command` endpoint
+(`session.command` in the client). openchat does not call that endpoint. Typing
+`/goal …` in the composer therefore creates an ordinary message, while the
+OpenCode TUI detects the leading `/` and invokes the command endpoint itself.
+This is a known limitation rather than a defect; see upstream
+[`anomalyco/opencode#64995`](https://github.com/anomalyco/opencode/issues/64995)
+and [`all-the-rest/openchat#60`](https://github.com/all-the-rest/openchat/issues/60).
+
 ## Backend port
 
 ```ts
