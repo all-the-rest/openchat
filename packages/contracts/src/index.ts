@@ -10,6 +10,7 @@ export * from "./apps"
 export * from "./artifacts"
 export * from "./compaction"
 export * from "./files"
+export * from "./forms"
 export * from "./memory"
 export * from "./artifacts/caps"
 export * from "./permissions"
@@ -267,6 +268,9 @@ export const EVENT = {
   compactionFailed: "session.compaction.failed",
   permissionAsked: "permission.asked",
   permissionReplied: "permission.replied",
+  formCreated: "form.created",
+  formReplied: "form.replied",
+  formCancelled: "form.cancelled",
   error: "session.error",
   fallbackNotice: "chat.fallback.notice",
   turnOutcome: "turn.outcome",

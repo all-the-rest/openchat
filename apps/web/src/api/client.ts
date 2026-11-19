@@ -9,6 +9,8 @@ import type {
   CodeTicketResponse,
   CreateSessionRequest,
   FallbackStatusResponse,
+  FormAnswer,
+  FormRequest,
   InboxEntry,
   InfoResponse,
   LoginResponse,
@@ -187,6 +189,23 @@ export const api = {
     })
   },
 
+  /** Renames one chat; the BFF answers the refreshed row. */
+  renameSession(sessionID: string, title: string): Promise<SessionInfo> {
+    return request<SessionInfo>(sessionPath(sessionID), {
+      method: "PATCH",
+      body: JSON.stringify({ title }),
+    })
+  },
+
+  /** Deletes one chat; the BFF answers `{ ok: true }`. */
+  deleteSession(sessionID: string): Promise<void> {
+    return request<void>(sessionPath(sessionID), {
+      method: "DELETE",
+      // The BFF requires a JSON content type on state-changing requests.
+      body: JSON.stringify({}),
+    })
+  },
+
   async listMessages(sessionID: string): Promise<Message[]> {
     const body = await request<unknown>(`${sessionPath(sessionID)}/messages`)
     return unwrapList<Message>(body, "messages")
@@ -253,6 +272,20 @@ export const api = {
     return request<void>(
       `${sessionPath(sessionID)}/permissions/${encodeURIComponent(requestID)}`,
       { method: "POST", body: JSON.stringify({ decision }) },
+    )
+  },
+
+  /** Open question forms of one session. */
+  async listForms(sessionID: string): Promise<FormRequest[]> {
+    const body = await request<unknown>(`${sessionPath(sessionID)}/forms`)
+    return unwrapList<FormRequest>(body, "forms")
+  },
+
+  /** Answers one form; a closed or unknown form answers 404/409. */
+  replyForm(sessionID: string, formID: string, answer: FormAnswer): Promise<void> {
+    return request<void>(
+      `${sessionPath(sessionID)}/forms/${encodeURIComponent(formID)}`,
+      { method: "POST", body: JSON.stringify({ answer }) },
     )
   },
 

@@ -2,6 +2,8 @@ import { OpenCode } from "@opencode/client"
 import type {
   AgentInfo,
   EventEnvelope,
+  FormAnswer,
+  FormRequest,
   InboxEntry,
   Message,
   ModelInfo,
@@ -25,6 +27,7 @@ import type { CompactionOutcome, SessionContext } from "@openchat/contracts"
 import { EventQueue } from "./events"
 import { BackendError } from "./errors"
 import { compactOnHost, sessionContextOnHost } from "./live-compaction"
+import { listHostForms, replyHostForm } from "./live-forms"
 import { liveAppAction, liveApps } from "./live-apps"
 import { applyCompletion, mapHostModel } from "./live-model"
 import type { HostModelInfo, ModelHostInfo } from "./live-model"
@@ -122,6 +125,36 @@ export class LiveBackend extends LiveTaskApi implements ChatBackend {
       throw new BackendError("unavailable", "The host did not accept the instruction entry")
     }
   }
+
+  async renameSession(sessionID: string, title: string): Promise<SessionInfo> {
+    // `session.update` reports a miss generically, so a pre-read separates an
+    // unknown chat (404) from a failed write.
+    try {
+      await this.client.session.get({ sessionID })
+    } catch {
+      throw new BackendError("not_found", `Unknown session: ${sessionID}`)
+    }
+    try {
+      await this.client.session.update({ sessionID, title })
+      return normalizeSession(await this.client.session.get({ sessionID }), this.workspace)
+    } catch {
+      throw new BackendError("unavailable", "The host did not rename the chat")
+    }
+  }
+
+  async deleteSession(sessionID: string): Promise<void> {
+    try {
+      await this.client.session.get({ sessionID })
+    } catch {
+      throw new BackendError("not_found", `Unknown session: ${sessionID}`)
+    }
+    try {
+      await this.client.session.remove({ sessionID })
+    } catch {
+      throw new BackendError("unavailable", "The host did not delete the chat")
+    }
+  }
+
   async listMessages(sessionID: string): Promise<Message[]> {
     const response = await this.client.message.list({ sessionID })
     const messages: Message[] = []
@@ -260,6 +293,14 @@ export class LiveBackend extends LiveTaskApi implements ChatBackend {
     decision: PermissionDecision,
   ): Promise<void> {
     await replyHostPermission(this.client, sessionID, requestID, decision)
+  }
+
+  async listForms(sessionID: string): Promise<FormRequest[]> {
+    return listHostForms(this.client, sessionID)
+  }
+
+  async replyForm(sessionID: string, formID: string, answer: FormAnswer): Promise<void> {
+    await replyHostForm(this.client, sessionID, formID, answer)
   }
 
   async listApps(): Promise<AppsSnapshot> {

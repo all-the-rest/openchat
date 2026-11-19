@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { messageText, type Message } from "@openchat/contracts"
 import { api } from "../api/client"
 import { ChatFiles } from "../chat/ChatFiles"
+import { ChatHeaderActions } from "../chat/ChatHeaderActions"
 import { ChatMenu } from "../chat/ChatMenu"
 import { CompletionPickers } from "../chat/CompletionPicker"
 import { Composer } from "../chat/Composer"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
 import { ContextMeter } from "../chat/ContextMeter"
 import { clearDraft } from "../chat/drafts"
+import { useForms } from "../chat/forms"
 import { PermissionCard } from "../chat/PermissionCard"
 import { usePermissions } from "../chat/permissions"
 import { QueuedTurns } from "../chat/QueuedTurns"
@@ -17,7 +19,7 @@ import { useSessions } from "../chat/sessions"
 import { Transcript } from "../chat/Transcript"
 import { useChatSession } from "../chat/useChatSession"
 import { ErrorBanner } from "../components/ErrorBanner"
-import { ChevronDownIcon, MoreIcon } from "../components/icons"
+import { ChevronDownIcon } from "../components/icons"
 import type { MessageKey } from "../i18n"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
@@ -32,75 +34,13 @@ interface ChatLocationState {
 const WIDE_QUERY = "(min-width: 640px)"
 
 /**
- * Narrow-width home for the header's secondary controls (spec 04, spec 09).
- * The title and the session menu stay in the bar; the meter, usage panel and
- * completion pickers move behind this trigger so nothing is dropped at 320 px.
- * It is a labelled group, not a `menu`: its children are pickers and panels,
- * not `menuitem`s. `Escape` restores focus and an outside click closes it.
+ * Question forms are rare, while the card's inputs are the largest single
+ * addition to this route (FR-16). Its own chunk keeps ChatPage inside the
+ * bundle contract; the transcript renders before it resolves.
  */
-function ChatHeaderActions({ children }: { children: ReactNode }) {
-  const t = useT()
-  const [open, setOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const panelID = useId()
-
-  useEffect(() => {
-    if (!open) return
-    // Move focus into the panel so keyboard and screen-reader users land in
-    // the revealed controls instead of staying on the trigger.
-    panelRef.current?.focus()
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return
-      setOpen(false)
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      event.preventDefault()
-      setOpen(false)
-      triggerRef.current?.focus()
-    }
-    document.addEventListener("pointerdown", onPointerDown)
-    document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown)
-      document.removeEventListener("keydown", onKeyDown)
-    }
-  }, [open])
-
-  return (
-    <div className="relative shrink-0" data-testid="chat-header-actions">
-      <button
-        type="button"
-        ref={triggerRef}
-        data-testid="chat-header-more"
-        aria-expanded={open}
-        aria-controls={panelID}
-        aria-label={t("menu.trigger")}
-        title={t("menu.trigger")}
-        onClick={() => setOpen((value) => !value)}
-        className="btn btn-ghost btn-sm btn-square"
-      >
-        <MoreIcon className="size-4" />
-      </button>
-      {open ? (
-        <div
-          id={panelID}
-          ref={panelRef}
-          role="group"
-          aria-label={t("menu.label")}
-          tabIndex={-1}
-          data-testid="chat-header-actions-panel"
-          className="absolute end-0 top-full z-50 mt-1 flex w-max max-w-[calc(100vw_-_2rem)] flex-col gap-2 overflow-x-auto rounded-row border border-subtle bg-elevated p-2 shadow-lg"
-        >
-          {children}
-        </div>
-      ) : null}
-    </div>
-  )
-}
+const FormCard = lazy(() =>
+  import("../chat/FormCard").then((module) => ({ default: module.FormCard })),
+)
 
 export function ChatPage() {
   const t = useT()
@@ -108,9 +48,10 @@ export function ChatPage() {
   const { sessionId = "", messageId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const { sessions, refresh: refreshSessions } = useSessions()
+  const { sessions, refresh: refreshSessions, rename, remove } = useSessions()
   const chat = useChatSession(sessionId)
   const permission = usePermissions(sessionId)
+  const forms = useForms(sessionId)
   const consumedFor = useRef<string | null>(null)
   const [filesVersion, setFilesVersion] = useState(0)
   const refreshFiles = useCallback(() => setFilesVersion((value) => value + 1), [])
@@ -208,6 +149,30 @@ export function ChatPage() {
     setBranchError(false)
     setEditing({ messageID: message.id, text })
   }, [])
+
+  // Rename and delete go through the sessions provider, so the sidebar and
+  // this heading read one list. Deleting the open chat returns home.
+  const renameChat = useCallback(
+    async (title: string) => {
+      try {
+        await rename(sessionId, title)
+        return true
+      } catch {
+        return false
+      }
+    },
+    [rename, sessionId],
+  )
+
+  const deleteChat = useCallback(async () => {
+    try {
+      await remove(sessionId)
+      navigate("/")
+      return true
+    } catch {
+      return false
+    }
+  }, [remove, sessionId, navigate])
 
   // Sending while editing forks first: the new branch keeps the history before
   // that message and receives the edited text as its next turn.
@@ -310,6 +275,8 @@ export function ChatPage() {
           messages={chat.messages}
           onCompact={() => void chat.compactNow()}
           compactDisabled={chat.running || chat.streaming}
+          onRename={renameChat}
+          onDelete={deleteChat}
         />
       </header>
 
@@ -351,6 +318,11 @@ export function ChatPage() {
               }}
             />
           ) : null}
+          <Suspense fallback={null}>
+            {forms.forms.map((form) => (
+              <FormCard key={form.id} form={form} value={forms} />
+            ))}
+          </Suspense>
           <PermissionCard value={permission} />
 
           <FirstRunGate>

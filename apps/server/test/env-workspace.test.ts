@@ -23,7 +23,7 @@ describe("workspace file env", () => {
     })
     expect(CHAT_QUOTA_PER_CHAT_BYTES).toBe(100 * 1024 * 1024)
     expect(CHAT_QUOTA_TOTAL_BYTES).toBe(1024 * 1024 * 1024)
-    expect(CHAT_FILE_MAX_BYTES).toBe(25 * 1024 * 1024)
+    expect(CHAT_FILE_MAX_BYTES).toBe(20 * 1024 * 1024)
     expect(warnings).toEqual([])
   })
 

@@ -2,6 +2,8 @@ import type {
   BackgroundJob,
   CompactionOutcome,
   EventEnvelope,
+  FormAnswer,
+  FormRequest,
   PermissionDecision,
   Schedule,
   SessionContext,
@@ -72,6 +74,19 @@ export class FakeHostSwitch implements ChatBackend {
   async createSession(input: CreateSessionInput): ReturnType<ChatBackend["createSession"]> {
     this.guard()
     return this.backend.createSession(input)
+  }
+
+  async renameSession(
+    sessionID: string,
+    title: string,
+  ): ReturnType<ChatBackend["renameSession"]> {
+    this.guard()
+    return this.backend.renameSession(sessionID, title)
+  }
+
+  async deleteSession(sessionID: string): Promise<void> {
+    this.guard()
+    return this.backend.deleteSession(sessionID)
   }
 
   async putInstruction(
@@ -181,6 +196,16 @@ export class FakeHostSwitch implements ChatBackend {
   ): Promise<void> {
     this.guard()
     return this.backend.replyPermission(sessionID, requestID, decision)
+  }
+
+  async listForms(sessionID: string): Promise<FormRequest[]> {
+    this.guard()
+    return this.backend.listForms(sessionID)
+  }
+
+  async replyForm(sessionID: string, formID: string, answer: FormAnswer): Promise<void> {
+    this.guard()
+    return this.backend.replyForm(sessionID, formID, answer)
   }
 
   async listApps(): Promise<AppsSnapshot> {

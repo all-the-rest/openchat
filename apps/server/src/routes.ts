@@ -1,20 +1,14 @@
 import type { Hono } from "hono"
-import { MEMORY_INDEX_KEY, STT_MODEL_ID } from "@openchat/contracts"
+import { STT_MODEL_ID } from "@openchat/contracts"
 import type { ChatBackend } from "@openchat/opencode"
 import { FakeHostSwitch, SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
-import {
-  compactRequestSchema,
-  createSessionRequestSchema,
-  loginRequestSchema,
-} from "@openchat/contracts"
+import { loginRequestSchema } from "@openchat/contracts"
 import type {
   AppsSurfaceInfo,
   CodeSurfaceInfo,
   DictationInfo,
   InfoResponse,
-  InboxResponse,
   LoginResponse,
-  SessionInfo,
 } from "@openchat/contracts"
 import {
   clearSessionCookie,
@@ -33,7 +27,8 @@ import {
   readJson,
 } from "./http"
 import { clientAddress } from "./middleware"
-import { registerCatalogRoutes, registerPermissionRoutes } from "./completion-routes"
+import { registerCatalogRoutes, registerFormRoutes, registerPermissionRoutes } from "./completion-routes"
+import { registerSessionRoutes } from "./sessions"
 import { registerPromptRoute } from "./prompt-route"
 import { registerAppsRoutes } from "./apps"
 import { AppsCache, probeApps } from "./apps-cache"
@@ -43,7 +38,6 @@ import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
 import type { ArtifactStatFsFn } from "./artifacts-internal"
 import { registerArtifactInternalRoute } from "./artifacts-internal"
 import { registerChatFilesRoutes } from "./chat-files"
-import type { MemoryInvalidator } from "./memory-instructions"
 import { createMemoryInvalidator } from "./memory-instructions"
 import {
   registerMemoryInternalRoute,
@@ -226,102 +220,6 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
   })
 }
 
-interface SessionMemory {
-  store: ReturnType<typeof createMemoryStore>
-  invalidator: MemoryInvalidator
-}
-
-function registerSessionRoutes(
-  app: Hono<AppEnv>,
-  deps: RouteDeps,
-  memory: SessionMemory,
-): void {
-  const { config, backend } = deps
-
-  app.get("/api/sessions", async (c) => {
-    const sessions = await backend.listSessions()
-    // Sessions created in the Code UI (or by the host) never pass through the
-    // create route below. Listing sessions is the bounded discovery point that
-    // plants the memory index into those sessions; a session that already got
-    // it is skipped, so this stays O(sessions), writes once and reuses the
-    // list the route already paid for.
-    await memory.invalidator.discover(sessions)
-    return c.json(sessions satisfies SessionInfo[])
-  })
-
-  app.post("/api/sessions", async (c) => {
-    const body = await readJson(c)
-    if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
-    if (body === INVALID_JSON) {
-      return jsonError(c, 400, "invalid_request", "Invalid JSON body")
-    }
-    const parsed = createSessionRequestSchema.safeParse(body ?? {})
-    if (!parsed.success) {
-      return jsonError(c, 400, "invalid_request", invalidMessage(parsed.error))
-    }
-    const session = await backend.createSession({
-      title: parsed.data.title,
-      directory: config.WORKSPACE_DIR,
-      model: parsed.data.model,
-      agent: parsed.data.agent,
-    })
-    memory.invalidator.noteSession(session.id)
-    try {
-      // The injected index is a convenience, never a reason to fail a create:
-      // store and host errors are both ignored here.
-      const value = memory.store.index().index
-      await backend.putInstruction(session.id, MEMORY_INDEX_KEY, value)
-      // Discovery must not plant a second copy into this session.
-      memory.invalidator.markInjected(session.id)
-    } catch {
-      // Session creation succeeds even when the host has no instruction port.
-      // Without the mark, the next discovery pass retries the index.
-    }
-    return c.json(session satisfies SessionInfo)
-  })
-
-  app.get("/api/sessions/:id/messages", async (c) => {
-    return c.json(await backend.listMessages(c.req.param("id")))
-  })
-
-  app.get("/api/sessions/:id/inbox", async (c) => {
-    const entries = await backend.listInbox(c.req.param("id"))
-    return c.json({ entries } satisfies InboxResponse)
-  })
-
-  // DELETE is state-changing, so the existing JSON content-type rule applies;
-  // clients send `Content-Type: application/json` even though the body is empty.
-  app.delete("/api/sessions/:id/inbox/:messageID", async (c) => {
-    await backend.cancelQueued(c.req.param("id"), c.req.param("messageID"))
-    return c.json({ ok: true })
-  })
-
-  app.post("/api/sessions/:id/interrupt", async (c) => {
-    await backend.interrupt(c.req.param("id"))
-    return c.json({ ok: true })
-  })
-
-  // Manual compaction. The host rejects a streaming session with `conflict`,
-  // which `createApp` maps to 409; the transcript then renders the failure
-  // event and offers a retry. The optional `id` makes a retried request
-  // idempotent: the host requires the `msg_` prefix on that field.
-  app.post("/api/sessions/:id/compact", async (c) => {
-    const body = await readJson(c)
-    if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
-    if (body === INVALID_JSON) {
-      return jsonError(c, 400, "invalid_request", "Invalid JSON body")
-    }
-    const parsed = compactRequestSchema.safeParse(body ?? {})
-    if (!parsed.success) {
-      return jsonError(c, 400, "invalid_request", invalidMessage(parsed.error))
-    }
-    const outcome = await backend.compact(c.req.param("id"), {
-      reason: "manual",
-      id: parsed.data.id,
-    })
-    return c.json({ ok: true, status: outcome.status })
-  })
-}
 /** Registers every API route; the guards and authentication run before it. */
 export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   // One cache for both `/api/apps` and `/api/info`: a page load probes once.
@@ -347,11 +245,16 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     config: deps.config,
     connectThrottle: deps.providerConnectThrottle,
   })
-  registerSessionRoutes(app, deps, { store: memoryStore, invalidator: memoryInvalidator })
+  registerSessionRoutes(app, {
+    config: deps.config,
+    backend: deps.backend,
+    memory: { store: memoryStore, invalidator: memoryInvalidator },
+  })
   registerBranchRoute(app, { backend: deps.backend, noteSession: (id) => memoryInvalidator.noteSession(id) })
   registerPromptRoute(app, deps)
   registerFallbackRoute(app, { policy: deps.chatPolicy, ledger: deps.usageLedger })
   registerPermissionRoutes(app, deps.backend)
+  registerFormRoutes(app, deps.backend)
   registerCodeRoutes(app, {
     config: deps.config,
     ticketThrottle: deps.codeTicketThrottle,

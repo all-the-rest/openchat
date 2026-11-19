@@ -13,6 +13,11 @@ msgid "settings.fallbackCapValue"
 msgstr "{cap, plural, one {# paid turn per day} other {# paid turns per day}}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.branchCount"
+msgstr "{count, plural, one {# branch} other {# branches}}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.schedules.runs"
 msgstr "{count, plural, one {# run} other {# runs}}"
@@ -194,6 +199,16 @@ msgstr "Answer copied to clipboard."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "chat.formSubmitted"
+msgstr "Answer sent. Waiting for the agent…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formHint"
+msgstr "Answer these questions so the agent can continue."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.permissionHint"
 msgstr "Answer this request before sending another message."
 
@@ -359,12 +374,37 @@ msgstr "Background jobs"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "chat.branchMessage"
+msgstr "Branch from here"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.branchOf"
+msgstr "Branch of {title}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "usage.cached"
 msgstr "Cached tokens"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "chat.renameCancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deleteCancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.inboxCancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.cancelEdit"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
@@ -433,6 +473,11 @@ msgid "files.listLabel"
 msgstr "Chat files"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.renameDone"
+msgstr "Chat renamed."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/palette.ts
 msgid "palette.searchFailed"
 msgstr "Chat search failed."
@@ -446,6 +491,11 @@ msgstr "Chat sessions"
 #: src/i18n/messages/shell.ts
 msgid "nav.sessionsLabel"
 msgstr "Chat sessions"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.renameLabel"
+msgstr "Chat title"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -481,6 +531,11 @@ msgstr "Check for models"
 #: src/i18n/messages/onboarding.ts
 msgid "firstRun.verifying"
 msgstr "Checking…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formChooseOption"
+msgstr "Choose an option"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shortcuts.ts
@@ -768,6 +823,11 @@ msgid "settings.defaults"
 msgstr "Defaults for new chats"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deleteConfirm"
+msgstr "Delete"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.delete"
 msgstr "Delete"
@@ -788,6 +848,11 @@ msgid "tasks.action.delete"
 msgstr "Delete {title}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.delete"
+msgstr "Delete chat"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.model.delete"
 msgstr "Delete downloaded speech model"
@@ -801,6 +866,11 @@ msgstr "Delete fact"
 #: src/i18n/messages/files.ts
 msgid "files.deleteConfirm"
 msgstr "Delete file"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deleteQuestion"
+msgstr "Delete this chat? This cannot be undone."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -956,6 +1026,16 @@ msgstr "Duration (for example, 30 minutes)"
 #: src/i18n/messages/memory.ts
 msgid "memory.edit"
 msgstr "Edit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.editMessage"
+msgstr "Edit message"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.editing"
+msgstr "Editing a message. Sending creates a new branch."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -1608,6 +1688,11 @@ msgid "shortcuts.list.palette"
 msgstr "Open the command palette"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formOpenExternal"
+msgstr "Open the external step"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "pwa.name"
 msgstr "OpenChat"
@@ -1853,6 +1938,11 @@ msgid "chat.favoriteRemove"
 msgstr "Remove {name} from favorites"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.rename"
+msgstr "Rename"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.mermaidLoading"
 msgstr "Rendering diagram…"
@@ -1861,6 +1951,11 @@ msgstr "Rendering diagram…"
 #: src/i18n/messages/dictation.ts
 msgid "dictation.requesting"
 msgstr "Requesting microphone…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formRequiredMark"
+msgstr "Required"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -1881,11 +1976,6 @@ msgstr "Result from this artifact"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.resume"
 msgstr "Resume {title}"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/settings.ts
-msgid "settings.fallbackRetry"
-msgstr "Retry"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -1938,6 +2028,11 @@ msgid "search.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackRetry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "host.retry"
 msgstr "Retry"
@@ -1976,6 +2071,11 @@ msgstr "Running"
 #: src/i18n/messages/apps.ts
 msgid "apps.autoHint"
 msgstr "Runs automatically when relevant"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.renameSave"
+msgstr "Save"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
@@ -2058,9 +2158,19 @@ msgid "composer.placeholder"
 msgstr "Send a message…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formSubmit"
+msgstr "Send answer"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "offline.composerHint"
 msgstr "Sending is unavailable while offline. Reconnect to start a new prompt."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formSubmitting"
+msgstr "Sending…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -2363,9 +2473,19 @@ msgid "tasks.action.failed"
 msgstr "The action failed. The schedule did not change."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formExternalHint"
+msgstr "The agent completes this step on another page."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/palette.ts
 msgid "palette.copyFailed"
 msgstr "The answer could not be copied."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formFailed"
+msgstr "The answer could not be sent. Try again."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -2404,8 +2524,23 @@ msgstr "The artifact link could not be refreshed. Reload to get a fresh one."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "chat.branchFailed"
+msgstr "The branch could not be created."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deleteFailed"
+msgstr "The chat could not be deleted."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.downloadFailed"
 msgstr "The chat could not be exported."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.renameFailed"
+msgstr "The chat could not be renamed."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -2638,6 +2773,11 @@ msgid "composer.attachmentTypeError"
 msgstr "This file type is not allowed."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formExpired"
+msgstr "This form is no longer open."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/onboarding.ts
 msgid "firstRun.error.unsupported"
 msgstr "This method is not available in the app. Use the host-side option."
@@ -2661,6 +2801,11 @@ msgstr "This server is no longer configured."
 #: src/i18n/messages/search.ts
 msgid "search.disabledHint"
 msgstr "This source is not configured on the host and was not queried."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formFieldRequired"
+msgstr "This value is required."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
@@ -2871,38 +3016,3 @@ msgstr "Your message could not be sent."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Your message is queued until the current run finishes."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.editMessage"
-msgstr "Edit message"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.branchMessage"
-msgstr "Branch from here"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.branchCount"
-msgstr "{count, plural, one {# branch} other {# branches}}"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.branchFailed"
-msgstr "The branch could not be created."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "session.branchOf"
-msgstr "Branch of {title}"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "composer.editing"
-msgstr "Editing a message. Sending creates a new branch."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "composer.cancelEdit"
-msgstr "Cancel"

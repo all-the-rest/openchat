@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
   })),
   listPermissions: vi.fn(async (): Promise<PermissionRequest[]> => []),
   replyPermission: vi.fn(async () => undefined),
+  listForms: vi.fn(async () => []),
+  replyForm: vi.fn(async () => undefined),
   prompt: vi.fn(async () => ({ ok: true, messageID: "msg_1" })),
   info: vi.fn(async () => ({
     dictation: { enabled: false, maxSeconds: 60, maxBytes: 1024 },
