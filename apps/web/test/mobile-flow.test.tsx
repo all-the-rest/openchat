@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => ({
   interrupt: vi.fn(async () => undefined),
   listPermissions: vi.fn(async () => []),
   replyPermission: vi.fn(async () => undefined),
+  listForms: vi.fn(async () => []),
+  replyForm: vi.fn(async () => undefined),
   models: vi.fn(async () => []),
   agents: vi.fn(async () => []),
   info: vi.fn(async () => ({})),

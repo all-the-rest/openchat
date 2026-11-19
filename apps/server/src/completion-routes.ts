@@ -1,8 +1,9 @@
 import type { Hono } from "hono"
 import type { ChatBackend } from "@openchat/opencode"
-import { permissionReplyRequestSchema } from "@openchat/contracts"
+import { formReplyRequestSchema, permissionReplyRequestSchema } from "@openchat/contracts"
 import type {
   AgentInfo,
+  FormsResponse,
   HostDefaultModelResponse,
   ModelInfo,
   PermissionsResponse,
@@ -59,6 +60,33 @@ export function registerPermissionRoutes(app: Hono<AppEnv>, backend: ChatBackend
       c.req.param("requestID"),
       parsed.data.decision,
     )
+    return c.json({ ok: true })
+  })
+}
+
+/**
+ * Interactive question forms: the open list and one answer. A null-safe answer
+ * record is required; the host decides whether a field was mandatory. The
+ * backend maps an unknown form to `not_found` (404) and a form that already
+ * left the open state to `conflict` (409).
+ */
+export function registerFormRoutes(app: Hono<AppEnv>, backend: ChatBackend): void {
+  app.get("/api/sessions/:id/forms", async (c) => {
+    const forms = await backend.listForms(c.req.param("id"))
+    return c.json({ forms } satisfies FormsResponse)
+  })
+
+  app.post("/api/sessions/:id/forms/:formID", async (c) => {
+    const body = await readJson(c)
+    if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
+    if (body === INVALID_JSON) {
+      return jsonError(c, 400, "invalid_request", "Invalid JSON body")
+    }
+    const parsed = formReplyRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return jsonError(c, 400, "invalid_request", invalidMessage(parsed.error))
+    }
+    await backend.replyForm(c.req.param("id"), c.req.param("formID"), parsed.data.answer)
     return c.json({ ok: true })
   })
 }

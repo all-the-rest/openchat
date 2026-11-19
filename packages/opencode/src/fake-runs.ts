@@ -77,6 +77,17 @@ export class FakeRunner {
     run.wake?.()
   }
 
+  /** Stops a run and its queue without promoting a queued prompt. */
+  drop(sessionID: string): void {
+    const run = this.runs.get(sessionID)
+    if (run) {
+      run.cancelled = true
+      run.wake?.()
+    }
+    this.runs.delete(sessionID)
+    this.queues.delete(sessionID)
+  }
+
   enqueue(sessionID: string, entry: QueuedPrompt): void {
     const queue = this.queues.get(sessionID) ?? []
     queue.push(entry)

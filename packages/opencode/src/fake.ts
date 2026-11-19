@@ -23,7 +23,6 @@ import type {
   AppsSnapshot,
   ChatBackend,
   CompactOptions,
-  CreateSessionInput,
   PromptInput,
   PromptResult,
   SearchInput,
@@ -37,6 +36,9 @@ import { FakeTaskStore } from "./fake-tasks"
 import { FakeWorktreeStore } from "./fake-worktrees"
 import { FakeCompaction } from "./fake-compaction"
 import { FakeEvents } from "./fake-events"
+import { FakeForms } from "./fake-forms"
+import { FakeSessionLifecycle } from "./fake-session-lifecycle"
+import { FakeSessionStore } from "./fake-sessions"
 import { forkSessionState } from "./fake-fork"
 import { FakeRunner } from "./fake-runs"
 import { FakePermissions } from "./fake-permissions"
@@ -47,7 +49,6 @@ import type {
   QueuedPrompt,
   RecordedPrompt,
   RunState,
-  SessionState,
 } from "./fake-state"
 import { subagentSeedSessions } from "./fake-seed"
 
@@ -57,10 +58,10 @@ export type { FakeBackendOptions, RecordedPrompt } from "./fake-state"
 type RecordedPromptWithRef = RecordedPrompt & { modelRef?: ModelRef }
 
 /** Deterministic in-memory backend; task methods come from `FakeTaskStore`. */
-export class FakeBackend extends FakeTaskStore implements ChatBackend {
-  private readonly sessions = new Map<string, SessionState>()
+export class FakeBackend extends FakeSessionLifecycle implements ChatBackend {
+  protected readonly store = new FakeSessionStore()
   private readonly runner: FakeRunner
-  private readonly clock: () => number
+  protected readonly clock: () => number
   private readonly workspace: string
   private readonly version: string
   private readonly disabledSources: readonly SearchSource[]
@@ -68,9 +69,10 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private readonly apps: FakeAppInventory
   private readonly integrations: FakeIntegrations
   private readonly onAppAction?: (action: "connect" | "disconnect", name: string) => void
-  private readonly events: FakeEvents
+  protected readonly events: FakeEvents
   private readonly permissions: FakePermissions
-  private readonly compaction: FakeCompaction
+  protected readonly forms: FakeForms
+  protected readonly compaction: FakeCompaction
   private readonly worktrees: FakeWorktreeStore
   private readonly recorded = new Map<string, RecordedPrompt>()
   /** Sessions whose scripted `fallback:` failure has already fired once. */
@@ -102,6 +104,9 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
       this.events.emit(type, sid, data, durable),
     )
     this.worktrees = new FakeWorktreeStore({ workspace: this.workspace })
+    this.forms = new FakeForms((type, sid, data, durable) =>
+      this.events.emit(type, sid, data, durable),
+    )
     this.parts = new PartWriter({
       nextID: (prefix) => this.events.nextID(prefix),
       clock: () => this.clock(),
@@ -122,7 +127,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
     })
     if (options.seedSubagents) {
       for (const session of subagentSeedSessions(this.workspace, this.clock())) {
-        this.sessions.set(session.info.id, session)
+        this.store.seed(session)
       }
     }
   }
@@ -131,40 +136,15 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
     return { version: this.version, mode: "fake", workspace: this.workspace }
   }
 
-  async listSessions(): Promise<SessionInfo[]> {
-    return [...this.sessions.values()]
-      .map((session) => {
-        const info = clone(session.info)
-        const usage = this.compaction.usageOf(session.info.id)
-        if (usage) info.usage = usage
-        return info
-      })
-      .sort((left, right) => left.created - right.created)
-  }
-
-  async createSession(input: CreateSessionInput): Promise<SessionInfo> {
-    const created = this.clock()
-    // An empty title lets the UI render its own localized placeholder.
-    const info: SessionInfo = {
-      id: this.events.nextID("ses"), title: input.title?.trim() ?? "",
-      directory: input.directory, created, updated: created,
-    }
-    this.sessions.set(info.id, { info, messages: [], model: input.model, agent: input.agent })
-    this.events.emit(EVENT.sessionCreated, info.id, {
-      sessionID: info.id, title: info.title, directory: info.directory,
-    }, true)
-    return clone(info)
-  }
-
-  async putInstruction(sessionID: string, key: string, value: string): Promise<void> {
-    const session = this.requireSession(sessionID)
-    session.instructions ??= new Map()
-    session.instructions.set(key, value)
-  }
-
-  /** Fake-mode probe: the stored value of one instruction entry. */
-  getInstruction(sessionID: string, key: string): string | undefined {
-    return this.requireSession(sessionID).instructions?.get(key)
+  async deleteSession(sessionID: string): Promise<void> {
+    this.requireSession(sessionID)
+    // Drop the run and its queue first: the scripted run must not promote a
+    // queued prompt into a session that no longer exists.
+    this.runner.drop(sessionID)
+    this.store.remove(sessionID)
+    this.recorded.delete(sessionID)
+    this.fallbackFired.delete(sessionID)
+    this.forms.forget(sessionID)
   }
 
   async listMessages(sessionID: string): Promise<Message[]> {
@@ -180,7 +160,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
     if (!forked) {
       throw new BackendError("invalid", `Unknown message: ${beforeMessageID}`)
     }
-    this.sessions.set(forked.info.id, forked)
+    this.store.seed(forked)
     this.events.emit(EVENT.sessionCreated, forked.info.id, {
       sessionID: forked.info.id,
       title: forked.info.title,
@@ -351,7 +331,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   }
 
   async search(input: SearchInput): Promise<SearchOutcome> {
-    const sessions = [...this.sessions.values()].map((session) => ({
+    const sessions = this.store.list().map((session) => ({
       info: session.info, messages: session.messages,
     }))
     return fakeSearch(
@@ -388,12 +368,6 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   failNextCompaction(sessionID: string, times = 1): void {
     this.requireSession(sessionID)
     this.compaction.failNext(sessionID, times)
-  }
-
-  protected override requireSession(sessionID: string): SessionState {
-    const session = this.sessions.get(sessionID)
-    if (!session) throw new BackendError("not_found", `Unknown session: ${sessionID}`)
-    return session
   }
 
   private createUserMessage(sessionID: string, input: PromptInput): Message {

@@ -7,6 +7,8 @@ import type {
   CompactionReason,
   CreateWorktreeRequest,
   EventEnvelope,
+  FormAnswer,
+  FormRequest,
   InboxEntry,
   Message,
   ModelInfo,
@@ -153,13 +155,16 @@ export interface PromptResult {
 
 /**
  * The single port the BFF talks to. The fake and the live adapter both
- * implement it. Permission and form methods are added when a milestone needs
- * them; keeping the surface small keeps both adapters honest.
+ * implement it; keeping the surface small keeps both adapters honest.
  */
 export interface ChatBackend {
   info(): Promise<ServerInfo>
   listSessions(): Promise<SessionInfo[]>
   createSession(input: CreateSessionInput): Promise<SessionInfo>
+  /** Renames one chat; throws `not_found` for an unknown session. */
+  renameSession(sessionID: string, title: string): Promise<SessionInfo>
+  /** Deletes one chat; throws `not_found` for an unknown session. */
+  deleteSession(sessionID: string): Promise<void>
   /** Stores one instruction entry for a session, replacing any previous value. */
   putInstruction(sessionID: string, key: string, value: string): Promise<void>
   listMessages(sessionID: string): Promise<Message[]>
@@ -203,6 +208,13 @@ export interface ChatBackend {
     requestID: string,
     decision: PermissionDecision,
   ): Promise<void>
+  /** Open question forms of a session, oldest first. */
+  listForms(sessionID: string): Promise<FormRequest[]>
+  /**
+   * Answers one form. Throws `not_found` for an unknown id and `conflict` for
+   * a form the host already answered or cancelled.
+   */
+  replyForm(sessionID: string, formID: string, answer: FormAnswer): Promise<void>
   /**
    * MCP servers and skills of the workspace. Throws a `BackendError` when the
    * host cannot answer the capability probe; one failing list must not hide

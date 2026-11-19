@@ -13,6 +13,11 @@ msgid "settings.fallbackCapValue"
 msgstr "{cap, plural, one {# kostenpflichtiger Turn pro Tag} other {# kostenpflichtige Turns pro Tag}}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.branchCount"
+msgstr "{count, plural, one {# Zweig} other {# Zweige}}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.schedules.runs"
 msgstr "{count, plural, one {# Lauf} other {# Läufe}}"
@@ -199,6 +204,16 @@ msgstr "Antwort in die Zwischenablage kopiert."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "chat.formSubmitted"
+msgstr "Antwort gesendet. Warte auf den Agenten…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formHint"
+msgstr "Beantworte diese Fragen, damit der Agent weitermachen kann."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.permissionHint"
 msgstr "Beantworte diese Anfrage, bevor du eine weitere Nachricht sendest."
 
@@ -378,9 +393,19 @@ msgid "worktrees.create.branch"
 msgstr "Branch"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.branchMessage"
+msgstr "Von hier abzweigen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/worktrees.ts
 msgid "worktrees.branchUnknown"
 msgstr "Branch nicht gemeldet"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.branchOf"
+msgstr "Zweig von {title}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/worktrees.ts
@@ -393,13 +418,23 @@ msgid "usage.cached"
 msgstr "Cache-Token"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/worktrees.ts
-msgid "worktrees.remove.cancel"
+#: src/i18n/messages/chat.ts
+msgid "chat.inboxCancel"
 msgstr "Abbrechen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
-msgid "chat.inboxCancel"
+msgid "composer.cancelEdit"
+msgstr "Abbrechen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.renameCancel"
+msgstr "Abbrechen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deleteCancel"
 msgstr "Abbrechen"
 
 #. js-lingui-explicit-id
@@ -415,6 +450,11 @@ msgstr "Abbrechen"
 #. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
 msgid "memory.cancel"
+msgstr "Abbrechen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.cancel"
 msgstr "Abbrechen"
 
 #. js-lingui-explicit-id
@@ -468,6 +508,11 @@ msgid "files.listLabel"
 msgstr "Dateien im Chat"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.renameDone"
+msgstr "Chat umbenannt."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/palette.ts
 msgid "palette.searchFailed"
 msgstr "Die Chat-Suche ist fehlgeschlagen."
@@ -481,6 +526,11 @@ msgstr "Chat-Sitzungen"
 #: src/i18n/messages/shell.ts
 msgid "nav.sessionsLabel"
 msgstr "Chat-Sitzungen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.renameLabel"
+msgstr "Chat-Titel"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -516,6 +566,11 @@ msgstr "Nach Modellen suchen"
 #: src/i18n/messages/onboarding.ts
 msgid "firstRun.verifying"
 msgstr "Wird geprüft…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formChooseOption"
+msgstr "Option wählen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shortcuts.ts
@@ -813,6 +868,11 @@ msgid "settings.defaults"
 msgstr "Standardwerte für neue Chats"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deleteConfirm"
+msgstr "Löschen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.delete"
 msgstr "Löschen"
@@ -833,6 +893,11 @@ msgid "tasks.action.delete"
 msgstr "{title} löschen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.delete"
+msgstr "Chat löschen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.model.delete"
 msgstr "Sprachmodell löschen"
@@ -846,6 +911,11 @@ msgstr "Fakt löschen"
 #: src/i18n/messages/files.ts
 msgid "files.deleteConfirm"
 msgstr "Datei löschen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deleteQuestion"
+msgstr "Diesen Chat löschen? Das lässt sich nicht rückgängig machen."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -1008,6 +1078,16 @@ msgid "memory.edit"
 msgstr "Bearbeiten"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.editMessage"
+msgstr "Nachricht bearbeiten"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.editing"
+msgstr "Nachricht wird bearbeitet. Senden erstellt einen neuen Zweig."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.elapsed"
 msgstr "Dauer {duration}"
@@ -1111,11 +1191,6 @@ msgstr "Fehlgeschlagen"
 #: src/i18n/messages/settings.ts
 msgid "settings.fallbackLoadFailed"
 msgstr "Die Fallback-Einstellungen konnten nicht geladen werden."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/settings.ts
-msgid "settings.fallbackInvalid"
-msgstr "Die konfigurierte Fallback-Kette ist ungültig; der Fallback ist deaktiviert."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1693,6 +1768,11 @@ msgid "shortcuts.list.palette"
 msgstr "Befehlspalette öffnen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formOpenExternal"
+msgstr "Externen Schritt öffnen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "pwa.name"
 msgstr "OpenChat"
@@ -1978,6 +2058,11 @@ msgid "worktrees.remove.busy"
 msgstr "Wird entfernt…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.rename"
+msgstr "Umbenennen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.mermaidLoading"
 msgstr "Diagramm wird gerendert…"
@@ -1986,6 +2071,11 @@ msgstr "Diagramm wird gerendert…"
 #: src/i18n/messages/dictation.ts
 msgid "dictation.requesting"
 msgstr "Mikrofon wird angefordert…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formRequiredMark"
+msgstr "Erforderlich"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -2006,11 +2096,6 @@ msgstr "Ergebnis aus diesem Artefakt"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.resume"
 msgstr "{title} fortsetzen"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/worktrees.ts
-msgid "worktrees.retry"
-msgstr "Erneut versuchen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -2078,6 +2163,11 @@ msgid "tasks.retry"
 msgstr "Erneut versuchen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.retry"
+msgstr "Erneut versuchen"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.compactionRetry"
 msgstr "Komprimierung wiederholen"
@@ -2106,6 +2196,11 @@ msgstr "Läuft"
 #: src/i18n/messages/apps.ts
 msgid "apps.autoHint"
 msgstr "Läuft automatisch, wenn relevant"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.renameSave"
+msgstr "Speichern"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
@@ -2188,6 +2283,11 @@ msgid "composer.placeholder"
 msgstr "Nachricht senden…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formSubmit"
+msgstr "Antwort senden"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
 msgid "offline.composerHint"
 msgstr "Senden ist offline nicht möglich. Verbinde dich erneut, um eine neue Nachricht zu starten."
@@ -2195,6 +2295,11 @@ msgstr "Senden ist offline nicht möglich. Verbinde dich erneut, um eine neue Na
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.statusSubmitting"
+msgstr "Wird gesendet…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formSubmitting"
 msgstr "Wird gesendet…"
 
 #. js-lingui-explicit-id
@@ -2498,9 +2603,19 @@ msgid "tasks.action.failed"
 msgstr "Die Aktion ist fehlgeschlagen. Der Zeitplan wurde nicht geändert."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formExternalHint"
+msgstr "Der Agent erledigt diesen Schritt auf einer anderen Seite."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/palette.ts
 msgid "palette.copyFailed"
 msgstr "Die Antwort konnte nicht kopiert werden."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formFailed"
+msgstr "Die Antwort konnte nicht gesendet werden. Versuch es erneut."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -2539,8 +2654,23 @@ msgstr "Der Artefakt-Link konnte nicht erneuert werden. Lade neu, um einen frisc
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "chat.branchFailed"
+msgstr "Der Zweig konnte nicht erstellt werden."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.deleteFailed"
+msgstr "Der Chat konnte nicht gelöscht werden."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.downloadFailed"
 msgstr "Der Chat konnte nicht exportiert werden."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.renameFailed"
+msgstr "Der Chat konnte nicht umbenannt werden."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -2561,6 +2691,11 @@ msgstr "Die Code-Oberfläche konnte nicht eingebettet werden"
 #: src/i18n/messages/code.ts
 msgid "code.mobileBody"
 msgstr "Die Code-Oberfläche ist für den Desktop gedacht. Öffne sie auf diesem Gerät in einem neuen Tab."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackInvalid"
+msgstr "Die konfigurierte Fallback-Kette ist ungültig; der Fallback ist deaktiviert."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/onboarding.ts
@@ -2793,6 +2928,11 @@ msgid "composer.attachmentTypeError"
 msgstr "Dieser Dateityp ist nicht erlaubt."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formExpired"
+msgstr "Dieses Formular ist nicht mehr offen."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/onboarding.ts
 msgid "firstRun.error.unsupported"
 msgstr "Diese Methode ist in der App nicht verfügbar. Nutze die Option auf dem Host."
@@ -2816,6 +2956,11 @@ msgstr "Dieser Server ist nicht mehr eingerichtet."
 #: src/i18n/messages/search.ts
 msgid "search.disabledHint"
 msgstr "Diese Quelle ist auf dem Host nicht eingerichtet und wurde nicht abgefragt."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.formFieldRequired"
+msgstr "Dieser Wert ist erforderlich."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/worktrees.ts
@@ -3056,38 +3201,3 @@ msgstr "Deine Nachricht konnte nicht gesendet werden."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Deine Nachricht wartet, bis der aktuelle Lauf abgeschlossen ist."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.editMessage"
-msgstr "Nachricht bearbeiten"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.branchMessage"
-msgstr "Von hier abzweigen"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.branchCount"
-msgstr "{count, plural, one {# Zweig} other {# Zweige}}"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.branchFailed"
-msgstr "Der Zweig konnte nicht erstellt werden."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "session.branchOf"
-msgstr "Zweig von {title}"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "composer.editing"
-msgstr "Nachricht wird bearbeitet. Senden erstellt einen neuen Zweig."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "composer.cancelEdit"
-msgstr "Abbrechen"

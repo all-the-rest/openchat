@@ -36,3 +36,8 @@ export const forkSessionRequestSchema = z.object({
   /** User message the new branch ends before. */
   messageID: z.string().min(1).max(200),
 })
+
+export const renameSessionRequestSchema = z.object({
+  /** Trimmed by the route; the host stores the title as given. */
+  title: z.string().trim().min(1).max(120),
+})
