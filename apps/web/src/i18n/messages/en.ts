@@ -13,6 +13,7 @@ import { code } from "./code"
 import { dictation } from "./dictation"
 import { files } from "./files"
 import { pwa } from "./pwa"
+import { polish } from "./polish"
 import { render } from "./render"
 import { search } from "./search"
 import { settings } from "./settings"
@@ -28,6 +29,7 @@ export const messages = {
   ...dictation,
   ...files,
   ...pwa,
+  ...polish,
   ...render,
   ...settings,
 } as const

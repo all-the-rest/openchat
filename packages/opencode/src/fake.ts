@@ -207,7 +207,9 @@ export class FakeBackend implements ChatBackend {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    return [{ id: "fake/echo", name: "Fake Echo", providerID: "fake" }]
+    return [
+      { id: "fake/echo", name: "Fake Echo", providerID: "fake", contextLimit: 128_000 },
+    ]
   }
 
   async listAgents(): Promise<AgentInfo[]> {
@@ -352,6 +354,15 @@ export class FakeBackend implements ChatBackend {
       this.completeMessage(run, message)
       this.events.emit(EVENT.executionSucceeded, run.sessionID, {
         sessionID: run.sessionID, messageID: message.id,
+      }, true)
+      // Reported counters, not a meter: the fake host exposes the same event
+      // shape a live host does so the usage panel is exercised end to end.
+      this.events.emit(EVENT.usageUpdated, run.sessionID, {
+        sessionID: run.sessionID,
+        messageID: message.id,
+        input: 1_200,
+        output: 340,
+        cached: 256,
       }, true)
     } else if (outcome === "interrupted") {
       message.status = "stopped"

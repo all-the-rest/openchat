@@ -24,6 +24,8 @@ export interface ModelInfo {
   id: string
   name: string
   providerID: string
+  /** Reported context-window size; absent when the host does not expose it. */
+  contextLimit?: number
 }
 
 export interface AgentInfo {

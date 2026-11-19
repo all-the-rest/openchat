@@ -235,3 +235,44 @@ export function CloseIcon(props: IconProps) {
     </Icon>
   )
 }
+
+/** Markdown export of the loaded transcript. */
+export function DownloadIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4v11" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 20h14" />
+    </Icon>
+  )
+}
+
+/** A speech bubble: the chat surface and chat search results. */
+export function ChatIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M20 12a8 8 0 0 1-8 8H8l-4 2v-5a8 8 0 1 1 16-5Z" />
+    </Icon>
+  )
+}
+
+/** Angle brackets: the embedded OpenCode code surface. */
+export function CodeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m9 8-4 4 4 4" />
+      <path d="m15 8 4 4-4 4" />
+    </Icon>
+  )
+}
+
+/** Interface language switching. */
+export function GlobeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z" />
+    </Icon>
+  )
+}

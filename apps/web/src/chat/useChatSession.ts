@@ -11,6 +11,7 @@ import { setStreamActive } from "../pwa/stream-guard"
 import { applyEvent, isTerminalEvent } from "../state/fold"
 import { useCompletionOrNull } from "./completion"
 import { applyInboxEvent } from "./inbox"
+import { applyUsageEvent, type UsageSnapshot } from "./usage"
 
 export type ChatError = "load" | "send" | "stop" | "cancel" | null
 
@@ -26,6 +27,8 @@ export interface ChatSessionValue {
   queued: boolean
   /** Pending turns restored from the inbox or announced by the event stream. */
   inbox: InboxEntry[]
+  /** Host-reported token counters for this chat; null until one is reported. */
+  usage: UsageSnapshot | null
   lastAssistantStatus: MessageStatus | null
   canRetry: boolean
   send: (text: string) => Promise<void>
@@ -48,6 +51,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
   const [stopped, setStopped] = useState(false)
   const [queued, setQueued] = useState(false)
   const [inbox, setInbox] = useState<InboxEntry[]>([])
+  const [usage, setUsage] = useState<UsageSnapshot | null>(null)
   const { subscribe, reconnect } = useEventStream()
   const hostReachable = useSurfaceOrNull()?.hostReachable ?? null
   const completion = useCompletionOrNull()
@@ -99,6 +103,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     setStopped(false)
     setQueued(false)
     setInbox([])
+    setUsage(null)
     setError(null)
     void reload()
   }, [reload])
@@ -128,6 +133,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
       if (typeof eventSession === "string" && eventSession !== activeSession.current) return
       setMessages((current) => applyEvent(current, event))
       setInbox((current) => applyInboxEvent(current, event))
+      setUsage((current) => applyUsageEvent(current, event))
       if (event.type === EVENT.executionStarted) {
         setStopped(false)
         setQueued(false)
@@ -303,6 +309,7 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     // A restored pending turn counts as queued even before any prompt response.
     queued: queued || inbox.length > 0,
     inbox,
+    usage,
     lastAssistantStatus,
     canRetry,
     send,
