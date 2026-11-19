@@ -118,6 +118,11 @@ msgid "worktrees.create.exists"
 msgstr "A worktree for this branch already exists."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.limit"
+msgstr "This project already has the maximum number of worktrees. Remove one before creating another."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
 msgid "memory.audit.action"
 msgstr "Action"
@@ -1728,6 +1733,11 @@ msgid "firstRun.hostOnlyBadge"
 msgstr "on the host"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackInvalidEntry"
+msgstr "One chain entry is invalid or duplicated."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.description"
 msgstr "One query across chats, workspace, web and apps."
@@ -2658,6 +2668,16 @@ msgid "chat.branchFailed"
 msgstr "The branch could not be created."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackInvalidChainShape"
+msgstr "The chain must be a JSON array with at most 5 entries."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackInvalidChainJson"
+msgstr "The chain setting is not valid JSON."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.deleteFailed"
 msgstr "The chat could not be deleted."
@@ -3046,6 +3066,11 @@ msgstr "Transcribing…"
 #: src/i18n/messages/memory.ts
 msgid "memory.col.trust"
 msgstr "Trust"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackLedgerError"
+msgstr "Turn accounting could not be written; today's usage may be incomplete."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts

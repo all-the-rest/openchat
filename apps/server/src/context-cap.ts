@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import { contextTokens } from "@openchat/contracts"
 import type { CompactionOutcome, PromptNotice, SessionContext } from "@openchat/contracts"
 import type { ChatBackend } from "@openchat/opencode"
@@ -13,11 +14,15 @@ export const COMPACTION_WAIT_MS = 20_000
 const MAX_TRACKED_SESSIONS = 512
 
 /**
- * Process-lifetime attempt number for the synthetic compaction id. The host
- * may treat a `msg_` id as an idempotency key, and `lastAttempt` is only
- * in-memory: a restart must not re-use the id of a failed attempt at the same
- * usage level, because the host would dedupe it and never compact.
+ * Per-boot nonce for the synthetic compaction id. The host may treat a `msg_`
+ * id as an idempotency key and `lastAttempt` is only in-memory, so an
+ * attempt number that restarts at 1 after a reboot could be deduped by the
+ * host and never compact. Date plus random bytes makes the id unique across
+ * boots; the process-wide attempt counter keeps instances apart within a boot.
  */
+const BOOT_NONCE = `${Date.now().toString(36)}${randomBytes(4).toString("hex")}`
+
+/** Process-lifetime attempt number; unique inside one boot, the nonce spans boots. */
 let attemptSeq = 0
 
 /** Why a prompt was admitted with or without an automatic compaction. */
@@ -44,6 +49,8 @@ export interface ContextSoftCapOptions {
   cap: number
   /** Bounded wait for compaction; tests shorten it. */
   waitMs?: number
+  /** Injected in tests; replaces the per-boot nonce in synthetic ids. */
+  idNonce?: string
 }
 
 /**
@@ -60,9 +67,11 @@ export interface ContextSoftCapOptions {
 export class ContextSoftCap {
   private readonly lastAttempt = new Map<string, number>()
   private readonly waitMs: number
+  private readonly idNonce: string
 
   constructor(private readonly options: ContextSoftCapOptions) {
     this.waitMs = options.waitMs ?? COMPACTION_WAIT_MS
+    this.idNonce = options.idNonce ?? BOOT_NONCE
   }
 
   async admit(sessionID: string): Promise<SoftCapDecision> {
@@ -100,7 +109,7 @@ export class ContextSoftCap {
     let outcome: CompactionOutcome
     try {
       outcome = await this.options.backend.compact(sessionID, {
-        id: `msg_softcap_${sessionID}_${used}_${attemptSeq}`,
+        id: `msg_softcap_${sessionID}_${used}_${attemptSeq}_${this.idNonce}`,
         waitMs: this.waitMs,
         reason: "auto",
       })

@@ -6,7 +6,12 @@
  * the ledger directory) is part of the answer.
  */
 import type { Hono } from "hono"
-import type { FallbackStatusResponse, ModelRef, TurnPolicy } from "@openchat/contracts"
+import type {
+  FallbackInvalidReasonCode,
+  FallbackStatusResponse,
+  ModelRef,
+  TurnPolicy,
+} from "@openchat/contracts"
 import type { AppEnv } from "./app"
 import type { UsageLedger } from "./usage-ledger"
 
@@ -19,20 +24,12 @@ export interface FallbackRouteDeps {
   /** The ledger instance the engine records into. */
   ledger: FallbackUsage
   /**
-   * Validation message for a rejected `FALLBACK_CHAIN_JSON`. The route reports
-   * only that the setting is invalid plus this short reason, never the value.
+   * Stable classification of a rejected `FALLBACK_CHAIN_JSON`. The readable
+   * validation message stays in the boot log; it is never UI copy.
    */
-  invalidReason?: string
-}
-
-/** A reason longer than this turns into noise in a settings card. */
-const MAX_REASON_LENGTH = 200
-
-function shortReason(reason: string): string {
-  const trimmed = reason.trim()
-  return trimmed.length > MAX_REASON_LENGTH
-    ? `${trimmed.slice(0, MAX_REASON_LENGTH - 1)}…`
-    : trimmed
+  invalidReasonCode?: FallbackInvalidReasonCode
+  /** Sticky ledger failure flag from the engine. */
+  ledgerError?: () => boolean
 }
 
 /**
@@ -57,15 +54,17 @@ export function registerFallbackRoute(app: Hono<AppEnv>, deps: FallbackRouteDeps
       deps.ledger.turnsToday(),
     ])
     c.header("Cache-Control", "no-store")
-    const reason = deps.invalidReason
+    const code = deps.invalidReasonCode
+    const ledgerError = deps.ledgerError?.() === true
     return c.json({
       configured: deps.policy.chain.length > 0,
-      invalid: reason !== undefined,
-      ...(reason === undefined ? {} : { invalidReason: shortReason(reason) }),
+      invalid: code !== undefined,
+      ...(code === undefined ? {} : { invalidReasonCode: code }),
       chain: deps.policy.chain.map(entryOf),
       paidDailyCap: deps.policy.paidDailyTurns,
       paidTurnsToday,
       turnsToday,
+      ...(ledgerError ? { ledgerError: true } : {}),
     } satisfies FallbackStatusResponse)
   })
 }

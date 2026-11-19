@@ -29,6 +29,8 @@ export interface SessionRouteDeps {
   config: EnvConfig
   backend: ChatBackend
   memory: SessionMemory
+  /** Drops server-owned turn state once the chat no longer exists. */
+  forget?: (sessionID: string) => void
 }
 
 /**
@@ -100,7 +102,11 @@ export function registerSessionRoutes(app: Hono<AppEnv>, deps: SessionRouteDeps)
   // Delete is state-changing, so the JSON content-type rule applies and the
   // client sends an empty object body. Unknown ids are a stable 404.
   app.delete("/api/sessions/:id", async (c) => {
-    await backend.deleteSession(c.req.param("id"))
+    const sessionID = c.req.param("id")
+    await backend.deleteSession(sessionID)
+    // A deleted chat can never emit a terminal event again; keeping its
+    // registration would leave the engine waiting on a turn that cannot finish.
+    deps.forget?.(sessionID)
     return c.json({ ok: true })
   })
 

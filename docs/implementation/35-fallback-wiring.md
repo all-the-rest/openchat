@@ -18,8 +18,12 @@ Four environment values feed the chat policy:
   meaning) is **no chain**, so fallback is inert unless a chain is configured.
   A non-empty but invalid value keeps fallback disabled and emits **one boot
   warning** with the validation message; the raw value is never logged.
-- `FALLBACK_PAID_DAILY_CAP` — **paid turns per local day**; `0` means the cap is
-  **off**. Free turns never count; a row without the free flag counts as paid.
+- `FALLBACK_PAID_DAILY_TURNS` — **paid turns per local day**, a **turn count**
+  (not micros); `0` means the cap is **off**. Free turns never count; a row
+  without the free flag counts as paid. The pre-2.5 name
+  `FALLBACK_PAID_DAILY_CAP` stays accepted for upgrades and is read as a turn
+  count too; it emits one boot warning that it is deprecated (never echoing the
+  value), and the new name wins when both are set.
 - `FALLBACK_USAGE_DIR` — where the usage ledger writes per-day records; defaults
   to `/workspace/chats/.usage`.
 - `CHAT_CONTEXT_SOFT_CAP` — reused from the compaction slice; the fallback engine
@@ -44,25 +48,61 @@ the model still offers it. Only a missing or unresolvable client model falls
 back to the chain's first entry. Without a configured chain the existing path is
 untouched, so the live adapter still validates the persisted model against the
 catalogue. The route then registers the turn with `FallbackEngine.begin`
-**before** `backend.prompt`, with no message id yet. `adopt` takes the id from
-the response.
+**before** `backend.prompt`, with no message id yet. The prompt response id is
+the **user inbox entry id** (`{id, type: "user", payload}`), not the assistant
+message id; `adopt` records it as the submission's own id. Assistant output
+carries the other id, so `observe` never compares a delta against the adopted id
+(see below).
 
 If the submit throws or reports `queued: true`, the registration is abandoned:
 `abandon` restores the turn it replaced, so a queued send cannot overwrite — let
 alone retry — the active turn. `queued: undefined` (the live probe failed) is
 "not queued": the prompt did start the run and stays tracked.
 
-A queued turn is **not** promoted when `session.execution.started` arrives: that
-event carries the assistant message id but neither the queued user text nor its
-message id, so the engine would have to guess which text to retry. The
+A queued turn is **not** promoted when `session.execution.started` arrives: the
+pinned client forwards only `{sessionID}` for that event
+(`packages/opencode/src/live-events.ts`), carrying neither the queued user text
+nor its message id, so the engine would have to guess which text to retry. The
 limitation is deliberate; the active turn keeps its own state.
 
-One residual race is accepted: while a queued send is being registered, a delta
-that belongs to the still-streaming active turn arrives at the new state and is
-dropped by `abandon`. The restored active turn then has no recorded output and
-could be retried after it printed. It needs a queued send within the same few
-milliseconds as a live delta on a single-user deployment; closing it would mean
-correlating deltas by message id, which the event contract does not carry.
+Terminal events are owned by `TurnRegistry` (`apps/server/src/fallback-registry.ts`).
+The live contract carries only `sessionID` — `packages/opencode/src/live-events.ts`
+keeps it that way — so the registry resolves in two steps. A known message id
+always wins: the fake backend (and a future host) does carry one, and a retry's
+response id is indexed too. Without an id, the oldest turn still awaiting a
+terminal event in that session's submission-order FIFO is the owner; the host
+runs one turn per session and delivers events in order. A retry replaces the
+turn's message id and **retires** the old one, so a late event for the failed
+attempt is not re-attributed to the retried turn.
+
+A send registered while another turn is still finishing therefore cannot steal
+that turn's terminal event: the older turn's success is recorded on its own
+answered model, its failure is forwarded (and is **never** retried with the
+newer payload), and the newer registration survives untouched. That newer
+registration may shadow the older turn in `turns` while its POST is open; a
+terminal event that resolves to such a `superseded` turn forwards the failure
+and drops only the stale state instead of retrying.
+
+Assistant output lives in the other id space. `session.text.delta`,
+`session.reasoning.delta` and `tool.updated` carry the **assistant** message id
+(`assistantMessageID` in the host stream), while the prompt response carries the
+**user inbox entry id**. The two never match, and the response normally arrives
+after the first delta, so `FallbackEngine.observe` resolves the producing turn in
+the host's run order instead:
+
+1. a **known output id** wins — a delta from an assistant message already
+   credited to a turn stays with that turn, even a superseded one, so its output
+   never blocks the newer turn's retry;
+2. otherwise the session's **oldest turn still awaiting a terminal event** — the
+   host runs one turn per session and delivers events in order, so that turn is
+   the one producing output now;
+3. otherwise the current registration.
+
+The event's assistant id is recorded as an output id of the resolved turn
+(bounded like the terminal index; `drop` and `forgetSession` remove it). A
+retired retry id is ignored, and an id that already belongs to another tracked
+turn is never reassigned. Terminal events keep the rule above: message id when
+known, else the FIFO head.
 
 ## Ownership (`fallback-observer.ts`)
 
@@ -76,6 +116,19 @@ the status banner probes on. Until a new host stream has stayed up for
 `UPSTREAM_SETTLE_MS` (250 ms), a new browser subscription is handed an already
 ended stream, so an EventSource retry cannot sit on a dead upstream and hide
 the recovery.
+
+`/api/events` applies real backpressure: it writes the next event only while
+`ReadableStreamDefaultController.desiredSize` is positive and resumes from
+`pull()`. A stalled tab therefore leaves events in the observer's
+`SubscriberQueue` instead of the response buffer; at 256 queued events the
+queue closes and the EventSource reconnects, which is the documented bound.
+Heartbeats are written only when capacity is available, so they cannot bypass
+the bound or park the pump forever.
+
+`createApp` returns the Hono app extended with `stop()`. `index.ts` calls it on
+`SIGTERM`/`SIGINT`, which aborts the one host subscription and clears the
+reconnect/settle timers; tests and a hot reload can discard an app instance
+without leaving a subscription behind.
 
 On
 `session.execution.failed` the engine classifies the failure and calls
@@ -124,13 +177,19 @@ same resolved `TurnPolicy` the prompt route enforces and reads the same
 `UsageLedger` the engine writes, so the answer cannot drift from enforcement;
 the raw `FALLBACK_CHAIN_JSON` value, credentials and the ledger path are never
 part of it. A rejected `FALLBACK_CHAIN_JSON` is not reported as "nothing
-configured": the route sets `invalid: true` with a short `invalidReason` that
-names the broken rule, and `configured`/`chain` stay empty because fallback is
-off. The settings page shows it in the "Model fallback" block
-(`apps/web/src/components/FallbackSettings.tsx`): the chain in order, the cap
-("N paid turns per day" or off) and today's paid turn count, with loading,
-error, retry and invalid-chain states. `apps/server/test/fallback-route.test.ts`
-and `apps/web/test/fallback-settings.test.tsx` cover those states.
+configured": the route sets `invalid: true` with a stable
+`invalidReasonCode` (`chain_json`, `chain_shape` or `entry`), and
+`configured`/`chain` stay empty because fallback is off. The readable
+validation message stays in the boot log and is never part of the response, so
+the settings page renders only localized en/de copy plus the technical code.
+`ledgerError: true` is reported once **any** ledger write failed, including
+`usage_ledger_full`: the cap freezes at its last readable value because a full
+ledger keeps refusing every later row. The page then shows a warning next to the
+counters, because `paidTurnsToday` can no longer be trusted to enforce the cap.
+The settings page shows the chain in order, the cap ("N paid turns per day" or
+off) and today's paid turn count, with loading, error, retry, invalid-chain and
+ledger-error states. `apps/server/test/fallback-route.test.ts` and
+`apps/web/test/fallback-settings.test.tsx` cover those states.
 
 ## Notice delivery
 

@@ -22,6 +22,8 @@ One `TurnPolicy`:
 - **chat** carries an ordered chain (≤ 5 entries, duplicates rejected by
   `provider + model + variant`), the paid daily turn cap and the context soft
   cap. A `ModelRef` may also carry `isFree` and `contextLimit`.
+  `paidDailyTurns` is a **turn count**, never a cost or micros amount; the
+  environment setting is `FALLBACK_PAID_DAILY_TURNS`.
 - **Code** never gets a policy. It is a separate host and never enters the
   prompt route, so `TurnSurface` has no `"code"` member and a code policy cannot
   be built at all; a wiring test asserts Code never touches the engine or the

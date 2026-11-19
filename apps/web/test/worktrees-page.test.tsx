@@ -11,6 +11,7 @@ const fetchMock = vi.fn()
 let fixture: WorktreesResponse
 let dirty: Set<string>
 let failLoad: boolean
+let limitReached: boolean
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -26,6 +27,7 @@ function worktree(directory: string, branch: string, name?: string): WorktreeInf
 beforeEach(() => {
   dirty = new Set()
   failLoad = false
+  limitReached = false
   fixture = {
     projectID: "proj_1",
     worktrees: [
@@ -47,6 +49,17 @@ beforeEach(() => {
         branch: string
         from?: string
         name?: string
+      }
+      if (limitReached) {
+        return json(
+          {
+            error: {
+              code: "worktree_limit",
+              message: "This project already has the maximum number of worktrees",
+            },
+          },
+          409,
+        )
       }
       const created = worktree(
         `/workspace/.worktrees/${body.branch.replaceAll("/", "-")}`,
@@ -191,6 +204,49 @@ describe("/worktrees page", () => {
       "No worktrees yet.",
     )
     expect(screen.getByTestId("worktrees-note")).toBeVisible()
+  })
+
+  it("shows a localized hint when the project holds the maximum number of worktrees", async () => {
+    limitReached = true
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByTestId("worktrees-list")
+
+    await user.type(screen.getByLabelText("Branch"), "feat/over-limit")
+    await user.click(screen.getByTestId("worktree-create-submit"))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This project already has the maximum number of worktrees. Remove one before creating another.",
+    )
+    expect(screen.queryByTestId("worktrees-notice")).toBeNull()
+  })
+
+  it("moves focus into the removal dialog, traps Tab, cancels on Escape and restores focus", async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByTestId("worktrees-list")
+
+    const removeButton = within(rowFor("/workspace/.worktrees/notes")).getByRole("button", {
+      name: /Remove/,
+    })
+    await user.click(removeButton)
+
+    const dialog = screen.getByRole("alertdialog", { name: "Remove this worktree?" })
+    const cancel = within(dialog).getByRole("button", { name: "Cancel" })
+    const force = within(dialog).getByTestId("worktree-remove-force")
+    // Opening the dialog lands on the safe action, not on a destructive one.
+    expect(cancel).toHaveFocus()
+
+    // Tab wraps from the last button to the first, Shift+Tab back to the last.
+    force.focus()
+    await user.tab()
+    expect(cancel).toHaveFocus()
+    await user.tab({ shift: true })
+    expect(force).toHaveFocus()
+
+    await user.keyboard("{Escape}")
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    expect(removeButton).toHaveFocus()
   })
 
   it("shows a retryable load error", async () => {

@@ -1,5 +1,6 @@
 import type { EventEnvelope, ToolPart } from "@openchat/contracts"
 import type { V2Event } from "@opencode/client"
+import { normalizeForm } from "./live-forms"
 import { textPartID } from "./live-normalize"
 
 /**
@@ -143,6 +144,18 @@ export function normalizeEvent(
         requestID: event.data.requestID,
         decision: event.data.reply === "reject" ? "deny" : event.data.reply,
       })
+    case "form.created": {
+      // The host event carries the same payload as `session.form.list`, but it
+      // bypasses the list path. Normalizing it here keeps the card identical
+      // whether a form arrived by reload or by event, and drops host-only
+      // variants (non-finite bounds, unknown field types) before the browser.
+      const form = event.data.form
+      if (form === null || typeof form !== "object") return passthrough(event)
+      return envelope(event, event.type, {
+        ...(event.data as unknown as Record<string, unknown>),
+        form: normalizeForm(form),
+      })
+    }
     case "session.idle": {
       // `session.idle` only names the session. Claiming completion without an
       // id would make the client close whatever message happens to be last, so

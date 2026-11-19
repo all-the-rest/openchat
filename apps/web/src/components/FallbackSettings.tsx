@@ -6,6 +6,16 @@ import { useT } from "../i18n/provider"
 const HEADING = "text-sm font-semibold text-secondary"
 const ROW = "flex items-center justify-between gap-4 border-b border-subtle py-2 text-sm"
 
+/**
+ * Localized detail for the server's stable validation code. The server's
+ * readable reason stays in the boot log and never becomes UI copy.
+ */
+const INVALID_COPY = {
+  chain_json: "settings.fallbackInvalidChainJson",
+  chain_shape: "settings.fallbackInvalidChainShape",
+  entry: "settings.fallbackInvalidEntry",
+} as const
+
 type LoadStatus = "loading" | "ready" | "error"
 
 /**
@@ -36,6 +46,15 @@ export function FallbackSettings() {
   return (
     <section aria-label={t("settings.fallback")} data-testid="fallback-settings">
       <h2 className={HEADING}>{t("settings.fallback")}</h2>
+      {status === "ready" && fallback?.ledgerError === true ? (
+        <div
+          data-testid="fallback-ledger-error"
+          role="alert"
+          className="mt-2 text-sm text-warning"
+        >
+          <p>{t("settings.fallbackLedgerError")}</p>
+        </div>
+      ) : null}
       {status === "loading" ? (
         <div
           data-testid="fallback-loading"
@@ -59,6 +78,17 @@ export function FallbackSettings() {
       ) : fallback.invalid ? (
         <div data-testid="fallback-invalid" role="alert" className="mt-2 text-sm text-warning">
           <p>{t("settings.fallbackInvalid")}</p>
+          {fallback.invalidReasonCode === undefined ? null : (
+            <>
+              <p>{t(INVALID_COPY[fallback.invalidReasonCode])}</p>
+              <code
+                data-testid="fallback-invalid-code"
+                className="font-mono text-xs text-muted"
+              >
+                {fallback.invalidReasonCode}
+              </code>
+            </>
+          )}
         </div>
       ) : !fallback.configured ? (
         <p data-testid="fallback-unconfigured" className="mt-2 text-sm text-muted">

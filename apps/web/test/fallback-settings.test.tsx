@@ -75,7 +75,7 @@ describe("fallback settings", () => {
     mocks.fallback.mockResolvedValue({
       configured: false,
       invalid: true,
-      invalidReason: "Fallback chain must be a JSON array",
+      invalidReasonCode: "chain_json",
       chain: [],
       paidDailyCap: 0,
       paidTurnsToday: 0,
@@ -87,9 +87,32 @@ describe("fallback settings", () => {
     expect(warning).toHaveTextContent(
       "The configured fallback chain is invalid; fallback is off.",
     )
+    // Localized detail from the stable code, never the server's raw English.
+    expect(warning).toHaveTextContent("The chain setting is not valid JSON.")
+    expect(screen.getByTestId("fallback-invalid-code")).toHaveTextContent("chain_json")
     // It must not read like "nothing was configured": that hides the misconfig.
     expect(screen.queryByTestId("fallback-unconfigured")).toBeNull()
     expect(screen.queryByTestId("fallback-chain")).toBeNull()
+  })
+
+  it("warns when a turn outcome could not be written to the ledger", async () => {
+    mocks.fallback.mockResolvedValue({
+      configured: true,
+      invalid: false,
+      chain: [{ providerID: "free", modelID: "glm", isFree: true }],
+      paidDailyCap: 0,
+      paidTurnsToday: 0,
+      turnsToday: 1,
+      ledgerError: true,
+    })
+    wrap(<FallbackSettings />)
+
+    const warning = await screen.findByTestId("fallback-ledger-error")
+    expect(warning).toHaveTextContent(
+      "Turn accounting could not be written; today's usage may be incomplete.",
+    )
+    // The settings still render; only accounting is degraded.
+    expect(await screen.findByTestId("fallback-chain")).toBeInTheDocument()
   })
 
   it("offers a retry after a failed read", async () => {

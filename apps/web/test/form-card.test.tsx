@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { EventStreamProvider } from "../src/api/events"
+import { ApiError } from "../src/api/transport"
 import { FormCard } from "../src/chat/FormCard"
 import type { FormsValue } from "../src/chat/forms"
 import { SessionsProvider } from "../src/chat/sessions"
@@ -36,7 +37,12 @@ const mocks = vi.hoisted(() => ({
   })),
 }))
 
-vi.mock("../src/api/client", () => ({ api: mocks }))
+// Partial mock: the real module also exports `ApiError`, which the form hook
+// narrows with `instanceof`. Stubbing only `api` keeps that class identity.
+vi.mock("../src/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/api/client")>()
+  return { ...actual, api: mocks }
+})
 
 const form: FormRequest = {
   id: "frm_1",
@@ -89,6 +95,49 @@ function value(overrides: Partial<FormsValue> = {}): FormsValue {
 function withI18n(children: ReactNode) {
   return <I18nProvider initialLocale="en">{children}</I18nProvider>
 }
+
+describe("form external step links", () => {
+  function externalForm(url: string): FormRequest {
+    return {
+      ...form,
+      fields: [{ key: "external", type: "external", title: "Approve in the console", url }],
+    }
+  }
+
+  it("links an absolute https URL in a new tab", () => {
+    render(withI18n(<FormCard form={externalForm("https://console.example.test/approve")} value={value()} />))
+
+    const link = screen.getByTestId("form-external-external")
+    expect(link).toHaveAttribute("href", "https://console.example.test/approve")
+    expect(link).toHaveAttribute("target", "_blank")
+    expect(link).toHaveAttribute("rel", "noreferrer noopener")
+  })
+
+  it("links an absolute http URL too", () => {
+    render(withI18n(<FormCard form={externalForm("http://localhost:4096/approve")} value={value()} />))
+
+    expect(screen.getByTestId("form-external-external")).toHaveAttribute(
+      "href",
+      "http://localhost:4096/approve",
+    )
+  })
+
+  it.each([
+    ["javascript:", "javascript:alert(1)"],
+    ["data:", "data:text/html,<script>alert(1)</script>"],
+    ["a relative path", "/approve"],
+    ["garbage", "not a url"],
+    ["an empty string", ""],
+  ])("keeps %s as plain hint text without an anchor", (_label, url) => {
+    render(withI18n(<FormCard form={externalForm(url)} value={value()} />))
+
+    expect(screen.queryByTestId("form-external-external")).toBeNull()
+    expect(
+      screen.queryByRole("link", { name: "Open the external step" }),
+    ).toBeNull()
+    expect(screen.getByText("The agent completes this step on another page.")).toBeInTheDocument()
+  })
+})
 
 describe("form card", () => {
   it("renders every field type the schema exposes", () => {
@@ -278,5 +327,28 @@ describe("form events", () => {
       source().emit("form.replied", { sessionID: "ses_1", id: "frm_1", answer: {} }),
     )
     await waitFor(() => expect(screen.queryByTestId("form-card")).not.toBeInTheDocument())
+  })
+
+  it("keeps the card and shows the failure alert when the host is unavailable", async () => {
+    mocks.listForms.mockResolvedValue([form])
+    mocks.replyForm.mockRejectedValueOnce(
+      new ApiError(502, "The host did not answer", "unavailable"),
+    )
+    const user = userEvent.setup()
+    renderChat()
+
+    await screen.findByTestId("form-card")
+    await user.type(screen.getByLabelText(/What should the answer cover/), "Costs")
+    await user.click(screen.getByTestId("form-submit"))
+
+    // Only not_found/conflict expire a card; any other ApiError is retryable,
+    // so the form stays open with a localized alert instead of a dead card.
+    expect(
+      await screen.findByText("The answer could not be sent. Try again."),
+    ).toHaveAttribute("role", "alert")
+    expect(mocks.replyForm).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId("form-card")).toHaveAttribute("data-form-id", "frm_1")
+    expect(screen.queryByTestId("form-submitted")).toBeNull()
+    expect(screen.getByTestId("form-submit")).toBeEnabled()
   })
 })

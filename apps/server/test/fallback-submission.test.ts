@@ -78,7 +78,43 @@ describe("fallback submissions", () => {
     engine.abandon("s1", first)
 
     expect(engine.activeCount()).toBe(1)
-    expect((await engine.onFailure(failureEvent())).suppress).toBe(true)
+    // The stale abandon cannot drop the newer registration; the older turn's
+    // failure is forwarded rather than retried with the newer payload.
+    expect((await engine.onFailure(failureEvent())).suppress).toBe(false)
+    expect(engine.activeCount()).toBe(1)
+  })
+
+  it("bounds the awaiting queue per session without evicting the running head", async () => {
+    const { deps } = makeDeps()
+    const engine = new FallbackEngine(deps)
+    const models: ModelRef[] = Array.from({ length: 10 }, (_, i) => ({
+      providerID: "acme",
+      modelID: `m${i}`,
+    }))
+    for (const [i, model] of models.entries()) {
+      const token = engine.begin("s1", { text: `turn ${i}` }, policy(), model)
+      engine.adopt("s1", token, `msg_${i}`)
+    }
+
+    // At most eight overlapping turns are awaited. The two over the bound are
+    // refused, never queued, so they cannot push the running head out of the
+    // FIFO: live-shaped terminal events (no message id) resolve to the oldest
+    // turn first, in registration order.
+    const live = (): EngineEvent => ({
+      type: EVENT.executionSucceeded,
+      data: { sessionID: "s1" },
+    })
+    for (let i = 0; i < 8; i += 1) {
+      const events = await engine.onSuccess(live())
+      expect(events).toHaveLength(1)
+      expect(events[0]!.data).toMatchObject({ answered: models[i] })
+    }
+
+    // The newest registration was never queued but is still the session's
+    // current turn and closes through the id-less terminal.
+    expect(engine.activeCount()).toBe(1)
+    const last = await engine.onSuccess(live())
+    expect(last[0]!.data).toMatchObject({ answered: models[9] })
   })
 
   it("starts the retry without the original queued delivery", async () => {

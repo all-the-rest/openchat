@@ -35,8 +35,9 @@ export interface TurnPolicy {
    */
   chain: ModelRef[]
   /**
-   * Paid turns allowed per local day. A turn counts when the answered model is
-   * not marked free. `0` turns the cap off.
+   * Paid **turns** allowed per local day — a count, never a micros amount. A
+   * turn counts when the answered model is not marked free. `0` turns the cap
+   * off.
    */
   paidDailyTurns: number
   /** Prompt tokens before compaction is preferred. `0` turns the cap off. */
@@ -82,10 +83,10 @@ export interface FallbackStatusResponse {
    */
   invalid: boolean
   /**
-   * Short validation reason when `invalid` is true. Never the raw setting, a
-   * credential or an endpoint.
+   * Stable classification of the validation failure. The settings page renders
+   * localized copy for it; the human-readable reason stays in the boot log.
    */
-  invalidReason?: string
+  invalidReasonCode?: FallbackInvalidReasonCode
   /** Ordered candidates as the policy resolved them; empty when unconfigured. */
   chain: ModelRef[]
   /** Paid turns allowed per local day; `0` means the cap is off. */
@@ -94,7 +95,16 @@ export interface FallbackStatusResponse {
   paidTurnsToday: number
   /** All turns recorded for today, free and paid alike. */
   turnsToday: number
+  /** True when a turn outcome could not be written to the usage ledger. */
+  ledgerError?: boolean
 }
+
+/**
+ * Why `FALLBACK_CHAIN_JSON` was rejected. `chain_json` is unparseable JSON,
+ * `chain_shape` is not a bounded array, and `entry` is an invalid or duplicate
+ * model ref.
+ */
+export type FallbackInvalidReasonCode = "chain_json" | "chain_shape" | "entry"
 
 /** Longest accepted chain. One retry per turn needs no more than two entries. */
 export const MAX_CHAIN_LENGTH = 5

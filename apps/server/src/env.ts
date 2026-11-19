@@ -6,14 +6,8 @@ import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
 import { loadMemoryEnv } from "./env-memory"
 import { loadWorkspaceEnv, type WorkspaceFileEnv } from "./env-workspace"
 import { loadCredentialEnv } from "./env-auth"
-import {
-  read,
-  readBoolean,
-  readNumber,
-  readPort,
-  readSecret,
-  readTokenCap,
-} from "./env-parse"
+import { readFallbackPaidTurns } from "./env-fallback"
+import { read, readBoolean, readNumber, readPort, readSecret, readTokenCap } from "./env-parse"
 import { sttModelDir } from "./models"
 import { webDistDir } from "./static"
 
@@ -90,8 +84,8 @@ export interface EnvConfig extends WorkspaceFileEnv {
   CHAT_CONTEXT_SOFT_CAP: number
   /** JSON array of `ModelRef`; empty means no fallback chain. Validated at startup. */
   FALLBACK_CHAIN_JSON: string
-  /** Paid turns allowed per local day (free turns never count); 0 disables the cap. */
-  FALLBACK_PAID_DAILY_CAP: number
+  /** Paid turns allowed per local day as a turn count; 0 disables the cap. */
+  FALLBACK_PAID_DAILY_TURNS: number
   /** Directory for the per-day usage ledger. */
   FALLBACK_USAGE_DIR: string
 }
@@ -394,7 +388,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
       warn,
     ),
     FALLBACK_CHAIN_JSON: read(source, "FALLBACK_CHAIN_JSON") ?? "",
-    FALLBACK_PAID_DAILY_CAP: readTokenCap(source, "FALLBACK_PAID_DAILY_CAP", 0, warn),
+    FALLBACK_PAID_DAILY_TURNS: readFallbackPaidTurns(source, warn),
     FALLBACK_USAGE_DIR: read(source, "FALLBACK_USAGE_DIR") ?? join(workspaceDir, "chats", ".usage"),
   }
 }

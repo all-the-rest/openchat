@@ -63,6 +63,8 @@ export interface TestServerOptions {
   /** Artifact creation throttle; tests inject a clock-bound instance. */
   artifactsThrottle?: FixedWindowThrottle
   artifactsNow?: () => number
+  /** Worktree creation throttle; tests inject a clock-bound instance. */
+  worktreeThrottle?: FixedWindowThrottle
   /** Filesystem probe for the artifact capacity guard; tests simulate a full disk. */
   artifactsStatfs?: ArtifactStatFsFn
   /** Capacity threshold for the artifact capacity guard. */
@@ -131,6 +133,7 @@ export function makeServer(options: TestServerOptions = {}): TestServer {
       providerConnectThrottle: options.providerConnectThrottle,
       artifactsThrottle: options.artifactsThrottle,
       artifactsNow: options.artifactsNow,
+      worktreeThrottle: options.worktreeThrottle,
       artifactsStatfs: options.artifactsStatfs,
       artifactsFullThreshold: options.artifactsFullThreshold,
       verify: options.verify,

@@ -23,10 +23,11 @@ import type { PromptInput } from "@openchat/opencode"
 
 import type { TurnFailure } from "./fallback-policy"
 import { classifyFailure, isFreeModel, nextModel, shouldFallback } from "./fallback-policy"
+import type { SubmissionToken, TurnState } from "./fallback-registry"
+import { TurnRegistry } from "./fallback-registry"
 import { UsageLedgerError } from "./usage-ledger"
 
-/** More than this many simultaneous sessions are never tracked. */
-const MAX_TRACKED_SESSIONS = 512
+export type { SubmissionToken, TurnState } from "./fallback-registry"
 
 export interface FallbackEngineDeps {
   backend: {
@@ -48,33 +49,6 @@ export interface FallbackEngineDeps {
   now?: () => number
   /** Boot/log sink; defaults to the server's `console.warn` prefix. */
   warn?: (message: string) => void
-}
-
-/** Opaque identity of one submission; only `begin` can mint one. */
-export interface SubmissionToken {
-  readonly id: symbol
-}
-
-function newSubmissionToken(): SubmissionToken {
-  return { id: Symbol("openchat.submission") }
-}
-
-export interface TurnState {
-  sessionID: string
-  /** Identity of the submission that registered this state. */
-  token: SubmissionToken
-  policy: TurnPolicy
-  payload: PromptInput
-  /** Model the turn first asked for; kept for `turn.outcome.requested`. */
-  initial: ModelRef
-  requested: ModelRef
-  attempts: number
-  emittedText: string
-  /** modelKey of every model that has already failed this turn. */
-  tried: string[]
-  messageID?: string
-  /** Reason of the first failure that triggered a fallback, for the outcome. */
-  reason?: import("@openchat/contracts").FallbackReason
 }
 
 export interface EngineEvent {
@@ -103,13 +77,14 @@ export class FallbackEngine {
   private readonly deps: FallbackEngineDeps
   private readonly now: () => number
   private readonly warn: (message: string) => void
-  private readonly turns = new Map<string, TurnState>()
-  /** State `begin` replaced, restored when the submit is abandoned. */
-  private readonly replaced = new Map<string, TurnState>()
+  private readonly registry = new TurnRegistry()
   /** Sessions with a retry in flight; guards concurrent subscribers. */
   private readonly retrying = new Set<string>()
   /** A full ledger rejects every later row too; one warning per process. */
   private ledgerFullWarned = false
+  /** Any other ledger failure; the settings page reports this once it is set. */
+  private ledgerFailed = false
+  private ledgerErrorWarned = false
 
   constructor(deps: FallbackEngineDeps) {
     this.deps = deps
@@ -131,38 +106,12 @@ export class FallbackEngine {
     requested: ModelRef,
     messageID?: string,
   ): SubmissionToken {
-    // Map.set on an existing key keeps its position; only new sessions evict.
-    if (!this.turns.has(sessionID) && this.turns.size >= MAX_TRACKED_SESSIONS) {
-      const oldest = this.turns.keys().next().value
-      if (oldest !== undefined) this.turns.delete(oldest)
-    }
-    // A prompt that turns out to be queued never starts a run; its registration
-    // must not destroy the active turn it replaced.
-    const previous = this.turns.get(sessionID)
-    if (previous === undefined) this.replaced.delete(sessionID)
-    else this.replaced.set(sessionID, previous)
-    const token = newSubmissionToken()
-    this.turns.set(sessionID, {
-      sessionID,
-      token,
-      policy,
-      payload,
-      initial: requested,
-      requested,
-      attempts: 0,
-      emittedText: "",
-      tried: [],
-      messageID,
-    })
-    return token
+    return this.registry.begin(sessionID, payload, policy, requested, messageID)
   }
 
   /** Attaches the host's message id once the prompt response arrives. */
   adopt(sessionID: string, token: SubmissionToken, messageID: string): void {
-    const state = this.turns.get(sessionID)
-    if (state === undefined || state.token !== token) return
-    state.messageID = messageID
-    this.replaced.delete(sessionID)
+    this.registry.adopt(sessionID, token, messageID)
   }
 
   /**
@@ -171,26 +120,40 @@ export class FallbackEngine {
    * stale token cannot abandon the submission that replaced it.
    */
   abandon(sessionID: string, token: SubmissionToken): void {
-    const state = this.turns.get(sessionID)
-    if (state === undefined || state.token !== token) return
-    const previous = this.replaced.get(sessionID)
-    this.replaced.delete(sessionID)
-    if (previous === undefined) this.turns.delete(sessionID)
-    else this.turns.set(sessionID, previous)
+    this.registry.abandon(sessionID, token)
   }
 
   /**
-   * Accumulates any assistant-visible output for a tracked session. A retry is
-   * only safe before text, reasoning OR tool output has been emitted; a turn
-   * that already showed work must keep its own failure rather than be silently
-   * re-run.
+   * Accumulates any assistant-visible output for the turn that produced it. A
+   * retry is only safe before text, reasoning OR tool output has been emitted; a
+   * turn that already showed work must keep its own failure rather than be
+   * silently re-run.
+   *
+   * The prompt response id is the *user* inbox id, so it can never match an
+   * output event: those carry the assistant message id. Output is therefore
+   * credited by its known assistant id, else to the session's oldest turn still
+   * awaiting a terminal event — the host runs one turn per session and delivers
+   * events in order, so that turn is the one producing output now.
    */
   observe(event: EngineEvent): void {
     if (event.type !== EVENT.textDelta && event.type !== EVENT.reasoningDelta && event.type !== EVENT.toolUpdated) return
     const sessionID = sessionIDOf(event.data)
     if (sessionID === undefined) return
-    const state = this.turns.get(sessionID)
+    const messageID =
+      typeof event.data.messageID === "string" ? event.data.messageID : undefined
+    // A retired id belongs to a failed attempt that was already replaced.
+    if (messageID !== undefined && this.registry.isRetired(messageID)) return
+    const state =
+      (messageID === undefined ? undefined : this.registry.ownerOfOutput(messageID)) ??
+      // A known terminal/adopted id belongs to its own turn, never to the FIFO
+      // head of a different one.
+      (messageID === undefined ? undefined : this.registry.ownerOf(messageID)) ??
+      this.registry.oldestAwaiting(sessionID) ??
+      this.registry.current(sessionID)
     if (state === undefined) return
+    // Remember which assistant id produces this turn's output, so later deltas
+    // of the same message stay credited to it.
+    if (messageID !== undefined) this.registry.trackOutput(state, messageID)
     if (typeof event.data.delta === "string") {
       state.emittedText += event.data.delta
     } else {
@@ -207,9 +170,14 @@ export class FallbackEngine {
    */
   async onFailure(event: EngineEvent): Promise<FailureResult> {
     if (event.type !== EVENT.executionFailed) return { suppress: false, events: [] }
-    const sessionID = sessionIDOf(event.data)
-    const state = sessionID === undefined ? undefined : this.turns.get(sessionID)
-    if (state === undefined || sessionID === undefined) {
+    const resolved = this.registry.resolve(event.data)
+    if (resolved === undefined) return { suppress: false, events: [] }
+    const { state, sessionID, superseded } = resolved
+    // The turn was replaced while this failure was in flight. Retrying would
+    // re-prompt the newer submission's payload under the old turn's failure, so
+    // forward the failure and drop only the stale state.
+    if (superseded) {
+      this.registry.drop(state)
       return { suppress: false, events: [] }
     }
     // A second report of the same failure must not forward the raw failure:
@@ -256,7 +224,7 @@ export class FallbackEngine {
       // completion — for example a queued turn that starts next — be recorded
       // against this failed attempt.
       state.attempts = attempts
-      this.turns.delete(sessionID)
+      this.registry.drop(state)
       return { suppress: false, events: [] }
     }
 
@@ -280,14 +248,18 @@ export class FallbackEngine {
     } catch {
       // The retry could not be started; the turn is over and must not be
       // retried again from a later failure event.
-      this.turns.delete(sessionID)
+      this.registry.drop(state)
       return { suppress: false, events: [] }
     }
     if (result.queued === true) {
-      this.turns.delete(sessionID)
+      this.registry.drop(state)
       return { suppress: false, events: [] }
     }
-    state.messageID = result.messageID
+    // The retry's message id owns its terminal event, including when a newer
+    // submission shadowed this turn while the POST was open.
+    if (!this.registry.trackMessage(state, result.messageID)) {
+      return { suppress: false, events: [] }
+    }
 
     // Only the notice is emitted here. The outcome belongs to the completed
     // turn and is emitted by onSuccess — claiming `answered` before the retry
@@ -310,35 +282,12 @@ export class FallbackEngine {
   /** Records the answered model and closes a successful turn. */
   async onSuccess(event: EngineEvent): Promise<EngineEvent[]> {
     if (event.type !== EVENT.executionSucceeded) return []
-    const sessionID = sessionIDOf(event.data)
-    const state = sessionID === undefined ? undefined : this.turns.get(sessionID)
-    if (state === undefined || sessionID === undefined) return []
+    const resolved = this.registry.resolve(event.data)
+    if (resolved === undefined) return []
+    const { state, sessionID } = resolved
 
     const answered = state.requested
     const isFree = isFreeModel(answered) ? true : undefined
-    try {
-      await this.deps.ledger.record({
-        providerID: answered.providerID,
-        modelID: answered.modelID,
-        turns: 1,
-        costMicros: 0,
-        ...(isFree === undefined ? {} : { isFree }),
-      })
-    } catch (error) {
-      // A full ledger keeps refusing for the rest of the day, so the paid-turn
-      // cap freezes at its last readable value. Say so once, with a fixed
-      // message: the row and the ledger path never belong in a log.
-      if (error instanceof UsageLedgerError && error.code === "usage_ledger_full") {
-        if (!this.ledgerFullWarned) {
-          this.ledgerFullWarned = true
-          this.warn(
-            "usage_ledger_full: paid-turn accounting stays frozen until the day rolls over",
-          )
-        }
-      } else {
-        throw error
-      }
-    }
     const outcome: TurnOutcomeData = {
       sessionID,
       requested: state.initial,
@@ -349,17 +298,56 @@ export class FallbackEngine {
       ...(state.reason ? { reason: state.reason } : {}),
       costMicros: 0,
     }
-    this.turns.delete(sessionID)
+    // Drop before the ledger write, not after: while the write is in flight the
+    // turn is over, so a delta of the next (already registered) turn must not
+    // resolve to this state's FIFO slot and then be wiped by its drop. Dropping
+    // a superseded turn must not delete the newer registration either: the
+    // outcome belongs to the old turn and the new one keeps its own state.
+    this.registry.drop(state)
+    try {
+      await this.deps.ledger.record({
+        providerID: answered.providerID,
+        modelID: answered.modelID,
+        turns: 1,
+        costMicros: 0,
+        ...(isFree === undefined ? {} : { isFree }),
+      })
+    } catch (error) {
+      this.noteLedgerFailure(error)
+    }
     return [this.envelope(EVENT.turnOutcome, outcome as unknown as Record<string, unknown>)]
   }
 
+  /** True once any ledger write failed; the failure is sticky for this process. */
+  ledgerError(): boolean {
+    return this.ledgerFailed
+  }
+
   forget(sessionID: string): void {
-    this.turns.delete(sessionID)
-    this.replaced.delete(sessionID)
+    this.registry.forget(sessionID)
   }
 
   activeCount(): number {
-    return this.turns.size
+    return this.registry.activeCount()
+  }
+
+  /**
+   * A ledger failure must never swallow a turn's outcome. A full ledger keeps
+   * refusing for the rest of the day, so the paid-turn cap freezes at its last
+   * readable value. Both cases set the sticky flag; each warning is fixed text
+   * because the row and the ledger path never belong in a log.
+   */
+  private noteLedgerFailure(error: unknown): void {
+    this.ledgerFailed = true
+    if (error instanceof UsageLedgerError && error.code === "usage_ledger_full") {
+      if (this.ledgerFullWarned) return
+      this.ledgerFullWarned = true
+      this.warn("usage_ledger_full: paid-turn accounting stays frozen until the day rolls over")
+      return
+    }
+    if (this.ledgerErrorWarned) return
+    this.ledgerErrorWarned = true
+    this.warn("usage_ledger_write_failed: turn accounting could not be recorded")
   }
 
   /** Builds an `EventEnvelope`-shaped synthetic event with a fresh id. */

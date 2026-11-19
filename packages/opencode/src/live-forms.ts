@@ -8,7 +8,9 @@ import type {
   FormRequest,
   FormTextField,
 } from "@openchat/contracts"
+import { declaredErrorTag, declaredStatus } from "./declared-errors"
 import { BackendError } from "./errors"
+import { isDeclaredMissing } from "./live-session-read"
 
 type HostForm = Awaited<ReturnType<OpenCodeClient["session"]["form"]["list"]>>[number]
 type HostField = HostForm["fields"][number]
@@ -76,7 +78,13 @@ function option(entry: {
 }
 
 /** Maps one host field onto the contract shape the card renders. */
-export function normalizeFormField(field: HostField): FormField {
+export function normalizeFormField(field: HostField): FormField | null {
+  // The host (and through it an agent) controls this payload; a malformed
+  // entry is dropped instead of reaching the browser. The declared type is
+  // trusted by the callers that read host responses, so the runtime guards
+  // describe data the types do not.
+  if (field === null || typeof field !== "object") return null
+  if (typeof field.key !== "string") return null
   const shared = common(field)
   switch (field.type) {
     case "string": {
@@ -112,7 +120,7 @@ export function normalizeFormField(field: HostField): FormField {
       const mapped: FormMultiselectField = {
         ...shared,
         type: "multiselect",
-        options: field.options.map(option),
+        options: Array.isArray(field.options) ? field.options.map(option) : [],
       }
       const minItems = finite(field.minItems)
       const maxItems = finite(field.maxItems)
@@ -123,16 +131,26 @@ export function normalizeFormField(field: HostField): FormField {
       return mapped
     }
     case "external":
+      if (typeof field.url !== "string") return null
       return { ...shared, type: "external", url: field.url }
+    default:
+      // A variant this client does not know (a newer host) is filtered out
+      // rather than rendered as an empty or broken field.
+      return null
   }
 }
 
 export function normalizeForm(form: HostForm): FormRequest {
+  const fields = Array.isArray(form.fields)
+    ? form.fields
+        .map(normalizeFormField)
+        .filter((field): field is FormField => field !== null)
+    : []
   return {
     id: form.id,
     sessionID: form.sessionID,
     title: form.title,
-    fields: form.fields.map(normalizeFormField),
+    fields,
   }
 }
 
@@ -146,9 +164,35 @@ export async function listHostForms(
 }
 
 /**
- * `form.reply` reports every failure generically, so a pre-read separates an
- * unknown id (404) and a form that already left the open state (409) from a
- * transient host failure.
+ * Classifies a reply rejection by what the host declared. The reply declares
+ * its closed forms (`FormNotFoundError`, `FormAlreadySettledError`) and a
+ * rejected answer (`FormInvalidAnswerError`); a form settled between the
+ * pre-read and the write is therefore still a 409 rather than a dead host.
+ * Transport failures, timeouts, 5xx and malformed bodies declare nothing and
+ * stay unavailable (502 in the BFF). Host text is never echoed: the message is
+ * ours, so an agent-controlled string cannot reach the browser.
+ */
+function replyError(error: unknown, formID: string): BackendError {
+  const tag = declaredErrorTag(error)
+  const status = declaredStatus(error)
+  if (tag === "FormNotFoundError" || tag === "SessionNotFoundError" || status === 404) {
+    return new BackendError("not_found", `Unknown form: ${formID}`)
+  }
+  if (tag === "FormAlreadySettledError" || status === 409) {
+    return new BackendError("conflict", `Form ${formID} has already been answered`)
+  }
+  if (tag === "FormInvalidAnswerError" || status === 400) {
+    return new BackendError("invalid", `The answer to form ${formID} was rejected`)
+  }
+  return new BackendError("unavailable", "The host did not answer the form reply")
+}
+
+/**
+ * `form.reply` reports every failure generically in an undeclared error, so a
+ * pre-read separates an unknown id (404) and a form that already left the open
+ * state (409) before the write. A dropped connection must not tell the owner
+ * its answer expired, and a reply that the host never answered is unavailable
+ * (502) rather than an unexpected 500.
  */
 export async function replyHostForm(
   client: OpenCodeClient,
@@ -159,8 +203,11 @@ export async function replyHostForm(
   let detail: HostDetail
   try {
     detail = await client.session.form.get({ sessionID, formID })
-  } catch {
-    throw new BackendError("not_found", `Unknown form: ${formID}`)
+  } catch (error) {
+    if (isDeclaredMissing(error)) {
+      throw new BackendError("not_found", `Unknown form: ${formID}`)
+    }
+    throw new BackendError("unavailable", "The host did not read the form")
   }
   if (detail.state.status === "answered") {
     throw new BackendError("conflict", `Form ${formID} has already been answered`)
@@ -168,5 +215,9 @@ export async function replyHostForm(
   if (detail.state.status === "cancelled") {
     throw new BackendError("conflict", `Form ${formID} has been cancelled`)
   }
-  await client.session.form.reply({ sessionID, formID, answer })
+  try {
+    await client.session.form.reply({ sessionID, formID, answer })
+  } catch (error) {
+    throw replyError(error, formID)
+  }
 }

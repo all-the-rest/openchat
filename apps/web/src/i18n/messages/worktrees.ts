@@ -32,6 +32,7 @@ export const worktrees = {
   "worktrees.create.created": msg({ id: "worktrees.create.created", message: "Worktree created: {directory} on {branch}." }),
   "worktrees.create.failed": msg({ id: "worktrees.create.failed", message: "The worktree could not be created. Check the branch name." }),
   "worktrees.create.exists": msg({ id: "worktrees.create.exists", message: "A worktree for this branch already exists." }),
+  "worktrees.create.limit": msg({ id: "worktrees.create.limit", message: "This project already has the maximum number of worktrees. Remove one before creating another." }),
   "worktrees.remove.title": msg({ id: "worktrees.remove.title", message: "Remove this worktree?" }),
   "worktrees.remove.body": msg({ id: "worktrees.remove.body", message: "Removing {directory} deletes the working directory; the branch itself stays." }),
   "worktrees.remove.dirtyBody": msg({ id: "worktrees.remove.dirtyBody", message: "The removal is refused while the worktree has uncommitted changes. Forcing it discards those changes permanently." }),

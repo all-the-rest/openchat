@@ -332,3 +332,43 @@ describe("Code surface env", () => {
     expect(text).not.toContain("not-a-number")
   })
 })
+
+describe("fallback paid-turn cap", () => {
+  it("reads the new name as a turn count without a deprecation warning", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: { ...CREDENTIALS, FALLBACK_PAID_DAILY_TURNS: "4" },
+      warn: (message) => warnings.push(message),
+    })
+    expect(config.FALLBACK_PAID_DAILY_TURNS).toBe(4)
+    expect(warnings.some((entry) => entry.includes("FALLBACK_PAID_DAILY_CAP"))).toBe(false)
+  })
+
+  it("accepts the deprecated name as turns and warns once without echoing it", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: { ...CREDENTIALS, FALLBACK_PAID_DAILY_CAP: "7000000" },
+      warn: (message) => warnings.push(message),
+    })
+    expect(config.FALLBACK_PAID_DAILY_TURNS).toBe(7_000_000)
+    const deprecations = warnings.filter((entry) => entry.includes("FALLBACK_PAID_DAILY_CAP"))
+    expect(deprecations).toHaveLength(1)
+    expect(deprecations[0]).toContain("deprecated")
+    expect(deprecations[0]).toContain("turns")
+    expect(deprecations[0]).not.toContain("7000000")
+  })
+
+  it("lets the new name win when both are set", () => {
+    const warnings: string[] = []
+    const config = loadEnv({
+      source: {
+        ...CREDENTIALS,
+        FALLBACK_PAID_DAILY_TURNS: "3",
+        FALLBACK_PAID_DAILY_CAP: "9",
+      },
+      warn: (message) => warnings.push(message),
+    })
+    expect(config.FALLBACK_PAID_DAILY_TURNS).toBe(3)
+    expect(warnings.filter((entry) => entry.includes("FALLBACK_PAID_DAILY_CAP"))).toHaveLength(1)
+  })
+})

@@ -212,6 +212,18 @@ const server = createServer((request, response) => {
   })
 })
 
+// The observer owns a host subscription and reconnect timers; a discarded app
+// instance must stop them, not just close the listener.
+let shuttingDown = false
+function shutdown(): void {
+  if (shuttingDown) return
+  shuttingDown = true
+  app.stop()
+  server.close(() => process.exit(0))
+}
+process.once("SIGTERM", shutdown)
+process.once("SIGINT", shutdown)
+
 server.listen(config.PORT, config.HOST, () => {
   console.log(
     `[openchat] server listening on http://${config.HOST}:${config.PORT} (mode=${config.BACKEND_MODE})`,

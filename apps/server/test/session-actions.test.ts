@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import type { FormRequest, SessionInfo } from "@openchat/contracts"
+import { BackendError } from "@openchat/opencode"
 import { json, login, makeServer } from "./helpers"
 
 async function createChat(server: ReturnType<typeof makeServer>, cookie: string, title = "Chat") {
@@ -77,6 +78,40 @@ describe("PATCH /api/sessions/:id", () => {
     })
     expect(anonymous.status).toBe(401)
   })
+
+  it("answers 502 when the host cannot rename", async () => {
+    const server = makeServer()
+    const cookie = await login(server)
+    const session = await createChat(server, cookie)
+    vi.spyOn(server.backend, "renameSession").mockRejectedValue(
+      new BackendError("unavailable", "The host did not answer the rename"),
+    )
+
+    const response = await server.app.request(`/api/sessions/${session.id}`, {
+      method: "PATCH",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ title: "New title" }),
+    })
+    expect(response.status).toBe(502)
+    expect(await json(response)).toMatchObject({ error: { code: "unavailable" } })
+  })
+
+  it("maps an unsupported capability to 501 and preserves the code", async () => {
+    const server = makeServer()
+    const cookie = await login(server)
+    const session = await createChat(server, cookie)
+    vi.spyOn(server.backend, "renameSession").mockRejectedValue(
+      new BackendError("unsupported", "The host has no rename surface"),
+    )
+
+    const response = await server.app.request(`/api/sessions/${session.id}`, {
+      method: "PATCH",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ title: "New title" }),
+    })
+    expect(response.status).toBe(501)
+    expect(await json(response)).toMatchObject({ error: { code: "unsupported" } })
+  })
 })
 
 describe("DELETE /api/sessions/:id", () => {
@@ -110,6 +145,23 @@ describe("DELETE /api/sessions/:id", () => {
     })
     expect(response.status).toBe(404)
     expect(await json(response)).toMatchObject({ error: { code: "not_found" } })
+  })
+
+  it("answers 502 when the host cannot delete", async () => {
+    const server = makeServer()
+    const cookie = await login(server)
+    const session = await createChat(server, cookie)
+    vi.spyOn(server.backend, "deleteSession").mockRejectedValue(
+      new BackendError("unavailable", "The host did not answer the delete"),
+    )
+
+    const response = await server.app.request(`/api/sessions/${session.id}`, {
+      method: "DELETE",
+      headers: { cookie, "content-type": "application/json" },
+      body: "{}",
+    })
+    expect(response.status).toBe(502)
+    expect(await json(response)).toMatchObject({ error: { code: "unavailable" } })
   })
 })
 
@@ -176,6 +228,43 @@ describe("form routes", () => {
     expect(missingSession.status).toBe(404)
   })
 
+  it("answers 502 when the host cannot read the form before the reply", async () => {
+    const server = makeServer()
+    const cookie = await login(server)
+    const session = await createChat(server, cookie)
+    const form = server.backend.seedForm(session.id)
+    vi.spyOn(server.backend, "replyForm").mockRejectedValue(
+      new BackendError("unavailable", "The host did not read the form"),
+    )
+
+    const response = await server.app.request(`/api/sessions/${session.id}/forms/${form.id}`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ answer: { summary: "Costs" } }),
+    })
+    expect(response.status).toBe(502)
+    expect(await json(response)).toMatchObject({ error: { code: "unavailable" } })
+  })
+
+  it("answers 502 when the host does not answer the form reply", async () => {
+    const server = makeServer()
+    const cookie = await login(server)
+    const session = await createChat(server, cookie)
+    const form = server.backend.seedForm(session.id)
+    vi.spyOn(server.backend, "replyForm").mockRejectedValue(
+      new BackendError("unavailable", "The host did not answer the form reply"),
+    )
+
+    const response = await server.app.request(`/api/sessions/${session.id}/forms/${form.id}`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ answer: { summary: "Costs" } }),
+    })
+    // The adapter wraps a host drop; the BFF must not turn it into a 500.
+    expect(response.status).toBe(502)
+    expect(await json(response)).toMatchObject({ error: { code: "unavailable" } })
+  })
+
   it("answers 409 when the form was already replied to", async () => {
     const server = makeServer()
     const cookie = await login(server)
@@ -191,5 +280,25 @@ describe("form routes", () => {
     // The fake removes a replied form, so a second reply is an unknown id.
     expect(again.status).toBe(404)
     expect(await json(again)).toMatchObject({ error: { code: "not_found" } })
+  })
+
+  it("answers 409 when the host reports the form settled before the reply", async () => {
+    const server = makeServer()
+    const cookie = await login(server)
+    const session = await createChat(server, cookie)
+    const form = server.backend.seedForm(session.id)
+    // A live host settles a form between the adapter's pre-read and its reply;
+    // the adapter now classifies that as conflict instead of a dead host.
+    vi.spyOn(server.backend, "replyForm").mockRejectedValue(
+      new BackendError("conflict", `Form ${form.id} has already been answered`),
+    )
+
+    const response = await server.app.request(`/api/sessions/${session.id}/forms/${form.id}`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ answer: { summary: "Costs" } }),
+    })
+    expect(response.status).toBe(409)
+    expect(await json(response)).toMatchObject({ error: { code: "conflict" } })
   })
 })

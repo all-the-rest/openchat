@@ -39,6 +39,24 @@ function liveBackend(client: OpenCodeClient) {
   })
 }
 
+/** The create mock of the minimal client, typed for `mockRejectedValueOnce`. */
+function createMock(client: OpenCodeClient) {
+  return client.worktree as unknown as { create: ReturnType<typeof vi.fn> }
+}
+
+/** The wire body the pinned promise client assigns onto an `Error`. */
+const DIRTY_REFUSAL = {
+  _tag: "WorktreeError",
+  name: "WorktreeError",
+  data: { message: "worktree has uncommitted changes", forceRequired: true },
+}
+
+const PLAIN_REFUSAL = {
+  _tag: "WorktreeError",
+  name: "WorktreeError",
+  data: { message: "worktree could not be removed" },
+}
+
 describe("fake worktrees", () => {
   it("seeds one worktree so a page needs no host", async () => {
     const backend = new FakeBackend({ workspace: WORKSPACE })
@@ -142,13 +160,19 @@ describe("live worktrees", () => {
   it("surfaces the host's uncommitted-changes refusal and never forces", async () => {
     const client = liveClient()
     const worktree = client.worktree as unknown as { remove: ReturnType<typeof vi.fn> }
-    worktree.remove.mockRejectedValueOnce({ _tag: "Worktree.OperationError", forceRequired: true })
+    // The host refuses an unforced removal of a dirty tree; a forced one succeeds.
+    worktree.remove.mockImplementation(async ({ force }: { force?: boolean }) => {
+      if (!force) throw DIRTY_REFUSAL
+      return undefined
+    })
     const backend = liveBackend(client)
 
     await expect(backend.removeWorktree(`${WORKSPACE}/.worktrees/a`, false)).rejects.toBeInstanceOf(
       WorktreeDirtyError,
     )
-    expect(worktree.remove).toHaveBeenCalledWith({
+    // The adapter never retried with force.
+    expect(worktree.remove).toHaveBeenCalledTimes(1)
+    expect(worktree.remove).toHaveBeenLastCalledWith({
       projectID: "proj_1",
       directory: `${WORKSPACE}/.worktrees/a`,
       force: false,
@@ -162,13 +186,131 @@ describe("live worktrees", () => {
     })
   })
 
+  it("reads a flat forceRequired flag as the dirty refusal too", async () => {
+    const client = liveClient()
+    const worktree = client.worktree as unknown as { remove: ReturnType<typeof vi.fn> }
+    worktree.remove.mockRejectedValueOnce({ forceRequired: true })
+    const backend = liveBackend(client)
+
+    await expect(backend.removeWorktree(`${WORKSPACE}/.worktrees/a`, false)).rejects.toBeInstanceOf(
+      WorktreeDirtyError,
+    )
+  })
+
   it("rejects a removal the host refuses for another reason", async () => {
     const client = liveClient()
     const worktree = client.worktree as unknown as { remove: ReturnType<typeof vi.fn> }
-    worktree.remove.mockRejectedValueOnce({ _tag: "Worktree.OperationError" })
+    // A `WorktreeError` without the structured flag is a generic refusal.
+    worktree.remove.mockRejectedValueOnce(PLAIN_REFUSAL)
     const backend = liveBackend(client)
 
-    await expect(backend.removeWorktree(`${WORKSPACE}/.worktrees/a`, false)).rejects.toMatchObject({
+    const error = await backend.removeWorktree(`${WORKSPACE}/.worktrees/a`, false).catch(
+      (caught: unknown) => caught,
+    )
+    expect(error).toBeInstanceOf(BackendError)
+    expect(error).not.toBeInstanceOf(WorktreeDirtyError)
+    expect(error).toMatchObject({ code: "unavailable" })
+  })
+
+  it("maps a transport failure on create to unavailable", async () => {
+    const client = liveClient()
+    createMock(client).create.mockRejectedValueOnce(new Error("socket hang up"))
+    const backend = liveBackend(client)
+
+    const error = await backend.createWorktree({ branch: "feat/new" }).catch(
+      (caught: unknown) => caught,
+    )
+
+    expect(error).toBeInstanceOf(BackendError)
+    expect(error).toMatchObject({ code: "unavailable" })
+  })
+
+  it("maps an undeclared 409 on create to conflict", async () => {
+    const client = liveClient()
+    createMock(client).create.mockRejectedValueOnce({
+      reason: "UnexpectedStatus",
+      cause: { status: 409 },
+    })
+    const backend = liveBackend(client)
+
+    await expect(backend.createWorktree({ branch: "feat/taken" })).rejects.toMatchObject({
+      code: "conflict",
+    })
+  })
+
+  it("maps the host's WorktreeError refusal on create to invalid", async () => {
+    const client = liveClient()
+    createMock(client).create.mockRejectedValueOnce({
+      _tag: "WorktreeError",
+      name: "WorktreeError",
+      data: { message: "branch already exists" },
+    })
+    const backend = liveBackend(client)
+
+    await expect(backend.createWorktree({ branch: "feat/taken" })).rejects.toMatchObject({
+      code: "invalid",
+    })
+  })
+
+  it("maps a declared InvalidRequestError on create to invalid", async () => {
+    const client = liveClient()
+    createMock(client).create.mockRejectedValueOnce({
+      _tag: "InvalidRequestError",
+      message: "invalid branch",
+    })
+    const backend = liveBackend(client)
+
+    await expect(backend.createWorktree({ branch: "feat/bad" })).rejects.toMatchObject({
+      code: "invalid",
+    })
+  })
+
+  it("maps a declared ProjectNotFoundError on create to not_found", async () => {
+    const client = liveClient()
+    createMock(client).create.mockRejectedValueOnce({
+      _tag: "ProjectNotFoundError",
+      projectID: "proj_1",
+      message: "no such project",
+    })
+    const backend = liveBackend(client)
+
+    await expect(backend.createWorktree({ branch: "feat/new" })).rejects.toMatchObject({
+      code: "not_found",
+    })
+  })
+
+  it("maps another declared 4xx on create to invalid", async () => {
+    const client = liveClient()
+    createMock(client).create.mockRejectedValueOnce({
+      reason: "UnexpectedStatus",
+      cause: { status: 422 },
+    })
+    const backend = liveBackend(client)
+
+    await expect(backend.createWorktree({ branch: "feat/bad" })).rejects.toMatchObject({
+      code: "invalid",
+    })
+  })
+
+  it("maps a declared 5xx on create to unavailable", async () => {
+    const client = liveClient()
+    createMock(client).create.mockRejectedValueOnce({
+      reason: "UnexpectedStatus",
+      cause: { status: 503 },
+    })
+    const backend = liveBackend(client)
+
+    await expect(backend.createWorktree({ branch: "feat/new" })).rejects.toMatchObject({
+      code: "unavailable",
+    })
+  })
+
+  it("maps a malformed create rejection to unavailable", async () => {
+    const client = liveClient()
+    createMock(client).create.mockRejectedValueOnce({ reason: "MalformedResponse", cause: {} })
+    const backend = liveBackend(client)
+
+    await expect(backend.createWorktree({ branch: "feat/new" })).rejects.toMatchObject({
       code: "unavailable",
     })
   })

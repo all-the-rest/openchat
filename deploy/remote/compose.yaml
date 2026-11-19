@@ -92,7 +92,11 @@ services:
       # Fallback chain (#54): empty by default, so nothing changes until the
       # owner names a chain and a paid-turn budget.
       FALLBACK_CHAIN_JSON: ${FALLBACK_CHAIN_JSON:-}
-      FALLBACK_PAID_DAILY_CAP: ${FALLBACK_PAID_DAILY_CAP:-0}
+      # Empty when unset so the BFF's default (off) applies; the deprecated
+      # name below keeps an upgraded deployment's cap working.
+      FALLBACK_PAID_DAILY_TURNS: ${FALLBACK_PAID_DAILY_TURNS:-}
+      # Deprecated in 2.5.0, still read as a turn count.
+      FALLBACK_PAID_DAILY_CAP: ${FALLBACK_PAID_DAILY_CAP:-}
       FALLBACK_USAGE_DIR: ${FALLBACK_USAGE_DIR:-/workspace/chats/.usage}
     networks:
       # The alias is the DNS name the host Caddyfile uses (`openchat-bff:8787`);

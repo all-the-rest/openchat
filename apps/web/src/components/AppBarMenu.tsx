@@ -218,16 +218,18 @@ export function AppBarMenu({ className = "" }: { className?: string }) {
             </Link>
           ) : null}
 
-          <Link
-            to="/worktrees"
-            role="menuitem"
-            data-testid="menu-worktrees"
-            onClick={() => close(false)}
-            className={ITEM}
-          >
-            <WorktreeIcon className="size-4 shrink-0" />
-            {t("nav.worktrees")}
-          </Link>
+          {configured === true ? (
+            <Link
+              to="/worktrees"
+              role="menuitem"
+              data-testid="menu-worktrees"
+              onClick={() => close(false)}
+              className={ITEM}
+            >
+              <WorktreeIcon className="size-4 shrink-0" />
+              {t("nav.worktrees")}
+            </Link>
+          ) : null}
 
           {artifactsAvailable === true ? (
             <Link

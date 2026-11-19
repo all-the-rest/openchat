@@ -221,7 +221,7 @@ def archives(scripts: str, directory: str) -> None:
                 "directory": "bundle",
                 "usedBytes": 0,
                 "quotaBytes": 104857600,
-                "maxFileBytes": 26214400,
+                "maxFileBytes": 20971520,
             }
         ),
         capture_output=True,

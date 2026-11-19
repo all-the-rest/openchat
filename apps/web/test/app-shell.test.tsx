@@ -59,11 +59,12 @@ afterEach(() => {
 
 /** Shows the info-driven state that decides whether the entry renders. */
 function AvailabilityProbe() {
-  const { appsAvailable, artifactsAvailable } = useSurface()
+  const { appsAvailable, artifactsAvailable, configured } = useSurface()
   return (
     <>
       <output data-testid="apps-availability">{String(appsAvailable)}</output>
       <output data-testid="artifacts-availability">{String(artifactsAvailable)}</output>
+      <output data-testid="code-availability">{String(configured)}</output>
     </>
   )
 }
@@ -78,6 +79,7 @@ function renderShell(probe?: ReactNode) {
             <Routes>
               <Route element={<AppShell />}>
                 <Route index element={<p>main content</p>} />
+                <Route path="worktrees" element={<p>worktrees page</p>} />
               </Route>
             </Routes>
           </SurfaceProvider>
@@ -221,5 +223,44 @@ describe("sidebar apps entry", () => {
     )
     expect(screen.getByTestId("nav-search")).toBeInTheDocument()
     expect(screen.queryByTestId("nav-apps")).toBeNull()
+  })
+})
+
+describe("sidebar worktrees entry", () => {
+  it("links to /worktrees on the desktop sidebar when Code is configured", async () => {
+    stubViewport(true)
+    renderShell()
+
+    const nav = screen.getByRole("navigation", { name: "Main navigation" })
+    expect(await within(nav).findByTestId("nav-worktrees")).toHaveAttribute("href", "/worktrees")
+  })
+
+  it("hides the entry when the Code surface is not configured", async () => {
+    stubViewport(true)
+    mocks.info.mockResolvedValue({
+      code: { configured: false, expectedVersion: "2" },
+      apps: { available: true },
+      artifacts: { available: true },
+    })
+    renderShell(<AvailabilityProbe />)
+
+    // Wait for the info-driven state itself; only a settled answer makes
+    // "the entry is still absent" meaningful.
+    await waitFor(() =>
+      expect(screen.getByTestId("code-availability")).toHaveTextContent("false"),
+    )
+    expect(screen.getByTestId("nav-search")).toBeInTheDocument()
+    expect(screen.queryByTestId("nav-worktrees")).toBeNull()
+  })
+
+  it("navigates to the worktree page from the sidebar", async () => {
+    const user = userEvent.setup()
+    stubViewport(true)
+    renderShell()
+
+    const nav = screen.getByRole("navigation", { name: "Main navigation" })
+    await user.click(await within(nav).findByTestId("nav-worktrees"))
+
+    expect(await screen.findByText("worktrees page")).toBeInTheDocument()
   })
 })

@@ -107,6 +107,20 @@ export function FormCard({ form, value }: { form: FormRequest; value: FormsValue
   )
 }
 
+/**
+ * The external step's URL comes from the host or the agent, so it is untrusted.
+ * Only an absolute `http:`/`https:` URL may become a live link; anything else
+ * stays plain hint text instead of a clickable (or script-capable) target.
+ */
+export function externalHref(url: string): string | undefined {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? url : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** The single numeric interface covers the host's two numeric tags. */
 function isNumericField(field: FormField): field is FormNumberField {
   return field.type === "number" || field.type === "integer"
@@ -173,6 +187,7 @@ function FormFieldInput({
   const describedBy = descriptionID
 
   if (field.type === "external") {
+    const href = externalHref(field.url)
     return (
       <div data-testid={`form-field-${field.key}`}>
         <p className="text-xs font-medium">{label}</p>
@@ -180,15 +195,17 @@ function FormFieldInput({
           <p className="text-xs text-muted">{field.description}</p>
         ) : null}
         <p className="text-xs text-muted">{t("chat.formExternalHint")}</p>
-        <a
-          href={field.url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs underline"
-          data-testid={`form-external-${field.key}`}
-        >
-          {t("chat.formOpenExternal")}
-        </a>
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-xs underline"
+            data-testid={`form-external-${field.key}`}
+          >
+            {t("chat.formOpenExternal")}
+          </a>
+        ) : null}
       </div>
     )
   }

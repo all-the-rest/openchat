@@ -44,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - arm the palette shortcut before first paint; arm surface chord listener before paint to stop CI flake (#8); recover model and memory state after failed reads (#8, #49, #51)
-- report corruption once, skip bookkeeping dirs and validate the seed merge (#18, #49, #54)
+- report corruption once, skip bookkeeping dirs and validate the seed merge; close 2.5.0 architecture-review gaps (#18, #49, #54)
 - guard the OpenCode state disk on swap and back up the right copy; refuse an unmounted state image and warn on a pre-migration rollback (#20, #43)
 - surface an invalid fallback chain and keep the Code frame across a failed refresh (#26, #50, #54)
 - bound the fact store and merge the MCP seed on upgrade (#43, #49)
@@ -73,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - document the browser path as the state, server as an escape hatch (#10)
 - document the memory store cap for operators (#49)
 - document the model selector and the fallback policy
+- final 2.5.0 changelog (#18)
 - give the tasks and voice documents their own numbers
 - how the agent can keep approved memories
 - map rename, delete and question-form routes (#5, #16)

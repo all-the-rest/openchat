@@ -2,9 +2,12 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { Hono } from "hono"
 import type { FallbackStatusResponse } from "@openchat/contracts"
 import { FakeBackend } from "@openchat/opencode"
+import type { AppEnv } from "../src/app"
 import { createApp } from "../src/app"
+import { registerFallbackRoute } from "../src/fallback-route"
 import { UsageLedger } from "../src/usage-ledger"
 import { json, login, makeConfig } from "./helpers"
 
@@ -53,7 +56,7 @@ describe("GET /api/fallback", () => {
         { providerID: "free", modelID: "glm", isFree: true },
         { providerID: "paid", modelID: "gpt", variant: "fast", contextLimit: 128_000 },
       ]),
-      FALLBACK_PAID_DAILY_CAP: "3",
+      FALLBACK_PAID_DAILY_TURNS: "3",
     })
     const backend = new FakeBackend({ workspace: config.WORKSPACE_DIR })
     const ledger = new UsageLedger({ directory: await directory() })
@@ -97,17 +100,59 @@ describe("GET /api/fallback", () => {
     expect(body).toMatchObject({
       configured: false,
       invalid: true,
+      invalidReasonCode: "chain_shape",
       chain: [],
       paidDailyCap: 0,
     })
-    expect(body.invalidReason).toBe("Fallback chain must be a JSON array")
-    // The reason names the rule; the rejected value never travels.
+    // The readable reason stays in the boot log; only the stable code travels.
+    expect(body).not.toHaveProperty("invalidReason")
     expect(JSON.stringify(body)).not.toContain("sk-live-123")
     expect(warn).toHaveBeenCalledTimes(1)
   })
 
+  it.each([
+    ['{"apiKey":"sk-live-123"}', "chain_shape"],
+    ["not json at all", "chain_json"],
+    ["[1]", "entry"],
+  ])("classifies the invalid chain %s as %s", async (raw, code) => {
+    const config = makeConfig({ FALLBACK_CHAIN_JSON: raw })
+    const backend = new FakeBackend({ workspace: config.WORKSPACE_DIR })
+    const ledger = new UsageLedger({ directory: await directory() })
+    const app = createApp({ config, backend, usageLedger: ledger, warn: vi.fn() })
+    const cookie = await login({ app, backend, config })
+
+    const body = await readFallback(app, cookie)
+    expect(body.invalid).toBe(true)
+    expect(body.invalidReasonCode).toBe(code)
+  })
+
+  it("reports the engine's sticky ledger failure flag", async () => {
+    const app = new Hono<AppEnv>()
+    registerFallbackRoute(app, {
+      policy: { surface: "chat", chain: [], paidDailyTurns: 0, contextSoftCap: 0 },
+      ledger: { paidTurnsToday: async () => 0, turnsToday: async () => 0 },
+      ledgerError: () => true,
+    })
+
+    expect(await json<FallbackStatusResponse>(await app.request("/api/fallback"))).toMatchObject({
+      ledgerError: true,
+    })
+  })
+
+  it("omits the ledger flag while no write has failed", async () => {
+    const app = new Hono<AppEnv>()
+    registerFallbackRoute(app, {
+      policy: { surface: "chat", chain: [], paidDailyTurns: 0, contextSoftCap: 0 },
+      ledger: { paidTurnsToday: async () => 0, turnsToday: async () => 0 },
+      ledgerError: () => false,
+    })
+
+    const body = await json<FallbackStatusResponse>(await app.request("/api/fallback"))
+    expect(body).not.toHaveProperty("ledgerError")
+  })
+
   it("reflects today's paid and free ledger counters", async () => {
-    const config = makeConfig({ FALLBACK_PAID_DAILY_CAP: "5" })
+    const config = makeConfig({ FALLBACK_PAID_DAILY_TURNS: "5" })
     const backend = new FakeBackend({ workspace: config.WORKSPACE_DIR })
     const ledger = new UsageLedger({ directory: await directory() })
     await ledger.record({ providerID: "paid", modelID: "gpt", turns: 1, costMicros: 0 })

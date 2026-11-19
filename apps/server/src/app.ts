@@ -21,10 +21,11 @@ import { registerRoutes } from "./routes"
 import { SSE_HEARTBEAT_MS } from "./sse"
 import { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { STT_TIMEOUT_MS } from "./transcribe"
+import { WORKTREE_CREATE_LIMIT, WORKTREE_CREATE_WINDOW_MS } from "./worktrees"
 import { UsageLedger } from "./usage-ledger"
 import { FallbackEngine } from "./fallback-engine"
 import { FallbackObserver } from "./fallback-observer"
-import { resolveChatPolicy, validateChainJson } from "./fallback-config"
+import { FallbackChainError, resolveChatPolicy, validateChainJson } from "./fallback-config"
 import type { TurnPolicy } from "@openchat/contracts"
 
 export const SERVER_VERSION = "2.5.0"
@@ -63,6 +64,8 @@ export interface AppOptions {
   providerConnectThrottle?: FixedWindowThrottle
   /** Artifact creation throttle; tests inject a clock-bound instance. */
   artifactsThrottle?: FixedWindowThrottle
+  /** Worktree creation throttle; tests inject a clock-bound instance. */
+  worktreeThrottle?: FixedWindowThrottle
   /** Clock for signed artifact URLs; tests advance it. */
   artifactsNow?: () => number
   /** Filesystem probe for the artifact write capacity guard; injectable in tests. */
@@ -102,7 +105,7 @@ export interface AppBindings {
 
 export type AppEnv = { Bindings: AppBindings; Variables: AppVariables }
 
-export function createApp(options: AppOptions): Hono<AppEnv> {
+export function createApp(options: AppOptions): Hono<AppEnv> & { stop(): void } {
   const { config, backend } = options
   const version = options.version ?? SERVER_VERSION
   const settings = authSettings(config)
@@ -136,12 +139,18 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       limit: ARTIFACT_CREATE_LIMIT,
       windowMs: ARTIFACT_CREATE_WINDOW_MS,
     })
+  const worktreeThrottle =
+    options.worktreeThrottle ??
+    new FixedWindowThrottle({
+      limit: WORKTREE_CREATE_LIMIT,
+      windowMs: WORKTREE_CREATE_WINDOW_MS,
+    })
   // Model fallback: the ledger is cheap and side-effect-free at construction;
   // an invalid chain JSON only disables fallback rather than failing boot.
   const warn = options.warn ?? ((message: string) => console.warn(`[openchat] ${message}`))
   let chain: ReturnType<typeof validateChainJson> = []
-  /** Set when an admin value was supplied but failed validation. */
-  let chainInvalidReason: string | undefined
+  /** Stable code for the settings page; the readable reason stays in the log. */
+  let chainInvalidCode: import("@openchat/contracts").FallbackInvalidReasonCode | undefined
   if (config.FALLBACK_CHAIN_JSON.trim() !== "") {
     try {
       chain = validateChainJson(config.FALLBACK_CHAIN_JSON)
@@ -149,13 +158,13 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       // One boot warning, with the validation message only: the raw value can
       // carry credentials or private endpoints and never belongs in a log.
       const reason = error instanceof Error ? error.message : "unknown validation error"
-      chainInvalidReason = reason
+      chainInvalidCode = error instanceof FallbackChainError ? error.code : "chain_shape"
       warn(`FALLBACK_CHAIN_JSON is invalid; fallback stays disabled: ${reason}`)
     }
   }
   const chatPolicy = options.chatPolicy ?? resolveChatPolicy({
     chain,
-    paidDailyTurns: config.FALLBACK_PAID_DAILY_CAP,
+    paidDailyTurns: config.FALLBACK_PAID_DAILY_TURNS,
     contextSoftCap: config.CHAT_CONTEXT_SOFT_CAP,
   })
   // One ledger for both the engine's writes and the settings read, so the
@@ -176,8 +185,25 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
 
   app.onError((error, c) => {
     if (error instanceof BackendError) {
+      // Status table: not_found 404, conflict 409, invalid 400,
+      // unsupported 501, unavailable 502. An unknown code stays a 400.
       const status =
-        error.code === "not_found" ? 404 : error.code === "conflict" ? 409 : 400
+        error.code === "not_found"
+          ? 404
+          : error.code === "conflict"
+            ? 409
+            : error.code === "invalid"
+              ? 400
+              : error.code === "unsupported"
+                ? 501
+                : error.code === "unavailable"
+                  ? 502
+                  : 400
+      // 501 is a valid HTTP status but not in the shared `jsonError` union;
+      // build the same body here so an unsupported capability stays a 501.
+      if (status === 501) {
+        return c.json({ error: { code: error.code, message: error.message } }, 501)
+      }
       return jsonError(c, status, error.code, error.message)
     }
     return jsonError(c, 500, "internal_error", "Unexpected server error")
@@ -210,16 +236,18 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     appsCacheMs: options.appsCacheMs,
     appsNow: options.appsNow,
     artifactsThrottle,
+    worktreeThrottle,
     artifactsNow: options.artifactsNow,
     artifactsStatfs: options.artifactsStatfs,
     artifactsFullThreshold: options.artifactsFullThreshold,
     compactionWaitMs: options.compactionWaitMs,
     fallback,
     chatPolicy,
-    chainInvalidReason,
+    chainInvalidCode,
     usageLedger,
+    ledgerError: () => fallback.ledgerError?.() === true,
     events: observer,
   })
 
-  return app
+  return Object.assign(app, { stop: () => observer.stop() })
 }

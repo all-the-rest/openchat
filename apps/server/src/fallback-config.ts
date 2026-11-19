@@ -4,7 +4,7 @@
  * identity helpers live in `@openchat/contracts`; this module only assembles
  * them and gives callers a clear error when an admin-supplied chain is invalid.
  */
-import type { ModelRef, TurnPolicy } from "@openchat/contracts"
+import type { FallbackInvalidReasonCode, ModelRef, TurnPolicy } from "@openchat/contracts"
 import {
   MAX_CHAIN_LENGTH,
   modelKey,
@@ -14,6 +14,17 @@ import {
 } from "@openchat/contracts"
 
 import { nextModel } from "./fallback-policy"
+
+/** A rejected chain setting with a stable code the settings page can render. */
+export class FallbackChainError extends Error {
+  readonly code: FallbackInvalidReasonCode
+
+  constructor(code: FallbackInvalidReasonCode, message: string) {
+    super(message)
+    this.name = "FallbackChainError"
+    this.code = code
+  }
+}
 
 // The variant rule lives in `@openchat/contracts` so the browser's composer and
 // this resolver cannot drift; the symbol stays re-exported for the prompt route.
@@ -104,13 +115,14 @@ export function validateChainJson(raw: string): ModelRef[] {
   try {
     value = JSON.parse(raw)
   } catch {
-    throw new Error("Fallback chain must be valid JSON")
+    throw new FallbackChainError("chain_json", "Fallback chain must be valid JSON")
   }
   if (!Array.isArray(value)) {
-    throw new Error("Fallback chain must be a JSON array")
+    throw new FallbackChainError("chain_shape", "Fallback chain must be a JSON array")
   }
   if (value.length > MAX_CHAIN_LENGTH) {
-    throw new Error(
+    throw new FallbackChainError(
+      "chain_shape",
       `Fallback chain has ${value.length} entries; at most ${MAX_CHAIN_LENGTH} are allowed`,
     )
   }
@@ -120,11 +132,15 @@ export function validateChainJson(raw: string): ModelRef[] {
   for (const [index, entry] of value.entries()) {
     const parsed = modelRefSchema.safeParse(entry)
     if (!parsed.success) {
-      throw new Error(`Fallback chain entry ${index} is invalid: ${parsed.error.message}`)
+      throw new FallbackChainError(
+        "entry",
+        `Fallback chain entry ${index} is invalid: ${parsed.error.message}`,
+      )
     }
     const key = modelKey(parsed.data)
     if (seen.has(key)) {
-      throw new Error(
+      throw new FallbackChainError(
+        "entry",
         `Duplicate model in fallback chain: ${parsed.data.providerID}/${parsed.data.modelID}`,
       )
     }

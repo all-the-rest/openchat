@@ -120,7 +120,7 @@ directory?, name? })` and `worktree.remove({ projectID, directory, force })`.
 | Live adapter | `live-worktrees.ts`; resolves the project, fills the branch from `vcs.get` |
 | Fake adapter | `fake-worktrees.ts`; one seeded clean worktree, no host needed |
 | BFF | `GET /api/worktrees`, `POST /api/worktrees`, `DELETE /api/worktrees?directory=…&force=true\|false` |
-| Web | `/worktrees` page plus an entry in the app menu, full `en`/`de` catalogues |
+| Web | `/worktrees` page, an entry in the app menu and one in the desktop sidebar, full `en`/`de` catalogues |
 
 **What the host really reports.** `worktree.list` returns only `directory` and
 an optional `strategy`; create returns only `directory`. The branch is a second,
@@ -137,9 +137,10 @@ and the adapter derives the directory through the host. The create body is
 (letters, digits, `. _ / -`, no `..`, no leading or trailing `/`).
 
 **Force rule.** A removal without `force` is a plain removal. When the host
-refuses because the tree has uncommitted changes (its structured
-`forceRequired` flag), the live adapter throws `WorktreeDirtyError`, and the
-BFF answers `409` with the distinct code `worktree_dirty`. It never retries
+refuses because the tree has uncommitted changes (its declared
+`WorktreeError` body carries `forceRequired: true`), the live adapter throws
+`WorktreeDirtyError`, and the BFF answers `409` with the distinct code
+`worktree_dirty`. It never retries
 with `force: true`. Only the UI's explicit "Force removal" button sends
 `force=true`, and its dialog states that this discards uncommitted changes.
 `force` is parsed strictly (`true` or `false`); any other spelling is
@@ -153,8 +154,51 @@ and derives a directory slug from the branch (`feat/worktrees` →
 `FakeBackend.markWorktreeDirty(directory)`, which makes an unforced removal
 throw `WorktreeDirtyError`, exactly like the host.
 
+**Removal is restricted to host-listed directories.** `DELETE /api/worktrees`
+resolves `worktree.list` first and forwards only a directory the host actually
+listed (one trailing slash is ignored). An unlisted path, including the project
+root even when the host lists it, is `404 worktree_unknown` and never reaches
+`worktree.remove`; a failed list is `502 worktrees_unavailable`. The BFF still
+passes the host's own spelling, not the client string, so a client cannot
+smuggle a path through.
+
+**Creation is bounded.** `POST /api/worktrees` is throttled per address
+(6 requests per 60 s, injectable) and answers `429 too_many_requests` with
+`Retry-After`. The budget is spent before the host create call, so a create the
+host then refuses (duplicate branch, dirty tree, outage) still counts; a
+validation or cap refusal above never reaches the host and never counts. A
+project that already lists 16 removable worktrees answers `409 worktree_limit`
+with a fixed message before the host is asked to create another;
+`worktrees.create.limit` renders it. A missing project/list is 502, not a create
+attempt.
+
+**UI.** The app bar's overflow menu (below `lg`) and the desktop sidebar both
+link `/worktrees`, each only when the Code surface is configured. The removal
+dialog owns focus: initial focus on Cancel, Tab wraps inside, Escape cancels,
+and focus returns to the row action that opened it.
+
+**Live create failures are classified, not guessed.** `worktree.create`
+declares `WorktreeError` — the host's domain refusal (branch or worktree
+already exists, git refused) — and `ProjectNotFoundError`. The adapter maps a
+declared `WorktreeError` or any other declared 4xx (`InvalidRequestError`) to
+`invalid` (`400 worktree_invalid`), a declared `ProjectNotFoundError` (or an
+undeclared `404`) to `not_found`, and a transport error, timeout, 5xx or
+malformed answer to `unavailable` (`502 worktrees_unavailable`). A `409` is not
+part of the declared create union; only an undeclared `UnexpectedStatus`
+carrying it can occur, and the adapter maps that to `conflict`
+(`409 worktree_exists`) defensively. A dropped host is never reported as a bad
+branch name.
+
+**`not_found` on create stays a `502`.** When the workspace project vanishes
+between listing and creating, the adapter reports `not_found` (the same code
+`DELETE` maps to `404 worktree_unknown`). The create route deliberately has no
+`not_found` arm: a create cannot proceed without its project, so it falls
+through to `502 worktrees_unavailable` rather than naming a missing worktree.
+The adapter code and the route answer are not in conflict — they describe
+different layers, and the route test pins the `502`.
+
 Other stable route codes: `400 worktree_invalid` for a failed body/query or a
-rejected create, and `502 worktrees_unavailable` when the host does not answer.
+refused create, and `502 worktrees_unavailable` when the host does not answer.
 
 ## Explicitly out of scope
 

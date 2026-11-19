@@ -9,6 +9,7 @@ import {
   PlusIcon,
   SearchIcon,
   TasksIcon,
+  WorktreeIcon,
 } from "../components/icons"
 import { LocaleSelect, ThemeToggle } from "../components/controls"
 import { ErrorBanner } from "../components/ErrorBanner"
@@ -25,12 +26,15 @@ export function SessionSidebar({
   onNavigate,
   appsAvailable = false,
   artifactsAvailable = false,
+  codeConfigured = false,
 }: {
   onNavigate?: () => void
   /** From `/api/info`; the entry stays hidden when the host has no app surface. */
   appsAvailable?: boolean
   /** From `/api/info`; hidden and inert when artifact storage is not configured. */
   artifactsAvailable?: boolean
+  /** From `/api/info`; worktrees need the host's Code surface. */
+  codeConfigured?: boolean
 }) {
   const t = useT()
   const { locale } = useI18n()
@@ -170,6 +174,21 @@ export function SessionSidebar({
             >
               <AppsIcon className="size-4" />
               {t("nav.apps")}
+            </NavLink>
+          ) : null}
+          {codeConfigured ? (
+            <NavLink
+              to="/worktrees"
+              data-testid="nav-worktrees"
+              onClick={() => onNavigate?.()}
+              className={({ isActive }) =>
+                `flex items-center gap-2 rounded-row px-2 py-1.5 text-sm ${
+                  isActive ? "bg-selected text-base-content" : "text-secondary hover:bg-hover"
+                }`
+              }
+            >
+              <WorktreeIcon className="size-4" />
+              {t("nav.worktrees")}
             </NavLink>
           ) : null}
           {artifactsAvailable ? (

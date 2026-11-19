@@ -3,9 +3,10 @@ import type { WorktreeInfo } from "@openchat/contracts"
 import { api, ApiError } from "../api/client"
 import { ErrorBanner } from "../components/ErrorBanner"
 import { useT } from "../i18n/provider"
+import { RemoveWorktreeDialog } from "./RemoveWorktreeDialog"
+import type { RemoveProblem } from "./RemoveWorktreeDialog"
 
 type LoadStatus = "loading" | "ready" | "error"
-type RemoveProblem = "dirty" | "unknown" | "failed"
 
 /** Only a structured BFF code is meaningful; transport errors stay generic. */
 function errorCode(error: unknown): string | undefined {
@@ -29,12 +30,15 @@ export function WorktreesPage() {
   const [from, setFrom] = useState("")
   const [name, setName] = useState("")
   const [creating, setCreating] = useState(false)
-  const [createProblem, setCreateProblem] = useState<"failed" | "exists" | null>(null)
+  const [createProblem, setCreateProblem] = useState<"failed" | "exists" | "limit" | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [target, setTarget] = useState<WorktreeInfo | null>(null)
   const [removing, setRemoving] = useState(false)
   const [removeProblem, setRemoveProblem] = useState<RemoveProblem | null>(null)
   const alive = useRef(true)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  /** The row button that opened the dialog; focus returns there on close. */
+  const openerRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     alive.current = true
@@ -87,20 +91,33 @@ export function WorktreesPage() {
       )
       await read()
     } catch (error) {
-      setCreateProblem(errorCode(error) === "worktree_exists" ? "exists" : "failed")
+      const code = errorCode(error)
+      setCreateProblem(
+        code === "worktree_exists" ? "exists" : code === "worktree_limit" ? "limit" : "failed",
+      )
     } finally {
       if (alive.current) setCreating(false)
     }
   }
 
-  const openRemove = (worktree: WorktreeInfo) => {
-    setTarget(worktree)
-    setRemoveProblem(null)
-  }
+  /** Focus returns to the row that opened the dialog, or the heading when it is gone. */
+  const finishRemoveFocus = useCallback((preferHeading: boolean) => {
+    const opener = openerRef.current
+    openerRef.current = null
+    if (!preferHeading && opener !== null && opener.isConnected) opener.focus()
+    else headingRef.current?.focus()
+  }, [])
 
-  const closeRemove = () => {
+  const cancelRemove = useCallback(() => {
     if (removing) return
     setTarget(null)
+    setRemoveProblem(null)
+    finishRemoveFocus(false)
+  }, [removing, finishRemoveFocus])
+
+  const openRemove = (worktree: WorktreeInfo, opener: HTMLElement) => {
+    openerRef.current = opener
+    setTarget(worktree)
     setRemoveProblem(null)
   }
 
@@ -112,6 +129,8 @@ export function WorktreesPage() {
       await api.removeWorktree(target.directory, force)
       setTarget(null)
       setNotice(null)
+      // The row is about to disappear, so the page heading takes the focus.
+      finishRemoveFocus(true)
       await read()
     } catch (error) {
       const code = errorCode(error)
@@ -125,7 +144,9 @@ export function WorktreesPage() {
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6">
         <header className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold">{t("worktrees.title")}</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="text-lg font-semibold">
+            {t("worktrees.title")}
+          </h1>
           <p className="text-sm text-muted">{t("worktrees.description")}</p>
         </header>
 
@@ -195,7 +216,7 @@ export function WorktreesPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => openRemove(worktree)}
+                    onClick={(event) => openRemove(worktree, event.currentTarget)}
                     aria-label={t("worktrees.action.remove", { directory: worktree.directory })}
                     className="btn btn-ghost btn-sm self-start"
                   >
@@ -278,7 +299,9 @@ export function WorktreesPage() {
               message={
                 createProblem === "exists"
                   ? t("worktrees.create.exists")
-                  : t("worktrees.create.failed")
+                  : createProblem === "limit"
+                    ? t("worktrees.create.limit")
+                    : t("worktrees.create.failed")
               }
             />
           )}
@@ -293,62 +316,13 @@ export function WorktreesPage() {
         </form>
 
         {target === null ? null : (
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="worktree-remove-title"
-            data-testid="worktree-remove-dialog"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-app/70 p-4"
-          >
-            <div className="flex w-full max-w-md flex-col gap-3 rounded-card border border-subtle bg-elevated p-4">
-              <h2 id="worktree-remove-title" className="text-base font-semibold">
-                {t("worktrees.remove.title")}
-              </h2>
-              <p className="text-sm text-secondary">
-                {t("worktrees.remove.body", { directory: target.directory })}
-              </p>
-              <p className="text-sm text-secondary">{t("worktrees.remove.dirtyBody")}</p>
-              {removeProblem === null ? null : (
-                <ErrorBanner
-                  message={
-                    removeProblem === "dirty"
-                      ? t("worktrees.remove.dirty")
-                      : removeProblem === "unknown"
-                        ? t("worktrees.remove.unknown")
-                        : t("worktrees.remove.failed")
-                  }
-                />
-              )}
-              <div className="flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={closeRemove}
-                  disabled={removing}
-                  className="btn btn-ghost btn-sm"
-                >
-                  {t("worktrees.remove.cancel")}
-                </button>
-                <button
-                  type="button"
-                  data-testid="worktree-remove-confirm"
-                  onClick={() => void remove(false)}
-                  disabled={removing}
-                  className="btn btn-sm"
-                >
-                  {removing ? t("worktrees.remove.busy") : t("worktrees.remove.confirm")}
-                </button>
-                <button
-                  type="button"
-                  data-testid="worktree-remove-force"
-                  onClick={() => void remove(true)}
-                  disabled={removing}
-                  className="btn btn-error btn-sm"
-                >
-                  {t("worktrees.remove.force")}
-                </button>
-              </div>
-            </div>
-          </div>
+          <RemoveWorktreeDialog
+            target={target}
+            removing={removing}
+            problem={removeProblem}
+            onCancel={cancelRemove}
+            onRemove={(force) => void remove(force)}
+          />
         )}
       </div>
     </div>

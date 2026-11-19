@@ -99,7 +99,7 @@ describe("FallbackEngine", () => {
   it("falls back on a retryable failure without text: suppress, notice, re-prompt and one outcome on success", async () => {
     const { deps, calls, now } = makeDeps()
     const engine = new FallbackEngine(deps)
-    engine.begin("s1", { text: "hi" }, policy(), A, "m0")
+    engine.begin("s1", { text: "hi" }, policy(), A)
 
     const result = await engine.onFailure(failureEvent())
 
@@ -125,7 +125,7 @@ describe("FallbackEngine", () => {
     expect(calls[0]!.input.text).toBe("hi")
 
     // The outcome is emitted once, on completion, with the real answer.
-    const outcomes = await engine.onSuccess(successEvent())
+    const outcomes = await engine.onSuccess(successEvent({ messageID: "msg_1" }))
     expect(outcomes).toHaveLength(1)
     expect(outcomes[0]!.type).toBe(EVENT.turnOutcome)
     expect(outcomes[0]!.data).toMatchObject({
@@ -234,9 +234,9 @@ describe("FallbackEngine", () => {
   it("records the ledger and emits an outcome on success, then forgets the session", async () => {
     const { deps, recorded } = makeDeps()
     const engine = new FallbackEngine(deps)
-    engine.begin("s1", { text: "hi" }, policy(), A, "m0")
+    engine.begin("s1", { text: "hi" }, policy(), A)
 
-    const events = await engine.onSuccess(successEvent())
+    const events = await engine.onSuccess(successEvent({ messageID: "msg_1" }))
 
     expect(events).toHaveLength(1)
     expect(events[0]!.type).toBe(EVENT.turnOutcome)
@@ -258,7 +258,7 @@ describe("FallbackEngine", () => {
     const { deps, recorded } = makeDeps()
     const engine = new FallbackEngine(deps)
     engine.begin("s1", { text: "hi" }, policy({ chain: [FREE] }), FREE)
-    await engine.onSuccess(successEvent())
+    await engine.onSuccess(successEvent({ messageID: "msg_1" }))
 
     expect(recorded).toEqual([
       { providerID: FREE.providerID, modelID: FREE.modelID, turns: 1, costMicros: 0, isFree: true },
@@ -279,13 +279,14 @@ describe("FallbackEngine", () => {
     const engine = new FallbackEngine(deps)
 
     engine.begin("s1", { text: "first secret prompt" }, policy(), A)
-    const first = await engine.onSuccess(successEvent())
+    const first = await engine.onSuccess(successEvent({ messageID: "msg_1" }))
     engine.begin("s2", { text: "second secret prompt" }, policy(), A)
     const second = await engine.onSuccess(successEvent({ sessionID: "s2" }))
 
     // The turn outcome still reaches the client; only accounting stopped.
     expect(first).toHaveLength(1)
     expect(second).toHaveLength(1)
+    expect(engine.ledgerError()).toBe(true)
     expect(warn).toHaveBeenCalledTimes(1)
     const message = String(warn.mock.calls[0]?.[0] ?? "")
     expect(message).toContain("usage_ledger_full")
@@ -301,7 +302,7 @@ describe("FallbackEngine", () => {
     engine.begin("s1", { text: "hi" }, policy(), A)
     await engine.onFailure(failureEvent())
 
-    const events = await engine.onSuccess(successEvent())
+    const events = await engine.onSuccess(successEvent({ messageID: "msg_1" }))
 
     expect(events[0]!.data).toMatchObject({
       requested: A,
@@ -357,14 +358,19 @@ describe("FallbackEngine", () => {
     expect(calls[0]?.input.text).toBe("first")
   })
 
-  it("forgets a session on request", async () => {
+  it("forgets a session on request, including its message index", async () => {
     const { deps } = makeDeps()
     const engine = new FallbackEngine(deps)
-    engine.begin("s1", { text: "hi" }, policy(), A)
+    const token = engine.begin("s1", { text: "hi" }, policy(), A)
+    engine.adopt("s1", token, "msg_a")
     expect(engine.activeCount()).toBe(1)
     engine.forget("s1")
     expect(engine.activeCount()).toBe(0)
-    expect(await engine.onFailure(failureEvent())).toEqual({ suppress: false, events: [] })
+    expect(await engine.onFailure(failureEvent({ messageID: "msg_a" }))).toEqual({
+      suppress: false,
+      events: [],
+    })
+    expect(await engine.onSuccess(successEvent({ messageID: "msg_a" }))).toEqual([])
   })
 
   it("bounds tracked sessions to 512 entries, evicting the oldest", async () => {

@@ -92,6 +92,48 @@ describe("server-owned fallback", () => {
     expect(engine.activeCount()).toBe(0)
   })
 
+  it("drops a deleted chat's turn instead of waiting on it", async () => {
+    const config = makeConfig()
+    const backend = new FakeBackend({ workspace: config.WORKSPACE_DIR })
+    const engine = new FallbackEngine({
+      backend,
+      ledger: { record: async () => {}, paidTurnsToday: async () => 0 },
+    })
+    const app = createApp({
+      config,
+      backend,
+      fallback: engine,
+      chatPolicy: policy([FREE, PAID]),
+    })
+    const cookie = await login({ app, backend, config })
+    const { id } = await createSession(app, cookie)
+
+    // A registered turn whose terminal event can never arrive after deletion.
+    engine.begin(id, { text: "hello", delivery: "queue" }, policy([FREE, PAID]), FREE)
+    expect(engine.activeCount()).toBe(1)
+
+    const res = await app.request(`/api/sessions/${id}`, {
+      method: "DELETE",
+      headers: { cookie, "content-type": "application/json" },
+      body: "{}",
+    })
+    expect(res.status).toBe(200)
+    expect(engine.activeCount()).toBe(0)
+  })
+
+  it("stops the host subscription when the app instance is discarded", async () => {
+    const config = makeConfig()
+    const backend = new FakeBackend({ workspace: config.WORKSPACE_DIR })
+    const subscribe = vi.spyOn(backend, "subscribe")
+    const app = createApp({ config, backend, chatPolicy: policy([FREE, PAID]) })
+
+    const signal = subscribe.mock.calls[0]?.[0] as AbortSignal | undefined
+    expect(signal?.aborted).toBe(false)
+    app.stop()
+    expect(signal?.aborted).toBe(true)
+    subscribe.mockRestore()
+  })
+
   it("subscribes to the host exactly once across two browser streams", async () => {
     const config = makeConfig()
     const backend = new FakeBackend({ workspace: config.WORKSPACE_DIR })
@@ -105,6 +147,7 @@ describe("server-owned fallback", () => {
 
     await first.close()
     await second.close()
+    app.stop()
   })
 })
 

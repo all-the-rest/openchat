@@ -145,7 +145,7 @@ describe("compose stack boundaries", () => {
       ["MEMORY_MAX_FACTS_BYTES", "${MEMORY_MAX_FACTS_BYTES:-8388608}"],
       ["CHAT_CONTEXT_SOFT_CAP", "${CHAT_CONTEXT_SOFT_CAP:-200000}"],
       ["FALLBACK_CHAIN_JSON", "${FALLBACK_CHAIN_JSON:-}"],
-      ["FALLBACK_PAID_DAILY_CAP", "${FALLBACK_PAID_DAILY_CAP:-0}"],
+      ["FALLBACK_PAID_DAILY_TURNS", "${FALLBACK_PAID_DAILY_TURNS:-}"],
       ["FALLBACK_USAGE_DIR", "${FALLBACK_USAGE_DIR:-/workspace/chats/.usage}"],
     ]
     for (const [key, value] of expected) {

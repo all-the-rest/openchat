@@ -37,7 +37,7 @@ function isTypingTarget(target: EventTarget | null) {
 
 export function AppShell() {
   const t = useT()
-  const { surface, appsAvailable, artifactsAvailable } = useSurface()
+  const { surface, appsAvailable, artifactsAvailable, configured } = useSurface()
   const { create } = useSessions()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -233,6 +233,7 @@ export function AppShell() {
                 onNavigate={() => setSidebarOpen(false)}
                 appsAvailable={appsAvailable === true}
                 artifactsAvailable={artifactsAvailable === true}
+                codeConfigured={configured === true}
               />
             ) : null}
           </div>

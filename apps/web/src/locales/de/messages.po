@@ -118,6 +118,11 @@ msgid "worktrees.create.exists"
 msgstr "Für diesen Branch existiert bereits ein Worktree."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.limit"
+msgstr "Dieses Projekt hat bereits die maximale Anzahl an Worktrees. Entferne einen, bevor du einen neuen erstellst."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
 msgid "memory.audit.action"
 msgstr "Aktion"
@@ -1728,6 +1733,11 @@ msgid "firstRun.hostOnlyBadge"
 msgstr "auf dem Host"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackInvalidEntry"
+msgstr "Ein Eintrag der Kette ist ungültig oder doppelt."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.description"
 msgstr "Eine Suche über Chats, Workspace, Web und Apps."
@@ -2658,6 +2668,16 @@ msgid "chat.branchFailed"
 msgstr "Der Zweig konnte nicht erstellt werden."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackInvalidChainShape"
+msgstr "Die Kette muss ein JSON-Array mit höchstens 5 Einträgen sein."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackInvalidChainJson"
+msgstr "Die Ketten-Einstellung ist kein gültiges JSON."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.deleteFailed"
 msgstr "Der Chat konnte nicht gelöscht werden."
@@ -3046,6 +3066,11 @@ msgstr "Wird transkribiert…"
 #: src/i18n/messages/memory.ts
 msgid "memory.col.trust"
 msgstr "Vertrauen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackLedgerError"
+msgstr "Die Abrechnung der Turns konnte nicht geschrieben werden; die heutige Nutzung ist möglicherweise unvollständig."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts

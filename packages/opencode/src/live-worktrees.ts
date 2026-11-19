@@ -1,10 +1,12 @@
 import type { CreateWorktreeRequest, WorktreeInfo } from "@openchat/contracts"
 import type { OpenCodeClient } from "@opencode/client"
+import { declaredErrorTag, declaredStatus } from "./declared-errors"
 import { BackendError } from "./errors"
 import { WorktreeDirtyError } from "./worktree-errors"
 import { LiveTaskApi } from "./live-task-api"
 
 const UNSAFE_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]+/g
+const CREATE_FAILED = "The worktree could not be created"
 
 /** Host text is untrusted JSON: keep one printable line, bounded. */
 function text(value: unknown, max: number): string | undefined {
@@ -63,17 +65,64 @@ async function describe(
   return info
 }
 
-/** Whether a host removal refusal carries the structured `forceRequired` flag. */
+/** One object's own flag: the declared `data` envelope first, then the flat body. */
+function ownFlag(value: unknown): boolean | undefined {
+  if (value === null || typeof value !== "object") return undefined
+  const record = value as { forceRequired?: unknown; data?: unknown }
+  if (record.forceRequired === true || record.forceRequired === false) return record.forceRequired
+  const data = record.data
+  if (data === null || typeof data !== "object") return undefined
+  const nested = (data as { forceRequired?: unknown }).forceRequired
+  return nested === true || nested === false ? nested : undefined
+}
+
+/**
+ * Whether a host removal refusal carries the structured `forceRequired` flag.
+ *
+ * The declared `WorktreeError` body is `{ _tag, name, data: { message,
+ * forceRequired? } }`, and the promise client assigns that body onto an `Error`
+ * (see `declared` in the contract chunk), so the flag lives under `data` on the
+ * top-level object. A flat `forceRequired` and wrapper `cause` shapes are read
+ * too, so a differently built rejection is not misread as an unavailable host.
+ * The `WorktreeError` tag alone is not dirty evidence: without the flag it is
+ * the host's generic removal refusal.
+ */
 function forceRequired(error: unknown): boolean {
   let current: unknown = error
   for (let depth = 0; depth < 4 && current !== null && current !== undefined; depth += 1) {
     if (typeof current !== "object") return false
-    const record = current as { forceRequired?: unknown; cause?: unknown }
-    if (record.forceRequired === true) return true
-    if (record.forceRequired === false) return false
-    current = record.cause
+    const flag = ownFlag(current)
+    if (flag !== undefined) return flag
+    current = (current as { cause?: unknown }).cause
   }
   return false
+}
+
+/**
+ * Classifies a create rejection by what the host declared. `WorktreeError` is
+ * the host's own domain refusal (the branch or worktree exists, git refused)
+ * and, like `InvalidRequestError`, maps to a rejected request. A declared
+ * status is decoded into a tagged error without a status field, so only an
+ * undeclared `UnexpectedStatus` can carry one: its 409 would be the host's
+ * "already exists" answer (the BFF turns it into `409 worktree_exists`). A
+ * transport failure, timeout, 5xx or malformed body is an unavailable host and
+ * must not surface as a bad branch name in the UI.
+ */
+function createError(error: unknown): BackendError {
+  const status = declaredStatus(error)
+  if (status === 409) return new BackendError("conflict", CREATE_FAILED)
+  if (status === 404) return new BackendError("not_found", CREATE_FAILED)
+  if (status !== undefined && status >= 400 && status < 500) {
+    return new BackendError("invalid", CREATE_FAILED)
+  }
+  if (status === undefined) {
+    const tag = declaredErrorTag(error)
+    if (tag === "WorktreeError" || tag === "InvalidRequestError") {
+      return new BackendError("invalid", CREATE_FAILED)
+    }
+    if (tag === "ProjectNotFoundError") return new BackendError("not_found", CREATE_FAILED)
+  }
+  return new BackendError("unavailable", CREATE_FAILED)
 }
 
 /**
@@ -110,8 +159,8 @@ export class LiveWorktreeApi extends LiveTaskApi {
         from: input.from,
         name: input.name,
       })
-    } catch {
-      throw new BackendError("invalid", "The worktree could not be created")
+    } catch (error) {
+      throw createError(error)
     }
     const info: WorktreeInfo = {
       directory: created.directory,
@@ -128,8 +177,10 @@ export class LiveWorktreeApi extends LiveTaskApi {
     try {
       await this.client.worktree.remove({ projectID, directory, force })
     } catch (error) {
-      // A dirty tree is never removed silently: the refusal is surfaced so the
-      // owner can confirm a forced removal in the UI.
+      // A dirty tree is never removed silently: a refusal that declares
+      // `forceRequired` is surfaced so the owner can confirm a forced removal
+      // in the UI. A `WorktreeError` without the flag stays a generic refusal,
+      // and `force: true` above already bypassed the check.
       if (!force && forceRequired(error)) throw new WorktreeDirtyError()
       throw new BackendError("unavailable", "The worktree could not be removed")
     }

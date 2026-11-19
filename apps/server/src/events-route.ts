@@ -6,7 +6,12 @@ import { SSE_RETRY_FRAME } from "./sse"
 
 /** The already-merged event stream a browser receives. */
 export interface EventSource {
-  subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope>
+  /**
+   * `onClose` fires when the producer ends this subscription itself — the
+   * observer's bounded queue overflowing, a host drop, or an abort — so the
+   * route can close a response whose pump is parked on backpressure.
+   */
+  subscribe(signal?: AbortSignal, onClose?: () => void): AsyncIterable<EventEnvelope>
 }
 
 function sseHeaders(): Record<string, string> {
@@ -30,16 +35,27 @@ export function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
   app.get("/api/events", (c) => {
     const lifecycle = new AbortController()
     const encoder = new TextEncoder()
-    const subscription = events.subscribe(lifecycle.signal)
     let heartbeat: ReturnType<typeof setInterval> | undefined
     let finished = false
+    let resumePump: (() => void) | undefined
 
     const cleanup = () => {
       if (finished) return
       finished = true
       if (heartbeat !== undefined) clearInterval(heartbeat)
       lifecycle.abort()
+      // A pump blocked on a full queue must not stay parked after teardown.
+      resumePump?.()
     }
+
+    // The producer closed this subscription (queue bound, host drop or abort).
+    // Ending the response here is what makes the EventSource reconnect; the
+    // pump may be parked on backpressure and needs the wake-up. `cleanup` is
+    // idempotent, so a second call after an abort is harmless.
+    const subscription = events.subscribe(lifecycle.signal, () => {
+      cleanup()
+      resumePump?.()
+    })
 
     const onAbort = () => cleanup()
     c.req.raw.signal.addEventListener("abort", onAbort, { once: true })
@@ -47,21 +63,39 @@ export function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
 
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
-        const write = (chunk: string) => {
+        const waitForCapacity = () => {
+          if (controller.desiredSize !== null && controller.desiredSize > 0) {
+            return Promise.resolve()
+          }
+          return new Promise<void>((resolve) => {
+            resumePump = resolve
+          })
+        }
+        const write = async (chunk: string) => {
+          await waitForCapacity()
+          if (finished) return
           controller.enqueue(encoder.encode(chunk))
         }
         const pump = async () => {
           try {
-            write(`${SSE_RETRY_FRAME}\n\n`)
+            await write(`${SSE_RETRY_FRAME}\n\n`)
+            // A subscription that was already closed (upstream down, abort)
+            // must not arm a heartbeat it can never clear.
+            if (finished) return
             heartbeat = setInterval(() => {
+              // A stalled consumer keeps its events queued in the observer,
+              // where the bounded subscriber queue closes the stream and lets
+              // EventSource reconnect. Heartbeats must not bypass that bound.
+              if (finished) return
+              if (controller.desiredSize === null || controller.desiredSize <= 0) return
               try {
-                write(": heartbeat\n\n")
+                controller.enqueue(encoder.encode(": heartbeat\n\n"))
               } catch {
                 cleanup()
               }
             }, sseHeartbeatMs)
             for await (const event of subscription) {
-              write(`data: ${JSON.stringify(event)}\n\n`)
+              await write(`data: ${JSON.stringify(event)}\n\n`)
             }
           } catch {
             // The client went away or the server stream stopped; closing is
@@ -77,6 +111,11 @@ export function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
           }
         }
         void pump()
+      },
+      pull() {
+        const resume = resumePump
+        resumePump = undefined
+        resume?.()
       },
       cancel() {
         cleanup()

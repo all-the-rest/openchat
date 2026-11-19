@@ -36,6 +36,7 @@ import { createToolEventState, normalizeEvent } from "./live-events"
 import { liveSearch } from "./live-search"
 import { LiveWorktreeApi } from "./live-worktrees"
 import { normalizeMessage, normalizeSession } from "./live-normalize"
+import { requireSession } from "./live-session-read"
 
 // The normalizers stay importable from this module; the BFF only needs the
 // adapter, but tests exercise them next to it.
@@ -128,12 +129,8 @@ export class LiveBackend extends LiveWorktreeApi implements ChatBackend {
 
   async renameSession(sessionID: string, title: string): Promise<SessionInfo> {
     // `session.update` reports a miss generically, so a pre-read separates an
-    // unknown chat (404) from a failed write.
-    try {
-      await this.client.session.get({ sessionID })
-    } catch {
-      throw new BackendError("not_found", `Unknown session: ${sessionID}`)
-    }
+    // unknown chat (404) from a failed read or write (unavailable).
+    await requireSession(this.client, sessionID)
     try {
       await this.client.session.update({ sessionID, title })
       return normalizeSession(await this.client.session.get({ sessionID }), this.workspace)
@@ -143,11 +140,7 @@ export class LiveBackend extends LiveWorktreeApi implements ChatBackend {
   }
 
   async deleteSession(sessionID: string): Promise<void> {
-    try {
-      await this.client.session.get({ sessionID })
-    } catch {
-      throw new BackendError("not_found", `Unknown session: ${sessionID}`)
-    }
+    await requireSession(this.client, sessionID)
     try {
       await this.client.session.remove({ sessionID })
     } catch {

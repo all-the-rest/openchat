@@ -158,7 +158,9 @@ describe("merged remote compose", () => {
     expect(env.MEMORY_MAX_FACTS_BYTES).toBe("${MEMORY_MAX_FACTS_BYTES:-8388608}")
     expect(env.CHAT_CONTEXT_SOFT_CAP).toBe("${CHAT_CONTEXT_SOFT_CAP:-200000}")
     expect(env.FALLBACK_CHAIN_JSON).toBe("${FALLBACK_CHAIN_JSON:-}")
-    expect(env.FALLBACK_PAID_DAILY_CAP).toBe("${FALLBACK_PAID_DAILY_CAP:-0}")
+    expect(env.FALLBACK_PAID_DAILY_TURNS).toBe("${FALLBACK_PAID_DAILY_TURNS:-}")
+    // The deprecated name stays forwarded so an upgrade keeps its cap.
+    expect(env.FALLBACK_PAID_DAILY_CAP).toBe("${FALLBACK_PAID_DAILY_CAP:-}")
     expect(env.FALLBACK_USAGE_DIR).toBe("${FALLBACK_USAGE_DIR:-/workspace/chats/.usage}")
   })
 

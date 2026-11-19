@@ -33,9 +33,15 @@ class SubscriberQueue implements AsyncIterable<EventEnvelope> {
   private waiters: Array<(result: IteratorResult<EventEnvelope>) => void> = []
   private closed = false
   private cleanup: (() => void) | undefined
+  private readonly closeListeners: Array<() => void> = []
 
   onCleanup(cleanup: () => void): void {
     this.cleanup = cleanup
+  }
+
+  /** Notified by `close()`; the SSE route ends its response from here. */
+  onClose(listener: () => void): void {
+    this.closeListeners.push(listener)
   }
 
   push(value: EventEnvelope): void {
@@ -60,6 +66,7 @@ class SubscriberQueue implements AsyncIterable<EventEnvelope> {
     const cleanup = this.cleanup
     this.cleanup = undefined
     cleanup?.()
+    for (const listener of this.closeListeners.splice(0)) listener()
   }
 
   [Symbol.asyncIterator](): AsyncIterator<EventEnvelope> {
@@ -114,6 +121,12 @@ export class FallbackObserver {
    */
   private upstreamConnected = true
   private settleTimer?: ReturnType<typeof setTimeout>
+  /**
+   * Whether the current outage was already logged. A reconnect loop that keeps
+   * failing is still one outage; the flag re-arms once a new stream survives
+   * `UPSTREAM_SETTLE_MS`, so a later drop warns again.
+   */
+  private outageWarned = false
 
   constructor(deps: FallbackObserverDeps) {
     this.deps = deps
@@ -144,8 +157,9 @@ export class FallbackObserver {
   }
 
   /** Browser-facing stream: host events after the engine's transformations. */
-  subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {
+  subscribe(signal?: AbortSignal, onClose?: () => void): AsyncIterable<EventEnvelope> {
     const queue = new SubscriberQueue()
+    if (onClose !== undefined) queue.onClose(onClose)
     // While the host stream is down, hand the browser an ended stream: an SSE
     // client retries on its own, and each retry is a fresh chance to see the
     // host come back. Holding the stream open would hide the recovery.
@@ -167,6 +181,8 @@ export class FallbackObserver {
       this.settleTimer = setTimeout(() => {
         this.settleTimer = undefined
         this.upstreamConnected = true
+        // The stream proved the host is back; the next drop is a new outage.
+        this.outageWarned = false
       }, UPSTREAM_SETTLE_MS)
       try {
         for await (const event of this.deps.backend.subscribe(controller.signal)) {
@@ -186,11 +202,16 @@ export class FallbackObserver {
       // EventSource reconnects on its own. The observer keeps running, so a
       // turn still settles with no browser attached.
       this.dropSubscribers()
-      this.warn(
-        failed
-          ? "fallback event stream failed; reconnecting"
-          : "fallback event stream ended; reconnecting",
-      )
+      // One warning per outage, not one per reconnect attempt: a host that
+      // stays refused for minutes must not repeat the line every second.
+      if (!this.outageWarned) {
+        this.outageWarned = true
+        this.warn(
+          failed
+            ? "fallback event stream failed; reconnecting"
+            : "fallback event stream ended; reconnecting",
+        )
+      }
       await this.waitForReconnect()
     }
   }

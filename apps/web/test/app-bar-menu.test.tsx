@@ -286,6 +286,32 @@ describe("app bar menu entries", () => {
     expect(screen.queryByRole("menu")).toBeNull()
   })
 
+  it("hides the worktree entry when no Code host is configured", async () => {
+    stubViewport(false)
+    mocks.info.mockResolvedValue({
+      code: { configured: false, expectedVersion: "2.3.0" },
+      apps: { available: true },
+    })
+    const user = userEvent.setup()
+    renderShell()
+
+    await waitFor(() => expect(mocks.info).toHaveBeenCalled())
+    const menu = await openMenu(user)
+
+    expect(within(menu).queryByTestId("menu-worktrees")).toBeNull()
+    expect(within(menu).getByTestId("menu-search")).toBeInTheDocument()
+  })
+
+  it("shows the worktree entry when a Code host is configured", async () => {
+    stubViewport(false)
+    const user = userEvent.setup()
+    renderShell()
+
+    const menu = await openMenu(user)
+
+    expect(await within(menu).findByTestId("menu-worktrees")).toBeInTheDocument()
+  })
+
   it("hides the Apps entry when the host has no app surface", async () => {
     stubViewport(false)
     mocks.info.mockResolvedValue({

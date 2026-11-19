@@ -95,6 +95,8 @@ export interface RouteDeps {
   appsNow?: () => number
   /** Artifact creation throttle, per client address. */
   artifactsThrottle: FixedWindowThrottle
+  /** Worktree creation throttle, per client address. */
+  worktreeThrottle: FixedWindowThrottle
   /** Injected clock for signed artifact URLs. */
   artifactsNow?: () => number
   /** Filesystem probe for the artifact write capacity guard. */
@@ -106,10 +108,12 @@ export interface RouteDeps {
   /** Fallback engine, resolved policy and the shared usage ledger. */
   fallback?: import("./fallback-engine").FallbackEngine
   chatPolicy: import("@openchat/contracts").TurnPolicy
-  /** `FALLBACK_CHAIN_JSON` validation message when the supplied value was rejected. */
-  chainInvalidReason?: string
+  /** `FALLBACK_CHAIN_JSON` validation code when the supplied value was rejected. */
+  chainInvalidCode?: import("@openchat/contracts").FallbackInvalidReasonCode
   /** Ledger the engine writes and `/api/fallback` reads. */
   usageLedger: UsageLedger
+  /** Sticky flag: a turn outcome could not be written to the ledger. */
+  ledgerError?: () => boolean
   /** Server-owned merged event stream for the SSE route. */
   events: import("./events-route").EventSource
 }
@@ -253,10 +257,16 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
     config: deps.config,
     backend: deps.backend,
     memory: { store: memoryStore, invalidator: memoryInvalidator },
+    forget: (id) => deps.fallback?.forget(id),
   })
   registerBranchRoute(app, { backend: deps.backend, noteSession: (id) => memoryInvalidator.noteSession(id) })
   registerPromptRoute(app, deps)
-  registerFallbackRoute(app, { policy: deps.chatPolicy, ledger: deps.usageLedger, invalidReason: deps.chainInvalidReason })
+  registerFallbackRoute(app, {
+    policy: deps.chatPolicy,
+    ledger: deps.usageLedger,
+    invalidReasonCode: deps.chainInvalidCode,
+    ledgerError: deps.ledgerError,
+  })
   registerPermissionRoutes(app, deps.backend)
   registerFormRoutes(app, deps.backend)
   registerCodeRoutes(app, {
@@ -298,7 +308,12 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
   registerTasksRoutes(app, { backend: deps.backend })
-  registerWorktreeRoutes(app, { backend: deps.backend })
+  registerWorktreeRoutes(app, {
+    backend: deps.backend,
+    config: deps.config,
+    createThrottle: deps.worktreeThrottle,
+    workspace: deps.config.WORKSPACE_DIR,
+  })
   registerEventRoute(app, deps)
   // Fake mode only; the live adapter has no outage switch to expose.
   if (deps.config.BACKEND_MODE === "fake") {

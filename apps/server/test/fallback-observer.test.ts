@@ -4,7 +4,7 @@ import { FakeBackend } from "@openchat/opencode"
 import { describe, expect, it, vi } from "vitest"
 
 import type { FallbackEngine } from "../src/fallback-engine"
-import { FallbackObserver } from "../src/fallback-observer"
+import { FallbackObserver, UPSTREAM_SETTLE_MS } from "../src/fallback-observer"
 
 function stubEngine() {
   return {
@@ -65,6 +65,118 @@ describe("FallbackObserver", () => {
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("fallback event stream ended"))
     observer.stop()
+  })
+
+  it("warns once across several failed reconnect attempts", async () => {
+    let calls = 0
+    const subscribe = vi.fn(() => {
+      calls += 1
+      return {
+        [Symbol.asyncIterator]: async function* () {
+          throw new Error("host down")
+        },
+      }
+    })
+    const warn = vi.fn()
+    const observer = new FallbackObserver({
+      backend: { subscribe },
+      engine: stubEngine(),
+      warn,
+      reconnectMs: 1,
+    })
+
+    observer.start()
+    await until(() => calls >= 4, 5000)
+
+    // One outage, one line: the 1 s reconnect loop must not repeat it.
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("fallback event stream failed"))
+    observer.stop()
+  })
+
+  it("warns again when a stream that recovered drops later", async () => {
+    const ends: Array<() => void> = []
+    const subscribe = vi.fn(() => {
+      let end!: () => void
+      const gate = new Promise<void>((resolve) => {
+        end = resolve
+      })
+      ends.push(end)
+      return {
+        [Symbol.asyncIterator]: async function* () {
+          await gate
+        },
+      }
+    })
+    const warn = vi.fn()
+    const observer = new FallbackObserver({
+      backend: { subscribe },
+      engine: stubEngine(),
+      warn,
+      reconnectMs: 1,
+    })
+
+    const settle = () => new Promise((resolve) => setTimeout(resolve, UPSTREAM_SETTLE_MS + 25))
+    observer.start()
+
+    await until(() => ends.length >= 1)
+    await settle()
+    ends[0]?.()
+    await until(() => warn.mock.calls.length >= 1)
+
+    // The replacement has to survive the settle window too; only then is its
+    // drop a new outage rather than the tail of the first one.
+    await until(() => ends.length >= 2)
+    await settle()
+    ends[1]?.()
+    await until(() => warn.mock.calls.length >= 2)
+
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("fallback event stream ended"))
+    observer.stop()
+  })
+
+  it("stop aborts the host subscription and clears the reconnect timer", async () => {
+    let signal: AbortSignal | undefined
+    let ended = false
+    const subscribe = vi.fn((incoming: AbortSignal) => {
+      signal = incoming
+      return {
+        [Symbol.asyncIterator]: () => {
+          let done = false
+          return {
+            next: () =>
+              new Promise<IteratorResult<EventEnvelope>>((resolve) => {
+                incoming.addEventListener(
+                  "abort",
+                  () => {
+                    if (done) return
+                    done = true
+                    ended = true
+                    resolve({ value: undefined, done: true })
+                  },
+                  { once: true },
+                )
+              }),
+          }
+        },
+      }
+    })
+    const observer = new FallbackObserver({
+      backend: { subscribe },
+      engine: stubEngine(),
+      reconnectMs: 5,
+    })
+
+    observer.start()
+    await until(() => signal !== undefined)
+    observer.stop()
+
+    expect(signal?.aborted).toBe(true)
+    await until(() => ended)
+    // A stopped observer must not reconnect even after its delay passes.
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    expect(subscribe).toHaveBeenCalledTimes(1)
   })
 
   it("closes a browser stream when the host stream drops", async () => {
