@@ -4,6 +4,12 @@
  * `/usr/bin/python3` and a development virtualenv. No value is ever logged.
  */
 
+import {
+  CHAT_FILE_BODY_CEILING_BYTES,
+  CHAT_FILE_MAX_BYTES,
+  CHAT_QUOTA_PER_CHAT_BYTES,
+} from "@openchat/contracts"
+
 const DEFAULT_BFF_URL = "http://127.0.0.1:8787"
 
 export interface ToolEnv {
@@ -22,6 +28,10 @@ export interface DocumentsToolEnv extends ToolEnv {
   documentsUrl: string
   /** Bearer token for the documents service, distinct from the BFF token. */
   documentsToken: string
+  /** Per-chat byte budget passed to the extract guard. */
+  quotaPerChatBytes: number
+  /** Largest single extracted file; the BFF's per-file cap. */
+  maxFileBytes: number
 }
 
 export interface LoadToolEnvOptions {
@@ -97,9 +107,24 @@ function readDocumentsUrl(raw: string | undefined): string {
   return path.length > 0 ? `${url.origin}${path}` : url.origin
 }
 
+function readByteLimit(
+  source: Record<string, string | undefined>,
+  key: string,
+  fallback: number,
+  ceiling: number | undefined,
+): number {
+  const raw = read(source, key)
+  if (!raw) return fallback
+  const parsed = Number(raw)
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) return fallback
+  return ceiling === undefined ? parsed : Math.min(parsed, ceiling)
+}
+
 /**
  * Same BFF values as `loadToolEnv`, plus the workspace root and the documents
- * service pair. A missing token is a startup failure, never a silent 401.
+ * service pair. A missing token is a startup failure, never a silent 401. The
+ * two byte limits mirror the BFF quota; an invalid or huge value falls back to
+ * the documented default or ceiling instead of widening the guard.
  */
 export function loadDocumentsToolEnv(options: LoadToolEnvOptions = {}): DocumentsToolEnv {
   const source = options.source ?? process.env
@@ -112,5 +137,17 @@ export function loadDocumentsToolEnv(options: LoadToolEnvOptions = {}): Document
     workspaceDir: readDirectory(read(source, "WORKSPACE_DIR")),
     documentsUrl,
     documentsToken,
+    quotaPerChatBytes: readByteLimit(
+      source,
+      "WORKSPACE_QUOTA_PER_CHAT_BYTES",
+      CHAT_QUOTA_PER_CHAT_BYTES,
+      undefined,
+    ),
+    maxFileBytes: readByteLimit(
+      source,
+      "WORKSPACE_MAX_FILE_BYTES",
+      CHAT_FILE_MAX_BYTES,
+      CHAT_FILE_BODY_CEILING_BYTES,
+    ),
   }
 }

@@ -1,4 +1,4 @@
-"""Shared plumbing for the four document scripts.
+"""Shared plumbing for the fixed document and archive scripts.
 
 Every script reads one JSON object on stdin and writes one JSON object on
 stdout. Nothing is read from the filesystem except the process working
@@ -64,6 +64,12 @@ def emit(filename: str, media_type: str, data: bytes) -> None:
             separators=(",", ":"),
         )
     )
+    sys.stdout.flush()
+
+
+def emit_json(payload: dict) -> None:
+    """Emit one structured result; ensure_ascii=False keeps unicode names."""
+    sys.stdout.write(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
     sys.stdout.flush()
 
 

@@ -44,3 +44,14 @@ export const DOCUMENTS_TIMEOUT_MS = 40_000
 export const MAX_DOCUMENTS_RESPONSE_BYTES = 24 * 1024 * 1024
 /** Outputs written beside the template keep the same per-file ceiling. */
 export const MAX_CHAT_OUTPUT_BYTES = 32 * 1024 * 1024
+
+/** Plain-ZIP archives (issue #52). Mirrored in `python/archive_guards.py`. */
+export const MAX_ARCHIVE_ENTRIES = 500
+export const MAX_ARCHIVE_DEPTH = 10
+export const MAX_ARCHIVE_TOTAL_UNCOMPRESSED = 200 * 1024 * 1024
+/** A declared ratio above 100:1 is refused once past 10 MiB uncompressed. */
+export const MAX_ARCHIVE_RATIO = 100
+export const ARCHIVE_BOMB_MIN_UNCOMPRESSED = 10 * 1024 * 1024
+/** Caller-chosen extraction subdirectory: one safe path segment. */
+export const MAX_ARCHIVE_SUBDIR_CHARS = 120
+export const MAX_ARCHIVE_PATH_CHARS = 300
