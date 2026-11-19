@@ -95,6 +95,21 @@ issued, from `paidTurnsToday()` for the local day; free entries
 (`isFree === true`) bypass the cap, and a missing flag is never read as free.
 `costMicros` stays `0`: this slice adds no token-based cost metering.
 
+## Settings surface (issue #54, item 4)
+
+`GET /api/fallback` (`apps/server/src/fallback-route.ts`) reports the effective,
+non-secret configuration: `configured`, the ordered chain entries
+(`providerID`, `modelID`, optional `variant`, `isFree`, `contextLimit`),
+`paidDailyCap` and today's `paidTurnsToday`/`turnsToday`. It is built from the
+same resolved `TurnPolicy` the prompt route enforces and reads the same
+`UsageLedger` the engine writes, so the answer cannot drift from enforcement;
+the raw `FALLBACK_CHAIN_JSON` value, credentials and the ledger path are never
+part of it. The settings page shows it in the "Model fallback" block
+(`apps/web/src/components/FallbackSettings.tsx`): the chain in order, the cap
+("N paid turns per day" or off) and today's paid turn count, with loading,
+error and retry states. `apps/server/test/fallback-route.test.ts` and
+`apps/web/test/fallback-settings.test.tsx` cover those states.
+
 ## Notice delivery
 
 The POST response has already returned by the time a failure is observed, so the

@@ -2,6 +2,7 @@ import type { InfoResponse, ModelInfo } from "@openchat/contracts"
 import { useEffect, useState } from "react"
 import { api } from "../api/client"
 import { AgentSelect, ModelSelect } from "../chat/CompletionPicker"
+import { FallbackSettings } from "../components/FallbackSettings"
 import { LocaleSelect, ThemeToggle } from "../components/controls"
 import { useT } from "../i18n/provider"
 
@@ -110,6 +111,8 @@ export function SettingsPage() {
         </section>
 
         <ServerStatus info={info} />
+
+        <FallbackSettings />
 
         <section aria-label={t("settings.hostDefault")} data-testid="host-default">
           <h2 className={HEADING}>{t("settings.hostDefault")}</h2>

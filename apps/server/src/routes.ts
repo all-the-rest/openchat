@@ -60,6 +60,8 @@ import type { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { registerTranscribeRoute } from "./transcribe"
 import { localModelAvailable } from "./models"
 import { registerTasksRoutes } from "./tasks"
+import { registerFallbackRoute } from "./fallback-route"
+import type { UsageLedger } from "./usage-ledger"
 
 /** Fixed `Retry-After` for a login rejected by the concurrency gate. */
 export const LOGIN_BUSY_RETRY_AFTER_SECONDS = 1
@@ -107,8 +109,10 @@ export interface RouteDeps {
   compactionWaitMs?: number
   /** Model-fallback engine; shared by the prompt and event routes. */
   fallback?: import("./fallback-engine").FallbackEngine
-  /** Resolved chat policy for the fallback engine. */
-  chatPolicy?: import("@openchat/contracts").TurnPolicy
+  /** Resolved chat policy for the fallback engine and the settings read. */
+  chatPolicy: import("@openchat/contracts").TurnPolicy
+  /** Ledger the engine writes and `/api/fallback` reads. */
+  usageLedger: UsageLedger
 }
 
 function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
@@ -335,6 +339,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   })
   registerSessionRoutes(app, deps, { store: memoryStore, invalidator: memoryInvalidator })
   registerPromptRoute(app, deps)
+  registerFallbackRoute(app, { policy: deps.chatPolicy, ledger: deps.usageLedger })
   registerPermissionRoutes(app, deps.backend)
   registerCodeRoutes(app, {
     config: deps.config,

@@ -8,6 +8,11 @@ msgstr ""
 "Language: en\n"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackCapValue"
+msgstr "{cap, plural, one {# paid turn per day} other {# paid turns per day}}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.schedules.runs"
 msgstr "{count, plural, one {# run} other {# runs}}"
@@ -563,6 +568,11 @@ msgid "tasks.status.completed"
 msgstr "Completed"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackReadOnly"
+msgstr "Configured on the server. This page only reads the effective settings."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.confirm"
 msgstr "Confirm deletion of {title}"
@@ -1048,6 +1058,11 @@ msgid "search.status.failed"
 msgstr "Failed"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackLoadFailed"
+msgstr "Fallback settings could not be loaded."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.favorites"
 msgstr "Favorites"
@@ -1081,6 +1096,11 @@ msgstr "Finished: {when}"
 #: src/i18n/messages/code.ts
 msgid "code.focusFrame"
 msgstr "Focus Code"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackFree"
+msgstr "Free"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/palette.ts
@@ -1348,6 +1368,11 @@ msgid "chat.modelLabel"
 msgstr "Model"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallback"
+msgstr "Model fallback"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.activeChoice"
 msgstr "Model: {model} · Agent: {agent}"
@@ -1431,6 +1456,11 @@ msgstr "No chats yet."
 #: src/i18n/messages/code.ts
 msgid "code.ticketTitle"
 msgstr "No Code sign-in ticket"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackUnconfigured"
+msgstr "No fallback chain is configured."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1521,6 +1551,11 @@ msgstr "Not set"
 #: src/i18n/messages/memory.ts
 msgid "memory.trust.observed"
 msgstr "Observed"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackCapOff"
+msgstr "Off"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1626,6 +1661,16 @@ msgstr "Output"
 #: src/i18n/messages/chat.ts
 msgid "usage.output"
 msgstr "Output tokens"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackPaidTurnsToday"
+msgstr "Paid turns today"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackPaidCap"
+msgstr "Paid-turn cap"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1836,6 +1881,11 @@ msgstr "Result from this artifact"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.resume"
 msgstr "Resume {title}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackRetry"
+msgstr "Retry"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -2693,6 +2743,11 @@ msgid "memory.col.trust"
 msgstr "Trust"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackTurnsToday"
+msgstr "Turns today"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.prompt"
 msgstr "Type a search term."
@@ -2741,6 +2796,11 @@ msgstr "Use server STT"
 #: src/i18n/messages/chat.ts
 msgid "auth.userLabel"
 msgstr "Username"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackVariant"
+msgstr "Variant: {variant}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts

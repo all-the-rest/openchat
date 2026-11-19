@@ -8,6 +8,7 @@ import type {
   CodeStatusResponse,
   CodeTicketResponse,
   CreateSessionRequest,
+  FallbackStatusResponse,
   InboxEntry,
   InfoResponse,
   LoginResponse,
@@ -71,6 +72,11 @@ export const api = {
 
   info(): Promise<InfoResponse> {
     return request<InfoResponse>("/api/info")
+  },
+
+  /** The enforced fallback chain, paid-turn cap and today's counters. */
+  fallback(): Promise<FallbackStatusResponse> {
+    return request<FallbackStatusResponse>("/api/fallback")
   },
 
   /** Chat model catalogue; an empty list means the picker stays hidden. */

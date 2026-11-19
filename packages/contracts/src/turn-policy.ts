@@ -63,6 +63,24 @@ export interface TurnOutcome {
   attempts: number
 }
 
+/**
+ * `GET /api/fallback`: the effective fallback settings the server enforces.
+ * Only resolved, non-secret values appear here — never the raw environment
+ * value, credentials or the usage-ledger path. `configured` is false exactly
+ * when the chain is empty, the same condition the prompt route checks.
+ */
+export interface FallbackStatusResponse {
+  configured: boolean
+  /** Ordered candidates as the policy resolved them; empty when unconfigured. */
+  chain: ModelRef[]
+  /** Paid turns allowed per local day; `0` means the cap is off. */
+  paidDailyCap: number
+  /** Paid turns the ledger recorded for today; free turns are excluded. */
+  paidTurnsToday: number
+  /** All turns recorded for today, free and paid alike. */
+  turnsToday: number
+}
+
 /** Longest accepted chain. One retry per turn needs no more than two entries. */
 export const MAX_CHAIN_LENGTH = 5
 
