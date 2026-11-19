@@ -1,4 +1,5 @@
 import type { ModelRef, TurnPolicy } from "@openchat/contracts"
+import type { ChatBackend } from "@openchat/opencode"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -7,6 +8,7 @@ import {
   resolveChatPolicy,
   validateChainJson,
 } from "../src/fallback-config"
+import { resolveClientModel } from "../src/prompt-route"
 
 const A: ModelRef = { providerID: "acme", modelID: "a" }
 const B: ModelRef = { providerID: "acme", modelID: "b", variant: "think" }
@@ -79,6 +81,18 @@ describe("fallback-config", () => {
       modelID: "echo",
     })
     expect(clientModelRef("unknown/model", undefined, catalogue)).toBeUndefined()
+  })
+
+  it("validates a variant on both the catalogue and chain-entry paths", async () => {
+    const catalogue = [{ id: "fake/echo", providerID: "fake", variants: ["fast"] }]
+    const backend = { listModels: async () => catalogue } as unknown as ChatBackend
+    const policy = chatPolicy([{ providerID: "fake", modelID: "fake/echo" }])
+    for (const [variant, expected] of [["gone", undefined], ["fast", "fast"]] as const) {
+      expect(clientModelRef("fake/echo", variant, catalogue)?.variant).toBe(expected)
+      expect((await resolveClientModel(backend, policy, "fake/echo", variant))?.variant).toBe(
+        expected,
+      )
+    }
   })
 
   it.each(["", "noslash", "/model", "provider/"])("ignores the malformed model %j", (model) => {

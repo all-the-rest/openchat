@@ -271,6 +271,17 @@ describe("corrupt-line recovery", () => {
     expect(corrupt?.actor).toBe("system")
     expect(corrupt?.reason).toContain("2 malformed")
   })
+
+  it("reports a corrupt line once per process, not once per read", async () => {
+    const { store, dir } = await setup()
+    appendFileSync(join(dir, "facts.jsonl"), "{bad}\n")
+    // `current()` runs once or twice per request; fifty reads must not append
+    // fifty audit rows for the same corrupt trailing line.
+    for (let index = 0; index < 50; index += 1) store.facts()
+    const lines = readFileSync(join(dir, "audit.jsonl"), "utf8").split("\n").filter(Boolean)
+    expect(lines).toHaveLength(1)
+    expect(JSON.parse(lines[0]!)).toMatchObject({ action: "corrupt", actor: "system" })
+  })
 })
 
 describe("derived index", () => {

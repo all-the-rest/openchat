@@ -45,6 +45,18 @@ export function requestedModel(policy: TurnPolicy): ModelRef | undefined {
 }
 
 /**
+ * A variant survives only while its model's catalogue entry still lists it.
+ * Both model-resolution paths use this one rule, so a chain entry cannot
+ * forward a variant the catalogue has dropped.
+ */
+export function offeredVariant(
+  variant: string | undefined,
+  variants: readonly string[],
+): string | undefined {
+  return variant !== undefined && variants.includes(variant) ? variant : undefined
+}
+
+/**
  * The browser's persisted choice as a full `ModelRef`. Its `model` is a host
  * model id: the catalogue lookup comes first because a model id may itself
  * contain a slash (`fake/echo`). Only when no catalogue entry matches is the
@@ -65,7 +77,7 @@ export function clientModelRef(
   if (model === undefined) return undefined
   const found = catalogue?.find((entry) => entry.id === model)
   if (found !== undefined) {
-    const offered = variant !== undefined && found.variants.includes(variant) ? variant : undefined
+    const offered = offeredVariant(variant, found.variants)
     const parsed = modelRefSchema.safeParse({
       providerID: found.providerID,
       modelID: found.id,

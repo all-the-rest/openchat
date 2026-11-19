@@ -113,7 +113,11 @@ export async function reportChatFileOrphans(
       withFileTypes: true,
     })
     for (const chat of chats) {
-      if (chat.isDirectory() && !sessions.has(chat.name)) orphanDirs.push(chat.name)
+      // Dot-directories are bookkeeping the server keeps beside the chats (the
+      // usage ledger lives in `chats/.usage`), never a chat.
+      if (chat.isDirectory() && !chat.name.startsWith(".") && !sessions.has(chat.name)) {
+        orphanDirs.push(chat.name)
+      }
     }
     Object.assign(audit, await auditChatFiles(options.workspaceDir))
   } catch {
