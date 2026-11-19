@@ -148,7 +148,9 @@ export function useChatSession(sessionID: string): ChatSessionValue {
     return subscribe((event) => {
       const eventSession = event.data.sessionID
       if (typeof eventSession === "string" && eventSession !== activeSession.current) return
-      setMessages((current) => applyEvent(current, event))
+      // Pass the active locale so localized system notices (e.g. the fallback
+      // notice) are folded in the user's language; `locale` is already a dep.
+      setMessages((current) => applyEvent(current, event, locale))
       setInbox((current) => applyInboxEvent(current, event))
       setCompactions((current) => applyCompactionEvent(current, event))
       if (event.type === EVENT.usageUpdated) {

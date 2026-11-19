@@ -11,12 +11,16 @@ import type {
   ToolStatus,
 } from "@openchat/contracts"
 import { EVENT } from "@openchat/contracts"
+import { translate, type Locale } from "../i18n"
 
 /**
  * Fold one normalized event into the transcript (spec 03).
  *
  * Pure: the input array and its messages are never mutated. Unknown event
  * types return the input reference unchanged so React can skip a render.
+ *
+ * `locale` defaults to `en`, keeping two-argument callers compiling (the same
+ * effect as an overload) while the SSE subscriber passes its active locale.
  */
 
 function readString(data: Record<string, unknown>, key: string): string | undefined {
@@ -32,6 +36,13 @@ function readNumber(data: Record<string, unknown>, key: string): number | undefi
 function readBoolean(data: Record<string, unknown>, key: string): boolean | undefined {
   const value = data[key]
   return typeof value === "boolean" ? value : undefined
+}
+
+/** Reads the model id out of a `ModelRef`-shaped value without assuming its type. */
+function readModelID(value: unknown): string {
+  if (value === null || typeof value !== "object") return ""
+  const modelID = (value as Record<string, unknown>).modelID
+  return typeof modelID === "string" ? modelID : ""
 }
 
 function replaceMessage(messages: Message[], index: number, message: Message): Message[] {
@@ -280,7 +291,11 @@ function applyErrorEvent(messages: Message[], event: EventEnvelope): Message[] {
   })
 }
 
-export function applyEvent(messages: Message[], event: EventEnvelope): Message[] {
+export function applyEvent(
+  messages: Message[],
+  event: EventEnvelope,
+  locale: Locale = "en",
+): Message[] {
   switch (event.type) {
     case EVENT.textDelta:
       return appendDelta(messages, event, "text")
@@ -333,6 +348,38 @@ export function applyEvent(messages: Message[], event: EventEnvelope): Message[]
     case EVENT.error:
     case EVENT.executionFailed:
       return applyErrorEvent(messages, event)
+
+    case EVENT.fallbackNotice: {
+      // Arrives by SSE after POST /prompt returned, so it cannot ride in
+      // PromptResponse.notices; data has model refs, not text — localize here.
+      const data = event.data
+      const suffix = event.id || String(event.created)
+      const id = `fallback-${suffix}`
+      // A re-delivered event must not duplicate the system line.
+      if (messages.some((message) => message.id === id)) return messages
+      const model = readModelID(data.to)
+      const note: Message = {
+        id,
+        sessionID: readString(data, "sessionID") ?? "",
+        role: "system",
+        parts: [
+          {
+            type: "text",
+            id: `fallback-notice-${suffix}`,
+            text: model
+              ? translate(locale, "chat.fallback.notice", { model })
+              : translate(locale, "chat.fallback.notice.plain"),
+          },
+        ],
+        created: event.created,
+        status: "complete",
+      }
+      return [...messages, note]
+    }
+
+    // Observability only: no transcript line; explicit no-op, not unknown.
+    case EVENT.turnOutcome:
+      return messages
 
     default:
       return messages

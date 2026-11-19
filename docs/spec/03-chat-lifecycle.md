@@ -69,6 +69,9 @@ them. The UI mirrors `session.inbox.enqueued`, `delivered`, `cancelled` and
 - If the provider failed before any token, retry is safe.
 - If the provider failed mid-stream, offer "retry" and "continue" as separate
   actions.
+- Before any assistant text, a retryable first-attempt failure may switch once to
+  the next free-or-capped model in the chat chain, with one i18n system notice;
+  no mid-stream switch, and no history rewrite. The Code surface is unaffected.
 
 ## Edit and branch
 

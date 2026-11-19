@@ -71,9 +71,9 @@ msgstr "{used} of {total} used ({percent}%)"
 #: src/i18n/messages/palette.ts
 msgid "palette.hint"
 msgstr "↑↓ to move · Enter to open · Esc to close"
-#: src/i18n/messages/onboarding.ts
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
 msgid "firstRun.stepProvider"
 msgstr "1. Choose a provider and connection method"
 
@@ -311,9 +311,9 @@ msgstr "Attachments"
 #: src/i18n/messages/memory.ts
 msgid "memory.auditHeading"
 msgstr "Audit"
-#: src/i18n/messages/onboarding.ts
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
 msgid "firstRun.oauth.codeLabel"
 msgstr "Authorization code"
 
@@ -358,11 +358,6 @@ msgid "usage.cached"
 msgstr "Cached tokens"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/memory.ts
-msgid "memory.cancel"
-msgstr "Cancel"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.inboxCancel"
 msgstr "Cancel"
@@ -375,6 +370,11 @@ msgstr "Cancel"
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.deleteCancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
@@ -541,9 +541,9 @@ msgstr "Compaction finished"
 #: src/i18n/messages/chat.ts
 msgid "chat.compactionStarted"
 msgstr "Compaction started"
-#: src/i18n/messages/onboarding.ts
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
 msgid "firstRun.oauth.completeCode"
 msgstr "Complete sign-in"
 
@@ -738,13 +738,13 @@ msgid "settings.defaults"
 msgstr "Defaults for new chats"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/memory.ts
-msgid "memory.delete"
+#: src/i18n/messages/files.ts
+msgid "files.delete"
 msgstr "Delete"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.delete"
+#: src/i18n/messages/memory.ts
+msgid "memory.delete"
 msgstr "Delete"
 
 #. js-lingui-explicit-id
@@ -1103,14 +1103,14 @@ msgid "artifacts.description"
 msgstr "HTML documents your agent has written. Each one runs sandboxed on a separate origin."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.complete"
+msgstr "I have approved access"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
 msgid "memory.col.id"
 msgstr "ID"
-#: src/i18n/messages/onboarding.ts
-
-#. js-lingui-explicit-id
-msgid "firstRun.oauth.complete"
-msgstr "I have approved access"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -1478,12 +1478,7 @@ msgid "usage.notReportedShort"
 msgstr "Not reported"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/memory.ts
-msgid "memory.trust.observed"
-msgstr "Observed"
 #: src/i18n/messages/onboarding.ts
-
-#. js-lingui-explicit-id
 msgid "firstRun.fieldUnset"
 msgstr "Not set"
 
@@ -1491,6 +1486,11 @@ msgstr "Not set"
 #: src/i18n/messages/settings.ts
 msgid "settings.hostDefaultUnset"
 msgstr "Not set"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.trust.observed"
+msgstr "Observed"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1803,11 +1803,6 @@ msgid "tasks.action.resume"
 msgstr "Resume {title}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/memory.ts
-msgid "memory.retry"
-msgstr "Retry"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.retry"
 msgstr "Retry"
@@ -1840,6 +1835,11 @@ msgstr "Retry"
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
@@ -2103,14 +2103,14 @@ msgid "nav.skipToContent"
 msgstr "Skip to content"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.unknown"
+msgstr "Something went wrong. Try again."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
 msgid "memory.col.source"
 msgstr "Source"
-#: src/i18n/messages/onboarding.ts
-
-#. js-lingui-explicit-id
-msgid "firstRun.error.unknown"
-msgstr "Something went wrong. Try again."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -2138,14 +2138,14 @@ msgid "tasks.jobs.started"
 msgstr "Started: {when}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.oauth.starting"
+msgstr "Starting…"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
 msgid "memory.col.status"
 msgstr "Status"
-#: src/i18n/messages/onboarding.ts
-
-#. js-lingui-explicit-id
-msgid "firstRun.oauth.starting"
-msgstr "Starting…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -2214,6 +2214,16 @@ msgstr "Switch to light theme"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "chat.fallback.notice"
+msgstr "Switched to {model} after the first model failed."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.fallback.notice.plain"
+msgstr "Switched to a fallback model after the first model failed."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.export.system"
 msgstr "System note"
 
@@ -2228,13 +2238,13 @@ msgid "tasks.loadFailed"
 msgstr "Tasks could not be loaded."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/memory.ts
-msgid "memory.col.text"
+#: src/i18n/messages/artifacts.ts
+msgid "artifacts.draftText"
 msgstr "Text"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/artifacts.ts
-msgid "artifacts.draftText"
+#: src/i18n/messages/memory.ts
+msgid "memory.col.text"
 msgstr "Text"
 
 #. js-lingui-explicit-id
@@ -2318,14 +2328,14 @@ msgid "code.mobileBody"
 msgstr "The Code interface is built for desktop. Open it in a new tab on this device."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/onboarding.ts
+msgid "firstRun.error.connect"
+msgstr "The connection did not succeed. The host gave no confirmation."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.compactFailed"
 msgstr "The conversation could not be compacted."
-#: src/i18n/messages/onboarding.ts
-
-#. js-lingui-explicit-id
-msgid "firstRun.error.connect"
-msgstr "The connection did not succeed. The host gave no confirmation."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -2371,9 +2381,9 @@ msgstr "The health probe got no answer from the Code host."
 #: src/i18n/messages/chat.ts
 msgid "chat.contextUsageHint"
 msgstr "The host compacts automatically at 100% minus its configured buffer (35% in the seeded configuration)."
-#: src/i18n/messages/settings.ts
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
 msgid "settings.hostDefaultUnavailable"
 msgstr "The host default could not be read."
 
@@ -2588,12 +2598,7 @@ msgid "apps.error.throttled"
 msgstr "Too many attempts. Try again shortly."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.export.tool"
-msgstr "Tool"
 #: src/i18n/messages/onboarding.ts
-
-#. js-lingui-explicit-id
 msgid "firstRun.error.throttledAfter"
 msgstr "Too many connection attempts. Try again in {seconds} s."
 
@@ -2601,6 +2606,11 @@ msgstr "Too many connection attempts. Try again in {seconds} s."
 #: src/i18n/messages/onboarding.ts
 msgid "firstRun.error.throttled"
 msgstr "Too many connection attempts. Try again shortly."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.export.tool"
+msgstr "Tool"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts

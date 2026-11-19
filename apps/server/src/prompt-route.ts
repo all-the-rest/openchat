@@ -15,6 +15,9 @@ import {
 import { COMPACTION_WAIT_MS, ContextSoftCap } from "./context-cap"
 import { clientAddress } from "./middleware"
 import type { FixedWindowThrottle } from "./throttle"
+import type { FallbackEngine } from "./fallback-engine"
+import { requestedModel } from "./fallback-config"
+import type { TurnPolicy } from "@openchat/contracts"
 
 export interface PromptRouteDeps {
   config: EnvConfig
@@ -22,6 +25,10 @@ export interface PromptRouteDeps {
   promptThrottle: FixedWindowThrottle
   /** How long a prompt waits for a compaction decision; tests shorten it. */
   compactionWaitMs?: number
+  /** Model-fallback engine; tracks turns for retry decisions. */
+  fallback?: FallbackEngine
+  /** Resolved chat policy; empty chain disables fallback. */
+  chatPolicy?: TurnPolicy
 }
 
 /**
@@ -61,13 +68,23 @@ export function registerPromptRoute(app: Hono<AppEnv>, deps: PromptRouteDeps): v
     const decision = await softCap.admit(c.req.param("id"))
     // Spec 03: one active run per session. A second send is queued rather than
     // rejected, so the BFF defaults to the queue delivery mode.
-    const result = await backend.prompt(c.req.param("id"), {
+    const sessionID = c.req.param("id")
+    const requested = deps.chatPolicy ? requestedModel(deps.chatPolicy) : undefined
+    const payload = {
       text: parsed.data.text,
       delivery: parsed.data.delivery ?? "queue",
       model: parsed.data.model,
       variant: parsed.data.variant,
       agent: parsed.data.agent,
-    })
+      ...(requested ? { modelRef: requested } : {}),
+    }
+    const result = await backend.prompt(sessionID, payload)
+    // A queued send does not start a run; registering it would overwrite the
+    // active turn's state (payload/requested) and the retry would re-send the
+    // queued text. Only a prompt that actually starts a run becomes a turn.
+    if (deps.fallback && deps.chatPolicy && requested && !result.queued) {
+      deps.fallback.begin(sessionID, payload, deps.chatPolicy, requested, result.messageID)
+    }
     const response: PromptResponse = { ok: true, messageID: result.messageID }
     if (result.queued) response.queued = true
     if (decision.notice) response.notices = [decision.notice]

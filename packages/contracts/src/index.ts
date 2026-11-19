@@ -3,6 +3,7 @@ import { z } from "zod"
 import type { AppsSurfaceInfo } from "./apps"
 import type { ArtifactsSurfaceInfo } from "./artifacts"
 import type { PromptNotice, TokenUsage } from "./compaction"
+import type { FallbackReason, ModelRef } from "./turn-policy"
 import type { ToolPart } from "./transcript"
 
 export * from "./apps"
@@ -289,6 +290,8 @@ export const EVENT = {
   permissionAsked: "permission.asked",
   permissionReplied: "permission.replied",
   error: "session.error",
+  fallbackNotice: "chat.fallback.notice",
+  turnOutcome: "turn.outcome",
 } as const
 
 export type EventType = (typeof EVENT)[keyof typeof EVENT]
@@ -335,6 +338,25 @@ export interface SessionErrorData {
   retryable?: boolean
 }
 
+export interface FallbackNoticeData {
+  sessionID: string
+  messageID?: string
+  from: ModelRef
+  to: ModelRef
+  reason?: FallbackReason
+  attempts: number
+}
+
+export interface TurnOutcomeData {
+  sessionID: string
+  requested: ModelRef
+  answered?: ModelRef
+  fellBack: boolean
+  reason?: FallbackReason
+  attempts: number
+  costMicros?: number
+}
+
 /** Scripted fake scenarios; `rich` exercises the M2 renderers. */
 export type FakeScenario =
   | "default"
@@ -344,6 +366,8 @@ export type FakeScenario =
   | "error"
   | "abort"
   | "slow"
+  /** Emits a retryable rate-limit failure before any assistant text. */
+  | "fallback"
 
 export const promptRequestSchema = z.object({
   text: z.string().min(1).max(32_000),

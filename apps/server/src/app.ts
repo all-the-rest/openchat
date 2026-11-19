@@ -20,6 +20,10 @@ import { registerRoutes } from "./routes"
 import { SSE_HEARTBEAT_MS } from "./sse"
 import { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { STT_TIMEOUT_MS } from "./transcribe"
+import { UsageLedger } from "./usage-ledger"
+import { FallbackEngine } from "./fallback-engine"
+import { resolveChatPolicy, validateChainJson } from "./fallback-config"
+import type { TurnPolicy } from "@openchat/contracts"
 
 export const SERVER_VERSION = "2.2.0"
 
@@ -65,6 +69,10 @@ export interface AppOptions {
   verificationGate?: VerificationGate
   /** Bounded wait for a compaction decision before a prompt; tests shorten it. */
   compactionWaitMs?: number
+  /** Injected fallback engine; tests supply one with a stubbed ledger. */
+  fallback?: FallbackEngine
+  /** Injected resolved chat policy; tests narrow the chain. */
+  chatPolicy?: TurnPolicy
 }
 
 export interface AppVariables {
@@ -115,6 +123,24 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       limit: ARTIFACT_CREATE_LIMIT,
       windowMs: ARTIFACT_CREATE_WINDOW_MS,
     })
+  // Model fallback: the ledger is cheap and side-effect-free at construction;
+  // an invalid chain JSON only disables fallback rather than failing boot.
+  let chain: ReturnType<typeof validateChainJson> = []
+  try {
+    chain = validateChainJson(config.FALLBACK_CHAIN_JSON)
+  } catch {
+    // Empty chain: no fallback. A warning would need the loader's `warn`.
+  }
+  const chatPolicy = options.chatPolicy ?? resolveChatPolicy({
+    chain,
+    paidDailyCap: config.FALLBACK_PAID_DAILY_CAP,
+    contextSoftCap: config.CHAT_CONTEXT_SOFT_CAP,
+  })
+  const fallback = options.fallback ?? new FallbackEngine({
+    backend,
+    ledger: new UsageLedger({ directory: config.FALLBACK_USAGE_DIR }),
+  })
+
   const app = new Hono<AppEnv>()
 
   app.onError((error, c) => {
@@ -155,6 +181,8 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     artifactsThrottle,
     artifactsNow: options.artifactsNow,
     compactionWaitMs: options.compactionWaitMs,
+    fallback,
+    chatPolicy,
   })
 
   return app

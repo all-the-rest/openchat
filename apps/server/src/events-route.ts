@@ -2,6 +2,7 @@ import type { Hono } from "hono"
 import type { AppEnv } from "./app"
 import type { RouteDeps } from "./routes"
 import { SSE_RETRY_FRAME } from "./sse"
+import { EVENT } from "@openchat/contracts"
 
 function sseHeaders(): Record<string, string> {
   return {
@@ -18,7 +19,7 @@ function sseHeaders(): Record<string, string> {
  * response so a closed browser tab cannot keep a host iterator open.
  */
 export function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
-  const { backend, sseHeartbeatMs } = deps
+  const { backend, sseHeartbeatMs, fallback } = deps
 
   app.get("/api/events", (c) => {
     const lifecycle = new AbortController()
@@ -54,7 +55,32 @@ export function registerEventRoute(app: Hono<AppEnv>, deps: RouteDeps): void {
               }
             }, sseHeartbeatMs)
             for await (const event of subscription) {
-              write(`data: ${JSON.stringify(event)}\n\n`)
+              // The fallback engine observes text deltas and may turn a failed
+              // attempt into a silent model switch. Never let an engine error
+              // break the stream: fall back to forwarding the original event.
+              // By default the original event is forwarded. On a taken retry
+              // the failed event is replaced by the engine's synthetic events;
+              // on success the outcome event is appended.
+              let toWrite: Array<typeof event> = [event]
+              if (fallback) {
+                try {
+                  fallback.observe(event)
+                  if (event.type === EVENT.executionFailed) {
+                    const result = await fallback.onFailure(event)
+                    if (result.suppress) toWrite = result.events as Array<typeof event>
+                  } else if (event.type === EVENT.executionSucceeded) {
+                    const synthetic = await fallback.onSuccess(event)
+                    toWrite = [...toWrite, ...synthetic as Array<typeof event>]
+                  } else if (event.type === EVENT.interrupted) {
+                    // A cancelled turn must not linger or be retried later.
+                    const sessionID = event.data.sessionID
+                    if (typeof sessionID === "string") fallback.forget(sessionID)
+                  }
+                } catch {
+                  toWrite = [event]
+                }
+              }
+              for (const out of toWrite) write(`data: ${JSON.stringify(out)}\n\n`)
             }
           } catch {
             // The client went away or the backend stopped; closing is enough.

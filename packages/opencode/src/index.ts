@@ -9,6 +9,7 @@ import type {
   InboxEntry,
   Message,
   ModelInfo,
+  ModelRef,
   PermissionDecision,
   PermissionRequest,
   ProviderFormAnswer,
@@ -47,6 +48,12 @@ export interface PromptInput {
   variant?: string
   /** Persisted agent id; the live adapter applies it before the prompt. */
   agent?: string
+  /**
+   * Full switch target used by the fallback engine: providerID + modelID +
+   * variant. When present it takes precedence over the persisted `model` and
+   * `variant` fields.
+   */
+  modelRef?: ModelRef
 }
 
 export interface CreateSessionInput {

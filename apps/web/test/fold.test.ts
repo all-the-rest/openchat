@@ -302,3 +302,81 @@ describe("applyEvent", () => {
     expect(failed[0]?.status).toBe("error")
   })
 })
+
+const fallbackNotice = (
+  id = "evt_fallback",
+  to: Record<string, unknown> = { providerID: "openai", modelID: "gpt-4o-mini" },
+): EventEnvelope =>
+  envelope(
+    "chat.fallback.notice",
+    {
+      sessionID: "ses_1",
+      from: { providerID: "openai", modelID: "gpt-4o" },
+      to,
+      reason: "rate_limited",
+      attempts: 2,
+    },
+    id,
+  )
+
+describe("fallback notice", () => {
+  it("appends one localized system message naming the target model", () => {
+    const updated = applyEvent([], fallbackNotice())
+
+    expect(updated).toHaveLength(1)
+    expect(updated[0]).toMatchObject({
+      sessionID: "ses_1",
+      role: "system",
+      status: "complete",
+    })
+    expect(updated[0]?.parts).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: "Switched to gpt-4o-mini after the first model failed.",
+      }),
+    ])
+  })
+
+  it("renders the notice in the requested locale", () => {
+    const updated = applyEvent([], fallbackNotice(), "de")
+
+    expect(updated[0]?.parts[0]).toMatchObject({
+      type: "text",
+      text: "Nachdem das erste Modell fehlgeschlagen ist, wurde zu gpt-4o-mini gewechselt.",
+    })
+  })
+
+  it("uses the var-free notice when the target model is missing/invalid", () => {
+    const updated = applyEvent([], fallbackNotice("evt_empty", {}))
+    expect(updated[0]?.parts[0]).toMatchObject({
+      text: "Switched to a fallback model after the first model failed.",
+    })
+  })
+
+  it("does not duplicate a re-delivered notice", () => {
+    const once = applyEvent([], fallbackNotice())
+    expect(applyEvent(once, fallbackNotice())).toBe(once)
+  })
+
+  it("treats turn.outcome as an observability no-op", () => {
+    const start = [assistant([{ type: "text", id: "part_1", text: "Hi" }])]
+    expect(applyEvent(start, envelope("turn.outcome", { sessionID: "ses_1" }))).toBe(start)
+    expect(applyEvent([], envelope("turn.outcome", { sessionID: "ses_1" }))).toEqual([])
+  })
+
+  it("leaves existing event handling intact alongside the notice", () => {
+    const withNotice = applyEvent([], fallbackNotice())
+    const withDelta = applyEvent(
+      withNotice,
+      envelope(EVENT.textDelta, {
+        sessionID: "ses_1",
+        messageID: "msg_1",
+        partID: "part_1",
+        delta: "Hello",
+      }),
+    )
+
+    expect(withDelta).toHaveLength(2)
+    expect(withDelta[1]?.parts[0]).toEqual({ type: "text", id: "part_1", text: "Hello" })
+  })
+})

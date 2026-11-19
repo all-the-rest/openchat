@@ -8,6 +8,7 @@ const SCENARIOS: FakeScenario[] = [
   "error",
   "abort",
   "slow",
+  "fallback",
 ]
 
 export function isFakeScenario(value: string): value is FakeScenario {
@@ -19,7 +20,7 @@ export function isFakeScenario(value: string): value is FakeScenario {
  * Otherwise the constructor scenario wins.
  */
 export function resolveScenario(text: string, fallback: FakeScenario): FakeScenario {
-  const match = /^(rich|reasoning|tools|error|slow):/.exec(text.trimStart())
+  const match = /^(rich|reasoning|tools|error|slow|fallback):/.exec(text.trimStart())
   const name = match?.[1]
   return name && isFakeScenario(name) ? name : fallback
 }
@@ -39,6 +40,21 @@ const ABORT_TEXT =
   "Working through the requested steps in the fake backend. Each chunk is short so an interrupt can land between two deltas. Nothing here calls a provider or touches the network."
 
 const ERROR_TEXT = "The provider failed before it could answer."
+
+/** Error text of the retryable prefix failure; never streamed as a delta. */
+const FALLBACK_TEXT = "Fake provider rate limit before any output"
+
+/** Stable, dependency-free shape the runner reads from a scripted failure. */
+export interface FakeFailure {
+  code: string
+  retryable: boolean
+  message: string
+}
+
+/** Marker thrown by `fallback` so the runner can classify without a lookup. */
+export function fallbackFailure(): FakeFailure {
+  return { code: "rate_limit", retryable: true, message: FALLBACK_TEXT }
+}
 
 const REASONING_TEXT =
   "The user wants a deterministic answer. I will outline the structure, then stream the Markdown body, and finally report a tool call."
@@ -122,6 +138,12 @@ export async function runScenario(
     if (!(await runtime.pause())) return "interrupted"
     runtime.addErrorPart(ERROR_TEXT, "provider_error", true)
     return "failed"
+  }
+
+  if (scenario === "fallback") {
+    // Fail before any text part or delta exists, so the BFF can re-prompt.
+    if (!(await runtime.pause())) return "interrupted"
+    throw fallbackFailure()
   }
 
   if (scenario === "rich") {

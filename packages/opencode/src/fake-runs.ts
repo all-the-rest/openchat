@@ -3,13 +3,29 @@ import type { FakeScenario, Message, TokenUsage } from "@openchat/contracts"
 import type { PartWriter } from "./fake-parts"
 import { clone, errorText } from "./fake-parts"
 import { resolveScenario, runScenario } from "./scenarios"
-import type { ScenarioOutcome } from "./scenarios"
+import type { FakeFailure, ScenarioOutcome } from "./scenarios"
 
 interface RunState {
   sessionID: string
   messageID: string
   cancelled: boolean
   wake?: () => void
+  /** Classification carried by a thrown scripted failure, if any. */
+  failure?: { code: string; retryable: boolean }
+}
+
+/** Recognizes the marker thrown by the `fallback` scenario. */
+function asFailure(error: unknown): FakeFailure | undefined {
+  if (typeof error !== "object" || error === null) return undefined
+  const candidate = error as Partial<FakeFailure>
+  if (typeof candidate.code !== "string" || typeof candidate.retryable !== "boolean") {
+    return undefined
+  }
+  return {
+    code: candidate.code,
+    retryable: candidate.retryable,
+    message: typeof candidate.message === "string" ? candidate.message : "The fake backend failed",
+  }
 }
 
 /** One pending turn; `messageID` is also the inbox entry id. */
@@ -82,7 +98,7 @@ export class FakeRunner {
   }
 
   /** Creates the assistant turn, appends it and starts the scripted run. */
-  start(sessionID: string, text: string): Message {
+  start(sessionID: string, text: string, isRetry = false): Message {
     const message: Message = {
       id: this.options.nextID(),
       sessionID,
@@ -92,12 +108,15 @@ export class FakeRunner {
       status: "streaming",
     }
     this.options.messages(sessionID).push(message)
-    this.startRun(sessionID, message.id, text)
+    this.startRun(sessionID, message.id, text, isRetry)
     return message
   }
 
-  private startRun(sessionID: string, messageID: string, text: string): void {
-    const scenario = resolveScenario(text, this.options.scenario)
+  private startRun(sessionID: string, messageID: string, text: string, isRetry = false): void {
+    // A retry carries a `modelRef`; the scripted `fallback:` failure is one-shot
+    // so the switch can actually succeed. Re-running it would mask the happy
+    // path and the ledger would never record a completed turn.
+    const scenario = isRetry ? "default" : resolveScenario(text, this.options.scenario)
     const delay = this.options.delayMs ?? (scenario === "slow" ? 400 : 15)
     const run: RunState = { sessionID, messageID, cancelled: false }
     this.runs.set(sessionID, run)
@@ -155,8 +174,13 @@ export class FakeRunner {
     try {
       outcome = await this.performScenario(run, message, scenario, delayMs)
     } catch (error) {
-      const reason = error instanceof Error ? error.message : "Unknown fake backend error"
-      this.options.parts.addError(run.sessionID, message, reason, "fake_error", false)
+      const failure = asFailure(error)
+      if (failure) run.failure = { code: failure.code, retryable: failure.retryable }
+      const reason = error instanceof Error ? error.message : failure?.message ?? "Unknown fake backend error"
+      this.options.parts.addError(
+        run.sessionID, message, reason,
+        failure?.code ?? "fake_error", failure?.retryable ?? false,
+      )
       outcome = "failed"
     }
 
@@ -189,8 +213,8 @@ export class FakeRunner {
           sessionID: run.sessionID,
           messageID: message.id,
           message: errorText(message) ?? "The fake backend failed",
-          code: "fake_error",
-          retryable: false,
+          code: run.failure?.code ?? "fake_error",
+          retryable: run.failure?.retryable ?? false,
         },
         true,
       )

@@ -5,6 +5,10 @@ import { createID } from "../lib/ids"
 const NOTICE_KEYS: Record<PromptNotice, MessageKey> = {
   contextCompacted: "chat.contextCompactedNotice",
   contextCompactionFailed: "chat.contextCompactionFailedNotice",
+  // Defensive: the contract delivers fallbackUsed over SSE, not synchronously.
+  // If it ever arrives in PromptResponse.notices, use the var-free sibling id;
+  // the SSE path uses "chat.fallback.notice" with the target model.
+  fallbackUsed: "chat.fallback.notice.plain",
 }
 
 /**

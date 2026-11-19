@@ -87,6 +87,12 @@ export interface EnvConfig extends WorkspaceFileEnv {
    * host's own policy.
    */
   CHAT_CONTEXT_SOFT_CAP: number
+  /** JSON array of `ModelRef`; empty means no fallback chain. Validated at startup. */
+  FALLBACK_CHAIN_JSON: string
+  /** Daily paid-model budget; 0 disables the cap. */
+  FALLBACK_PAID_DAILY_CAP: number
+  /** Directory for the per-day usage ledger. */
+  FALLBACK_USAGE_DIR: string
 }
 
 export interface LoadEnvOptions {
@@ -384,5 +390,8 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
       DEFAULT_CONTEXT_SOFT_CAP,
       warn,
     ),
+    FALLBACK_CHAIN_JSON: read(source, "FALLBACK_CHAIN_JSON") ?? "",
+    FALLBACK_PAID_DAILY_CAP: readTokenCap(source, "FALLBACK_PAID_DAILY_CAP", 0, warn),
+    FALLBACK_USAGE_DIR: read(source, "FALLBACK_USAGE_DIR") ?? join(workspaceDir, "chats", ".usage"),
   }
 }

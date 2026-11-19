@@ -79,5 +79,12 @@ export interface SessionContext {
   streaming: boolean
 }
 
-/** Synthetic notices a prompt response can carry after an automatic compaction. */
-export type PromptNotice = "contextCompacted" | "contextCompactionFailed"
+/**
+ * Synthetic notices a prompt response can carry after an automatic compaction.
+ * `fallbackUsed` is not part of the synchronous prompt response: it is delivered
+ * through a dedicated SSE event (`chat.fallback.notice`) after a model retry.
+ */
+export type PromptNotice =
+  | "contextCompacted"
+  | "contextCompactionFailed"
+  | "fallbackUsed"

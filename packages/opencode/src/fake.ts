@@ -8,6 +8,7 @@ import type {
   InboxEntry,
   Message,
   ModelInfo,
+  ModelRef,
   PermissionDecision,
   PermissionRequest,
   SearchSource,
@@ -48,6 +49,9 @@ import { subagentSeedSessions } from "./fake-seed"
 
 export type { FakeBackendOptions, RecordedPrompt } from "./fake-state"
 
+/** Recorded prompt plus the full switch target of a fallback retry. */
+type RecordedPromptWithRef = RecordedPrompt & { modelRef?: ModelRef }
+
 /** Deterministic in-memory backend; task methods come from `FakeTaskStore`. */
 export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private readonly sessions = new Map<string, SessionState>()
@@ -64,6 +68,8 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private readonly permissions: FakePermissions
   private readonly compaction: FakeCompaction
   private readonly recorded = new Map<string, RecordedPrompt>()
+  /** Sessions whose scripted `fallback:` failure has already fired once. */
+  private readonly fallbackFired = new Set<string>()
   private readonly parts: PartWriter
 
   constructor(options: FakeBackendOptions = {}) {
@@ -162,6 +168,10 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {
     const session = this.requireSession(sessionID)
     recordPrompt(this.recorded, sessionID, input)
+    if (input.modelRef !== undefined) {
+      const entry = this.recorded.get(sessionID)
+      if (entry) Object.assign(entry, { modelRef: input.modelRef })
+    }
     const active = this.runner.isStreaming(sessionID)
     if (active && input.delivery !== "queue") {
       throw new BackendError("conflict", `Session ${sessionID} already has an active run`)
@@ -181,7 +191,12 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
       return { messageID: userMessage.id, queued: true }
     }
 
-    const assistantMessage = this.runner.start(sessionID, input.text)
+    // The `fallback:` scripted failure is one-shot: the first matching prompt
+    // fails, the engine's retry (same text, now with a modelRef) succeeds.
+    const wantsFailure = /^fallback:/.test(input.text.trimStart())
+    const alreadyFired = this.fallbackFired.has(sessionID)
+    if (wantsFailure) this.fallbackFired.add(sessionID)
+    const assistantMessage = this.runner.start(sessionID, input.text, alreadyFired)
     return { messageID: assistantMessage.id }
   }
 
@@ -268,8 +283,8 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   }
 
   /** Fake-mode probe: the last accepted prompt, including model and agent. */
-  recordedPrompt(sessionID: string): RecordedPrompt | undefined {
-    return this.recorded.get(sessionID)
+  recordedPrompt(sessionID: string): RecordedPromptWithRef | undefined {
+    return this.recorded.get(sessionID) as RecordedPromptWithRef | undefined
   }
 
   /** Fake-mode control: raises an approval the browser must answer. */

@@ -134,10 +134,20 @@ export class LiveBackend extends LiveTaskApi implements ChatBackend {
   }
 
   async prompt(sessionID: string, input: PromptInput): Promise<PromptResult> {
-    await applyCompletion(this.client, sessionID, input, async () => {
-      if (!this.modelHostInfo) await this.listModels()
-      return this.modelHostInfo ?? new Map()
-    })
+    await applyCompletion(
+      this.client,
+      sessionID,
+      {
+        model: input.model,
+        variant: input.variant,
+        agent: input.agent,
+        modelRef: input.modelRef,
+      },
+      async () => {
+        if (!this.modelHostInfo) await this.listModels()
+        return this.modelHostInfo ?? new Map()
+      },
+    )
     const entry = await this.client.session.prompt({
       sessionID,
       text: input.text,

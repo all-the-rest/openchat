@@ -132,6 +132,11 @@ export const chat = {
   "chat.compactionSummaryLabel": msg({ id: "chat.compactionSummaryLabel", message: "Summary" }),
   "chat.contextCompactedNotice": msg({ id: "chat.contextCompactedNotice", message: "Context was compacted before sending your message." }),
   "chat.contextCompactionFailedNotice": msg({ id: "chat.contextCompactionFailedNotice", message: "Context compaction failed; sending your message anyway." }),
+  // Two ids for the same decision: the SSE path knows the target model and
+  // formats {model}; the synchronous PromptNotice path has no vars, so it uses
+  // the plain variant (see NOTICE_KEYS in chat/notices.ts).
+  "chat.fallback.notice": msg({ id: "chat.fallback.notice", message: "Switched to {model} after the first model failed." }),
+  "chat.fallback.notice.plain": msg({ id: "chat.fallback.notice.plain", message: "Switched to a fallback model after the first model failed." }),
   "chat.contextUsage": msg({ id: "chat.contextUsage", message: "{used} / {limit} ({percent}%)" }),
   "chat.contextUsageUnknown": msg({ id: "chat.contextUsageUnknown", message: "Context usage unknown" }),
   "chat.contextUsageHint": msg({ id: "chat.contextUsageHint", message: "The host compacts automatically at 100% minus its configured buffer (35% in the seeded configuration)." }),

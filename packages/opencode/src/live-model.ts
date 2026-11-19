@@ -1,5 +1,5 @@
-import type { ModelRef, OpenCodeClient } from "@opencode/client"
-import type { ModelInfo, ModelStatus } from "@openchat/contracts"
+import type { ModelRef as ClientModelRef, OpenCodeClient } from "@opencode/client"
+import type { ModelInfo, ModelRef, ModelStatus } from "@openchat/contracts"
 
 type AgentID = Parameters<OpenCodeClient["session"]["switchAgent"]>[0]["agent"]
 
@@ -48,15 +48,23 @@ export type ModelHostInfo = Map<string, { providerID: string; variants: readonly
 export async function applyCompletion(
   client: OpenCodeClient,
   sessionID: string,
-  input: { model?: string; variant?: string; agent?: string },
+  input: { model?: string; variant?: string; agent?: string; modelRef?: ModelRef },
   providers: () => Promise<ModelHostInfo>,
 ): Promise<void> {
-  if (input.model) {
+  if (input.modelRef) {
+    // Full switch target from the fallback engine: no catalogue lookup needed.
+    const ref: ClientModelRef = {
+      id: input.modelRef.modelID,
+      providerID: input.modelRef.providerID,
+      ...(input.modelRef.variant ? { variant: input.modelRef.variant } : {}),
+    }
+    await client.session.switchModel({ sessionID, model: ref })
+  } else if (input.model) {
     const info = (await providers()).get(input.model)
     if (info) {
       const variant =
         input.variant && info.variants.includes(input.variant) ? input.variant : undefined
-      const ref: ModelRef = {
+      const ref: ClientModelRef = {
         id: input.model,
         providerID: info.providerID,
         ...(variant ? { variant } : {}),

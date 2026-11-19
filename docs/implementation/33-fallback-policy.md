@@ -71,7 +71,7 @@ as free.
   away the day's history;
 - a corrupt line is skipped and counted (`skippedToday()`), never thrown.
 
-## Wiring points (next slice)
+## Wiring points (implemented in #35)
 
 - prompt admission resolves the policy (chat from settings, Code as the empty
   policy) and picks the first entry with `nextModel(policy, [])`;
@@ -82,6 +82,9 @@ as free.
   (`requested`, `answered`, `fellBack`, `reason`, `attempts`);
 - the UI renders one i18n notice; the fake backend gets a scripted failure so
   the flow is provable without a provider.
+
+The implemented wiring is documented in
+[`35-fallback-wiring.md`](./35-fallback-wiring.md).
 
 ## Tests
 

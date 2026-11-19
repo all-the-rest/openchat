@@ -115,7 +115,7 @@ lifecycle.
 
 **Exit:** a fresh host can be deployed from the docs and restored from backup.
 
-## 2.5 — Agent memory
+## 2.5 — Agent memory and model fallback
 
 **Goal:** persistent, agent-managed memory across sessions — an atomic,
 provenance-carrying fact store (L2), a bounded injected index, pull-on-demand
@@ -143,6 +143,10 @@ Tracked as issue #49; decided in
 - **L3 stage 1 (staged)** — FTS5 over a redacted transcript export with merged
   ranking, on owner sign-off; embeddings (stage 2) only on an explicit owner
   decision.
+- **Model fallback (issue #54)** — chat-chain wiring of the one-retry policy: a
+  retryable first-attempt failure before any text switches once to the next
+  free-or-capped model with one i18n notice; no history rewrite, Code surface
+  unaffected. See [`implementation/35-fallback-wiring.md`](implementation/35-fallback-wiring.md).
 
 **Exit:** every slice's gates pass on green CI — `pnpm run gates:fast`
 (lint, typecheck, test, build, `ratchet check --tier fast`) and the E2E smoke —
