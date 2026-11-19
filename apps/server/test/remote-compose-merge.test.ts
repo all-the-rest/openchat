@@ -57,6 +57,7 @@ const DISK_TARGETS = [
   "/workspace",
   "/workspace/.memory",
   "/home/rootless/.local/share/docker",
+  "/root/.local/share/opencode",
 ]
 
 /** Images that may stay external. Everything else is built from this tree. */

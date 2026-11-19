@@ -81,7 +81,7 @@ stack:
 | --- | --- | --- |
 | `.env` | `/opt/stacks/openchat/.env` | the credential that makes the restored stack the same stack |
 | `opencode-config/` | `/opt/stacks/openchat/opencode-config` | seeded MCP entries and agent edits |
-| `opencode-data/` | mountpoint of volume `openchat_opencode-data` | OpenCode sessions, config, storage |
+| `opencode-data/` | `/opt/stacks/openchat/disks/opencode-data` (the named volume `openchat_opencode-data` until the migration of [`20-remote-deploy.md`](20-remote-deploy.md) ran) | OpenCode sessions, config, storage |
 | `artifacts/` | `/opt/stacks/openchat/disks/artifacts` | user documents |
 | `workspace/` | `/opt/stacks/openchat/disks/workspace` | workspace and `chats/` working files |
 
@@ -168,13 +168,15 @@ entry with the stable path:
    ```
 
 4. **Put the five sources back.** `rsync --delete` makes the target match the
-   archive; the volume path comes from docker, not from this page:
+   archive. `opencode-data` lives on its own disk (issue #43), so mount the disks
+   first; before that migration it was the named volume's mountpoint (rename the
+   image aside with `migrate-opencode-data.sh --rollback` to go back):
 
    ```bash
-   volume=$(docker volume inspect --format '{{.Mountpoint}}' openchat_opencode-data)
+   bash /opt/stacks/openchat/bin/mount-disks.sh --stack-dir /opt/stacks/openchat
    install -m 600 "$scratch/.env" /opt/stacks/openchat/.env
    rsync -a --delete "$scratch/opencode-config/" /opt/stacks/openchat/opencode-config/
-   rsync -a --delete "$scratch/opencode-data/" "$volume/"
+   rsync -a --delete "$scratch/opencode-data/" /opt/stacks/openchat/disks/opencode-data/
    rsync -a --delete "$scratch/artifacts/" /opt/stacks/openchat/disks/artifacts/
    rsync -a --delete "$scratch/workspace/" /opt/stacks/openchat/disks/workspace/
    rm -rf "$scratch"

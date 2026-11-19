@@ -26,7 +26,8 @@ routing probes against `caddy:2-alpine`.
 | Edge fragment | `deploy/remote/Caddyfile.openchat` | three site blocks, imported by the host Caddy; `/internal/*` refused |
 | Driver | `deploy/remote/deploy.sh` | sync, disks, `.env`, build, swap, Caddy; `--dry-run` |
 | Driver safety | `deploy/remote/ssh-safe.sh` | quoting and validation for every remote command value |
-| Disks | `deploy/remote/mount-disks.sh` | create/mount/unmount the four ext4 images, chown, marker |
+| Disks | `deploy/remote/mount-disks.sh` | create/mount/unmount the five ext4 images, chown, marker |
+| State migration | `deploy/remote/migrate-opencode-data.sh` | one-time copy of the `opencode-data` volume onto its disk; dry run by default, `--apply`, `--rollback` |
 | Env bootstrap | `deploy/remote/env-bootstrap.sh` | writes `.env` once, escaped, `0600`, never printed |
 | Escape filter | `deploy/remote/env-value.sh` | doubles `$` for Compose, idempotent |
 | MCP seed | `deploy/remote/seed-config.sh` | three `local` entries (artifact, Python, memory) in `opencode.json`, `0600`, once; the Python entry also carries `WORKSPACE_DIR`, `DOCUMENTS_URL` and `DOCUMENTS_TOKEN` |
@@ -213,6 +214,7 @@ disks/artifacts.img  2 GiB  ->  disks/artifacts   bff (rw), artifact-host (ro)
 disks/workspace.img  4 GiB  ->  disks/workspace   opencode, toolbox (rw), bff (ro)
 disks/dind.img       4 GiB  ->  disks/dind        rootless dockerd storage
 disks/memory.img     1 GiB  ->  disks/memory      bff (rw) — agent memory store
+disks/opencode-data.img 512 MiB -> disks/opencode-data  opencode (rw) — sessions, auth store
 ```
 
 The memory image is the single-writer store (issue #49): a bind mounted into
@@ -222,8 +224,8 @@ OpenCode container has no memory mount; its MCP tool writes through
 volume would not be size-capped, so this disk is the production equivalent of
 the base file's `memory-data` volume.
 
-Arithmetic against the 48 GiB free: 11 GiB loopback images + roughly 4 GiB for
-the five images and the build cache + the 10 GiB reserve = **25 GiB**, leaving
+Arithmetic against the 48 GiB free: 11.5 GiB loopback images + roughly 4 GiB for
+the five images and the build cache + the 10 GiB reserve = **25.5 GiB**, leaving
 half the volume for the predecessor and future releases. The reserve is checked
 before anything is created: if `free − missing images < reserve`, the script
 refuses and names all three numbers. Existing images are never shrunk; changing
@@ -246,7 +248,9 @@ image; a bind mount from the root of a fresh ext4 image is `root:root 0755`.
 The BFF, the artifact host and the tools image run as uid/gid 1000, and the
 rootless dind daemon is uid 1000 in its container, so `mount-disks.sh` chowns
 each mount root to `1000:1000` after mounting — and again when the target is
-already mounted, so a rerun repairs an older image. It is not recursive; only
+already mounted, so a rerun repairs an older image. The OpenCode state disk is
+the exception: that service runs as root, so its mount root stays `root:root`
+(the mkfs default, repaired explicitly). The chown is not recursive; only
 the mount root needs to be writable. Without it `docker exec openchat-bff-1
 touch /artifacts/.probe` answers `Permission denied` and a write fails with
 `the BFF answered 500`. A failed `chown` stops the script before Docker starts.
@@ -255,7 +259,7 @@ touch /artifacts/.probe` answers `Permission denied` and a write fails with
 let Compose start containers on the empty bind directories and put artifact and
 workspace data on the root filesystem. `mount-disks.sh` therefore writes
 `.openchat-disk` inside each mounted image, and the overlay's `disks-ready`
-service (stock `alpine:3` pinned by index digest, 64 MiB cap, four `test -f`;
+service (stock `alpine:3` pinned by index digest, 64 MiB cap, five `test -f`;
 pulled once by `docker compose up`) must complete successfully before `bff`,
 `artifact-host`, `opencode`, `toolbox` and `dind` start. The marker cannot exist
 on an unmounted directory, so the failure is a refused start, not silent data
@@ -289,6 +293,68 @@ Boot persistence is the installed `openchat-disks.service` (`Before=docker.servi
 plus `openchat-guard.service` (`After=docker.service`), not `/etc/fstab`: the
 images are deployment state and an fstab entry would be a host-wide change this
 stack does not make implicitly.
+
+## Bounded OpenCode state (issue #43, finding 7)
+
+OpenCode's sessions, auth store and storage used to live in
+`<project>_opencode-data`: ~26 MiB, on the root filesystem, with no cap. It is
+the fifth loopback disk now — `disks/opencode-data.img`, 512 MiB, ext4, mounted
+at `disks/opencode-data` and bound over `/root/.local/share/opencode`, the same
+target the base file's named volume uses (compose merges by target, so the bind
+wins on the host). The disk is root-owned and writable, like the volume it
+replaces: the official image runs as root with `HOME=/root`.
+
+`mount-disks.sh` creates, mounts and marks the image like the other four, and
+`deploy.sh` records its size in `disks/layout` (`--opencode-data-size`, default
+`512M`). Creating the disk cannot move the data, so the one-time copy is its own
+script:
+
+```
+sudo deploy/remote/migrate-opencode-data.sh --stack-dir /opt/stacks/openchat          # plan
+sudo deploy/remote/migrate-opencode-data.sh --stack-dir /opt/stacks/openchat --apply
+```
+
+`--apply` stops **only** the `opencode` service (`docker compose … stop opencode`,
+never the stack), creates and formats the image (sparse, 512 MiB), mounts it on
+`disks/opencode-data`, copies the volume with a throwaway container
+(`docker run --rm -v openchat_opencode-data:/src:ro -v <mount>:/dst`, BusyBox
+`cp -a`) so the data is never read through a host path, verifies the file count,
+writes `.openchat-migrated` inside the image, unmounts and keeps the image. The
+named volume is only ever read; it keeps the original bytes. `backup.sh` reads
+the volume's mountpoint by default, so it switches its source to the mounted disk
+as soon as the image exists (`disks/opencode-data/.openchat-disk`); an unmounted
+image is a refusal there, not an empty archive.
+
+Reasons it is safe to rerun and safe to get wrong: a second `--apply` refuses
+because the image carries the migration stamp; an image with foreign data and no
+stamp is refused *before* the service stops; a disk that `mount-disks.sh` created
+and nobody wrote to is adopted instead of refused (the "deployed first" case,
+recoverable without a rollback); a failed copy leaves the image in place, the
+volume untouched and prints no file name. Output is counts, sizes, the volume id
+and the image path only — the copy's own output is discarded, so neither a file
+name nor a file's content can reach the terminal. `--image-mib N` sizes a
+different disk; a volume larger than the image is refused up front.
+
+Rollback never deletes data:
+
+```
+sudo deploy/remote/migrate-opencode-data.sh --stack-dir /opt/stacks/openchat --rollback
+```
+
+It detaches the mount, renames the image to
+`opencode-data.img.rollback-<utc>` and prints the compose command that starts
+OpenCode again on the named volume. Running it twice is a no-op ("nothing to
+move"). Bring the previous release back before starting the service, because the
+new overlay binds the disk path.
+
+**Owner window.** Running the migration on the live host restarts the OpenCode
+service: the Code frame reconnects, and a request in flight during the stop
+fails. It is an owner action at a quiet moment, with the plan run first
+(`--dry-run` is the default; the plan prints the exact commands), and the
+migration must run **before** the first deploy whose overlay carries the
+`disks/opencode-data` bind — otherwise OpenCode starts on an empty data
+directory. Nothing is lost in that case (the volume is untouched and the
+migration adopts the empty disk), but the sessions are absent until it runs.
 
 ### Pinned `disks-ready` image
 

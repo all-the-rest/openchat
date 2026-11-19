@@ -181,9 +181,13 @@ describe("remote overlay", () => {
   it("gates every disk consumer on the marker inside the mounted image", () => {
     const gate = serviceBlock(REMOTE, "disks-ready")
     expect(gate).toContain("alpine:3")
-    expect(gate.match(/\.openchat-disk/g)).toHaveLength(4)
+    expect(gate.match(/\.openchat-disk/g)).toHaveLength(5)
     expect(gate).toContain("test -f /disks/memory/.openchat-disk")
     expect(gate).toMatch(/disks\/memory:\/disks\/memory:ro/)
+    // Issue #43: OpenCode's state is a disk too, so an unmounted image refuses
+    // the start instead of letting the service write an empty directory.
+    expect(gate).toContain("test -f /disks/opencode-data/.openchat-disk")
+    expect(gate).toMatch(/disks\/opencode-data:\/disks\/opencode-data:ro/)
     for (const name of ["bff", "artifact-host", "opencode", "toolbox", "dind"]) {
       expect(serviceBlock(REMOTE, name), `${name} must wait for the disks`).toContain(
         "condition: service_completed_successfully",

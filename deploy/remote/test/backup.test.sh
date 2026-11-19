@@ -178,6 +178,37 @@ test_out_dir_inside_stack_is_refused() {
   ok "an archive destination inside the stack is a usage error"
 }
 
+# Issue #43: after the migration the live state is the loopback disk; the named
+# volume is only the rollback copy and must not be the backup source. An
+# unmounted image refuses instead of archiving an empty directory.
+test_backs_up_the_migrated_opencode_disk() {
+  local root listing manifest stack_real; root=$(new_dir)
+  make_stack "$root"
+  stack_real=$(cd "$root/stack" && pwd -P)
+  mkdir -p "$root/stack/disks/opencode-data"
+  printf 'opencode-data\n' > "$root/stack/disks/opencode-data/.openchat-disk"
+  printf '{"session":2}\n' > "$root/stack/disks/opencode-data/migrated.json"
+  : > "$root/stack/disks/opencode-data.img"
+
+  run_capture bash "$BACKUP" --stack-dir "$root/stack" --out-dir "$root/out" \
+    --stamp 20261118T130000Z
+  [ "$RUN_STATUS" -eq 0 ] || fail "a backup from the disk exited $RUN_STATUS: $OUTPUT"
+  listing=$(tar -tzf "$root/out/openchat-backup-20261118T130000Z.tar.gz")
+  assert_contains "$listing" "opencode-data/migrated.json" "archive listing"
+  assert_not_contains "$listing" "opencode-data/sessions/s1.json" "archive listing"
+  manifest=$(cat "$root/out/openchat-backup-20261118T130000Z.tar.gz.manifest.txt")
+  assert_contains "$manifest" "$stack_real/disks/opencode-data" "manifest"
+  assert_not_contains "$manifest" "sessions" "manifest"
+
+  rm -f "$root/stack/disks/opencode-data/.openchat-disk"
+  run_capture bash "$BACKUP" --stack-dir "$root/stack" --out-dir "$root/out2" \
+    --stamp 20261118T130001Z
+  [ "$RUN_STATUS" -ne 0 ] || fail "a backup from an unmounted disk succeeded: $OUTPUT"
+  assert_contains "$OUTPUT" "not mounted" "unmounted disk refusal"
+  assert_missing "$root/out2"
+  ok "the migrated disk is the backup source; an unmounted image is refused"
+}
+
 file_mode() {
   if stat -c %a "$1" >/dev/null 2>&1; then
     stat -c %a "$1"
@@ -193,3 +224,4 @@ test_retention_keeps_n_and_spares_foreign_files
 test_refuses_missing_or_symlinked_source
 test_inner_symlink_is_archived_not_followed
 test_out_dir_inside_stack_is_refused
+test_backs_up_the_migrated_opencode_disk

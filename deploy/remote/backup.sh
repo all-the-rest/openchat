@@ -48,9 +48,9 @@ Options:
   --stack-dir DIR     stack root (default: /opt/stacks/openchat)
   --out-dir DIR       archive destination outside the stack (default: /var/backups/openchat)
   --project NAME      compose project name (default: openchat)
-  --opencode-data DIR OpenCode data directory (default: mountpoint of the
-                      <project>_opencode-data volume from docker; pass DIR when
-                      docker is unavailable)
+  --opencode-data DIR OpenCode data directory (default: the mounted
+                      disks/opencode-data once the image exists, else the
+                      mountpoint of the <project>_opencode-data volume)
   --keep N            archives to keep, newest first (default: 14)
   --stamp TS          archive stamp, YYYYMMDDTHHMMSSZ (default: now)
   --restore-check     verify the newest archive in a temp dir; live data untouched
@@ -152,6 +152,15 @@ resolve_stack() {
 resolve_volume() {
   local mountpoint
   if [ -n "$VOLUME_DIR" ]; then VOLUME_SOURCE=${VOLUME_DIR%/}; return 0; fi
+  # Issue #43: once the state lives on its own disk, the named volume is only
+  # the rollback copy. The image is the switch; the marker proves it is mounted,
+  # so an unmounted disk refuses instead of archiving an empty directory.
+  if [ -f "$STACK_DIR/disks/opencode-data.img" ]; then
+    VOLUME_SOURCE=$STACK_DIR/disks/opencode-data
+    [ -f "$VOLUME_SOURCE/.openchat-disk" ] ||
+      die "the opencode-data image exists but is not mounted; run deploy/remote/mount-disks.sh"
+    return 0
+  fi
   if [ "$DRY_RUN" -eq 1 ] && ! command -v docker >/dev/null 2>&1; then
     VOLUME_SOURCE="<docker volume ${PROJECT}_${VOLUME_NAME}>"; VOLUME_UNRESOLVED=1; return 0
   fi
