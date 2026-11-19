@@ -121,11 +121,17 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
 
   it("repairs a pre-existing world-readable config without touching its bytes", () => {
     const stack = temp("openchat-seed-mode-")
+    // A token rotation only replaces a memory block whose values differ from
+    // `.env`; this fixture is current, so the mode repair must keep the bytes.
+    writeFileSync(
+      join(stack, ".env"),
+      "MEMORY_INTERNAL_TOKEN=aaaabbbbccccddddeeeeffff00001111\n",
+    )
     const dir = join(stack, "opencode-config")
     mkdirSync(dir, { recursive: true })
     const file = join(dir, "opencode.json")
-    // Fully seeded: the mode repair must not become a rewrite.
-    const body = '{"mcp":{"openchat":{"type":"local"},"openchat-memory":{"type":"local"}}}\n'
+    const body =
+      '{"mcp":{"openchat":{"type":"local"},"openchat-memory":{"type":"local","environment":{"OPENCHAT_BFF_URL":"http://bff:8787","MEMORY_INTERNAL_TOKEN":"aaaabbbbccccddddeeeeffff00001111"}}}}\n'
     writeFileSync(file, body)
     chmodSync(file, 0o644)
     expect(statSync(file).mode & 0o777).toBe(0o644)
