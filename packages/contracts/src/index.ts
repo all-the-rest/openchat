@@ -18,6 +18,7 @@ export * from "./stt-model"
 export * from "./transcript"
 export * from "./tasks"
 export * from "./turn-policy"
+export * from "./worktrees"
 
 /**
  * Token counts the host reported for one chat. Only fields the host actually
@@ -36,8 +37,7 @@ export interface SessionInfo {
   directory: string
   created: number
   updated: number
-  /** Parent chat of a subagent session; absent for a normal chat. */
-  parentID?: string
+  parentID?: string // parent chat of a subagent session; absent for a normal chat
   /** Absent until the host reports a run; zero-token reports are omitted. */
   usage?: TokenUsage
 }

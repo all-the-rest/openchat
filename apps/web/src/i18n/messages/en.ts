@@ -22,6 +22,7 @@ import { settings } from "./settings"
 import { shell } from "./shell"
 import { shortcuts } from "./shortcuts"
 import { tasks } from "./tasks"
+import { worktrees } from "./worktrees"
 
 export const messages = {
   ...shell,
@@ -40,6 +41,7 @@ export const messages = {
   ...render,
   ...settings,
   ...tasks,
+  ...worktrees,
 } as const
 
 export type MessageKey = keyof typeof messages

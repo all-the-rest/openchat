@@ -24,6 +24,7 @@ export const shell = {
   "nav.main": msg({ id: "nav.main", message: "Main navigation" }),
   "nav.search": msg({ id: "nav.search", message: "Search" }),
   "nav.apps": msg({ id: "nav.apps", message: "Apps" }),
+  "nav.worktrees": msg({ id: "nav.worktrees", message: "Worktrees" }),
   "nav.artifacts": msg({ id: "nav.artifacts", message: "Artifacts" }),
   "nav.settings": msg({ id: "nav.settings", message: "Settings" }),
 

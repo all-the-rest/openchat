@@ -75,6 +75,7 @@ function renderShell() {
                 <Route index element={<p>chat home</p>} />
                 <Route path="/search" element={<p>search page</p>} />
                 <Route path="/apps" element={<p>apps page</p>} />
+                <Route path="/worktrees" element={<p>worktrees page</p>} />
                 <Route path="/artifacts" element={<p>artifacts page</p>} />
                 <Route path="/c/:sessionId" element={<p>chat page</p>} />
                 <Route path="/code" element={<p>code page</p>} />
@@ -138,7 +139,7 @@ describe("app bar menu behaviour", () => {
     const menu = await openMenu(user)
     expect(button).toHaveAttribute("aria-expanded", "true")
     expect(button).toHaveAttribute("aria-controls", menu.id)
-    expect(within(menu).getAllByRole("menuitem")).toHaveLength(4)
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(5)
     expect(within(menu).getByRole("group", { name: "Surface" })).toBeInTheDocument()
     // The menu carries navigation, never the session list.
     expect(within(menu).queryByTestId("session-item")).toBeNull()
@@ -201,6 +202,7 @@ describe("app bar menu behaviour", () => {
     const items = [
       await within(menu).findByTestId("menu-search"),
       await within(menu).findByTestId("menu-apps"),
+      await within(menu).findByTestId("menu-worktrees"),
       await within(menu).findByTestId("menu-settings"),
       await within(menu).findByTestId("menu-new-chat"),
     ]
@@ -213,15 +215,17 @@ describe("app bar menu behaviour", () => {
     fireEvent.keyDown(items[2]!, { key: "ArrowDown" })
     expect(items[3]).toHaveFocus()
     fireEvent.keyDown(items[3]!, { key: "ArrowDown" })
+    expect(items[4]).toHaveFocus()
+    fireEvent.keyDown(items[4]!, { key: "ArrowDown" })
     expect(items[0]).toHaveFocus()
 
     fireEvent.keyDown(items[0]!, { key: "ArrowUp" })
-    expect(items[3]).toHaveFocus()
+    expect(items[4]).toHaveFocus()
 
-    fireEvent.keyDown(items[3]!, { key: "Home" })
+    fireEvent.keyDown(items[4]!, { key: "Home" })
     expect(items[0]).toHaveFocus()
     fireEvent.keyDown(items[0]!, { key: "End" })
-    expect(items[3]).toHaveFocus()
+    expect(items[4]).toHaveFocus()
   })
 })
 
@@ -268,6 +272,17 @@ describe("app bar menu entries", () => {
     menu = await openMenu(user)
     await user.click(within(menu).getByTestId("menu-search"))
     expect(screen.getByTestId("location")).toHaveTextContent("/search?scope=all")
+    expect(screen.queryByRole("menu")).toBeNull()
+  })
+
+  it("opens the worktree list and closes the menu", async () => {
+    stubViewport(false)
+    const user = userEvent.setup()
+    renderShell()
+
+    const menu = await openMenu(user)
+    await user.click(within(menu).getByTestId("menu-worktrees"))
+    expect(screen.getByTestId("location")).toHaveTextContent("/worktrees")
     expect(screen.queryByRole("menu")).toBeNull()
   })
 

@@ -60,6 +60,7 @@ import type { FixedWindowThrottle, VerificationGate } from "./throttle"
 import { registerTranscribeRoute } from "./transcribe"
 import { localModelAvailable } from "./models"
 import { registerTasksRoutes } from "./tasks"
+import { registerWorktreeRoutes } from "./worktrees"
 import { registerFallbackRoute } from "./fallback-route"
 import type { UsageLedger } from "./usage-ledger"
 
@@ -389,6 +390,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerSearchRoute(app, deps.backend)
   registerTranscribeRoute(app, deps)
   registerTasksRoutes(app, { backend: deps.backend })
+  registerWorktreeRoutes(app, { backend: deps.backend })
   registerEventRoute(app, deps)
   // Fake mode only; the live adapter has no outage switch to expose.
   if (deps.config.BACKEND_MODE === "fake") {

@@ -3,6 +3,7 @@ import type {
   AgentInfo,
   BackgroundJob,
   CompactionOutcome,
+  CreateWorktreeRequest,
   EventEnvelope,
   FakeScenario,
   InboxEntry,
@@ -15,6 +16,7 @@ import type {
   ServerInfo,
   SessionContext,
   SessionInfo,
+  WorktreeInfo,
 } from "@openchat/contracts"
 import { BackendError } from "./errors"
 import type {
@@ -32,6 +34,7 @@ import { recordPrompt } from "./fake-completion"
 import { FakeIntegrations } from "./fake-integrations"
 import type { FakeProviderRecord } from "./fake-integrations"
 import { FakeTaskStore } from "./fake-tasks"
+import { FakeWorktreeStore } from "./fake-worktrees"
 import { FakeCompaction } from "./fake-compaction"
 import { FakeEvents } from "./fake-events"
 import { FakeRunner } from "./fake-runs"
@@ -67,6 +70,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   private readonly events: FakeEvents
   private readonly permissions: FakePermissions
   private readonly compaction: FakeCompaction
+  private readonly worktrees: FakeWorktreeStore
   private readonly recorded = new Map<string, RecordedPrompt>()
   /** Sessions whose scripted `fallback:` failure has already fired once. */
   private readonly fallbackFired = new Set<string>()
@@ -96,6 +100,7 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
     this.permissions = new FakePermissions((type, sid, data, durable) =>
       this.events.emit(type, sid, data, durable),
     )
+    this.worktrees = new FakeWorktreeStore({ workspace: this.workspace })
     this.parts = new PartWriter({
       nextID: (prefix) => this.events.nextID(prefix),
       clock: () => this.clock(),
@@ -305,6 +310,23 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
   async disconnectApp(name: string): Promise<void> {
     await this.apps.disconnect(name)
     this.onAppAction?.("disconnect", name)
+  }
+
+  async listWorktrees(): Promise<WorktreeInfo[]> {
+    return this.worktrees.list()
+  }
+
+  async createWorktree(input: CreateWorktreeRequest): Promise<WorktreeInfo> {
+    return this.worktrees.create(input)
+  }
+
+  async removeWorktree(directory: string, force: boolean): Promise<void> {
+    await this.worktrees.remove(directory, force)
+  }
+
+  /** Fake-mode control: the next unforced removal of this tree is refused. */
+  markWorktreeDirty(directory: string): void {
+    this.worktrees.markDirty(directory)
   }
 
   async search(input: SearchInput): Promise<SearchOutcome> {

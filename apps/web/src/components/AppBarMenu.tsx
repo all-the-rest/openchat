@@ -12,7 +12,15 @@ import { SurfaceSwitch } from "../code/SurfaceSwitch"
 import { useSurface } from "../code/SurfaceProvider"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
-import { AppsIcon, ArtifactsIcon, MoreIcon, PlusIcon, SearchIcon, SettingsIcon } from "./icons"
+import {
+  AppsIcon,
+  ArtifactsIcon,
+  MoreIcon,
+  PlusIcon,
+  SearchIcon,
+  SettingsIcon,
+  WorktreeIcon,
+} from "./icons"
 
 /** Desktop layout breakpoint, matching the shell's drawer and Tailwind's `lg`. */
 const WIDE_QUERY = "(min-width: 1024px)"
@@ -209,6 +217,17 @@ export function AppBarMenu({ className = "" }: { className?: string }) {
               {t("nav.apps")}
             </Link>
           ) : null}
+
+          <Link
+            to="/worktrees"
+            role="menuitem"
+            data-testid="menu-worktrees"
+            onClick={() => close(false)}
+            className={ITEM}
+          >
+            <WorktreeIcon className="size-4 shrink-0" />
+            {t("nav.worktrees")}
+          </Link>
 
           {artifactsAvailable === true ? (
             <Link

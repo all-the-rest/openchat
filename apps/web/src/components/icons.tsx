@@ -245,6 +245,20 @@ export function TasksIcon(props: IconProps) {
   )
 }
 
+/** Git branch: one worktree of the workspace repository. */
+export function WorktreeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="6.5" cy="6" r="2.5" />
+      <circle cx="17.5" cy="6" r="2.5" />
+      <circle cx="12" cy="18" r="2.5" />
+      <path d="M9 6h6" />
+      <path d="M6.5 8.5V12a3 3 0 0 0 3 3h1" />
+      <path d="M17.5 8.5V12a3 3 0 0 1-3 3h-1" />
+    </Icon>
+  )
+}
+
 /** Tray with a downward arrow: the transcript download action. */
 export function DownloadIcon(props: IconProps) {
   return (

@@ -108,6 +108,11 @@ msgid "app.tagline"
 msgstr "A workspace for your agent."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.exists"
+msgstr "A worktree for this branch already exists."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
 msgid "memory.audit.action"
 msgstr "Action"
@@ -358,9 +363,39 @@ msgid "tasks.jobs"
 msgstr "Background jobs"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.from"
+msgstr "Base (optional)"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.branch"
+msgstr "Branch"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.branch"
+msgstr "Branch"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.branchUnknown"
+msgstr "Branch not reported"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.fromHint"
+msgstr "Branch or commit to start from. The host default when empty."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "usage.cached"
 msgstr "Cached tokens"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.cancel"
+msgstr "Cancel"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -728,9 +763,19 @@ msgid "tasks.create.submit"
 msgstr "Create schedule"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.submit"
+msgstr "Create worktree"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
 msgid "memory.col.created"
 msgstr "Created"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.creating"
+msgstr "Creating…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shortcuts.ts
@@ -851,6 +896,11 @@ msgstr "Dictation: on this device"
 #: src/i18n/messages/dictation.ts
 msgid "dictation.path.server"
 msgstr "Dictation: via server"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.directory"
+msgstr "Directory"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1098,6 +1148,11 @@ msgid "code.focusFrame"
 msgstr "Focus Code"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.force"
+msgstr "Force removal"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
 msgid "settings.fallbackFree"
 msgstr "Free"
@@ -1258,6 +1313,11 @@ msgid "update.dismiss"
 msgstr "Later"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.branchHint"
+msgstr "Letters, digits and . _ / - only."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.loading"
 msgstr "Loading apps…"
@@ -1296,6 +1356,11 @@ msgstr "Loading providers…"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.loading"
 msgstr "Loading tasks…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.loading"
+msgstr "Loading worktrees…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1383,6 +1448,11 @@ msgid "chat.activeChoiceVariant"
 msgstr "Model: {model} · Variant: {variant} · Agent: {agent}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.name"
+msgstr "Name (optional)"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.status.needsAuth"
 msgstr "Needs auth"
@@ -1411,6 +1481,11 @@ msgstr "New schedule"
 #: src/i18n/messages/code.ts
 msgid "code.openNewTabShort"
 msgstr "New tab"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.title"
+msgstr "New worktree"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -1516,6 +1591,11 @@ msgstr "No source is available for this query."
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.empty"
 msgstr "No speech was recognized. Try recording again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.empty"
+msgstr "No worktrees yet. Create one for a task below."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -1673,6 +1753,11 @@ msgid "settings.fallbackPaidCap"
 msgstr "Paid-turn cap"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.note"
+msgstr "Parallel tasks should each run in their own worktree. Removal is refused while uncommitted changes exist; forcing it discards them."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "auth.passwordLabel"
 msgstr "Password"
@@ -1731,6 +1816,11 @@ msgstr "Present"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.presentRegion"
 msgstr "Presented artifact"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.project"
+msgstr "Project: {project}"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -1843,6 +1933,16 @@ msgid "update.hint"
 msgstr "Reload when you are ready. Nothing changes until you do."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.action.removeShort"
+msgstr "Remove"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.action.remove"
+msgstr "Remove {directory}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "composer.attachmentRemove"
 msgstr "Remove {name}"
@@ -1851,6 +1951,26 @@ msgstr "Remove {name}"
 #: src/i18n/messages/chat.ts
 msgid "chat.favoriteRemove"
 msgstr "Remove {name} from favorites"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.title"
+msgstr "Remove this worktree?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.confirm"
+msgstr "Remove worktree"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.body"
+msgstr "Removing {directory} deletes the working directory; the branch itself stays."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.busy"
+msgstr "Removing…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -1883,8 +2003,8 @@ msgid "tasks.action.resume"
 msgstr "Resume {title}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages/settings.ts
-msgid "settings.fallbackRetry"
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
@@ -1935,6 +2055,11 @@ msgstr "Retry"
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackRetry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
@@ -2126,6 +2251,11 @@ msgstr "Show full"
 #: src/i18n/messages/render.ts
 msgid "render.showLess"
 msgstr "Show less"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.nameHint"
+msgstr "Shown in this list; derived from the branch when empty."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -2533,6 +2663,11 @@ msgid "dictation.error.tooLarge"
 msgstr "The recording is too large. Record a shorter message."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.dirtyBody"
+msgstr "The removal is refused while the worktree has uncommitted changes. Forcing it discards those changes permanently."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.permissionFailed"
 msgstr "The reply could not be sent. Try again."
@@ -2591,6 +2726,21 @@ msgstr "The transcription service is unavailable. Try again later."
 #: src/i18n/messages/dictation.ts
 msgid "dictation.error.timeout"
 msgstr "The transcription service timed out. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.failed"
+msgstr "The worktree could not be created. Check the branch name."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.failed"
+msgstr "The worktree could not be removed."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.dirty"
+msgstr "The worktree has uncommitted changes. Force removal discards them."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts
@@ -2661,6 +2811,11 @@ msgstr "This server is no longer configured."
 #: src/i18n/messages/search.ts
 msgid "search.disabledHint"
 msgstr "This source is not configured on the host and was not queried."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.remove.unknown"
+msgstr "This worktree no longer exists."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
@@ -2841,6 +2996,31 @@ msgstr "Why is this fact no longer valid?"
 #: src/i18n/messages/search.ts
 msgid "search.sourceWorkspace"
 msgstr "Workspace"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.create.created"
+msgstr "Worktree created: {directory} on {branch}."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shell.ts
+msgid "nav.worktrees"
+msgstr "Worktrees"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.title"
+msgstr "Worktrees"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.loadFailed"
+msgstr "Worktrees could not be loaded."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/worktrees.ts
+msgid "worktrees.description"
+msgstr "Worktrees of this workspace, read from the host."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts

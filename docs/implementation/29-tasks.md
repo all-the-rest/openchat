@@ -105,6 +105,57 @@ submit button. Jobs show kind, title, status, session link and started/finished
 times, running first. `orderJobs` sorts defensively in the browser as well as
 in the fake store.
 
+## Worktrees
+
+The `/worktrees` route implements the worktree slice of spec 06 and FR-23. It
+listens to the host surface that already exists in `@opencode/client@2.3.0`:
+`worktree.list({ projectID })`, `worktree.create({ projectID, from?, branch?,
+directory?, name? })` and `worktree.remove({ projectID, directory, force })`.
+`refresh` is not called; the page re-reads after every mutation.
+
+| Layer | What is there |
+| --- | --- |
+| Contract | `WorktreeInfo` (`directory`, `branch?`, `name?`, `projectID?`, `strategy?`), `WorktreesResponse`, `createWorktreeRequestSchema`, `removeWorktreeQuerySchema` |
+| Backend port | `listWorktrees()`, `createWorktree(input)`, `removeWorktree(directory, force)` |
+| Live adapter | `live-worktrees.ts`; resolves the project, fills the branch from `vcs.get` |
+| Fake adapter | `fake-worktrees.ts`; one seeded clean worktree, no host needed |
+| BFF | `GET /api/worktrees`, `POST /api/worktrees`, `DELETE /api/worktrees?directory=…&force=true\|false` |
+| Web | `/worktrees` page plus an entry in the app menu, full `en`/`de` catalogues |
+
+**What the host really reports.** `worktree.list` returns only `directory` and
+an optional `strategy`; create returns only `directory`. The branch is a second,
+per-worktree `vcs.get` read and therefore stays optional — a host without VCS
+answers renders "Branch not reported" instead of an invented name. The BFF
+resolves the project once per call: the host project whose canonical path
+matches `WORKSPACE_DIR`, else the only project the host reports; no project is
+an `unsupported` surface. Every row and the list response carry that id.
+
+**Project and branch are server-side decisions.** The browser never sends a
+`projectID` or a directory for creation; the BFF passes the workspace project
+and the adapter derives the directory through the host. The create body is
+`{ branch, from?, name? }`, with `branch` restricted to ref-safe characters
+(letters, digits, `. _ / -`, no `..`, no leading or trailing `/`).
+
+**Force rule.** A removal without `force` is a plain removal. When the host
+refuses because the tree has uncommitted changes (its structured
+`forceRequired` flag), the live adapter throws `WorktreeDirtyError`, and the
+BFF answers `409` with the distinct code `worktree_dirty`. It never retries
+with `force: true`. Only the UI's explicit "Force removal" button sends
+`force=true`, and its dialog states that this discards uncommitted changes.
+`force` is parsed strictly (`true` or `false`); any other spelling is
+`400 worktree_invalid`.
+
+**Fake semantics.** `FakeWorktreeStore` lives under `<workspace>/.worktrees`
+and derives a directory slug from the branch (`feat/worktrees` →
+`feat-worktrees`). A second worktree for the same branch is `conflict`
+(`409 worktree_exists`); an unknown directory is `not_found`
+(`404 worktree_unknown`). Tests mark a tree dirty through
+`FakeBackend.markWorktreeDirty(directory)`, which makes an unforced removal
+throw `WorktreeDirtyError`, exactly like the host.
+
+Other stable route codes: `400 worktree_invalid` for a failed body/query or a
+rejected create, and `502 worktrees_unavailable` when the host does not answer.
+
 ## Explicitly out of scope
 
 - **Todos / planning panel.** The pinned client has no todo endpoint and the
@@ -115,7 +166,10 @@ in the fake store.
 - **Subagent parent/child tree.** There is no session-tree API. `job.list`
   shows subagent jobs flat in this v1; no hierarchy is invented.
 - **Worktrees.** They need a project/repository selection first; v1 runs in a
-  single `WORKSPACE_DIR` (spec 06).
+  single `WORKSPACE_DIR` (spec 06). The list/create/remove slice now lives on
+  `/worktrees` (see above); running a task *in* a chosen worktree is still a
+  later step, because a task start would need the worktree's directory plumbed
+  into a session create.
 - **Citations / source cards.** A separate research slice; no web search or
   citation data is on this page.
 - **Agent and model pickers for a schedule.** Both siblings own those pickers;

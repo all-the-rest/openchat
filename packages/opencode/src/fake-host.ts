@@ -235,6 +235,23 @@ export class FakeHostSwitch implements ChatBackend {
     return this.backend.listJobs()
   }
 
+  async listWorktrees(): ReturnType<ChatBackend["listWorktrees"]> {
+    this.guard()
+    return this.backend.listWorktrees()
+  }
+
+  async createWorktree(
+    ...args: Parameters<ChatBackend["createWorktree"]>
+  ): ReturnType<ChatBackend["createWorktree"]> {
+    this.guard()
+    return this.backend.createWorktree(...args)
+  }
+
+  async removeWorktree(...args: Parameters<ChatBackend["removeWorktree"]>): Promise<void> {
+    this.guard()
+    return this.backend.removeWorktree(...args)
+  }
+
   async *subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {
     if (this.hostDown || signal?.aborted) return
 
