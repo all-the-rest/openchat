@@ -22,7 +22,7 @@ import { EVENT, modelKey } from "@openchat/contracts"
 import type { PromptInput } from "@openchat/opencode"
 
 import type { TurnFailure } from "./fallback-policy"
-import { classifyFailure, nextModel, shouldFallback } from "./fallback-policy"
+import { classifyFailure, isFreeModel, nextModel, shouldFallback } from "./fallback-policy"
 
 /** More than this many simultaneous sessions are never tracked. */
 const MAX_TRACKED_SESSIONS = 512
@@ -40,8 +40,9 @@ export interface FallbackEngineDeps {
       modelID: string
       turns: number
       costMicros: number
+      isFree?: boolean
     }): Promise<void>
-    spentToday(): Promise<number>
+    paidTurnsToday(): Promise<number>
   }
   now?: () => number
 }
@@ -50,6 +51,8 @@ export interface TurnState {
   sessionID: string
   policy: TurnPolicy
   payload: PromptInput
+  /** Model the turn first asked for; kept for `turn.outcome.requested`. */
+  initial: ModelRef
   requested: ModelRef
   attempts: number
   emittedText: string
@@ -86,13 +89,21 @@ export class FallbackEngine {
   private readonly deps: FallbackEngineDeps
   private readonly now: () => number
   private readonly turns = new Map<string, TurnState>()
+  /** State `begin` replaced, restored when the submit is abandoned. */
+  private readonly replaced = new Map<string, TurnState>()
+  /** Sessions with a retry in flight; guards concurrent subscribers. */
+  private readonly retrying = new Set<string>()
 
   constructor(deps: FallbackEngineDeps) {
     this.deps = deps
     this.now = deps.now ?? (() => Date.now())
   }
 
-  /** Registers a turn, replacing any prior state for the same session. */
+  /**
+   * Registers a turn before the prompt is submitted, so output the host emits
+   * while the POST is still open is already observed. `messageID` is unknown at
+   * that point and is adopted from the response.
+   */
   begin(
     sessionID: string,
     payload: PromptInput,
@@ -105,16 +116,40 @@ export class FallbackEngine {
       const oldest = this.turns.keys().next().value
       if (oldest !== undefined) this.turns.delete(oldest)
     }
+    // A prompt that turns out to be queued never starts a run; its registration
+    // must not destroy the active turn it replaced.
+    const previous = this.turns.get(sessionID)
+    if (previous === undefined) this.replaced.delete(sessionID)
+    else this.replaced.set(sessionID, previous)
     this.turns.set(sessionID, {
       sessionID,
       policy,
       payload,
+      initial: requested,
       requested,
       attempts: 0,
       emittedText: "",
       tried: [],
       messageID,
     })
+  }
+
+  /** Attaches the host's message id once the prompt response arrives. */
+  adopt(sessionID: string, messageID: string): void {
+    const state = this.turns.get(sessionID)
+    if (state !== undefined) state.messageID = messageID
+    this.replaced.delete(sessionID)
+  }
+
+  /**
+   * Drops the just-registered turn because the host did not start a run
+   * (queued or a submit error) and restores whatever turn it replaced.
+   */
+  abandon(sessionID: string): void {
+    const previous = this.replaced.get(sessionID)
+    this.replaced.delete(sessionID)
+    if (previous === undefined) this.turns.delete(sessionID)
+    else this.turns.set(sessionID, previous)
   }
 
   /**
@@ -150,8 +185,23 @@ export class FallbackEngine {
     if (state === undefined || sessionID === undefined) {
       return { suppress: false, events: [] }
     }
+    // Two subscribers of the same chat both see the failed event. The guard is
+    // set before the first await, so the second call cannot pass the gate while
+    // the first one is still reading the ledger or submitting the retry.
+    if (this.retrying.has(sessionID)) return { suppress: false, events: [] }
+    this.retrying.add(sessionID)
+    try {
+      return await this.retryOnce(sessionID, state, failureFrom(event.data))
+    } finally {
+      this.retrying.delete(sessionID)
+    }
+  }
 
-    const failure = failureFrom(event.data)
+  private async retryOnce(
+    sessionID: string,
+    state: TurnState,
+    failure: TurnFailure,
+  ): Promise<FailureResult> {
     const attempts = state.attempts + 1
     // `tried` holds model keys; the core engine compares ModelRefs, so rebuild
     // the already-tried entries from the chain. The currently failing model is
@@ -161,7 +211,7 @@ export class FallbackEngine {
       state.requested,
     ]
     const next = nextModel(state.policy, triedRefs)
-    const paidSpent = await this.deps.ledger.spentToday()
+    const paidTurns = await this.deps.ledger.paidTurnsToday()
     const reason = classifyFailure(failure)
 
     const allowed = shouldFallback({
@@ -169,11 +219,16 @@ export class FallbackEngine {
       failure,
       emittedText: state.emittedText,
       attempts,
-      paidSpent,
+      paidTurns,
       next,
+      current: state.requested,
     })
     if (!allowed || next === undefined) {
+      // No retry: the turn is over. Keeping its state would let a later
+      // completion — for example a queued turn that starts next — be recorded
+      // against this failed attempt.
       state.attempts = attempts
+      this.turns.delete(sessionID)
       return { suppress: false, events: [] }
     }
 
@@ -186,13 +241,23 @@ export class FallbackEngine {
     state.emittedText = ""
     state.reason = reason
 
+    let result: { messageID: string; queued?: boolean }
     try {
-      const result = await this.deps.backend.prompt(sessionID, { ...state.payload, modelRef: next })
-      state.messageID = result.messageID
+      result = await this.deps.backend.prompt(sessionID, {
+        ...state.payload,
+        modelRef: next,
+      })
     } catch {
-      // The retry could not be started; keep the original error visible.
+      // The retry could not be started; the turn is over and must not be
+      // retried again from a later failure event.
+      this.turns.delete(sessionID)
       return { suppress: false, events: [] }
     }
+    if (result.queued === true) {
+      this.turns.delete(sessionID)
+      return { suppress: false, events: [] }
+    }
+    state.messageID = result.messageID
 
     // Only the notice is emitted here. The outcome belongs to the completed
     // turn and is emitted by onSuccess — claiming `answered` before the retry
@@ -220,18 +285,21 @@ export class FallbackEngine {
     if (state === undefined || sessionID === undefined) return []
 
     const answered = state.requested
+    const isFree = isFreeModel(answered) ? true : undefined
     await this.deps.ledger.record({
       providerID: answered.providerID,
       modelID: answered.modelID,
       turns: 1,
       costMicros: 0,
+      ...(isFree === undefined ? {} : { isFree }),
     })
     const outcome: TurnOutcomeData = {
       sessionID,
-      requested: nextModel(state.policy, []) ?? answered,
+      requested: state.initial,
       answered,
       fellBack: state.tried.length > 0,
-      attempts: state.attempts,
+      // Completed attempts: the successful one plus every failed one before it.
+      attempts: state.attempts + 1,
       ...(state.reason ? { reason: state.reason } : {}),
       costMicros: 0,
     }
@@ -241,6 +309,7 @@ export class FallbackEngine {
 
   forget(sessionID: string): void {
     this.turns.delete(sessionID)
+    this.replaced.delete(sessionID)
   }
 
   activeCount(): number {

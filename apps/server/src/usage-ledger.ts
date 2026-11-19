@@ -40,6 +40,8 @@ export interface UsageEntry {
   modelID: string
   turns: number
   costMicros: number
+  /** True only when the answered model is explicitly free. */
+  isFree?: boolean
 }
 
 /** One appended row. */
@@ -49,10 +51,14 @@ export interface UsageRow {
   modelID: string
   turns: number
   costMicros: number
+  /** Absent on rows written before the paid-turn cap existed: counted as paid. */
+  isFree?: boolean
 }
 
 export interface UsageScan {
   turns: number
+  /** Turns whose answered model was not explicitly free. */
+  paidTurns: number
   costMicros: number
   /** Lines that did not parse; skipped, never fatal. */
   skipped: number
@@ -87,11 +93,19 @@ function parseRow(line: string): UsageRow | null {
     return null
   }
   if (!isRecord(value)) return null
-  const { at, providerID, modelID, turns, costMicros } = value
+  const { at, providerID, modelID, turns, costMicros, isFree } = value
   if (typeof at !== "number" || !Number.isFinite(at) || at < 0) return null
   if (!isText(providerID) || !isText(modelID)) return null
   if (!isCount(turns) || !isCount(costMicros)) return null
-  return { at, providerID, modelID, turns, costMicros }
+  if (isFree !== undefined && typeof isFree !== "boolean") return null
+  return {
+    at,
+    providerID,
+    modelID,
+    turns,
+    costMicros,
+    ...(isFree === undefined ? {} : { isFree }),
+  }
 }
 
 export class UsageLedger {
@@ -128,6 +142,9 @@ export class UsageLedger {
         "Ledger entry needs non-negative integer turns and costMicros",
       )
     }
+    if (entry.isFree !== undefined && typeof entry.isFree !== "boolean") {
+      throw new UsageLedgerError("usage_ledger_invalid", "Ledger entry isFree must be a boolean")
+    }
 
     await this.run(async () => {
       const at = this.now()
@@ -140,6 +157,7 @@ export class UsageLedger {
         modelID: entry.modelID,
         turns: entry.turns,
         costMicros: entry.costMicros,
+        ...(entry.isFree === undefined ? {} : { isFree: entry.isFree }),
       }
       const line = `${JSON.stringify(row)}\n`
       const bytes = Buffer.byteLength(line, "utf8")
@@ -173,6 +191,15 @@ export class UsageLedger {
   /** Turns recorded for today, paid and free alike. */
   turnsToday(): Promise<number> {
     return this.run(async () => (await this.scan(localDay(this.now()))).turns)
+  }
+
+  /**
+   * Paid turns recorded for today. A row counts as paid unless it explicitly
+   * says `isFree: true`, so rows written before this counter existed still
+   * count — the conservative direction for a budget.
+   */
+  paidTurnsToday(): Promise<number> {
+    return this.run(async () => (await this.scan(localDay(this.now()))).paidTurns)
   }
 
   /** Corrupt lines skipped in today's file; the count resets with the day. */
@@ -212,10 +239,11 @@ export class UsageLedger {
     } catch {
       // A missing day has no usage; an unreadable or replaced file is treated
       // the same way rather than failing the settings read.
-      return { turns: 0, costMicros: 0, skipped: 0 }
+      return { turns: 0, paidTurns: 0, costMicros: 0, skipped: 0 }
     }
 
     let turns = 0
+    let paidTurns = 0
     let costMicros = 0
     let skipped = 0
     for (const line of text.split("\n")) {
@@ -226,8 +254,9 @@ export class UsageLedger {
         continue
       }
       turns += row.turns
+      if (row.isFree !== true) paidTurns += row.turns
       costMicros += row.costMicros
     }
-    return { turns, costMicros, skipped }
+    return { turns, paidTurns, costMicros, skipped }
   }
 }

@@ -2,7 +2,7 @@
  * Pure fallback decisions for one turn. Nothing here reads config or writes
  * state: the BFF records the requested model, and when a turn fails before any
  * assistant text it asks these functions whether one retry on the next chain
- * entry is allowed. The usage ledger supplies `paidSpent`.
+ * entry is allowed. The usage ledger supplies the paid-turn count.
  */
 import type { FallbackReason, ModelRef, TurnPolicy } from "@openchat/contracts"
 import { modelKey } from "@openchat/contracts"
@@ -179,26 +179,41 @@ export interface FallbackDecisionInput {
   emittedText: string
   /** Completed attempts in this turn; the first failed attempt is `1`. */
   attempts: number
-  /** Paid spend already recorded today, in micros. */
-  paidSpent: number
+  /** Paid turns already recorded today. */
+  paidTurns: number
   /** Candidate for the retry, normally `nextModel(policy, tried)`. */
   next?: ModelRef
+  /** Model that just failed; its context window gates an overflow retry. */
+  current?: ModelRef
 }
 
 /**
  * Allows at most one retry per chat turn: only after the first attempt, only
  * without assistant output, only for a retryable failure, only when a next
- * entry exists, and only while the next entry is free or the paid budget has
- * room. `paidDailyCap: 0` means the cap is off.
+ * entry exists, and only while the next entry is free or the paid turn budget
+ * has room. `paidDailyTurns: 0` means the cap is off.
+ *
+ * A `context_overflow` retry is skipped when both models' windows are known
+ * and the next one is not larger: re-sending the same context there cannot
+ * succeed. An unknown window keeps the retry possible.
  */
 export function shouldFallback(input: FallbackDecisionInput): boolean {
-  const { policy, failure, emittedText, attempts, paidSpent, next } = input
+  const { policy, failure, emittedText, attempts, paidTurns, next, current } = input
   if (policy.surface !== "chat") return false
   if (policy.chain.length === 0) return false
   if (next === undefined) return false
   if (attempts !== 1) return false
   if (emittedText.length > 0) return false
-  if (!isRetryable(classifyFailure(failure))) return false
+  const reason = classifyFailure(failure)
+  if (!isRetryable(reason)) return false
+  if (
+    reason === "context_overflow" &&
+    current?.contextLimit !== undefined &&
+    next.contextLimit !== undefined &&
+    next.contextLimit <= current.contextLimit
+  ) {
+    return false
+  }
   if (isFreeModel(next)) return true
-  return policy.paidDailyCap === 0 || paidSpent < policy.paidDailyCap
+  return policy.paidDailyTurns === 0 || paidTurns < policy.paidDailyTurns
 }

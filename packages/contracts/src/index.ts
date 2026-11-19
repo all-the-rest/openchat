@@ -366,8 +366,8 @@ export type FakeScenario =
   | "error"
   | "abort"
   | "slow"
-  /** Emits a retryable rate-limit failure before any assistant text. */
-  | "fallback"
+  /** Retryable failures before and after a streamed delta. */
+  | "fallback" | "fallback-text"
 
 export const promptRequestSchema = z.object({
   text: z.string().min(1).max(32_000),

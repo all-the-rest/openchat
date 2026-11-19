@@ -48,6 +48,53 @@ describe("usage ledger", () => {
     })
   })
 
+  it("counts paid turns and ignores explicitly free ones", async () => {
+    const dir = await directory()
+    const time = at(18)
+    const ledger = new UsageLedger({ directory: dir, now: () => time })
+
+    await ledger.record({
+      providerID: "opencode",
+      modelID: "free-1",
+      turns: 1,
+      costMicros: 0,
+      isFree: true,
+    })
+    await ledger.record({ providerID: "acme", modelID: "large", turns: 1, costMicros: 0 })
+    await ledger.record({
+      providerID: "acme",
+      modelID: "large",
+      turns: 2,
+      costMicros: 0,
+      isFree: false,
+    })
+
+    expect(await ledger.turnsToday()).toBe(4)
+    expect(await ledger.paidTurnsToday()).toBe(3)
+  })
+
+  it("counts a row without the free flag as paid so old rows still parse", async () => {
+    const dir = await directory()
+    const time = at(18)
+    await mkdir(dir, { recursive: true, mode: 0o700 })
+    // Shape written before the paid-turn cap existed: no `isFree`.
+    await writeFile(
+      fileFor(dir, time),
+      `${JSON.stringify({
+        at: time,
+        providerID: "acme",
+        modelID: "large",
+        turns: 2,
+        costMicros: 0,
+      })}\n`,
+      { mode: 0o600 },
+    )
+
+    const ledger = new UsageLedger({ directory: dir, now: () => time })
+    expect(await ledger.paidTurnsToday()).toBe(2)
+    expect(await ledger.skippedToday()).toBe(0)
+  })
+
   it("rolls over at local midnight on the injected clock", async () => {
     const dir = await directory()
     let time = at(18, 23, 59)

@@ -14,17 +14,9 @@ import {
 
 import { nextModel } from "./fallback-policy"
 
-/** The Code surface never falls back: its chain stays empty and caps are off. */
-export const CODE_POLICY: TurnPolicy = {
-  surface: "code",
-  chain: [],
-  paidDailyCap: 0,
-  contextSoftCap: 0,
-}
-
 export interface ChatPolicyInput {
   chain: ModelRef[]
-  paidDailyCap: number
+  paidDailyTurns: number
   contextSoftCap: number
 }
 
@@ -37,7 +29,7 @@ export function resolveChatPolicy(input: ChatPolicyInput): TurnPolicy {
   const candidate = {
     surface: "chat" as const,
     chain: input.chain,
-    paidDailyCap: input.paidDailyCap,
+    paidDailyTurns: input.paidDailyTurns,
     contextSoftCap: input.contextSoftCap,
   }
   const parsed = turnPolicySchema.safeParse(candidate)
@@ -50,6 +42,50 @@ export function resolveChatPolicy(input: ChatPolicyInput): TurnPolicy {
 /** The first candidate a chat turn should request. */
 export function requestedModel(policy: TurnPolicy): ModelRef | undefined {
   return nextModel(policy, [])
+}
+
+/**
+ * The browser's persisted choice as a full `ModelRef`. Its `model` is a host
+ * model id: the catalogue lookup comes first because a model id may itself
+ * contain a slash (`fake/echo`). Only when no catalogue entry matches is the
+ * value read as `providerID/modelID` (split at the first `/`); an unknown id
+ * then yields `undefined` so the caller falls back to the chain. A variant is
+ * kept only while the catalogue still offers it, mirroring the live adapter.
+ */
+export function clientModelRef(
+  model: string | undefined,
+  variant?: string,
+  catalogue?: ReadonlyArray<{
+    id: string
+    providerID: string
+    variants: readonly string[]
+    contextLimit?: number
+  }>,
+): ModelRef | undefined {
+  if (model === undefined) return undefined
+  const found = catalogue?.find((entry) => entry.id === model)
+  if (found !== undefined) {
+    const offered = variant !== undefined && found.variants.includes(variant) ? variant : undefined
+    const parsed = modelRefSchema.safeParse({
+      providerID: found.providerID,
+      modelID: found.id,
+      ...(offered === undefined ? {} : { variant: offered }),
+      ...(found.contextLimit !== undefined && found.contextLimit > 0
+        ? { contextLimit: found.contextLimit }
+        : {}),
+    })
+    return parsed.success ? parsed.data : undefined
+  }
+  if (catalogue !== undefined) return undefined
+
+  const slash = model.indexOf("/")
+  if (slash <= 0 || slash === model.length - 1) return undefined
+  const parsed = modelRefSchema.safeParse({
+    providerID: model.slice(0, slash),
+    modelID: model.slice(slash + 1),
+    ...(variant === undefined ? {} : { variant }),
+  })
+  return parsed.success ? parsed.data : undefined
 }
 
 /**
