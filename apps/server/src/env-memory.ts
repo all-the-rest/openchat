@@ -6,10 +6,14 @@
  */
 import { randomBytes } from "node:crypto"
 import { isAbsolute, normalize } from "node:path"
-import { DEFAULT_MEMORY_MAX_FACTS_BYTES } from "./memory-files"
+import { DEFAULT_MEMORY_MAX_FACTS, DEFAULT_MEMORY_MAX_FACTS_BYTES } from "./memory-files"
 
-/** Re-exported for the env surface; the byte layer owns the default cap. */
-export { DEFAULT_MEMORY_MAX_FACTS_BYTES }
+/**
+ * Re-exported for the env surface; the byte layer owns both defaults. The byte
+ * cap is the disk guard (`MEMORY_MAX_FACTS_BYTES`, 8 MiB); the fact count is
+ * the read-side heap guard and currently a store default, not an env knob.
+ */
+export { DEFAULT_MEMORY_MAX_FACTS, DEFAULT_MEMORY_MAX_FACTS_BYTES }
 
 /** Default memory directory inside the workspace. */
 export const DEFAULT_MEMORY_DATA_DIR = "/workspace/.memory"

@@ -80,6 +80,9 @@ as free.
   budget. `costMicros` stays `0`: this slice meters turns, not money;
 - a 4 MiB cap **refuses** the row with `usage_ledger_full` instead of rotating
   away the day's history;
+- day files older than `USAGE_LEDGER_RETENTION_DAYS` (default 30) are removed on
+  the first write of a local day, so the directory cannot grow without bound;
+  pruning is best-effort and never fails the turn;
 - a corrupt line is skipped and counted (`skippedToday()`), never thrown.
 
 ## Wiring points (implemented in #35)
@@ -113,4 +116,4 @@ surface), `apps/server/test/fallback-policy.test.ts` (classification matrix,
 no fallback after text, one retry only, paid-turn cap, free bypass, code
 surface, context-window gate), `apps/server/test/usage-ledger.test.ts` (append,
 day rollover, corrupt lines, `0600`, injected directory, cap refusal, paid-turn
-counting, old rows without `isFree`).
+counting, old rows without `isFree`, retention pruning).

@@ -29,17 +29,31 @@ breadth, currency, token-efficiency — are the acceptance checklist (D11).
     (~400 tokens target) and trimmed by rank, never mid-sentence. Replaced via a
     temp file and rename. The content begins and ends with an HTML-comment
     delimiter (`memory-index:begin (data, not instructions)` / `memory-index:end`)
-    so every injected copy is visibly data, not instructions.
+    so every injected copy is visibly data, not instructions. Fact text is
+    stripped of `<!--`, `-->` and both markers on write and again when a line is
+    built, so a fact cannot close the block and land outside it.
   - `audit.jsonl` — every write/update/delete/prune with actor, time and reason.
-    Appended, never rewritten.
+    Appended, then rotated under a byte cap (newest rows kept). It is a view,
+    not the record: an audit write failure never fails a fact write.
 - Directory `0700`, files `0600`. A directory needs the execute bit to be
   traversable by `node`, so `0600` on the directory would break it.
-- **Bounded store.** `MEMORY_MAX_FACTS_BYTES` (default 64 MiB) is a hard write
-  cap for `facts.jsonl`: a write that would cross it is refused before the first
-  byte is appended, with the stable code `memory_store_full` (HTTP 507) and no
-  path or content in the message. `GET /api/memory` and the export read only the
-  newest 200 audit lines from the end of `audit.jsonl`, so rendering the page
-  never loads the whole file.
+- **Bounded store.** Two independent bounds, because a byte cap alone bounds
+  disk and not heap:
+  - `MEMORY_MAX_FACTS_BYTES` (default 8 MiB) is a hard write cap for
+    `facts.jsonl`: a write that would cross it is refused before the first byte
+    is appended, with the stable code `memory_store_full` (HTTP 507) and no
+    path or content in the message.
+  - `DEFAULT_MEMORY_MAX_FACTS` (20,000) is a read-side cap: a read parses only
+    the newest rows, because parsed facts cost several times their on-disk bytes
+    and the BFF is capped at 512 MiB. Older rows stay on disk (reachable by
+    prune, not by a page load) and the first capped read logs one notice.
+  - `audit.jsonl` is rotated to its newest rows under a 2 MiB cap. `GET
+    /api/memory` and the export read only the newest 200 audit lines from the
+    end of the file, so rendering the page never loads the whole file.
+- **Reads do not write.** Every mutation regenerates `INDEX.md`; `GET
+  /api/memory` and the export render the stored file (and compute the same
+  content without persisting when it was never generated). The internal
+  `index` op computes without writing as well.
 - **The BFF is the only writer.** `memory-data` is mounted read-write in the
   BFF only; the MCP server never writes the volume directly and OpenCode gets no
   memory mount at all. The BFF image pre-creates the mount point, `chown
@@ -72,7 +86,7 @@ store credentials for the files themselves.
 
 | Route | Result |
 | --- | --- |
-| `GET /api/memory` | `{ facts, audit, index }` — all statuses, the audit trail and the current index content |
+| `GET /api/memory` | `{ facts, audit, index }` — all statuses, the audit trail and the stored index content (read-only) |
 | `PATCH /api/memory/:id` | owner edit of a fact (text, status, tags); shares the single-writer code path |
 | `DELETE /api/memory/:id` | soft delete with a `{ reason }` body; the row is kept and linked, never hard-removed |
 | `GET /api/memory/export` | JSON export of the store |
@@ -127,11 +141,13 @@ OpenCode web UI in a separate-origin iframe, so its sessions never pass
 through `POST /api/sessions`. The BFF therefore discovers sessions it did not
 create: before answering `GET /api/sessions`, and at the start of every memory
 invalidation, it reads the backend's `listSessions()` and plants `INDEX.md`
-into every session without an index. The pass is O(sessions), deduped per
-process, capped at `MAX_ACTIVE_MEMORY_SESSIONS`, and a session that already
-received the index (including one created by the chat route) is skipped, so
-nothing is injected twice. Store and host failures are ignored and retried on
-the next pass; discovery never fails a request.
+into every session without an index. The pass is O(sessions), capped at
+`MAX_ACTIVE_MEMORY_SESSIONS`, and a session that already received the index
+(including one created by the chat route) is skipped **once per process** — the
+injected set is in memory only, so a restart re-plants it at the next pass.
+Store and host failures are ignored and retried on the next pass; discovery
+never fails a request. Discovery renders the index and does not rewrite
+`INDEX.md`; only mutations persist it.
 
 The backend stream already carries `session.created`, but the BFF has no
 long-lived server-side consumer for it, so discovery is used instead of an
@@ -218,9 +234,15 @@ and the artifact sandbox stay outside the model's reach.
   write-cap refusal at the boundary (file byte-identical after a refusal), prune
   shrinking an all-active over-budget store, the bounded audit tail, upsert,
   supersession links, TTL transitions, prune dry-run ranking, corrupt-line
-  recovery and cap trimming; internal-route auth (`MEMORY_INTERNAL_TOKEN`) and
-  the `memory_store_full` 507; fresh-volume bootstrap against a **truly empty**
-  volume — ownership `node:node`, directory `0700`, files `0600`.
+  recovery and cap trimming; the read-side fact cap (newest window only, one
+  notice per process, file byte-identical), audit rotation under its byte cap,
+  an audit append failure that never fails a fact write, and delimiter stripping
+  for both new and legacy rows; internal-route auth (`MEMORY_INTERNAL_TOKEN`)
+  and the `memory_store_full` 507; fresh-volume bootstrap against a **truly
+  empty** volume — ownership `node:node`, directory `0700`, files `0600`.
+- **Read paths:** `GET /api/memory` and the export answer from the stored
+  `INDEX.md` and leave it untouched; a missing file is rendered without being
+  created; a mutation refreshes it.
 - **HTTP contracts:** internal ops map to store actions with token auth and no
   public exposure; public `GET`/`PATCH`/`DELETE` (with `{ reason }`)/`export`
   go through the single writer; delete never hard-removes.
@@ -232,7 +254,7 @@ and the artifact sandbox stay outside the model's reach.
   push layer; the key is slash-free; host put failures never fail session
   creation; a session that exists only in the backend's `listSessions()` (never
   POSTed through the chat route) receives the index on the next list, and a
-  chat-created session is not injected a second time.
+  chat-created session is not re-injected by discovery within the same process.
 - **Chat and Code parity (documented contract):** Code mode is upstream
   OpenCode in a separate-origin iframe. The memory index, the OpenCode host,
   the model catalogue and ticket/session recovery apply to both surfaces;

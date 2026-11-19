@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
-import { localDay, UsageLedger, UsageLedgerError } from "../src/usage-ledger"
+import { localDay, UsageLedger, UsageLedgerError, USAGE_LEDGER_RETENTION_DAYS } from "../src/usage-ledger"
 
 const dirs: string[] = []
 
@@ -175,6 +175,59 @@ describe("usage ledger", () => {
       ledger.record({ providerID: "acme", modelID: "large", turns: 1, costMicros: 1 }),
     ).rejects.toBeInstanceOf(UsageLedgerError)
     expect(await readdir(dir)).toEqual([])
+  })
+
+  it("prunes day files past the retention window and keeps today's counters", async () => {
+    const dir = await directory()
+    const time = at(18)
+    await mkdir(dir, { recursive: true, mode: 0o700 })
+    const stale = at(10)
+    const recent = at(12)
+    for (const day of [stale, recent]) {
+      await writeFile(
+        fileFor(dir, day),
+        `${JSON.stringify({
+          at: day, providerID: "acme", modelID: "large", turns: 3, costMicros: 300,
+        })}\n`,
+        { mode: 0o600 },
+      )
+    }
+
+    // Seven days of history: the 10th is out, the 12th and today survive.
+    const ledger = new UsageLedger({ directory: dir, now: () => time, retentionDays: 7 })
+    await ledger.record({ providerID: "acme", modelID: "large", turns: 1, costMicros: 100 })
+
+    const files = (await readdir(dir)).sort()
+    expect(files).toContain(`${localDay(time)}.jsonl`)
+    expect(files).toContain(`${localDay(recent)}.jsonl`)
+    expect(files).not.toContain(`${localDay(stale)}.jsonl`)
+    // Only the stale day is gone; today's row is the one just written.
+    expect(await ledger.turnsToday()).toBe(1)
+    expect(await ledger.spentToday()).toBe(100)
+    expect(USAGE_LEDGER_RETENTION_DAYS).toBe(30)
+  })
+
+  it("keeps the default retention across a day rollover", async () => {
+    const dir = await directory()
+    let time = at(18)
+    await mkdir(dir, { recursive: true, mode: 0o700 })
+    const yesterday = at(17)
+    await writeFile(
+      fileFor(dir, yesterday),
+      `${JSON.stringify({
+        at: yesterday, providerID: "acme", modelID: "large", turns: 2, costMicros: 50,
+      })}\n`,
+      { mode: 0o600 },
+    )
+    const ledger = new UsageLedger({ directory: dir, now: () => time })
+    await ledger.record({ providerID: "acme", modelID: "large", turns: 1, costMicros: 1 })
+    time = at(19)
+    await ledger.record({ providerID: "acme", modelID: "large", turns: 1, costMicros: 1 })
+    // Two prune passes (one per local day) must not touch within-window days.
+    expect((await readdir(dir)).sort()).toEqual(
+      [`${localDay(at(17))}.jsonl`, `${localDay(at(18))}.jsonl`, `${localDay(at(19))}.jsonl`].sort(),
+    )
+    expect(await ledger.turnsToday()).toBe(1)
   })
 
   it("rejects an invalid entry with a stable code", async () => {
