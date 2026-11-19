@@ -75,9 +75,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - document the model selector and the fallback policy
 - give the tasks and voice documents their own numbers
 - how the agent can keep approved memories
+- map rename, delete and question-form routes (#5, #16)
 - move the subagent note out of the owner-owned architecture page
 - name the accepted queued-send delta race (#54)
 - name the chat-only surfaces in the parity contract (#50)
+- refresh the 2.5.0 changelog (#18)
+- say when a Code-created session gets its memory index (#50)
 - state the 2.5.0 limits instead of the M1 placeholder list (#5)
 - the 2.5.0 changelog (#18)
 
