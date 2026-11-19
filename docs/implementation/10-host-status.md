@@ -57,9 +57,11 @@ interface InfoResponse {
 ```
 
 Before this slice the route awaited `Promise.all` over the same three calls, so
-any host failure became `500 internal_error` and the shell showed its boot
-error. `/api/info` now always answers `200`, with `Cache-Control: no-store`,
-and never copies upstream error text into the body. There is no new health
+any host failure became `500 internal_error`; the client could only treat that
+as "not configured" (the flags stayed hidden) and the session list showed its
+own generic error, with nothing saying the host was down. `/api/info` now
+always answers `200`, with `Cache-Control: no-store`, and never copies upstream
+error text into the body. There is no new health
 endpoint and nothing polls: the provider reads `/api/info` once at boot and
 again only when the user retries.
 
