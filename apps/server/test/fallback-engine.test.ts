@@ -179,20 +179,29 @@ describe("FallbackEngine", () => {
     expect(calls).toHaveLength(1)
   })
 
-  it("retries once when two subscribers report the same failure concurrently", async () => {
-    const { deps, calls } = makeDeps()
+  it("suppresses a duplicate report while the same failure is retrying", async () => {
+    let release: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const { deps, calls } = makeDeps({
+      promptImpl: async () => {
+        await gate
+        return { messageID: "msg_retry" }
+      },
+    })
     const engine = new FallbackEngine(deps)
     engine.begin("s1", { text: "hi" }, policy(), A)
 
-    const [first, second] = await Promise.all([
-      engine.onFailure(failureEvent()),
-      engine.onFailure(failureEvent()),
-    ])
-
-    // The second subscriber forwards the original failure; only one retry was
-    // submitted.
-    expect([first.suppress, second.suppress].sort()).toEqual([false, true])
+    const first = engine.onFailure(failureEvent())
+    const second = await engine.onFailure(failureEvent())
+    // The duplicate carries no events: both tabs see the same retry notice and
+    // outcome instead of one of them seeing the raw failure.
+    expect(second).toEqual({ suppress: true, events: [] })
     expect(calls).toHaveLength(1)
+
+    release?.()
+    expect((await first).suppress).toBe(true)
   })
 
   const capCases: Array<[string, ModelRef[], number, boolean]> = [
@@ -337,9 +346,9 @@ describe("FallbackEngine", () => {
     engine.begin("s1", { text: "first" }, policy(), A)
 
     // A second prompt replaces the active turn, then turns out to be queued.
-    engine.begin("s1", { text: "second" }, policy(), B)
+    const second = engine.begin("s1", { text: "second" }, policy(), B)
     expect(engine.activeCount()).toBe(1)
-    engine.abandon("s1")
+    engine.abandon("s1", second)
 
     const result = await engine.onFailure(failureEvent())
     expect(result.suppress).toBe(true)

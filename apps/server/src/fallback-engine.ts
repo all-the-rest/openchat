@@ -50,8 +50,19 @@ export interface FallbackEngineDeps {
   warn?: (message: string) => void
 }
 
+/** Opaque identity of one submission; only `begin` can mint one. */
+export interface SubmissionToken {
+  readonly id: symbol
+}
+
+function newSubmissionToken(): SubmissionToken {
+  return { id: Symbol("openchat.submission") }
+}
+
 export interface TurnState {
   sessionID: string
+  /** Identity of the submission that registered this state. */
+  token: SubmissionToken
   policy: TurnPolicy
   payload: PromptInput
   /** Model the turn first asked for; kept for `turn.outcome.requested`. */
@@ -109,7 +120,9 @@ export class FallbackEngine {
   /**
    * Registers a turn before the prompt is submitted, so output the host emits
    * while the POST is still open is already observed. `messageID` is unknown at
-   * that point and is adopted from the response.
+   * that point and is adopted from the response. The returned token identifies
+   * this submission: a late `adopt`/`abandon` for an older overlapping begin
+   * is a no-op instead of disturbing the newer registration.
    */
   begin(
     sessionID: string,
@@ -117,7 +130,7 @@ export class FallbackEngine {
     policy: TurnPolicy,
     requested: ModelRef,
     messageID?: string,
-  ): void {
+  ): SubmissionToken {
     // Map.set on an existing key keeps its position; only new sessions evict.
     if (!this.turns.has(sessionID) && this.turns.size >= MAX_TRACKED_SESSIONS) {
       const oldest = this.turns.keys().next().value
@@ -128,8 +141,10 @@ export class FallbackEngine {
     const previous = this.turns.get(sessionID)
     if (previous === undefined) this.replaced.delete(sessionID)
     else this.replaced.set(sessionID, previous)
+    const token = newSubmissionToken()
     this.turns.set(sessionID, {
       sessionID,
+      token,
       policy,
       payload,
       initial: requested,
@@ -139,20 +154,25 @@ export class FallbackEngine {
       tried: [],
       messageID,
     })
+    return token
   }
 
   /** Attaches the host's message id once the prompt response arrives. */
-  adopt(sessionID: string, messageID: string): void {
+  adopt(sessionID: string, token: SubmissionToken, messageID: string): void {
     const state = this.turns.get(sessionID)
-    if (state !== undefined) state.messageID = messageID
+    if (state === undefined || state.token !== token) return
+    state.messageID = messageID
     this.replaced.delete(sessionID)
   }
 
   /**
    * Drops the just-registered turn because the host did not start a run
-   * (queued or a submit error) and restores whatever turn it replaced.
+   * (queued or a submit error) and restores whatever turn it replaced. A
+   * stale token cannot abandon the submission that replaced it.
    */
-  abandon(sessionID: string): void {
+  abandon(sessionID: string, token: SubmissionToken): void {
+    const state = this.turns.get(sessionID)
+    if (state === undefined || state.token !== token) return
     const previous = this.replaced.get(sessionID)
     this.replaced.delete(sessionID)
     if (previous === undefined) this.turns.delete(sessionID)
@@ -192,10 +212,11 @@ export class FallbackEngine {
     if (state === undefined || sessionID === undefined) {
       return { suppress: false, events: [] }
     }
-    // Two subscribers of the same chat both see the failed event. The guard is
-    // set before the first await, so the second call cannot pass the gate while
-    // the first one is still reading the ledger or submitting the retry.
-    if (this.retrying.has(sessionID)) return { suppress: false, events: [] }
+    // A second report of the same failure must not forward the raw failure:
+    // both tabs (or duplicate host events) then see the same retry outcome.
+    // The guard is set before the first await, so the second call cannot pass
+    // while the first one is still reading the ledger or submitting the retry.
+    if (this.retrying.has(sessionID)) return { suppress: true, events: [] }
     this.retrying.add(sessionID)
     try {
       return await this.retryOnce(sessionID, state, failureFrom(event.data))
@@ -248,12 +269,14 @@ export class FallbackEngine {
     state.emittedText = ""
     state.reason = reason
 
+    // The original prompt defaults to `queue`; a retry must start its own run
+    // immediately instead of waiting behind a turn that has already failed.
+    const retryPayload: PromptInput = { ...state.payload, modelRef: next }
+    delete retryPayload.delivery
+
     let result: { messageID: string; queued?: boolean }
     try {
-      result = await this.deps.backend.prompt(sessionID, {
-        ...state.payload,
-        modelRef: next,
-      })
+      result = await this.deps.backend.prompt(sessionID, retryPayload)
     } catch {
       // The retry could not be started; the turn is over and must not be
       // retried again from a later failure event.

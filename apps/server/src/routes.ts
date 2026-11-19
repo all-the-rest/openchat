@@ -108,12 +108,12 @@ export interface RouteDeps {
   artifactsFullThreshold?: number
   /** How long a prompt waits for a compaction decision; tests shorten it. */
   compactionWaitMs?: number
-  /** Model-fallback engine; shared by the prompt and event routes. */
+  /** Fallback engine, resolved policy and the shared usage ledger. */
   fallback?: import("./fallback-engine").FallbackEngine
-  /** Resolved chat policy for the fallback engine and the settings read. */
   chatPolicy: import("@openchat/contracts").TurnPolicy
-  /** Ledger the engine writes and `/api/fallback` reads. */
   usageLedger: UsageLedger
+  /** Server-owned merged event stream for the SSE route. */
+  events: import("./events-route").EventSource
 }
 
 function registerAuthRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
