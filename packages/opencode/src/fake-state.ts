@@ -19,6 +19,9 @@ export interface SessionState {
   messages: Message[]
   /** Instruction entries written through `putInstruction`, keyed by entry key. */
   instructions?: Map<string, string>
+  /** Completion applied at creation; a later prompt can override it. */
+  model?: string
+  agent?: string
 }
 
 export interface QueuedPrompt {
@@ -62,4 +65,8 @@ export interface FakeBackendOptions {
   seedSubagents?: boolean
   /** Tokens each completed assistant turn reports. Defaults to 1 000. */
   usageTokens?: number
+  /** False starts with no model, so first-run onboarding is reachable. */
+  seedModels?: boolean
+  /** How long a fake OAuth attempt stays pending. Defaults to 1 s. */
+  oauthDelayMs?: number
 }

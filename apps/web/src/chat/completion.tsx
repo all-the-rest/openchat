@@ -75,6 +75,11 @@ export interface CompletionValue extends Completion {
   /** False until `/api/models` and `/api/agents` have both settled. */
   loaded: boolean
   favorites: ModelFavorite[]
+  /**
+   * Re-reads the model catalogue through `/api/providers/status`. Used by the
+   * first-run card after a connection; throws when the host does not answer.
+   */
+  refreshModels: () => Promise<ModelInfo[]>
   setModel: (model: string | null, variant?: string | null) => void
   setAgent: (agent: string | null) => void
   toggleFavorite: (favorite: ModelFavorite) => void
@@ -121,6 +126,12 @@ export function CompletionProvider({ children, initial, catalogue }: CompletionP
     })
   }, [])
 
+  const refreshModels = useCallback(async () => {
+    const response = await api.providerStatus()
+    setModels(response.models)
+    return response.models
+  }, [])
+
   const setAgent = useCallback((agent: string | null) => {
     setChoice((current) => {
       const next = { ...current, agent }
@@ -143,9 +154,9 @@ export function CompletionProvider({ children, initial, catalogue }: CompletionP
   const value = useMemo<CompletionValue>(
     () => ({
       ...choice, models, agents, loaded, favorites,
-      setModel, setAgent, toggleFavorite,
+      refreshModels, setModel, setAgent, toggleFavorite,
     }),
-    [choice, models, agents, loaded, favorites, setModel, setAgent, toggleFavorite],
+    [choice, models, agents, loaded, favorites, refreshModels, setModel, setAgent, toggleFavorite],
   )
 
   return <CompletionContext.Provider value={value}>{children}</CompletionContext.Provider>

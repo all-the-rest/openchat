@@ -52,6 +52,14 @@ export function registerFakeControlsRoutes(app: Hono<AppEnv>, backend: ChatBacke
     return c.json(fake.compactionRecord(sessionID))
   })
 
+  // Metadata only: the key's value is never part of the fake's record.
+  app.get("/api/__fake/providers", (c) => {
+    c.header("Cache-Control", "no-store")
+    const fake = probe(backend)
+    if (!fake) return c.json({ connects: [], oauthStarts: 0, oauthCancels: 0 })
+    return c.json(fake.recordedProviders())
+  })
+
   app.post("/api/__fake/permission", async (c) => {
     c.header("Cache-Control", "no-store")
     const body = await readJson(c)

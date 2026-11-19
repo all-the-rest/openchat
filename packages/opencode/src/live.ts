@@ -1,14 +1,12 @@
 import { OpenCode } from "@opencode/client"
 import type {
   AgentInfo,
-  BackgroundJob,
   EventEnvelope,
   InboxEntry,
   Message,
   ModelInfo,
   PermissionDecision,
   PermissionRequest,
-  Schedule,
   ServerInfo,
   SessionInfo,
 } from "@openchat/contracts"
@@ -17,7 +15,6 @@ import type {
   AppsSnapshot,
   ChatBackend,
   CompactOptions,
-  CreateScheduleInput,
   CreateSessionInput,
   PromptInput,
   PromptResult,
@@ -33,8 +30,8 @@ import { applyCompletion, mapHostModel } from "./live-model"
 import type { HostModelInfo, ModelHostInfo } from "./live-model"
 import { normalizePermissionRequest, replyHostPermission } from "./live-permissions"
 import { createToolEventState, normalizeEvent } from "./live-events"
-import { mapScheduleError, normalizeJob, normalizeSchedule, scheduleWhen } from "./live-tasks"
 import { liveSearch } from "./live-search"
+import { LiveTaskApi } from "./live-task-api"
 import { normalizeMessage, normalizeSession } from "./live-normalize"
 
 // The normalizers stay importable from this module; the BFF only needs the
@@ -67,8 +64,7 @@ function base64(value: string): string {
  * adapter never starts one itself. It typechecks against
  * `@opencode/client@2.3.0`; there is no live test in CI.
  */
-export class LiveBackend implements ChatBackend {
-  private readonly client: OpenCodeClient
+export class LiveBackend extends LiveTaskApi implements ChatBackend {
   private readonly workspace: string
   /** Per-subscriber normalizer state is created in `subscribe`. */
   private readonly subscribers = new Set<EventQueue<V2Event>>()
@@ -77,16 +73,18 @@ export class LiveBackend implements ChatBackend {
   private modelHostInfo?: ModelHostInfo
 
   constructor(options: LiveBackendOptions) {
-    this.workspace = options.workspace
+    let client: OpenCodeClient
     if (options.client) {
-      this.client = options.client
-      return
+      client = options.client
+    } else {
+      const credentials = base64(`${options.username ?? "opencode"}:${options.password}`)
+      client = OpenCode.make({
+        baseUrl: options.baseUrl,
+        headers: { authorization: `Basic ${credentials}` },
+      })
     }
-    const credentials = base64(`${options.username ?? "opencode"}:${options.password}`)
-    this.client = OpenCode.make({
-      baseUrl: options.baseUrl,
-      headers: { authorization: `Basic ${credentials}` },
-    })
+    super(client)
+    this.workspace = options.workspace
   }
 
   async info(): Promise<ServerInfo> {
@@ -100,9 +98,19 @@ export class LiveBackend implements ChatBackend {
   }
 
   async createSession(input: CreateSessionInput): Promise<SessionInfo> {
+    let model: { id: string; providerID: string } | null = null
+    if (input.model) {
+      if (!this.modelHostInfo) await this.listModels()
+      const info = this.modelHostInfo?.get(input.model)
+      // An unknown choice is ignored like in `applyCompletion`: the host keeps
+      // its own default instead of failing the new chat.
+      if (info) model = { id: input.model, providerID: info.providerID }
+    }
     const session = await this.client.session.create({
       location: { directory: input.directory },
       title: input.title ?? null,
+      model,
+      agent: input.agent ?? null,
     })
     return normalizeSession(session, input.directory)
   }
@@ -215,16 +223,6 @@ export class LiveBackend implements ChatBackend {
     })
   }
 
-  /** Provider display names; a failed probe degrades to the raw provider ids. */
-  private async providerNames(): Promise<Map<string, string>> {
-    try {
-      const response = await this.client.provider.list()
-      return new Map(response.data.map((provider) => [provider.id, provider.name]))
-    } catch {
-      return new Map()
-    }
-  }
-
   async listAgents(): Promise<AgentInfo[]> {
     const response = await this.client.agent.list()
     return response.data.map((agent) => ({
@@ -274,63 +272,6 @@ export class LiveBackend implements ChatBackend {
       sessionID,
       options,
     )
-  }
-
-  async listSchedules(sessionID: string): Promise<Schedule[]> {
-    try {
-      const rows = await this.client.experimental.schedule.list({ sessionID })
-      return rows.map(normalizeSchedule)
-    } catch (error) {
-      throw mapScheduleError(error, "Schedules could not be listed")
-    }
-  }
-
-  async createSchedule(input: CreateScheduleInput): Promise<Schedule> {
-    try {
-      const created = await this.client.experimental.schedule.create({
-        sessionID: input.sessionID,
-        prompt: input.prompt,
-        when: scheduleWhen(input.ends),
-      })
-      return normalizeSchedule(created)
-    } catch (error) {
-      throw mapScheduleError(error, "The schedule could not be created")
-    }
-  }
-
-  async pauseSchedule(id: string): Promise<Schedule> {
-    try {
-      const paused = await this.client.experimental.schedule.pause({ scheduleID: id })
-      return normalizeSchedule(paused)
-    } catch (error) {
-      throw mapScheduleError(error, "The schedule could not be paused")
-    }
-  }
-
-  async resumeSchedule(id: string): Promise<Schedule> {
-    try {
-      const resumed = await this.client.experimental.schedule.resume({ scheduleID: id })
-      return normalizeSchedule(resumed)
-    } catch (error) {
-      throw mapScheduleError(error, "The schedule could not be resumed")
-    }
-  }
-
-  async deleteSchedule(id: string): Promise<void> {
-    try {
-      await this.client.experimental.schedule.delete({ scheduleID: id })
-    } catch (error) {
-      throw mapScheduleError(error, "The schedule could not be deleted")
-    }
-  }
-
-  async listJobs(): Promise<BackgroundJob[]> {
-    try {
-      const rows = await this.client.experimental.job.list()
-      return rows.map(normalizeJob)
-    } catch (error) {
-      throw mapScheduleError(error, "Jobs could not be listed")
-    }
   }
 
   async *subscribe(signal?: AbortSignal): AsyncIterable<EventEnvelope> {

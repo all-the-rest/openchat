@@ -11,6 +11,7 @@ import {
 } from "react"
 import { api } from "../api/client"
 import { useSurfaceOrNull } from "../code/SurfaceProvider"
+import { useCompletionOrNull } from "./completion"
 
 export interface SessionsValue {
   sessions: SessionInfo[]
@@ -33,6 +34,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
    * (the host does not know it yet in that answer).
    */
   const createdHere = useRef(new Set<string>())
+  const completion = useCompletionOrNull()
 
   const refresh = useCallback(async () => {
     try {
@@ -66,11 +68,16 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, [hostReachable, refresh])
 
   const create = useCallback(async () => {
-    const session = await api.createSession({})
+    // The browser default is the model of a new chat; a browser without a
+    // choice lets the host keep its own default.
+    const session = await api.createSession({
+      model: completion?.model ?? undefined,
+      agent: completion?.agent ?? undefined,
+    })
     createdHere.current.add(session.id)
     setSessions((current) => [session, ...current.filter((entry) => entry.id !== session.id)])
     return session
-  }, [])
+  }, [completion?.model, completion?.agent])
 
   const value = useMemo<SessionsValue>(
     () => ({ sessions, loading, failed, refresh, create }),
