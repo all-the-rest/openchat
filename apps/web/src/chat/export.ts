@@ -1,4 +1,4 @@
-import type { Message, ToolStatus } from "@openchat/contracts"
+import type { ErrorPart, Message, ToolStatus } from "@openchat/contracts"
 
 /**
  * Markdown export of the transcript the browser already holds (spec 02, issue
@@ -45,14 +45,24 @@ export function isoDate(created: number): string | null {
 /**
  * Escapes what could turn transcript text into document structure: backslash
  * first, then a block marker at the start of a line (heading, quote, list,
- * ordered item) and a code fence anywhere. Inline emphasis stays readable.
+ * ordered item, thematic break) and a code fence anywhere. Table pipes and a
+ * leading `<` (which would open a raw-HTML block) are escaped too, so
+ * agent-controlled text cannot inject Markdown structure. Inline emphasis
+ * stays readable.
  */
 export function escapeMarkdown(text: string): string {
   return text
     .replace(/\\/g, "\\\\")
     .replace(/^(\s*)(#{1,6}|>|[-+*])(\s)/gm, "$1\\$2$3")
     .replace(/^(\s*)(\d+)([.)])(\s)/gm, "$1$2\\$3$4")
+    // A line made only of three or more -, * or _ is a thematic break; escape
+    // every marker so the line can never render as a horizontal rule.
+    .replace(/^[ \t]*(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/gm, (line) =>
+      line.replace(/[-*_]/g, "\\$&"),
+    )
     .replace(/```/g, "\\`\\`\\`")
+    .replace(/\|/g, "\\|")
+    .replace(/^([ \t]*)</gm, "$1&lt;")
 }
 
 /** A heading and a filename are single lines: fold whitespace, keep text. */
@@ -88,14 +98,27 @@ function textParts(message: Message): string[] {
     .filter((text) => text.length > 0)
 }
 
+/**
+ * Only the short, human-readable message of an error part is exported. Codes,
+ * retry flags and any tool bodies/inputs/outputs stay in the chat, matching the
+ * exclusion-based redaction used for the other detail lines. The localized
+ * label is reused from the tool-status vocabulary so no new UI string is
+ * introduced here.
+ */
+function errorLine(input: ChatExportInput, part: ErrorPart): string {
+  return `- ${input.toolStatus("error")}: ${escapeMarkdown(singleLine(part.message))}`
+}
+
 function detailLines(input: ChatExportInput, message: Message): string[] {
   const lines: string[] = []
   for (const part of message.parts) {
     if (part.type === "tool") {
-      lines.push(`- ${input.labels.tool}: ${singleLine(part.name)} (${input.toolStatus(part.status)})`)
+      lines.push(`- ${input.labels.tool}: ${escapeMarkdown(singleLine(part.name))} (${input.toolStatus(part.status)})`)
+    } else if (part.type === "error") {
+      lines.push(errorLine(input, part))
     } else if (part.type === "artifact") {
       lines.push(
-        `- ${input.labels.artifact}: ${singleLine(part.title)} — ${input.labels.artifactNote}`,
+        `- ${input.labels.artifact}: ${escapeMarkdown(singleLine(part.title))} — ${input.labels.artifactNote}`,
       )
     }
   }
@@ -110,8 +133,9 @@ function headingRole(input: ChatExportInput, message: Message): string {
 
 /**
  * The exact document a download contains. Tool bodies, reasoning and error
- * internals stay out: the export lists a tool's name and status, and an
- * artifact's title with the note that its files live in the chat.
+ * internals stay out: the export lists a tool's name and status, the short
+ * message of an error, and an artifact's title with the note that its files
+ * live in the chat.
  */
 export function buildChatMarkdown(input: ChatExportInput): string {
   const title = singleLine(input.title) || input.labels.untitled

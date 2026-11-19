@@ -228,7 +228,7 @@ export function Composer({
           onCancel={dictation.cancel}
         />
       ) : null}
-      <div className="flex items-end gap-2 rounded-composer border border-strong bg-surface ps-4 pe-2 py-2 focus-within:border-focus-ring">
+      <div className="flex flex-col gap-2 rounded-composer border border-strong bg-surface ps-4 pe-2 py-2 focus-within:border-focus-ring sm:flex-row sm:items-end">
         <textarea
           ref={textareaRef}
           data-testid="composer"
@@ -241,9 +241,16 @@ export function Composer({
           disabled={disabled || offline}
           aria-label={t("composer.label")}
           placeholder={t("composer.placeholder")}
-          className="max-h-48 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 text-base-content outline-none placeholder:text-muted"
+          className="max-h-48 min-h-9 w-full min-w-0 resize-none bg-transparent py-1.5 text-base leading-6 text-base-content outline-none placeholder:text-muted sm:w-auto sm:flex-1"
         />
-        <div className="flex items-center gap-1">
+        <div
+          data-testid="composer-actions"
+          className={`flex w-full items-center justify-end gap-1 sm:w-auto ${
+            // Phones need full 44px targets; the child selector also covers the
+            // attachment and dictation buttons that own their own classes.
+            coarsePointer ? "min-h-11 [&>button]:min-h-11 [&>button]:min-w-11" : ""
+          }`}
+        >
           {sessionID ? <AttachmentPicker onPick={addFiles} /> : null}
           {dictation.enabled ? <DictationButton dictation={dictation} /> : null}
           {running ? (
@@ -253,7 +260,7 @@ export function Composer({
               onClick={onStop}
               aria-label={t("composer.stop")}
               title={t("composer.stop")}
-              className="btn btn-ghost btn-circle"
+              className={`btn btn-ghost btn-circle ${coarsePointer ? "min-h-11 min-w-11" : ""}`}
             >
               <StopIcon className="size-5" />
             </button>
@@ -280,7 +287,7 @@ export function Composer({
                   ? t("host.unreachable")
                   : t("composer.send")
             }
-            className="btn btn-primary btn-circle"
+            className={`btn btn-primary btn-circle ${coarsePointer ? "min-h-11 min-w-11" : ""}`}
           >
             {sending ? (
               <span className="loading loading-spinner loading-sm" aria-hidden="true" />

@@ -146,4 +146,94 @@ describe("chat markdown export", () => {
     expect(slug.length).toBeLessThanOrEqual(60)
     expect(slug.endsWith("-")).toBe(false)
   })
+
+  it("escapes thematic breaks so text cannot draw a horizontal rule", () => {
+    expect(escapeMarkdown("---\n***\n___")).toBe("\\-\\-\\-\n\\*\\*\\*\n\\_\\_\\_")
+    // Spaced variants are already caught as line-start list markers.
+    expect(escapeMarkdown("* * *")).toBe("\\* * *")
+  })
+
+  it("escapes table pipes and raw HTML line starts", () => {
+    expect(escapeMarkdown("a | b | c")).toBe("a \\| b \\| c")
+    expect(escapeMarkdown("<script>alert(1)</script>")).toBe("&lt;script>alert(1)</script>")
+    expect(escapeMarkdown("  <div>")).toBe("  &lt;div>")
+  })
+
+  it("exports an error part as a redacted line without its internals", () => {
+    const markdown = buildChatMarkdown({
+      title: "Errors",
+      messages: [
+        {
+          id: "msg_error",
+          sessionID: "ses_1",
+          role: "assistant",
+          created: 1_700_000_003_000,
+          status: "error",
+          parts: [
+            {
+              type: "error",
+              id: "part_error",
+              message: "Rate limit  reached\ntry again later",
+              code: "SECRET_ERROR_CODE",
+              retryable: true,
+            },
+          ],
+        },
+      ],
+      labels,
+      toolStatus: (status) => TOOL_STATUS[status],
+    })
+
+    expect(markdown).toBe(
+      [
+        "# Errors",
+        "",
+        "## Assistant answer",
+        "",
+        "- Error: Rate limit reached try again later",
+        "",
+      ].join("\n"),
+    )
+    // The code and any tool/error internals never leave the chat.
+    expect(markdown).not.toContain("SECRET_ERROR_CODE")
+    expect(markdown).not.toContain("true")
+  })
+
+  it("falls back to chat.md for CJK, Cyrillic and emoji-only titles", () => {
+    expect(slugifyTitle("聊天 标题")).toBe("")
+    expect(slugifyTitle("Привет мир")).toBe("")
+    expect(slugifyTitle("😀🎉")).toBe("")
+    expect(chatFilename("聊天 标题")).toBe("chat.md")
+    expect(chatFilename("Привет мир")).toBe("chat.md")
+    expect(chatFilename("😀🎉")).toBe("chat.md")
+  })
+
+  it("keeps a very long single message intact without truncating it", () => {
+    const longText = "x".repeat(20_000)
+    const markdown = buildChatMarkdown({
+      title: "Long",
+      messages: [
+        {
+          id: "msg_long",
+          sessionID: "ses_1",
+          role: "user",
+          created: 1_700_000_004_000,
+          status: "complete",
+          parts: [{ type: "text", id: "part_long", text: longText }],
+        },
+      ],
+      labels,
+      toolStatus: (status) => TOOL_STATUS[status],
+    })
+
+    expect(markdown.split(longText)).toHaveLength(2)
+    expect(markdown.length).toBeGreaterThanOrEqual(longText.length)
+  })
+
+  it("keeps a heading-marker title as literal text in the heading and filename", () => {
+    expect(
+      buildChatMarkdown({ title: "# Foo", messages: [], labels, toolStatus: (status) => TOOL_STATUS[status] }),
+    ).toBe("# # Foo\n")
+    expect(chatFilename("# Foo")).toBe("foo.md")
+  })
 })

@@ -478,6 +478,11 @@ msgid "firstRun.verifying"
 msgstr "Wird geprüft…"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.list.escape"
+msgstr "Overlay schließen oder Bearbeitung beenden"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
 msgid "nav.closeSidebar"
 msgstr "Chatliste schließen"
@@ -486,6 +491,11 @@ msgstr "Chatliste schließen"
 #: src/i18n/messages/palette.ts
 msgid "palette.close"
 msgstr "Befehlspalette schließen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.close"
+msgstr "Tastenkürzel schließen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -711,6 +721,16 @@ msgstr "Zeitplan anlegen"
 #: src/i18n/messages/memory.ts
 msgid "memory.col.created"
 msgstr "Erstellt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.keys.palette"
+msgstr "Strg/Cmd + K"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.keys.surface"
+msgstr "Strg/Cmd + Umschalt + M"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -973,6 +993,11 @@ msgid "tasks.status.error"
 msgstr "Fehler"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.keys.escape"
+msgstr "Esc"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.exitPresent"
 msgstr "Präsentation beenden"
@@ -1186,6 +1211,11 @@ msgstr "Die Dateien liegen in diesem Chat."
 #: src/i18n/messages/chat.ts
 msgid "chat.jumpToLatest"
 msgstr "Zur neuesten Nachricht springen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.title"
+msgstr "Tastenkürzel"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/memory.ts
@@ -1536,6 +1566,11 @@ msgstr "Menü öffnen"
 #: src/i18n/messages/onboarding.ts
 msgid "firstRun.oauth.open"
 msgstr "Anmeldeseite öffnen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.list.palette"
+msgstr "Befehlspalette öffnen"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/pwa.ts
@@ -2028,6 +2063,11 @@ msgid "tasks.kind.shell"
 msgstr "Shell"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.keys.newChat"
+msgstr "Umschalt + N"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
 msgid "render.showFull"
 msgstr "Alles anzeigen"
@@ -2123,6 +2163,11 @@ msgid "chat.stale"
 msgstr "Veraltet"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.list.newChat"
+msgstr "Neuen Chat starten"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.start"
 msgstr "Diktat starten"
@@ -2201,6 +2246,11 @@ msgstr "Oberfläche"
 #: src/i18n/messages/palette.ts
 msgid "palette.action.language"
 msgstr "Sprache wechseln zu {language}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/shortcuts.ts
+msgid "shortcuts.list.surface"
+msgstr "Ansicht wechseln"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/settings.ts

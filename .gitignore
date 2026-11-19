@@ -28,3 +28,7 @@ coverage
 
 # UI-review screenshot set (see apps/web/playwright.screenshots.config.ts)
 ui-review/
+
+# Python bytecode from local doc/python-tool test runs — build artefacts.
+__pycache__/
+*.pyc

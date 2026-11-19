@@ -100,6 +100,10 @@ lifecycle.
 - Full accessibility pass (axe, keyboard, screen reader).
 - Export/import, usage panel.
 - Responsive and mobile polish.
+- Issue #8 second slice (a11y/mobile): dependency-free focus order, keyboard
+  map, coarse-pointer composer/header and reduced-motion guard — see
+  [`implementation/36-a11y-mobile.md`](implementation/36-a11y-mobile.md). The
+  axe pass and OBS-038 remain open.
 
 **Exit:** WCAG 2.2 AA pass with no serious findings; mobile core flow works.
 

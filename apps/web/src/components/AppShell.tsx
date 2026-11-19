@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Link, Outlet } from "react-router-dom"
+import { Link, Outlet, useNavigate } from "react-router-dom"
 import { AppBarMenu } from "../components/AppBarMenu"
 import { SidebarToggle } from "../components/controls"
 import { HostStatusBanner } from "../components/HostStatusBanner"
@@ -7,6 +7,8 @@ import { InstallHint } from "../components/InstallHint"
 import { OfflineBanner } from "../components/OfflineBanner"
 import { UpdateNotice } from "../components/UpdateNotice"
 import { SearchIcon, SettingsIcon } from "../components/icons"
+import { ShortcutsHelp } from "../components/ShortcutsHelp"
+import { useSessions } from "../chat/sessions"
 import { useT } from "../i18n/provider"
 import { useMediaQuery } from "../lib/useMediaQuery"
 import { SessionSidebar } from "../chat/SessionSidebar"
@@ -21,18 +23,33 @@ const FOCUSABLE =
 /** Desktop layout breakpoint, matching Tailwind's `lg` (spec 08). */
 const WIDE_QUERY = "(min-width: 1024px)"
 
+/** Global shortcuts must not steal a typed capital letter from text fields. */
+function isTypingTarget(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.tagName === "SELECT")
+  )
+}
+
 export function AppShell() {
   const t = useT()
   const { surface, appsAvailable, artifactsAvailable } = useSurface()
+  const { create } = useSessions()
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [paletteNotice, setPaletteNotice] = useState("")
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const wide = useMediaQuery(WIDE_QUERY)
   const drawerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const paletteTriggerRef = useRef<HTMLButtonElement>(null)
   const paletteReturnFocus = useRef<HTMLElement | null>(null)
   const restoreFocus = useRef(false)
+  const creating = useRef(false)
 
   // The Code surface owns the full width (spec 13): no chat sidebar, no app
   // bar — its own slim bar carries the switch.
@@ -59,20 +76,60 @@ export function AppShell() {
   }, [])
 
   const closePalette = useCallback(() => setPaletteOpen(false), [])
+  const closeShortcuts = useCallback(() => setShortcutsOpen(false), [])
+
+  // `Shift+N` mirrors the sidebar's New chat button (owner decision, impl 07).
+  const startNewChat = useCallback(async () => {
+    if (creating.current) return
+    creating.current = true
+    try {
+      const session = await create()
+      navigate(`/c/${session.id}`)
+    } finally {
+      creating.current = false
+    }
+  }, [create, navigate])
 
   // Layout effect, not a passive one: the shortcut must be armed before the
   // opener is painted, otherwise a Ctrl+K between commit and effect flush is
   // lost — a race the palette's own E2E hit under four parallel workers.
   useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return
-      event.preventDefault()
-      if (paletteOpen) closePalette()
-      else openPalette()
+      const key = event.key.toLowerCase()
+      const chord = event.metaKey || event.ctrlKey
+
+      if (chord && key === "k") {
+        event.preventDefault()
+        setShortcutsOpen(false)
+        if (paletteOpen) closePalette()
+        else openPalette()
+        return
+      }
+
+      if (chord && key === "/") {
+        event.preventDefault()
+        if (paletteOpen) closePalette()
+        setShortcutsOpen((open) => !open)
+        return
+      }
+
+      if (
+        event.shiftKey &&
+        !chord &&
+        !event.altKey &&
+        key === "n" &&
+        !isTypingTarget(event.target)
+      ) {
+        event.preventDefault()
+        setShortcutsOpen(false)
+        setPaletteOpen(false)
+        setSidebarOpen(false)
+        void startNewChat()
+      }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [paletteOpen, openPalette, closePalette])
+  }, [paletteOpen, openPalette, closePalette, startNewChat])
 
   useEffect(() => {
     if (paletteOpen) return
@@ -86,7 +143,13 @@ export function AppShell() {
     if (!sidebarOpen) {
       if (restoreFocus.current) {
         restoreFocus.current = false
-        triggerRef.current?.focus()
+        if (wide) {
+          // The toggle is `lg:hidden`; on a wide viewport focus a visible
+          // control instead so focus never lands on a hidden element.
+          ;(paletteTriggerRef.current ?? document.getElementById("main-content"))?.focus()
+        } else {
+          triggerRef.current?.focus()
+        }
       }
       return
     }
@@ -136,6 +199,14 @@ export function AppShell() {
   return (
     <PaletteChatProvider>
       <div className="flex h-dvh overflow-hidden bg-app text-base-content">
+        {/* First focusable in the shell so one Tab from page load skips the bar. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-50 focus:rounded-row focus:bg-elevated focus:px-3 focus:py-2 focus:text-sm"
+        >
+          {t("nav.skipToContent")}
+        </a>
+
         {!onCode && sidebarOpen ? (
           <div
             className="fixed inset-0 z-30 bg-scrim lg:hidden"
@@ -151,7 +222,7 @@ export function AppShell() {
             role={sidebarOpen ? "dialog" : undefined}
             aria-modal={sidebarOpen ? true : undefined}
             aria-label={sidebarOpen ? t("session.listLabel") : undefined}
-            inert={drawerHidden || paletteOpen}
+            inert={drawerHidden || paletteOpen || shortcutsOpen}
             className={`fixed inset-y-0 start-0 z-40 transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
             }`}
@@ -168,7 +239,7 @@ export function AppShell() {
 
         <div
           data-testid="app-content"
-          inert={sidebarOpen && !wide ? true : paletteOpen}
+          inert={sidebarOpen && !wide ? true : paletteOpen || shortcutsOpen}
           className="flex min-w-0 flex-1 flex-col"
         >
           {onCode ? null : (
@@ -222,19 +293,13 @@ export function AppShell() {
           <UpdateNotice />
           <InstallHint />
 
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-50 focus:rounded-row focus:bg-elevated focus:px-3 focus:py-2 focus:text-sm"
-          >
-            {t("nav.skipToContent")}
-          </a>
-
           <main id="main-content" className="flex min-h-0 flex-1 flex-col">
             <Outlet />
           </main>
         </div>
 
         <CommandPalette open={paletteOpen} onClose={closePalette} onNotice={setPaletteNotice} />
+        <ShortcutsHelp open={shortcutsOpen} onClose={closeShortcuts} />
         <span role="status" aria-live="polite" data-testid="palette-status" className="sr-only">
           {paletteNotice}
         </span>

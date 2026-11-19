@@ -20,10 +20,12 @@ import { render } from "./render"
 import { search } from "./search"
 import { settings } from "./settings"
 import { shell } from "./shell"
+import { shortcuts } from "./shortcuts"
 import { tasks } from "./tasks"
 
 export const messages = {
   ...shell,
+  ...shortcuts,
   ...code,
   ...search,
   ...apps,
