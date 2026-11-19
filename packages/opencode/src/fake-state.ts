@@ -17,6 +17,8 @@ export interface RunState {
 export interface SessionState {
   info: SessionInfo
   messages: Message[]
+  /** Instruction entries written through `putInstruction`, keyed by entry key. */
+  instructions?: Map<string, string>
 }
 
 export interface QueuedPrompt {

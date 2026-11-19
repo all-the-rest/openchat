@@ -15,6 +15,7 @@
 #   new        -> SESSION_SECRET, CODE_TICKET_SECRET, ARTIFACT_SIGNING_KEY,
 #                 OPENCODE_PASSWORD          `openssl rand`
 #   new        -> ARTIFACT_INTERNAL_TOKEN    `openssl rand -hex 32`
+#   new        -> MEMORY_INTERNAL_TOKEN      `openssl rand -hex 32`
 #   new        -> DOCUMENTS_TOKEN            `openssl rand -hex 32`
 #
 # No value is printed by this script: it names the file, the mode and the keys,
@@ -97,8 +98,8 @@ main() {
     note "env: kept $env_file (it exists; a deploy never overwrites it)"
     note "env: rotate by editing the file in place and recreating the stack; keys:"
     note "env:   SESSION_SECRET, CODE_TICKET_SECRET, ARTIFACT_SIGNING_KEY,"
-    note "env:   OPENCODE_PASSWORD, ARTIFACT_INTERNAL_TOKEN, DOCUMENTS_TOKEN,"
-    note "env:   OPENCHAT_PASSWORD_HASH"
+    note "env:   OPENCODE_PASSWORD, ARTIFACT_INTERNAL_TOKEN, MEMORY_INTERNAL_TOKEN,"
+    note "env:   DOCUMENTS_TOKEN, OPENCHAT_PASSWORD_HASH"
     return 0
   fi
 
@@ -153,6 +154,7 @@ main() {
     printf 'CODE_SESSION_TTL_SECONDS=43200\n'
     printf 'ARTIFACT_SIGNING_KEY=%s\n' "$(openssl rand -base64 32)"
     printf 'ARTIFACT_INTERNAL_TOKEN=%s\n' "$(openssl rand -hex 32)"
+    printf 'MEMORY_INTERNAL_TOKEN=%s\n' "$(openssl rand -hex 32)"
     printf 'DOCUMENTS_TOKEN=%s\n' "$(openssl rand -hex 32)"
     printf 'STT_URL=\n'
     printf 'STT_API_KEY=\n'
@@ -166,7 +168,8 @@ main() {
   note "env:       SESSION_TTL_SECONDS COOKIE_SECURE ALLOW_INSECURE_COOKIE TRUST_PROXY"
   note "env:       OPENCODE_URL OPENCODE_USERNAME OPENCODE_PASSWORD CODE_TICKET_SECRET"
   note "env:       CODE_TICKET_TTL_SECONDS CODE_SESSION_TTL_SECONDS ARTIFACT_SIGNING_KEY"
-  note "env:       ARTIFACT_INTERNAL_TOKEN DOCUMENTS_TOKEN STT_URL STT_API_KEY"
+  note "env:       ARTIFACT_INTERNAL_TOKEN MEMORY_INTERNAL_TOKEN DOCUMENTS_TOKEN"
+  note "env:       STT_URL STT_API_KEY"
 }
 
 main "$@"

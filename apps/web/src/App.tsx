@@ -32,6 +32,7 @@ const ArtifactViewer = lazy(() =>
 const SettingsPage = lazy(() =>
   import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
 )
+const MemoryPage = lazy(() => import("./pages/MemoryPage").then((m) => ({ default: m.MemoryPage })))
 const TasksPage = lazy(() => import("./tasks/TasksPage").then((m) => ({ default: m.TasksPage })))
 
 /**
@@ -226,6 +227,14 @@ function AppRoutes() {
           element={
             <LazyRoute>
               <SettingsPage />
+            </LazyRoute>
+          }
+        />
+        <Route
+          path="/memory"
+          element={
+            <LazyRoute>
+              <MemoryPage />
             </LazyRoute>
           }
         />

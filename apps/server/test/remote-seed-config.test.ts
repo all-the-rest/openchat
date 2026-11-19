@@ -41,7 +41,7 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
     const stack = temp("openchat-seed-dry-")
     writeFileSync(
       join(stack, ".env"),
-      "ARTIFACT_INTERNAL_TOKEN=0123456789abcdef0123456789abcdef\nDOCUMENTS_TOKEN=fedcba9876543210fedcba9876543210\n",
+      "ARTIFACT_INTERNAL_TOKEN=0123456789abcdef0123456789abcdef\nDOCUMENTS_TOKEN=fedcba9876543210fedcba9876543210\nMEMORY_INTERNAL_TOKEN=aaaabbbbccccddddeeeeffff00001111\n",
     )
     const result = bash([SEED, "--stack-dir", stack, "--dry-run"])
     expect(result.status, result.stderr).toBe(0)
@@ -51,15 +51,18 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
     expect(existsSync(join(stack, "opencode-config", "opencode.json"))).toBe(false)
   })
 
-  it("seeds one local entry once, without printing the token", () => {
+  it("seeds the three local entries once, without printing any token", () => {
     const stack = temp("openchat-seed-")
     const token = "0123456789abcdef0123456789abcdef"
     const documentsToken = "fedcba9876543210fedcba9876543210"
-    writeFileSync(join(stack, ".env"), `ARTIFACT_INTERNAL_TOKEN=${token}\nDOCUMENTS_TOKEN=${documentsToken}\n`)
+    const memoryToken = "aaaabbbbccccddddeeeeffff00001111"
+    writeFileSync(join(stack, ".env"), `ARTIFACT_INTERNAL_TOKEN=${token}\nDOCUMENTS_TOKEN=${documentsToken}\nMEMORY_INTERNAL_TOKEN=${memoryToken}\n`)
 
     const result = bash([SEED, "--stack-dir", stack])
     expect(result.status, result.stderr).toBe(0)
     expect(result.stdout).not.toContain(token)
+    expect(result.stdout).not.toContain(memoryToken)
+    expect(result.stdout).not.toContain(documentsToken)
 
     const file = join(stack, "opencode-config", "opencode.json")
     const text = readFileSync(file, "utf8")
@@ -76,10 +79,31 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
     expect(text).toContain('"DOCUMENTS_URL": "http://documents:8099"')
     expect(text).toContain(documentsToken)
 
+    expect(text).toContain('"openchat-memory"')
+    expect(text).toContain("/opt/artifact-tool/packages/memory-tool/src/index.ts")
+    expect(text).toContain('"MEMORY_INTERNAL_TOKEN": "' + memoryToken + '"')
+    // The memory tool is a thin client: it reaches the store through the BFF.
+    expect(text).toContain('"OPENCHAT_BFF_URL": "http://bff:8787"')
+
     const config = JSON.parse(text) as {
+      mcp?: Record<string, { type?: string; command?: string[]; environment?: Record<string, string> }>
       compaction?: { auto?: boolean; buffer?: string; keep?: { tokens?: number } }
       agents?: { compaction?: { model?: string } }
     }
+    expect(Object.keys(config.mcp ?? {}).sort()).toEqual([
+      "openchat",
+      "openchat-memory",
+      "openchat-python",
+    ])
+    expect(config.mcp?.["openchat-memory"]?.type).toBe("local")
+    expect(config.mcp?.["openchat-memory"]?.command).toEqual([
+      "/opt/artifact-tool/node_modules/.bin/tsx",
+      "/opt/artifact-tool/packages/memory-tool/src/index.ts",
+    ])
+    expect(config.mcp?.["openchat-memory"]?.environment).toEqual({
+      OPENCHAT_BFF_URL: "http://bff:8787",
+      MEMORY_INTERNAL_TOKEN: memoryToken,
+    })
     expect(config.compaction).toEqual({
       auto: true,
       buffer: "35%",

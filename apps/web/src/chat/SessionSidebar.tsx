@@ -4,6 +4,7 @@ import { useAuth } from "../auth/provider"
 import {
   AppsIcon,
   ArtifactsIcon,
+  BrainIcon,
   ChevronDownIcon,
   PlusIcon,
   SearchIcon,
@@ -142,6 +143,19 @@ export function SessionSidebar({
           >
             <SearchIcon className="size-4" />
             {t("nav.search")}
+          </NavLink>
+          <NavLink
+            to="/memory"
+            data-testid="nav-memory"
+            onClick={() => onNavigate?.()}
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-row px-2 py-1.5 text-sm ${
+                isActive ? "bg-selected text-base-content" : "text-secondary hover:bg-hover"
+              }`
+            }
+          >
+            <BrainIcon className="size-4" />
+            {t("nav.memory")}
           </NavLink>
           {appsAvailable ? (
             <NavLink

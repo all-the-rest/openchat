@@ -2,9 +2,9 @@
 #
 # Seed the OpenCode MCP configuration once (issue #20).
 #
-# The artifact tool (`packages/artifact-tool`) runs as a stdio MCP server inside
-# the OpenCode container and needs two values: where the BFF is and the shared
-# bearer token. Both belong to the deployment, not to a person, so the deploy
+# The artifact, python and memory tools (`packages/*-tool`) run as stdio MCP
+# servers inside the OpenCode container and need the BFF URL plus their shared
+# bearer tokens. Those belong to the deployment, not to a person, so the deploy
 # script writes them once into the config volume instead of asking the owner to
 # hand-edit a file.
 #
@@ -17,8 +17,8 @@
 # The file is mode 0600. It is bind-mounted into one container that runs as root
 # (the official image sets no user), so the container can read it while host
 # users other than root cannot. That removes the host-user exposure of the
-# token: it authorizes `POST /internal/artifacts` on the BFF, which is reachable
-# only from the compose `backend` network and is not published.
+# tokens: they authorize the `POST /internal/*` write routes on the BFF, which
+# is reachable only from the compose `backend` network and is not published.
 #
 # No value is printed: the script names the path and the number of entries.
 
@@ -33,6 +33,7 @@ TOOL_DIR=/opt/artifact-tool/packages/artifact-tool
 TOOL_COMMAND_TSX=/opt/artifact-tool/node_modules/.bin/tsx
 TOOL_ENTRY=/opt/artifact-tool/packages/artifact-tool/src/index.ts
 PYTHON_TOOL_ENTRY=/opt/artifact-tool/packages/python-tool/src/index.ts
+MEMORY_TOOL_ENTRY=/opt/artifact-tool/packages/memory-tool/src/index.ts
 PYTHON_BIN=/usr/bin/python3
 BFF_URL=http://bff:8787
 DOCUMENTS_URL=http://documents:8099
@@ -104,11 +105,13 @@ main() {
   fi
 
   [ -r "$STACK_DIR/.env" ] || die "missing $STACK_DIR/.env; run env-bootstrap.sh first"
-  local token documents_token
+  local token documents_token memory_token
   token=$(env_value ARTIFACT_INTERNAL_TOKEN)
   [ -n "$token" ] || die "$STACK_DIR/.env has no ARTIFACT_INTERNAL_TOKEN"
   documents_token=$(env_value DOCUMENTS_TOKEN)
   [ -n "$documents_token" ] || die "$STACK_DIR/.env has no DOCUMENTS_TOKEN"
+  memory_token=$(env_value MEMORY_INTERNAL_TOKEN)
+  [ -n "$memory_token" ] || die "$STACK_DIR/.env has no MEMORY_INTERNAL_TOKEN"
 
   if [ "$DRY_RUN" -eq 1 ]; then
     note "would: configure compaction auto=true buffer=35% keep.tokens=12000"
@@ -143,6 +146,15 @@ main() {
         "DOCUMENTS_URL": "$DOCUMENTS_URL",
         "DOCUMENTS_TOKEN": "$documents_token"
       }
+    },
+    "openchat-memory": {
+      "type": "local",
+      "command": ["$TOOL_COMMAND_TSX", "$MEMORY_TOOL_ENTRY"],
+      "enabled": true,
+      "environment": {
+        "OPENCHAT_BFF_URL": "$BFF_URL",
+        "MEMORY_INTERNAL_TOKEN": "$memory_token"
+      }
     }
   },
   "compaction": {
@@ -158,7 +170,7 @@ JSON
   mv "$tmp" "$file"
 
   note "config: wrote $file (0600, local MCP entries for $BFF_URL); token not shown"
-  note "config: tools = $TOOL_DIR and $PYTHON_TOOL_ENTRY; re-check after an OpenCode config-schema upgrade"
+  note "config: tools = $TOOL_DIR, $PYTHON_TOOL_ENTRY and $MEMORY_TOOL_ENTRY; re-check after an OpenCode config-schema upgrade"
 }
 
 main "$@"

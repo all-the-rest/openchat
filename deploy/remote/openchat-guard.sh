@@ -87,7 +87,7 @@ main() {
   parse_args "$@"
 
   missing=""
-  for name in artifacts workspace dind; do
+  for name in artifacts workspace dind memory; do
     marker="$STACK_DIR/disks/$name/$MARKER"
     if [ ! -f "$marker" ]; then
       warn "missing disk marker: $marker"

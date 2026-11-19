@@ -13,10 +13,10 @@
 #      registry in the loop yet (GHCR is an owner step), so the tag is the short
 #      commit sha the deploy script exports as OPENCHAT_TAG.
 #   3. Storage is bounded. Memory gets a per-service limit that fits beside the
-#      predecessor stack, and the three large directories are mounted from ext4
+#      predecessor stack, and the four large directories are mounted from ext4
 #      images the deploy script creates, mounts and size-caps (artifacts 2 GiB,
-#      workspace 4 GiB, dind 4 GiB). Without `--with-dind` the last one is
-#      mounted but unused.
+#      workspace 4 GiB, dind 4 GiB, memory 1 GiB). Without `--with-dind` the
+#      dind image is mounted but unused.
 #
 # The loopback `ports:` entries from the base file stay: they are the
 # validation path `deploy/swap.sh` probes, and 127.0.0.1 is not reachable from
@@ -30,6 +30,9 @@
 # base defaults in production. Anything added to compose.yaml needs an entry
 # here for its memory cap and its disk binds; `remote-compose-merge.test.ts`
 # fails on the merged config when it does not.
+#
+# The BFF's memory store is a sixth bind from its own disk image, so the
+# `/workspace/.memory` mount is host-backed and size-capped like `/artifacts`.
 
 name: openchat
 
@@ -38,7 +41,7 @@ services:
   # each mounted image; an unmounted bind directory is empty and fails here.
   # Without this, a failed mount would let Docker start the stack on the root
   # filesystem, silently without the size caps and with an empty workspace.
-  # `alpine:3` is the smallest stock image; the check is three `test -f`s. The
+  # `alpine:3` is the smallest stock image; the check is four `test -f`s. The
   # tag is pinned by index digest (multi-arch) so the start path cannot fetch a
   # different image than the one that was reviewed. Bump command:
   #   docker buildx imagetools inspect alpine:3
@@ -55,12 +58,14 @@ services:
       - >-
         test -f /disks/artifacts/.openchat-disk &&
         test -f /disks/workspace/.openchat-disk &&
-        test -f /disks/dind/.openchat-disk
+        test -f /disks/dind/.openchat-disk &&
+        test -f /disks/memory/.openchat-disk
     restart: "no"
     volumes:
       - /opt/stacks/openchat/disks/artifacts:/disks/artifacts:ro
       - /opt/stacks/openchat/disks/workspace:/disks/workspace:ro
       - /opt/stacks/openchat/disks/dind:/disks/dind:ro
+      - /opt/stacks/openchat/disks/memory:/disks/memory:ro
 
   bff:
     image: openchat-bff:${OPENCHAT_TAG:-local}
@@ -97,6 +102,10 @@ services:
       # rest of the agent's workspace read-only; mount-disks.sh creates the
       # directory and gives it the service uid before the container starts.
       - /opt/stacks/openchat/disks/workspace/chats:/workspace/chats
+      # Agent memory (issue #49): a bind from its own disk image, replacing the
+      # base `memory-data` volume. The BFF is the only writer; OpenCode has no
+      # memory mount and reaches the store through the BFF's internal route.
+      - /opt/stacks/openchat/disks/memory:/workspace/.memory
 
   code-host:
     image: openchat-code-host:${OPENCHAT_TAG:-local}

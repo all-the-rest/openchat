@@ -74,6 +74,15 @@ export class FakeHostSwitch implements ChatBackend {
     return this.backend.createSession(input)
   }
 
+  async putInstruction(
+    sessionID: string,
+    key: string,
+    value: string,
+  ): ReturnType<ChatBackend["putInstruction"]> {
+    this.guard()
+    return this.backend.putInstruction(sessionID, key, value)
+  }
+
   async listMessages(sessionID: string): ReturnType<ChatBackend["listMessages"]> {
     this.guard()
     return this.backend.listMessages(sessionID)

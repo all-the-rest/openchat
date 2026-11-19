@@ -3,10 +3,11 @@
 # Backup and restore-check for the OpenChat stack (issue #9, M7). Runs on the
 # host, as root, beside the deployed stack.
 #
-# One timestamped archive outside the stack holds the five sources a restore
+# One timestamped archive outside the stack holds the six sources a restore
 # needs: .env (0600), opencode-config/, the opencode-data volume,
-# disks/artifacts/ and disks/workspace/ (with chats/). Inside: manifest.txt and
-# checksums.sha256; beside it: <name>.sha256 and <name>.manifest.txt.
+# disks/artifacts/, disks/workspace/ (with chats/) and disks/memory/ (the agent
+# memory store). Inside: manifest.txt and checksums.sha256; beside it:
+# <name>.sha256 and <name>.manifest.txt.
 #
 # Safety: a missing, unreadable or symlinked source stops the run before
 # anything is written; inner symlinks are archived as links, never read;
@@ -238,6 +239,7 @@ create_backup() {
   local stamp archive_name archive_path tmp_archive stage checksum_lines mode
   local env_bytes config_bytes config_files volume_bytes volume_files
   local artifacts_bytes artifacts_files workspace_bytes workspace_files total
+  local memory_bytes memory_files
 
   resolve_stack
   check_out_dir
@@ -247,6 +249,7 @@ create_backup() {
   require_source "$STACK_DIR/opencode-config" "seeded OpenCode config" dir
   require_source "$STACK_DIR/disks/artifacts" "artifact store" dir
   require_source "$STACK_DIR/disks/workspace" "workspace and chat files" dir
+  require_source "$STACK_DIR/disks/memory" "memory store" dir
   resolve_volume
   [ "${VOLUME_UNRESOLVED:-0}" -ne 0 ] || require_source "$VOLUME_SOURCE" "OpenCode data volume" dir
 
@@ -257,6 +260,8 @@ create_backup() {
   artifacts_files=$(tree_files "$STACK_DIR/disks/artifacts")
   workspace_bytes=$(tree_bytes "$STACK_DIR/disks/workspace")
   workspace_files=$(tree_files "$STACK_DIR/disks/workspace")
+  memory_bytes=$(tree_bytes "$STACK_DIR/disks/memory")
+  memory_files=$(tree_files "$STACK_DIR/disks/memory")
   if [ "${VOLUME_UNRESOLVED:-0}" -eq 0 ]; then
     volume_bytes=$(tree_bytes "$VOLUME_SOURCE")
     volume_files=$(tree_files "$VOLUME_SOURCE")
@@ -264,7 +269,7 @@ create_backup() {
     volume_bytes=0
     volume_files=0
   fi
-  total=$((env_bytes + config_bytes + volume_bytes + artifacts_bytes + workspace_bytes))
+  total=$((env_bytes + config_bytes + volume_bytes + artifacts_bytes + workspace_bytes + memory_bytes))
 
   stamp=${STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}
   archive_name="$PREFIX-$stamp.tar.gz"
@@ -278,6 +283,7 @@ create_backup() {
     plan "include opencode-data ($volume_files files, $volume_bytes bytes) from $VOLUME_SOURCE"
     plan "include artifacts ($artifacts_files files, $artifacts_bytes bytes) from $STACK_DIR/disks/artifacts"
     plan "include workspace ($workspace_files files, $workspace_bytes bytes) from $STACK_DIR/disks/workspace"
+    plan "include memory ($memory_files files, $memory_bytes bytes) from $STACK_DIR/disks/memory"
     plan "require about $((total / 1024 + total / 20480 + 1)) KiB free in $OUT_DIR"
     plan "write manifest.txt and checksums.sha256 into the archive and beside it"
     prune_archives
@@ -306,12 +312,13 @@ create_backup() {
     manifest_row volume opencode-data "$volume_bytes" "$volume_files" "$VOLUME_SOURCE"
     manifest_row dir artifacts "$artifacts_bytes" "$artifacts_files" "$STACK_DIR/disks/artifacts"
     manifest_row dir workspace "$workspace_bytes" "$workspace_files" "$STACK_DIR/disks/workspace"
+    manifest_row dir memory "$memory_bytes" "$memory_files" "$STACK_DIR/disks/memory"
   } > "$MANIFEST_TMP"
 
   {
     ( cd "$STACK_DIR" && find .env opencode-config -type f -print0 |
         LC_ALL=C sort -z | xargs -0 -r "${HASH_CMD[@]}" )
-    ( cd "$STACK_DIR/disks" && find artifacts workspace -type f -print0 |
+    ( cd "$STACK_DIR/disks" && find artifacts workspace memory -type f -print0 |
         LC_ALL=C sort -z | xargs -0 -r "${HASH_CMD[@]}" )
     ( cd "$stage/volume" && find opencode-data -type f -print0 |
         LC_ALL=C sort -z | xargs -0 -r "${HASH_CMD[@]}" )
@@ -322,7 +329,7 @@ create_backup() {
   if ! tar -czf "$tmp_archive" \
       -C "$stage" manifest.txt checksums.sha256 \
       -C "$STACK_DIR" .env opencode-config \
-      -C "$STACK_DIR/disks" artifacts workspace \
+      -C "$STACK_DIR/disks" artifacts workspace memory \
       -C "$stage/volume" opencode-data; then
     rm -f "$tmp_archive"
     die "tar failed while reading the stack (live writes?); no archive was kept. Use a quiet window."
@@ -335,7 +342,7 @@ create_backup() {
   mv -f "$tmp_archive" "$archive_path"
   write_sidecars "$archive_path"
   note "backup: $archive_path ($(file_bytes "$archive_path") bytes, $checksum_lines checksums)"
-  note "sources: .env, opencode-config, opencode-data, artifacts, workspace"
+  note "sources: .env, opencode-config, opencode-data, artifacts, workspace, memory"
   prune_archives
 }
 
@@ -345,7 +352,7 @@ archive_is_safe() {
   local listing
   listing=$(tar -tzf "$1" 2>/dev/null) || return 1
   printf '%s\n' "$listing" | grep -Eq '(^/|(^|/)\.\.(/|$))' && return 1
-  if printf '%s\n' "$listing" | cut -d/ -f1 | grep -Evq '^(manifest\.txt|checksums\.sha256|\.env|opencode-config|opencode-data|artifacts|workspace)$'; then
+  if printf '%s\n' "$listing" | cut -d/ -f1 | grep -Evq '^(manifest\.txt|checksums\.sha256|\.env|opencode-config|opencode-data|artifacts|workspace|memory)$'; then
     return 1
   fi
   return 0

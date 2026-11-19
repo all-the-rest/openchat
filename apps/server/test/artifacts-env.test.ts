@@ -14,6 +14,7 @@ function load(
       WORKSPACE_DIR: "/workspace",
       OPENCHAT_PASSWORD: "secret-password",
       SESSION_SECRET: "test-secret-test-secret-test-secret",
+      MEMORY_INTERNAL_TOKEN: "test-memory-internal-token-0123456789",
       ...overrides,
     },
     warn,

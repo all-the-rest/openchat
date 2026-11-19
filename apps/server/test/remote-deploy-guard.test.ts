@@ -37,7 +37,7 @@ function fixture(name = "stack"): Fixture {
   stub(bin, "docker", DOCKER_STUB, "#!/bin/sh")
 
   const stack = join(root, name)
-  for (const disk of ["artifacts", "workspace", "dind"]) {
+  for (const disk of ["artifacts", "workspace", "dind", "memory"]) {
     mkdirSync(join(stack, "disks", disk), { recursive: true })
     writeFileSync(join(stack, "disks", disk, ".openchat-disk"), `${disk}\n`)
   }

@@ -52,13 +52,18 @@ const MERGED = JSON.parse(
 const SERVICES = MERGED.services
 
 /** Targets whose storage must come from a loopback ext4 image, not a volume. */
-const DISK_TARGETS = ["/artifacts", "/workspace", "/home/rootless/.local/share/docker"]
+const DISK_TARGETS = [
+  "/artifacts",
+  "/workspace",
+  "/workspace/.memory",
+  "/home/rootless/.local/share/docker",
+]
 
 /** Images that may stay external. Everything else is built from this tree. */
 const UPSTREAM = new Set([
   // The rootless daemon is the upstream image, pinned by digest in compose.yaml.
   "dind",
-  // The disk gate is a stock `alpine:3` one-shot: three `test -f`, no data.
+  // The disk gate is a stock `alpine:3` one-shot: four `test -f`, no data.
   "disks-ready",
 ])
 
@@ -85,6 +90,19 @@ describe("merged remote compose", () => {
     expect(wrong).toEqual([])
     // Every disk is covered, so a removed mount cannot pass this test.
     expect([...seen].sort()).toEqual([...DISK_TARGETS].sort())
+  })
+
+  it("mounts the memory store from its own disk into the BFF alone, read-write", () => {
+    // Issue #49: the BFF is the only writer. OpenCode has no memory mount at
+    // all, so a root-started container cannot seed a root-owned volume.
+    const mounters = Object.entries(SERVICES)
+      .filter(([, service]) => service.volumes?.some((m) => m.target === "/workspace/.memory"))
+      .map(([name]) => name)
+    expect(mounters).toEqual(["bff"])
+    const mount = SERVICES.bff?.volumes?.find((m) => m.target === "/workspace/.memory")
+    expect(mount?.type).toBe("bind")
+    expect(mount?.source).toBe("/opt/stacks/openchat/disks/memory")
+    expect(mount?.read_only).not.toBe(true)
   })
 
   it("hands the chat-files subtree to the same directory in every writer", () => {

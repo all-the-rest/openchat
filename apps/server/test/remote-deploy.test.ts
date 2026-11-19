@@ -121,6 +121,17 @@ describe("derived OpenCode image", () => {
     )
   })
 
+  it("ships the memory MCP tool beside the other tools on the shared tsx binary", () => {
+    expect(DOCKERFILE).toContain("COPY packages/memory-tool/package.json ./packages/memory-tool/package.json")
+    expect(DOCKERFILE).toContain("COPY packages/memory-tool ./packages/memory-tool")
+    expect(DOCKERFILE.replace(/\\\n/g, " ")).toMatch(
+      /pnpm install [^\n]*--prod[^\n]*--filter @openchat\/memory-tool/,
+    )
+    expect(DOCKERFILE).toContain("test -f /opt/artifact-tool/packages/memory-tool/src/index.ts")
+    // The seed config launches every tool through the same pinned tsx path.
+    expect(DOCKERFILE).toContain("/opt/artifact-tool/node_modules/.bin/tsx")
+  })
+
   it("copies only paths that exist in the repository", () => {
     const dockerfiles = [
       ...readdirSync(join(ROOT, "deploy"))
@@ -170,7 +181,9 @@ describe("remote overlay", () => {
   it("gates every disk consumer on the marker inside the mounted image", () => {
     const gate = serviceBlock(REMOTE, "disks-ready")
     expect(gate).toContain("alpine:3")
-    expect(gate.match(/\.openchat-disk/g)).toHaveLength(3)
+    expect(gate.match(/\.openchat-disk/g)).toHaveLength(4)
+    expect(gate).toContain("test -f /disks/memory/.openchat-disk")
+    expect(gate).toMatch(/disks\/memory:\/disks\/memory:ro/)
     for (const name of ["bff", "artifact-host", "opencode", "toolbox", "dind"]) {
       expect(serviceBlock(REMOTE, name), `${name} must wait for the disks`).toContain(
         "condition: service_completed_successfully",
@@ -210,6 +223,8 @@ describe("deploy script", { timeout: 60_000 }, () => {
     expect(DEPLOY).toContain("DIND_MIN_AVAILABLE_MIB=5120")
     expect(DEPLOY).toContain("/proc/meminfo")
     expect(DEPLOY).toContain("disks/layout")
+    expect(DEPLOY).toContain("--memory-size")
+    expect(DEPLOY).toContain("memory=")
     expect(DEPLOY).toContain("--with-dind")
   })
 
@@ -282,6 +297,7 @@ describe("env bootstrap", { timeout: 60_000 }, () => {
     expect(text).toContain("OPENCHAT_USER=owner")
     expect(text).toContain(`OPENCHAT_PASSWORD_HASH=${escapeValue(DIGEST)}`)
     expect(text).toMatch(/^ARTIFACT_INTERNAL_TOKEN=[0-9a-f]{64}$/m)
+    expect(text).toMatch(/^MEMORY_INTERNAL_TOKEN=[0-9a-f]{64}$/m)
     expect(text).toMatch(/^DOCUMENTS_TOKEN=[0-9a-f]{64}$/m)
     expect(text).toMatch(/^OPENCODE_PASSWORD=.{16,}$/m)
 
@@ -298,15 +314,18 @@ describe("env bootstrap", { timeout: 60_000 }, () => {
 })
 
 describe("size-capped disks", { timeout: 60_000 }, () => {
-  it("prints the 2/4/4 GiB plan, the temp image and the ownership step", () => {
+  it("prints the 2/4/4/1 GiB plan, the temp images and the ownership step", () => {
     const stack = temp("openchat-disks-")
     const result = bash([DISKS, "--stack-dir", stack, "--dry-run"])
     expect(result.status, result.stderr).toBe(0)
     expect(result.stdout).toContain("would: truncate -s 2G")
     expect(result.stdout).toContain("would: truncate -s 4G")
+    expect(result.stdout).toContain("would: truncate -s 1G")
     expect(result.stdout).toContain("artifacts.img.tmp")
+    expect(result.stdout).toContain("memory.img.tmp")
     expect(result.stdout).toContain("would: mkfs.ext4 -F -q")
     expect(result.stdout).toContain("would: chown 1000:1000")
+    expect(result.stdout).toContain("would: chmod 700")
     expect(result.stdout).toContain(".openchat-disk")
     expect(existsSync(join(stack, "disks", "artifacts.img"))).toBe(false)
     expect(existsSync(join(stack, "disks", "artifacts.img.tmp"))).toBe(false)

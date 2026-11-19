@@ -9,6 +9,7 @@ import { INTERNAL_ARTIFACTS_PATH } from "./artifacts-internal"
 import { reportChatFileOrphans } from "./chat-files-audit"
 import { isChatFilesUploadPath } from "./chat-files-paths"
 import { loadEnv } from "./env"
+import { INTERNAL_MEMORY_PATH, MEMORY_BODY_MAX_BYTES } from "./memory-route"
 import { serveModelFile } from "./models"
 import { ARTIFACT_BODY_MAX_BYTES, MAX_BODY_BYTES } from "./limits"
 import { pumpResponseBody } from "./pump"
@@ -141,7 +142,9 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
       ? CHAT_FILE_BODY_CEILING_BYTES
       : url.pathname === INTERNAL_ARTIFACTS_PATH
         ? ARTIFACT_BODY_MAX_BYTES
-        : MAX_BODY_BYTES
+        : url.pathname === INTERNAL_MEMORY_PATH
+          ? MEMORY_BODY_MAX_BYTES
+          : MAX_BODY_BYTES
     const declared = Number(request.headers["content-length"] ?? "")
     if (Number.isFinite(declared) && declared > bodyCap) {
       request.resume()

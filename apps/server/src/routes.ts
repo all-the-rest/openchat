@@ -1,5 +1,5 @@
 import type { Hono } from "hono"
-import { STT_MODEL_ID } from "@openchat/contracts"
+import { MEMORY_INDEX_KEY, STT_MODEL_ID } from "@openchat/contracts"
 import type { ChatBackend } from "@openchat/opencode"
 import { FakeHostSwitch, SUPPORTED_OPENCODE_MAJOR_LABEL } from "@openchat/opencode"
 import {
@@ -41,6 +41,13 @@ import type { AppsProbe } from "./apps-cache"
 import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
 import { registerArtifactInternalRoute } from "./artifacts-internal"
 import { registerChatFilesRoutes } from "./chat-files"
+import type { MemoryInvalidator } from "./memory-route"
+import {
+  createMemoryInvalidator,
+  registerMemoryInternalRoute,
+  registerMemoryRoutes,
+} from "./memory-route"
+import { createMemoryStore } from "./memory-store"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
 import { registerSearchRoute } from "./search"
@@ -202,7 +209,16 @@ function registerInfoRoutes(app: Hono<AppEnv>, deps: RouteDeps, appsCache: AppsC
   })
 }
 
-function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
+interface SessionMemory {
+  store: ReturnType<typeof createMemoryStore>
+  invalidator: MemoryInvalidator
+}
+
+function registerSessionRoutes(
+  app: Hono<AppEnv>,
+  deps: RouteDeps,
+  memory: SessionMemory,
+): void {
   const { config, backend } = deps
 
   app.get("/api/sessions", async (c) => {
@@ -224,6 +240,15 @@ function registerSessionRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
       title: parsed.data.title,
       directory: config.WORKSPACE_DIR,
     })
+    memory.invalidator.noteSession(session.id)
+    try {
+      // The injected index is a convenience, never a reason to fail a create:
+      // store and host errors are both ignored here.
+      const value = memory.store.index().index
+      await backend.putInstruction(session.id, MEMORY_INDEX_KEY, value)
+    } catch {
+      // Session creation succeeds even when the host has no instruction port.
+    }
     return c.json(session satisfies SessionInfo)
   })
 
@@ -280,10 +305,13 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
       now: deps.appsNow,
     })
 
+  const memoryStore = createMemoryStore({ dir: deps.config.MEMORY_DATA_DIR })
+  const memoryInvalidator = createMemoryInvalidator(deps.backend, memoryStore)
+
   registerAuthRoutes(app, deps)
   registerInfoRoutes(app, deps, appsCache)
   registerCatalogRoutes(app, deps.backend)
-  registerSessionRoutes(app, deps)
+  registerSessionRoutes(app, deps, { store: memoryStore, invalidator: memoryInvalidator })
   registerPromptRoute(app, deps)
   registerPermissionRoutes(app, deps.backend)
   registerCodeRoutes(app, {
@@ -307,6 +335,17 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerArtifactInternalRoute(app, {
     config: deps.config,
     now: deps.artifactsNow,
+  })
+  registerMemoryInternalRoute(app, {
+    config: deps.config,
+    store: memoryStore,
+    invalidator: memoryInvalidator,
+  })
+  registerMemoryRoutes(app, {
+    config: deps.config,
+    store: memoryStore,
+    backends: deps.backend,
+    invalidator: memoryInvalidator,
   })
   registerChatFilesRoutes(app, deps.config)
   registerSearchRoute(app, deps.backend)

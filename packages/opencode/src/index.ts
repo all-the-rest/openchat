@@ -119,6 +119,8 @@ export interface ChatBackend {
   info(): Promise<ServerInfo>
   listSessions(): Promise<SessionInfo[]>
   createSession(input: CreateSessionInput): Promise<SessionInfo>
+  /** Stores one instruction entry for a session, replacing any previous value. */
+  putInstruction(sessionID: string, key: string, value: string): Promise<void>
   listMessages(sessionID: string): Promise<Message[]>
   prompt(sessionID: string, input: PromptInput): Promise<PromptResult>
   /** Pending turns of a session, oldest first. */

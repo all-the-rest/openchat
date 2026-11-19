@@ -13,6 +13,11 @@ msgid "tasks.schedules.runs"
 msgstr "{count, plural, one {# run} other {# runs}}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.toggleChildren"
+msgstr "{count, plural, one {# subagent chat} other {# subagent chats}}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.groupCount"
 msgstr "{count} found"
@@ -88,14 +93,34 @@ msgid "app.tagline"
 msgstr "A workspace for your agent."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.action"
+msgstr "Action"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.actions"
+msgstr "Actions"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/palette.ts
 msgid "palette.actions"
 msgstr "Actions"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.status.active"
+msgstr "Active"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.status.active"
 msgstr "Active"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.actor"
+msgstr "Actor"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -106,6 +131,11 @@ msgstr "Add {name} to favorites"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.create.after"
 msgstr "After a duration"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.agentBadge"
+msgstr "Agent"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -188,6 +218,11 @@ msgid "apps.loadFailed"
 msgstr "Apps could not be loaded."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/files.ts
+msgid "files.kind.archive"
+msgstr "Archive"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.viewerTitle"
 msgstr "Artifact"
@@ -258,6 +293,11 @@ msgid "composer.attachmentsLabel"
 msgstr "Attachments"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.auditHeading"
+msgstr "Audit"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.auto"
 msgstr "Auto"
@@ -278,6 +318,11 @@ msgid "settings.available"
 msgstr "Available"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.backToParent"
+msgstr "Back to {title}"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.back"
 msgstr "Back to artifacts"
@@ -291,6 +336,11 @@ msgstr "Background jobs"
 #: src/i18n/messages/chat.ts
 msgid "usage.cached"
 msgstr "Cached tokens"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.cancel"
+msgstr "Cancel"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -346,11 +396,6 @@ msgstr "Chat exported."
 #: src/i18n/messages/files.ts
 msgid "files.quotaLabel"
 msgstr "Chat file storage"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/files.ts
-msgid "files.kind.archive"
-msgstr "Archive"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -454,11 +499,6 @@ msgstr "Compaction failed"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
-msgid "chat.compactionRetry"
-msgstr "Retry compaction"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
 msgid "chat.compactionEnded"
 msgstr "Compaction finished"
 
@@ -476,6 +516,11 @@ msgstr "Completed"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.action.confirm"
 msgstr "Confirm deletion of {title}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.confirmed"
+msgstr "Confirmed"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
@@ -503,23 +548,14 @@ msgid "chat.connectionLost"
 msgstr "Connection lost — reconnecting…"
 
 #. js-lingui-explicit-id
-#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
-msgid "chat.contextWindow"
-msgstr "Context window: {tokens} tokens"
+msgid "chat.contextCompactionFailedNotice"
+msgstr "Context compaction failed; sending your message anyway."
+
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "usage.contextLimit"
 msgstr "Context limit"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "usage.fill"
-msgstr "Context window fill"
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "chat.contextCompactionFailedNotice"
-msgstr "Context compaction failed; sending your message anyway."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -530,6 +566,16 @@ msgstr "Context usage unknown"
 #: src/i18n/messages/chat.ts
 msgid "chat.contextCompactedNotice"
 msgstr "Context was compacted before sending your message."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "usage.fill"
+msgstr "Context window fill"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.contextWindow"
+msgstr "Context window: {tokens} tokens"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -587,6 +633,11 @@ msgid "tasks.create.submit"
 msgstr "Create schedule"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.created"
+msgstr "Created"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftData"
 msgstr "Data"
@@ -612,6 +663,11 @@ msgid "settings.defaults"
 msgstr "Defaults for new chats"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.delete"
+msgstr "Delete"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.delete"
 msgstr "Delete"
@@ -632,6 +688,11 @@ msgid "dictation.model.delete"
 msgstr "Delete downloaded speech model"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.deleteConfirm"
+msgstr "Delete fact"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
 msgid "files.deleteConfirm"
 msgstr "Delete file"
@@ -640,6 +701,11 @@ msgstr "Delete file"
 #: src/i18n/messages/files.ts
 msgid "files.deleteTitle"
 msgstr "Delete this file?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.status.deleted"
+msgstr "Deleted"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -782,6 +848,11 @@ msgid "tasks.create.duration"
 msgstr "Duration (for example, 30 minutes)"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.edit"
+msgstr "Edit"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.elapsed"
 msgstr "Elapsed {duration}"
@@ -830,6 +901,41 @@ msgstr "Error"
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.exitPresent"
 msgstr "Exit present"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.status.expired"
+msgstr "Expired"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.trust.explicit"
+msgstr "Explicit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.export"
+msgstr "Export JSON"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.fact"
+msgstr "Fact"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.textLabel"
+msgstr "Fact text"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.factsHeading"
+msgstr "Facts"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.description"
+msgstr "Facts the agent remembers about you. You have the final say."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -917,6 +1023,11 @@ msgid "artifacts.description"
 msgstr "HTML documents your agent has written. Each one runs sandboxed on a separate origin."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.id"
+msgstr "ID"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.kind.image"
 msgstr "Image"
@@ -935,6 +1046,16 @@ msgstr "Image gallery"
 #: src/i18n/messages/chat.ts
 msgid "chat.capabilityImage"
 msgstr "Image input"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.childOf"
+msgstr "in {title}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.trust.inferred"
+msgstr "Inferred"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/render.ts
@@ -982,6 +1103,11 @@ msgid "chat.jumpToLatest"
 msgstr "Jump to latest message"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.kind"
+msgstr "Kind"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
 msgid "tasks.schedules.error"
 msgstr "Last run failed: {text}"
@@ -1015,6 +1141,11 @@ msgstr "Loading artifacts…"
 #: src/i18n/messages/chat.ts
 msgid "session.loading"
 msgstr "Loading chats…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.loading"
+msgstr "Loading memory…"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1055,6 +1186,21 @@ msgstr "MCP server"
 #: src/i18n/messages/apps.ts
 msgid "apps.description"
 msgstr "MCP servers and skills of this workspace. Status comes from the host."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "nav.memory"
+msgstr "Memory"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.title"
+msgstr "Memory"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.loadFailed"
+msgstr "Memory could not be loaded."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
@@ -1137,6 +1283,11 @@ msgid "tasks.jobs.empty"
 msgstr "No background jobs right now."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.empty"
+msgstr "No changes recorded yet."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/palette.ts
 msgid "palette.noResults"
 msgstr "No chats match “{query}”."
@@ -1165,6 +1316,11 @@ msgstr "No matching models"
 #: src/i18n/messages/apps.ts
 msgid "apps.noServers"
 msgstr "No MCP servers are configured."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.empty"
+msgstr "No memory facts yet."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -1220,6 +1376,11 @@ msgstr "Not reachable"
 #: src/i18n/messages/chat.ts
 msgid "usage.notReportedShort"
 msgstr "Not reported"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.trust.observed"
+msgstr "Observed"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/code.ts
@@ -1392,6 +1553,16 @@ msgid "chat.statusReady"
 msgstr "Ready"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.reason"
+msgstr "Reason"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.deleteReasonLabel"
+msgstr "Reason for deletion"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.capabilityReasoning"
 msgstr "Reasoning"
@@ -1492,6 +1663,11 @@ msgid "tasks.action.resume"
 msgstr "Resume {title}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/apps.ts
 msgid "apps.retry"
 msgstr "Retry"
@@ -1542,6 +1718,11 @@ msgid "tasks.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.compactionRetry"
+msgstr "Retry compaction"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.retry"
 msgstr "Retry transcription"
@@ -1565,6 +1746,11 @@ msgstr "Running"
 #: src/i18n/messages/apps.ts
 msgid "apps.autoHint"
 msgstr "Runs automatically when relevant"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.save"
+msgstr "Save"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/tasks.ts
@@ -1762,6 +1948,11 @@ msgid "nav.skipToContent"
 msgstr "Skip to content"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.source"
+msgstr "Source"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.sources"
 msgstr "Sources"
@@ -1780,6 +1971,11 @@ msgstr "Start dictation"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.jobs.started"
 msgstr "Started: {when}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.status"
+msgstr "Status"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
@@ -1808,6 +2004,11 @@ msgstr "Subagent"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
+msgid "session.childrenLabel"
+msgstr "Subagent chats"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
 msgid "chat.compactNowHint"
 msgstr "Summarise older turns to free context."
 
@@ -1815,6 +2016,11 @@ msgstr "Summarise older turns to free context."
 #: src/i18n/messages/chat.ts
 msgid "chat.compactionSummaryLabel"
 msgstr "Summary"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.status.superseded"
+msgstr "Superseded"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/shell.ts
@@ -1850,6 +2056,11 @@ msgstr "Tasks"
 #: src/i18n/messages/tasks.ts
 msgid "tasks.loadFailed"
 msgstr "Tasks could not be loaded."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.text"
+msgstr "Text"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
@@ -1945,6 +2156,16 @@ msgstr "The conversation could not be compacted."
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.downloadFailed"
 msgstr "The download failed. Try again."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.deleteFailed"
+msgstr "The fact could not be deleted."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.saveFailed"
+msgstr "The fact could not be saved."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/files.ts
@@ -2102,6 +2323,11 @@ msgid "search.disabledHint"
 msgstr "This source is not configured on the host and was not queried."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.audit.time"
+msgstr "Time"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/artifacts.ts
 msgid "artifacts.draftTitle"
 msgstr "Title"
@@ -2147,9 +2373,24 @@ msgid "chat.capabilityTools"
 msgstr "Tools"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.topic"
+msgstr "Topic"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.topicLabel"
+msgstr "Topic"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/dictation.ts
 msgid "dictation.transcribing"
 msgstr "Transcribing…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.col.trust"
+msgstr "Trust"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
@@ -2227,6 +2468,11 @@ msgid "landing.heading"
 msgstr "What do you want to work on?"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/memory.ts
+msgid "memory.deleteReasonPlaceholder"
+msgstr "Why is this fact no longer valid?"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/search.ts
 msgid "search.sourceWorkspace"
 msgstr "Workspace"
@@ -2260,28 +2506,3 @@ msgstr "Your message could not be sent."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Your message is queued until the current run finishes."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "session.agentBadge"
-msgstr "Agent"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "session.childOf"
-msgstr "in {title}"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "session.childrenLabel"
-msgstr "Subagent chats"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "session.toggleChildren"
-msgstr "{count, plural, one {# subagent chat} other {# subagent chats}}"
-
-#. js-lingui-explicit-id
-#: src/i18n/messages/chat.ts
-msgid "session.backToParent"
-msgstr "Back to {title}"

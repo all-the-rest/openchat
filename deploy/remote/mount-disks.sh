@@ -11,6 +11,7 @@
 #   disks/artifacts.img  2 GiB  ->  disks/artifacts   bff (rw), artifact-host (ro)
 #   disks/workspace.img  4 GiB  ->  disks/workspace   opencode, toolbox, bff (ro)
 #   disks/dind.img       4 GiB  ->  disks/dind        dind rootless storage
+#   disks/memory.img     1 GiB  ->  disks/memory      bff (rw) — agent memory store
 #
 # The images are created once (`truncate` + `mkfs.ext4`) and then only mounted.
 # Rerunning is a no-op; `--umount` detaches them and refuses while an OpenChat
@@ -41,6 +42,7 @@ STACK_DIR=/opt/stacks/openchat
 ARTIFACTS_SIZE=2G
 WORKSPACE_SIZE=4G
 DIND_SIZE=4G
+MEMORY_SIZE=1G
 RESERVE=10G
 SIZE_FLAGS=""
 UMOUNT=0
@@ -63,6 +65,7 @@ Options:
   --artifacts-size SIZE  artifacts image size (default: 2G)
   --workspace-size SIZE  workspace image size (default: 4G)
   --dind-size SIZE       dind image size (default: 4G)
+  --memory-size SIZE     memory image size (default: 1G)
   --reserve SIZE         free space that must remain (default: 10G)
   --umount               unmount the images; refuses while the stack runs
   --dry-run              print the plan; create, mount and unmount nothing
@@ -110,6 +113,7 @@ parse_args() {
       --artifacts-size) require_value "$@"; ARTIFACTS_SIZE=$2; SIZE_FLAGS="$SIZE_FLAGS artifacts"; shift 2 ;;
       --workspace-size) require_value "$@"; WORKSPACE_SIZE=$2; SIZE_FLAGS="$SIZE_FLAGS workspace"; shift 2 ;;
       --dind-size) require_value "$@"; DIND_SIZE=$2; SIZE_FLAGS="$SIZE_FLAGS dind"; shift 2 ;;
+      --memory-size) require_value "$@"; MEMORY_SIZE=$2; SIZE_FLAGS="$SIZE_FLAGS memory"; shift 2 ;;
       --reserve) require_value "$@"; RESERVE=$2; SIZE_FLAGS="$SIZE_FLAGS reserve"; shift 2 ;;
       --umount) UMOUNT=1; shift ;;
       --dry-run) DRY_RUN=1; shift ;;
@@ -141,6 +145,11 @@ apply_layout() {
     *" dind "*) ;;
     *) value=$(layout_value dind); [ -n "$value" ] && DIND_SIZE=$value ;;
   esac
+  # deploy.sh does not record this one yet; the default applies when absent.
+  case " $SIZE_FLAGS " in
+    *" memory "*) ;;
+    *) value=$(layout_value memory); [ -n "$value" ] && MEMORY_SIZE=$value ;;
+  esac
   case " $SIZE_FLAGS " in
     *" reserve "*) ;;
     *) value=$(layout_value reserve); [ -n "$value" ] && RESERVE=$value ;;
@@ -167,6 +176,7 @@ validate_sizes() {
   validate_size "--artifacts-size" "$ARTIFACTS_SIZE"
   validate_size "--workspace-size" "$WORKSPACE_SIZE"
   validate_size "--dind-size" "$DIND_SIZE"
+  validate_size "--memory-size" "$MEMORY_SIZE"
   validate_size "--reserve" "$RESERVE"
 }
 
@@ -216,7 +226,7 @@ compose_running() {
 
 do_umount() {
   local name
-  for name in artifacts workspace dind; do
+  for name in artifacts workspace dind memory; do
     local target="$STACK_DIR/disks/$name"
     if [ ! -d "$target" ] || ! is_mounted "$target"; then
       note "disk: $name is not mounted"
@@ -235,12 +245,13 @@ do_umount() {
 
 check_free_space() {
   local missing_kib=0 name
-  for name in artifacts workspace dind; do
+  for name in artifacts workspace dind memory; do
     if [ ! -f "$STACK_DIR/disks/$name.img" ]; then
       case "$name" in
         artifacts) missing_kib=$((missing_kib + $(to_kib "$ARTIFACTS_SIZE"))) ;;
         workspace) missing_kib=$((missing_kib + $(to_kib "$WORKSPACE_SIZE"))) ;;
         dind) missing_kib=$((missing_kib + $(to_kib "$DIND_SIZE"))) ;;
+        memory) missing_kib=$((missing_kib + $(to_kib "$MEMORY_SIZE"))) ;;
       esac
     fi
   done
@@ -328,6 +339,11 @@ main() {
   ensure_disk workspace "$WORKSPACE_SIZE"
   ensure_chat_files "$STACK_DIR/disks/workspace/chats"
   ensure_disk dind "$DIND_SIZE"
+  ensure_disk memory "$MEMORY_SIZE"
+  # A fresh ext4 root is 0755; the BFF image bakes 0700 into the named volume's
+  # mount point, so the host bind must match it (issue #49, §6.1). Only the BFF's
+  # uid (1000) may traverse the memory store.
+  run chmod 700 "$STACK_DIR/disks/memory"
   [ "$DRY_RUN" -eq 1 ] && note "dry run: nothing was created or mounted"
   return 0
 }

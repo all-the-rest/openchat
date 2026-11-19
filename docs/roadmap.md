@@ -115,6 +115,40 @@ lifecycle.
 
 **Exit:** a fresh host can be deployed from the docs and restored from backup.
 
+## 2.5 — Agent memory
+
+**Goal:** persistent, agent-managed memory across sessions — an atomic,
+provenance-carrying fact store (L2), a bounded injected index, pull-on-demand
+retrieval and an owner override, with L3 retrieval as a staged growth path.
+Tracked as issue #49; decided in
+[`decisions/0008-agent-memory.md`](decisions/0008-agent-memory.md).
+
+- **Alignment (slice 0, blocking)** — ADR-0008, the Memory section in spec 06,
+  this milestone line and the issue #49 rewrite; nothing builds until the
+  builder's read set agrees on the design.
+- **Verification (slice 1)** — spikes for the injection API, export shape and
+  per-agent permission enforcement; results recorded in the issue.
+- **Store + tools (slice 2)** — `facts.jsonl`/`INDEX.md`/`audit.jsonl`, the
+  single-writer BFF route and fresh-volume bootstrap, batch `mem_*` MCP tools,
+  clean-room write filters, audit and seed entry.
+- **Injection (slice 3)** — push the bounded `memory.index` entry on session
+  create (plus host-created child sessions), re-put on change; fake-backend
+  entries.
+- **`/memory` (slice 4)** — browse/edit/delete/export/audit override, `en`/`de`
+  i18n, plain-text rendering.
+- **Lifecycle (slice 5)** — supersession, TTL, confirmation-only renewal,
+  prune dry-runs, backups and ops notes.
+- **Curator (stage, not base)** — option D committed as the next stage toward
+  the quality bar, gated on the remaining verification hypotheses.
+- **L3 stage 1 (staged)** — FTS5 over a redacted transcript export with merged
+  ranking, on owner sign-off; embeddings (stage 2) only on an explicit owner
+  decision.
+
+**Exit:** every slice's gates pass on green CI — `pnpm run gates:fast`
+(lint, typecheck, test, build, `ratchet check --tier fast`) and the E2E smoke —
+with the store secret-free, the push layer bounded and the review-gated fallback
+named.
+
 ## v1 additions (owner, 2026-11-17)
 
 Five capabilities were added to v1 after M0 and are tracked as issues:

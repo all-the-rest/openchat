@@ -202,6 +202,7 @@ describe("Code surface env", () => {
     OPENCHAT_PASSWORD: "app-secret",
     CODE_HOST_ORIGIN: "https://code.example.com",
     CODE_TICKET_SECRET: "code-ticket-secret",
+    MEMORY_INTERNAL_TOKEN: "test-memory-internal-token-0123456789",
   }
 
   it("defaults to an unconfigured surface without warnings", () => {

@@ -136,6 +136,17 @@ export class FakeBackend extends FakeTaskStore implements ChatBackend {
     return clone(info)
   }
 
+  async putInstruction(sessionID: string, key: string, value: string): Promise<void> {
+    const session = this.requireSession(sessionID)
+    session.instructions ??= new Map()
+    session.instructions.set(key, value)
+  }
+
+  /** Fake-mode probe: the stored value of one instruction entry. */
+  getInstruction(sessionID: string, key: string): string | undefined {
+    return this.requireSession(sessionID).instructions?.get(key)
+  }
+
   async listMessages(sessionID: string): Promise<Message[]> {
     return this.requireSession(sessionID).messages.map((message) => clone(message))
   }

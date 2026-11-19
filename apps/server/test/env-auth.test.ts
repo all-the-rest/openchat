@@ -13,6 +13,7 @@ describe("production hardening", () => {
     SESSION_SECRET: "a".repeat(32),
     COOKIE_SECURE: "1",
     OPENCHAT_PASSWORD: "app-secret",
+    MEMORY_INTERNAL_TOKEN: "test-memory-internal-token-0123456789",
   }
 
   it("boots with an explicit password, secret and secure cookie", () => {

@@ -90,6 +90,7 @@ make_stack() {
   mkdir -p "$root/stack/opencode-config" \
     "$root/stack/disks/artifacts" \
     "$root/stack/disks/workspace/chats" \
+    "$root/stack/disks/memory" \
     "$root/data/opencode-data/sessions" \
     "$root/stack/releases/20261118T120000Z"
   printf 'OPENCHAT_USER=owner\nSESSION_SECRET=SENTINEL_SECRET_VALUE\n' > "$root/stack/.env"
@@ -97,6 +98,7 @@ make_stack() {
   printf '{"mcp":{}}\n' > "$root/stack/opencode-config/opencode.json"
   printf '# artifact\n' > "$root/stack/disks/artifacts/doc.md"
   printf 'hello chat\n' > "$root/stack/disks/workspace/chats/message.txt"
+  printf '{"id":"f1"}\n' > "$root/stack/disks/memory/facts.jsonl"
   printf '{"session":1}\n' > "$root/data/opencode-data/sessions/s1.json"
   printf '2.2.0\n' > "$root/stack/releases/20261118T120000Z/tag"
   printf 'services: {}\n' > "$root/stack/releases/20261118T120000Z/compose.yaml"

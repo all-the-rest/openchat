@@ -19,6 +19,7 @@ test_dry_run_writes_nothing() {
   [ "$RUN_STATUS" -eq 0 ] || fail "dry run exited $RUN_STATUS: $OUTPUT"
   assert_contains "$OUTPUT" "would: write $root/out/openchat-backup-" "dry run"
   assert_contains "$OUTPUT" "would: include workspace" "dry run"
+  assert_contains "$OUTPUT" "would: include memory" "dry run"
   assert_missing "$root/out"
   ok "dry run prints the plan and creates nothing"
 }
@@ -36,7 +37,8 @@ test_archive_contents_and_manifest() {
 
   listing=$(tar -tzf "$archive")
   for entry in manifest.txt checksums.sha256 .env opencode-config/opencode.json \
-      opencode-data/sessions/s1.json artifacts/doc.md workspace/chats/message.txt; do
+      opencode-data/sessions/s1.json artifacts/doc.md workspace/chats/message.txt \
+      memory/facts.jsonl; do
     assert_contains "$listing" "$entry" "archive listing"
   done
 
@@ -54,6 +56,7 @@ test_archive_contents_and_manifest() {
   local stack_real; stack_real=$(cd "$root/stack" && pwd -P)
   assert_contains "$manifest" "$stack_real/.env (mode 600)" "manifest"
   assert_contains "$manifest" "opencode-data" "manifest"
+  assert_contains "$manifest" "memory" "manifest"
   assert_not_contains "$manifest" "SENTINEL_SECRET_VALUE" "manifest"
   assert_not_contains "$OUTPUT" "SENTINEL_SECRET_VALUE" "backup output"
 
@@ -66,7 +69,7 @@ test_archive_contents_and_manifest() {
   assert_not_contains "$OUTPUT" "SENTINEL_SECRET_VALUE" "restore-check output"
   after=$(cd "$root/stack" && find . -type f -exec cksum {} + | LC_ALL=C sort)
   assert_eq "$after" "$before" "stack tree after restore-check"
-  ok "archive holds the five sources, 0600 .env, a readable manifest; restore-check verifies it untouched"
+  ok "archive holds the six sources, 0600 .env, a readable manifest; restore-check verifies it untouched"
 }
 
 test_checksum_mismatch_is_detected() {
@@ -127,6 +130,13 @@ test_refuses_missing_or_symlinked_source() {
   [ "$RUN_STATUS" -ne 0 ] || fail "backup without an artifact store succeeded"
   assert_contains "$OUTPUT" "missing artifact store" "backup failure"
   assert_missing "$root/out"
+
+  make_stack "$root/no-memory"
+  rm -rf "$root/no-memory/stack/disks/memory"
+  run_capture backup_in "$root/no-memory"
+  [ "$RUN_STATUS" -ne 0 ] || fail "backup without a memory store succeeded"
+  assert_contains "$OUTPUT" "missing memory store" "backup failure"
+  assert_missing "$root/no-memory/out"
 
   make_stack "$root/repair"
   outside=$(new_dir)

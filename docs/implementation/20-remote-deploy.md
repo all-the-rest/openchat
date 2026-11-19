@@ -26,10 +26,10 @@ routing probes against `caddy:2-alpine`.
 | Edge fragment | `deploy/remote/Caddyfile.openchat` | three site blocks, imported by the host Caddy; `/internal/*` refused |
 | Driver | `deploy/remote/deploy.sh` | sync, disks, `.env`, build, swap, Caddy; `--dry-run` |
 | Driver safety | `deploy/remote/ssh-safe.sh` | quoting and validation for every remote command value |
-| Disks | `deploy/remote/mount-disks.sh` | create/mount/unmount the three ext4 images, chown, marker |
+| Disks | `deploy/remote/mount-disks.sh` | create/mount/unmount the four ext4 images, chown, marker |
 | Env bootstrap | `deploy/remote/env-bootstrap.sh` | writes `.env` once, escaped, `0600`, never printed |
 | Escape filter | `deploy/remote/env-value.sh` | doubles `$` for Compose, idempotent |
-| MCP seed | `deploy/remote/seed-config.sh` | two `local` entries (artifact, Python) in `opencode.json`, `0600`, once; the Python entry also carries `WORKSPACE_DIR`, `DOCUMENTS_URL` and `DOCUMENTS_TOKEN` |
+| MCP seed | `deploy/remote/seed-config.sh` | three `local` entries (artifact, Python, memory) in `opencode.json`, `0600`, once; the Python entry also carries `WORKSPACE_DIR`, `DOCUMENTS_URL` and `DOCUMENTS_TOKEN` |
 | Caddy install | `deploy/remote/caddy.sh` | staged validate, import line, reload, backup, remove |
 | Boot unit | `deploy/remote/openchat-disks.service` | mounts the images before Docker |
 | Boot guard | `deploy/remote/openchat-guard.sh` + `.service` | stops only this stack if a mount failed |
@@ -64,13 +64,15 @@ Measured on `root@reisinger.pictures` before this layer was written:
    (`openchat-disks.service`, `openchat-guard.service`), enable both, and
    record `disks/layout` (sizes and reserve).
 3. Create and mount the ext4 images (2 GiB artifacts, 4 GiB workspace, 4 GiB
-   dind) after the free-space check, chown each mount root to `1000:1000` and
-   write its `.openchat-disk` marker.
+   dind, 1 GiB memory) after the free-space check, chown each mount root to
+   `1000:1000` and write its `.openchat-disk` marker. The memory mount is also
+   set to `0700`: like the base image's named-volume bootstrap, it is private
+   to the BFF's uid (issue #49).
 4. Bootstrap `/opt/stacks/openchat/.env` **once**. An existing file is kept
    byte-for-byte; a deploy never rotates a secret.
 5. Seed `/opt/stacks/openchat/opencode-config/opencode.json` **once** with the
-   artifact and Python MCP entries. Later runs keep its bytes and repair its
-   mode to `0600`.
+   artifact, Python and memory MCP entries. Later runs keep its bytes and
+   repair its mode to `0600`.
 6. With `--with-dind`, read `/proc/meminfo` and refuse below the headroom.
 7. Build the five images on the host: `bff`, `code-host`, `artifact-host`,
    `opencode`, `tools`. The image cache lives beside the predecessor's; nothing
@@ -126,7 +128,7 @@ and every remote command is built as a single quoted string; the driver passes
 The inputs are also validated before anything runs (usage error, exit 2):
 `--stack-dir` and `--predecessor-env` must be absolute, control-byte-free and
 free of `..` segments; `--expect-version` must be `major.minor.patch` (optional
-`-suffix`); the four sizes must be positive with a K/M/G/T suffix; `--tag` and
+`-suffix`); the five sizes must be positive with a K/M/G/T suffix; `--tag` and
 `--domain` keep their existing character sets. A path may still contain a space
 or a `;` — quoting, not rejection, is what makes it inert.
 
@@ -142,7 +144,7 @@ or a `;` — quoting, not rejection, is what makes it inert.
 | `--with-dind` | off | start `toolbox` + `dind`, after the memory check |
 | `--with-guards` | off | install and enable the host guard timers (`deploy/host/install.sh`) after the swap |
 | `--expect-version` | none | fail the swap unless `/healthz` reports it |
-| `--artifacts-size` / `--workspace-size` / `--dind-size` | `2G`/`4G`/`4G` | image sizes (create only; positive, K/M/G/T suffix) |
+| `--artifacts-size` / `--workspace-size` / `--dind-size` / `--memory-size` | `2G`/`4G`/`4G`/`1G` | image sizes (create only; positive, K/M/G/T suffix) |
 | `--reserve` | `10G` | free space that must remain (same shape) |
 | `--dry-run` | off | print `would: …`, change nothing |
 | `--unmount` | — | unmount the images; refuses while the stack runs |
@@ -210,10 +212,18 @@ the full digest, not a prefix.
 disks/artifacts.img  2 GiB  ->  disks/artifacts   bff (rw), artifact-host (ro)
 disks/workspace.img  4 GiB  ->  disks/workspace   opencode, toolbox (rw), bff (ro)
 disks/dind.img       4 GiB  ->  disks/dind        rootless dockerd storage
+disks/memory.img     1 GiB  ->  disks/memory      bff (rw) — agent memory store
 ```
 
-Arithmetic against the 48 GiB free: 10 GiB loopback images + roughly 4 GiB for
-the five images and the build cache + the 10 GiB reserve = **24 GiB**, leaving
+The memory image is the single-writer store (issue #49): a bind mounted into
+the BFF only at `/workspace/.memory`, mode `0700`, owned by uid 1000. The
+OpenCode container has no memory mount; its MCP tool writes through
+`POST /internal/memory` with the shared `MEMORY_INTERNAL_TOKEN`. A plain named
+volume would not be size-capped, so this disk is the production equivalent of
+the base file's `memory-data` volume.
+
+Arithmetic against the 48 GiB free: 11 GiB loopback images + roughly 4 GiB for
+the five images and the build cache + the 10 GiB reserve = **25 GiB**, leaving
 half the volume for the predecessor and future releases. The reserve is checked
 before anything is created: if `free − missing images < reserve`, the script
 refuses and names all three numbers. Existing images are never shrunk; changing
@@ -245,7 +255,7 @@ touch /artifacts/.probe` answers `Permission denied` and a write fails with
 let Compose start containers on the empty bind directories and put artifact and
 workspace data on the root filesystem. `mount-disks.sh` therefore writes
 `.openchat-disk` inside each mounted image, and the overlay's `disks-ready`
-service (stock `alpine:3` pinned by index digest, 64 MiB cap, three `test -f`;
+service (stock `alpine:3` pinned by index digest, 64 MiB cap, four `test -f`;
 pulled once by `docker compose up`) must complete successfully before `bff`,
 `artifact-host`, `opencode`, `toolbox` and `dind` start. The marker cannot exist
 on an unmounted directory, so the failure is a refused start, not silent data
@@ -255,12 +265,17 @@ The gate only covers a compose run. Docker's `restart: unless-stopped` policy
 does **not** re-evaluate `depends_on`, so a failed mount followed by a daemon
 start would restart this stack on the empty directories. `openchat-guard.service`
 (`After=docker.service`, `Wants=docker.service`) closes that hole: it runs
-`openchat-guard.sh`, which checks the same three markers and, if one is missing,
-runs `docker compose --project-name openchat --env-file … --file
+`openchat-guard.sh`, which checks the three original markers (artifacts,
+workspace, dind) and, if one is missing, runs
+`docker compose --project-name openchat --env-file … --file
 "$STACK_DIR/current/compose.yaml" --profile "*" stop`. That stops this stack's
 four (or six, with dind) containers and **nothing else on the daemon**. The
 guard always exits 0 and logs a missing `.env` or compose file instead of
 failing the boot; the stopped stack is the signal.
+
+The boot guard still checks only the three original markers: a failed
+`memory.img` mount is caught by the compose `disks-ready` gate but not by the
+guard. Extending the guard to the memory marker is a follow-up.
 
 **No `docker.service` drop-in, on purpose.** A reviewer will suggest
 `Requires=openchat-disks.service` in `/etc/systemd/system/docker.service.d/`.
@@ -532,7 +547,7 @@ file.
 - `.env` bootstrap: 0600, escaped digest, generated secrets, keep-existing,
   nothing printed; MCP config: 0600, exact command paths, one-time creation;
 - disks: dry-run arithmetic, layout reuse, busy-unmount refusal, size
-  validation for all four flags, temp-image creation, chown order after mount
+  validation for all five flags, temp-image creation, chown order after mount
   (also on the already-mounted branch) and the marker;
 - Caddy: the `/api/events` handle without `encode` and `encode` only in the
   catch-all; the `/internal/*` guard answers `404` with no `encode` and no

@@ -74,6 +74,9 @@ services:
       # Shared with the artifact tool inside the OpenCode container; without it
       # the BFF generates an ephemeral token the tool can never match.
       ARTIFACT_INTERNAL_TOKEN: ${ARTIFACT_INTERNAL_TOKEN:?set 32+ random characters in .env}
+      # Shared with the memory MCP tool; it writes the store through the BFF's
+      # /internal/memory route (issue #49). Never in the public allowlist.
+      MEMORY_INTERNAL_TOKEN: ${MEMORY_INTERNAL_TOKEN:?set 32+ random characters in .env}
       CODE_HOST_ORIGIN: ${CODE_HOST_ORIGIN:-https://code.example.com}
       CODE_TICKET_SECRET: ${CODE_TICKET_SECRET:?set 32+ random bytes in .env}
       CODE_TICKET_TTL_SECONDS: ${CODE_TICKET_TTL_SECONDS:-60}
@@ -89,6 +92,11 @@ services:
       - workspace:/workspace:ro
       # Except the chat working files (issue #25): the BFF is their writer.
       - chat-files:/workspace/chats
+      # The memory store (issue #49): the BFF is the single writer. The image
+      # pre-creates this mount point as `node:node 0700` so a fresh volume is
+      # writable; OpenCode gets no memory mount — its MCP tool writes through
+      # the BFF's internal route.
+      - memory-data:/workspace/.memory
     healthcheck:
       test:
         - CMD
@@ -270,7 +278,7 @@ services:
   # 1.x line — never use it — and the tag must match the `@opencode/client`
   # range the app pins. The remote overlay swaps in the derived image
   # (`openchat-opencode`, deploy/Dockerfile.opencode) that also carries git,
-  # ripgrep, the Docker CLI and the artifact MCP tool.
+  # ripgrep, the Docker CLI and the artifact, python and memory MCP tools.
   opencode:
     profiles:
       - opencode
@@ -296,10 +304,11 @@ services:
       # protected by network isolation (`backend`, never published); the value
       # stays so a future version that restores auth works unchanged (#38).
       OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?set the OpenCode Basic password in .env}
-      # The artifact MCP tool runs inside this container and writes through the
-      # BFF's `/internal/artifacts` route with the shared bearer token.
+      # The artifact and memory MCP tools run inside this container and write
+      # through the BFF's `/internal/*` routes with their shared bearer tokens.
       OPENCHAT_BFF_URL: ${OPENCHAT_BFF_URL:-http://bff:8787}
       ARTIFACT_INTERNAL_TOKEN: ${ARTIFACT_INTERNAL_TOKEN:?set 32+ random characters in .env}
+      MEMORY_INTERNAL_TOKEN: ${MEMORY_INTERNAL_TOKEN:?set 32+ random characters in .env}
     volumes:
       # Small state (sessions, config; expect well under 1 GiB); the workspace is
       # the large one and is mounted from the host's disk image in the remote
@@ -446,6 +455,11 @@ volumes:
   # Nested inside `workspace` at the same path, so a chat's files sit where the
   # agent already looks (issue #25).
   chat-files:
+  # Agent memory store (issue #49): written by the BFF only, mounted read-write
+  # in the BFF alone. The BFF image pre-creates and chowns the mount point so a
+  # fresh volume is seeded as `node:node 0700`. The OpenCode container gets no
+  # mount here; its MCP tool writes through `POST /internal/memory`.
+  memory-data:
   opencode-data:
   opencode-config:
   dind-storage:

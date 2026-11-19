@@ -3,6 +3,7 @@ import { join } from "node:path"
 import type { FakeScenario } from "@openchat/contracts"
 import { isFakeScenario } from "@openchat/opencode"
 import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
+import { loadMemoryEnv } from "./env-memory"
 import { loadWorkspaceEnv, type WorkspaceFileEnv } from "./env-workspace"
 import { loadCredentialEnv } from "./env-auth"
 import {
@@ -71,6 +72,10 @@ export interface EnvConfig extends WorkspaceFileEnv {
    * is configured.
    */
   ARTIFACT_INTERNAL_TOKEN: string
+  /** Absolute directory holding the memory store. */
+  MEMORY_DATA_DIR: string
+  /** Bearer token for `POST /internal/memory`, shared with the memory MCP tool. */
+  MEMORY_INTERNAL_TOKEN: string
   /**
    * Compact before admitting a prompt once a session's context reaches this
    * many tokens. `0` disables the BFF-side guard and leaves compaction to the
@@ -253,6 +258,13 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     },
     { production, warn },
   )
+  const memory = loadMemoryEnv(
+    {
+      dataDir: read(source, "MEMORY_DATA_DIR"),
+      internalToken: readSecret(source, "MEMORY_INTERNAL_TOKEN"),
+    },
+    { production, warn },
+  )
   const workspaceDir = read(source, "WORKSPACE_DIR") ?? process.cwd()
   const workspaceFiles = loadWorkspaceEnv(source, warn)
 
@@ -352,6 +364,8 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     ARTIFACT_SIGNING_KEY: artifacts.signingKey,
     ARTIFACTS_DIR: read(source, "ARTIFACTS_DIR") ?? join(workspaceDir, ARTIFACT_DIR_NAME),
     ARTIFACT_INTERNAL_TOKEN: artifacts.internalToken,
+    MEMORY_DATA_DIR: memory.dataDir,
+    MEMORY_INTERNAL_TOKEN: memory.internalToken,
     CHAT_CONTEXT_SOFT_CAP: readTokenCap(
       source,
       "CHAT_CONTEXT_SOFT_CAP",

@@ -12,6 +12,7 @@ import { chat } from "./chat"
 import { code } from "./code"
 import { dictation } from "./dictation"
 import { files } from "./files"
+import { memory } from "./memory"
 import { palette } from "./palette"
 import { pwa } from "./pwa"
 import { render } from "./render"
@@ -29,6 +30,7 @@ export const messages = {
   ...chat,
   ...dictation,
   ...files,
+  ...memory,
   ...palette,
   ...pwa,
   ...render,

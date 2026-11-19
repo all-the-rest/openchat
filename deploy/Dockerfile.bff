@@ -54,8 +54,9 @@ FROM ${NODE_IMAGE} AS runtime
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tini \
  && rm -rf /var/lib/apt/lists/* \
- && mkdir -p /app/web /artifacts /workspace/chats \
- && chown -R node:node /app /artifacts /workspace/chats
+ && mkdir -p /app/web /artifacts /workspace/chats /workspace/.memory \
+ && chown -R node:node /app /artifacts /workspace/chats /workspace/.memory \
+ && chmod 700 /workspace/.memory
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
@@ -67,8 +68,10 @@ WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/server/dist/index.mjs /app/index.mjs
 COPY --from=build --chown=node:node /repo/apps/web/dist /app/web
 
-# `/artifacts` is a named volume; Docker copies this directory's ownership into
-# a fresh volume, so the non-root user can write to it.
+# `/artifacts` and `/workspace/.memory` are named volumes; Docker copies each
+# mount-point directory's ownership and mode into a fresh volume. The BFF is the
+# only writer of both, so both must belong to `node`; `.memory` is `0700` because
+# a directory needs its execute bit to be traversable (issue #49).
 USER node
 EXPOSE 8787
 
