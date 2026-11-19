@@ -155,7 +155,7 @@ describe("merged remote compose", () => {
     // config keeps the `${…}` text (`--no-interpolate`), which is the proof that
     // the knob is forwarded and still comes from the env file.
     const env = environmentOf("bff")
-    expect(env.MEMORY_MAX_FACTS_BYTES).toBe("${MEMORY_MAX_FACTS_BYTES:-67108864}")
+    expect(env.MEMORY_MAX_FACTS_BYTES).toBe("${MEMORY_MAX_FACTS_BYTES:-8388608}")
     expect(env.CHAT_CONTEXT_SOFT_CAP).toBe("${CHAT_CONTEXT_SOFT_CAP:-200000}")
     expect(env.FALLBACK_CHAIN_JSON).toBe("${FALLBACK_CHAIN_JSON:-}")
     expect(env.FALLBACK_PAID_DAILY_CAP).toBe("${FALLBACK_PAID_DAILY_CAP:-0}")

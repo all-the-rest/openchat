@@ -142,7 +142,7 @@ describe("compose stack boundaries", () => {
     // `env_file`, so a documented knob must be listed here or it never reaches
     // the process. The defaults match `.env.example`.
     const expected: Array<[string, string]> = [
-      ["MEMORY_MAX_FACTS_BYTES", "${MEMORY_MAX_FACTS_BYTES:-67108864}"],
+      ["MEMORY_MAX_FACTS_BYTES", "${MEMORY_MAX_FACTS_BYTES:-8388608}"],
       ["CHAT_CONTEXT_SOFT_CAP", "${CHAT_CONTEXT_SOFT_CAP:-200000}"],
       ["FALLBACK_CHAIN_JSON", "${FALLBACK_CHAIN_JSON:-}"],
       ["FALLBACK_PAID_DAILY_CAP", "${FALLBACK_PAID_DAILY_CAP:-0}"],
@@ -288,7 +288,7 @@ describe("remote overlay storage", () => {
   it("repeats the fact-store cap on the production overlay", () => {
     // The overlay owns the production environment; the base file's default is
     // not enough if a later edit changes one without the other.
-    expect(remote("bff")).toContain("MEMORY_MAX_FACTS_BYTES: ${MEMORY_MAX_FACTS_BYTES:-67108864}")
+    expect(remote("bff")).toContain("MEMORY_MAX_FACTS_BYTES: ${MEMORY_MAX_FACTS_BYTES:-8388608}")
   })
 
   it("shares the workspace read-write with OpenCode and the toolbox, read-only with the BFF", () => {

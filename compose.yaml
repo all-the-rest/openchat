@@ -81,7 +81,7 @@ services:
       # `memory_store_full` (507). Forwarded here because this environment list
       # is an explicit whitelist: a knob documented in .env.example but missing
       # here never reaches the process.
-      MEMORY_MAX_FACTS_BYTES: ${MEMORY_MAX_FACTS_BYTES:-67108864}
+      MEMORY_MAX_FACTS_BYTES: ${MEMORY_MAX_FACTS_BYTES:-8388608}
       CODE_HOST_ORIGIN: ${CODE_HOST_ORIGIN:-https://code.example.com}
       CODE_TICKET_SECRET: ${CODE_TICKET_SECRET:?set 32+ random bytes in .env}
       CODE_TICKET_TTL_SECONDS: ${CODE_TICKET_TTL_SECONDS:-60}
