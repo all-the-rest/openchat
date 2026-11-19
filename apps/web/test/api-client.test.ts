@@ -107,6 +107,58 @@ describe("artifacts client", () => {
   })
 })
 
+describe("chat files client", () => {
+  it("reads the file list with its quota", async () => {
+    const fixture = {
+      files: [
+        {
+          name: "report.txt",
+          displayName: "report.txt",
+          size: 3,
+          mtime: "2026-11-18T12:00:00.000Z",
+          mime: "text/plain; charset=utf-8",
+          origin: "agent",
+          sha256: "a".repeat(64),
+        },
+      ],
+      quota: {
+        usedBytes: 3,
+        quotaBytes: 1024,
+        totalUsedBytes: 3,
+        totalQuotaBytes: 4096,
+      },
+    }
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(fixture), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    )
+
+    await expect(api.chatFiles("ses one")).resolves.toEqual(fixture)
+    expect(lastRequest()).toEqual({ url: "/api/sessions/ses%20one/files", method: "GET" })
+  })
+
+  it("downloads one file by its encoded name", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("bytes", { status: 200 }))
+
+    const blob = await api.chatFileDownload("ses_1", "report 1.txt")
+    expect(lastRequest()).toEqual({
+      url: "/api/sessions/ses_1/files/report%201.txt",
+      method: "GET",
+    })
+    await expect(blob.text()).resolves.toBe("bytes")
+  })
+
+  it("deletes with a JSON body, as the BFF guard requires", async () => {
+    await api.deleteChatFile("ses_1", "report.txt")
+    const [, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit]
+    expect(lastRequest()).toEqual({ url: "/api/sessions/ses_1/files/report.txt", method: "DELETE" })
+    expect(new Headers(init.headers).get("content-type")).toBe("application/json")
+    expect(init.body).toBe("{}")
+  })
+})
+
 describe("auth client", () => {
   it("sends the username and password to the login route", async () => {
     fetchMock.mockResolvedValueOnce(

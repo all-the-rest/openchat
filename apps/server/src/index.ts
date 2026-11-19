@@ -5,6 +5,7 @@ import { FakeBackend, FakeHostSwitch, LiveBackend } from "@openchat/opencode"
 import type { ChatBackend } from "@openchat/opencode"
 import { createApp } from "./app"
 import { INTERNAL_ARTIFACTS_PATH } from "./artifacts-internal"
+import { auditChatFiles, reportChatFiles } from "./chat-files"
 import { loadEnv } from "./env"
 import { ARTIFACT_BODY_MAX_BYTES, MAX_BODY_BYTES } from "./limits"
 import { pumpResponseBody } from "./pump"
@@ -36,6 +37,19 @@ const backend: ChatBackend =
       )
 
 const app = createApp({ config, backend })
+
+// The chat-file audit only reports: a directory without a session or a file
+// without metadata stays on disk for the owner to inspect. A host that is down
+// is not evidence of orphans, so the check is skipped then.
+void backend
+  .listSessions()
+  .then((sessions) => auditChatFiles(config, sessions.map((session) => session.id)))
+  .then((report) => {
+    reportChatFiles(report)
+  })
+  .catch(() => {
+    console.warn("[openchat] chat files: sessions unavailable; skipped the orphan check")
+  })
 
 function respondPayloadTooLarge(response: ServerResponse, maxBytes = MAX_BODY_BYTES): void {
   if (response.headersSent) {

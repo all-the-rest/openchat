@@ -14,6 +14,7 @@ import { ThemeProvider } from "../src/theme/provider"
 const mocks = vi.hoisted(() => ({
   listMessages: vi.fn(),
   listInbox: vi.fn(),
+  chatFiles: vi.fn(),
   cancelQueued: vi.fn(),
   listSessions: vi.fn(),
   createSession: vi.fn(),
@@ -117,6 +118,10 @@ beforeEach(() => {
   mocks.listMessages.mockResolvedValue([])
   mocks.listInbox.mockResolvedValue([])
   mocks.listSessions.mockResolvedValue([])
+  mocks.chatFiles.mockResolvedValue({
+    files: [],
+    quota: { usedBytes: 0, quotaBytes: 1024, totalUsedBytes: 0, totalQuotaBytes: 4096 },
+  })
 })
 
 afterEach(() => {

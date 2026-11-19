@@ -40,6 +40,7 @@ import { artifactsSurface, registerArtifactsRoutes } from "./artifacts"
 import { registerArtifactInternalRoute } from "./artifacts-internal"
 import { registerCodeRoutes } from "./code"
 import type { CodeProbe } from "./code"
+import { registerChatFilesRoutes } from "./chat-files"
 import { registerSearchRoute } from "./search"
 import { registerFakeHostRoute } from "./fake-host-route"
 import type { FixedWindowThrottle, VerificationGate } from "./throttle"
@@ -351,6 +352,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerAuthRoutes(app, deps)
   registerInfoRoutes(app, deps, appsCache)
   registerSessionRoutes(app, deps)
+  registerChatFilesRoutes(app, { config: deps.config })
   registerCodeRoutes(app, {
     config: deps.config,
     ticketThrottle: deps.codeTicketThrottle,

@@ -11,6 +11,7 @@ import { artifacts } from "./artifacts"
 import { chat } from "./chat"
 import { code } from "./code"
 import { dictation } from "./dictation"
+import { files } from "./files"
 import { render } from "./render"
 import { search } from "./search"
 import { settings } from "./settings"
@@ -24,6 +25,7 @@ export const messages = {
   ...artifacts,
   ...chat,
   ...dictation,
+  ...files,
   ...render,
   ...settings,
 } as const

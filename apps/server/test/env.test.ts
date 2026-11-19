@@ -31,6 +31,9 @@ describe("loadEnv", () => {
     expect(config.STT_API_KEY).toBe("")
     expect(config.DICTATION_MAX_SECONDS).toBe(120)
     expect(config.DICTATION_MAX_BYTES).toBe(26_214_400)
+    expect(config.WORKSPACE_QUOTA_PER_CHAT_BYTES).toBe(104_857_600)
+    expect(config.WORKSPACE_QUOTA_TOTAL_BYTES).toBe(1_073_741_824)
+    expect(config.WORKSPACE_MAX_FILE_BYTES).toBe(26_214_400)
     expect(config.SESSION_SECRET.length).toBeGreaterThanOrEqual(32)
 
     expect(warnings.some((entry) => entry.includes("SESSION_SECRET"))).toBe(true)

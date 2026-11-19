@@ -1,121 +1,26 @@
 import { createHash } from "node:crypto"
 import { constants } from "node:fs"
 import { lstat, mkdir, open, readFile, readdir, realpath, rename, rm, unlink } from "node:fs/promises"
-import { dirname, extname, join, relative, isAbsolute } from "node:path"
+import { dirname, join } from "node:path"
 import type { ChatFileInfo, ChatFileOrigin, ChatFileQuota } from "@openchat/contracts"
-import { CHAT_FILE_NAME_MAX } from "@openchat/contracts"
+import {
+  CHAT_INDEX_FILE,
+  CHAT_INDEX_VERSION,
+  CHATS_DIR_NAME,
+  FILES_DIR_NAME,
+  isInside,
+  isRecordValue,
+  isSafeFileName,
+  isSafeSessionID,
+  isStoredFile,
+  mimeForFile,
+  normalizeFileName,
+  suffixed,
+} from "./chat-files-names"
 
-/** Layout under `WORKSPACE_DIR`: `<root>/<sessionID>/files/` plus `index.json`. */
-export const CHATS_DIR_NAME = "chats"
-export const FILES_DIR_NAME = "files"
-export const CHAT_INDEX_FILE = "index.json"
-const INDEX_VERSION = 1
 const MAX_COLLISION_SUFFIX = 99
-const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/
-
-const SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
-
-const MIME_BY_EXTENSION: Record<string, string> = {
-  ".csv": "text/csv",
-  ".doc": "application/msword",
-  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ".gif": "image/gif",
-  ".html": "text/html; charset=utf-8",
-  ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
-  ".json": "application/json",
-  ".md": "text/markdown; charset=utf-8",
-  ".odt": "application/vnd.oasis.opendocument.text",
-  ".ods": "application/vnd.oasis.opendocument.spreadsheet",
-  ".pdf": "application/pdf",
-  ".png": "image/png",
-  ".ppt": "application/vnd.ms-powerpoint",
-  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  ".svg": "image/svg+xml",
-  ".txt": "text/plain; charset=utf-8",
-  ".webp": "image/webp",
-  ".xls": "application/vnd.ms-excel",
-  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  ".zip": "application/zip",
-}
-
-export function mimeForFile(name: string): string {
-  return MIME_BY_EXTENSION[extname(name).toLowerCase()] ?? "application/octet-stream"
-}
-
-/** A session id becomes one path segment, so the shape is deliberately narrow. */
-export function isSafeSessionID(value: string): boolean {
-  return SESSION_ID_PATTERN.test(value)
-}
-
-/**
- * One normalised file name: a single segment, no control characters, no
- * leading dot and no surrounding whitespace. Rejecting instead of rewriting
- * keeps the name the client asked for and the stored name identical.
- */
-export function isSafeFileName(value: string): boolean {
-  if (value.length === 0 || [...value].length > CHAT_FILE_NAME_MAX) return false
-  if (value !== value.trim()) return false
-  if (value === "." || value === "..") return false
-  if (value.startsWith(".")) return false
-  if (value.includes("/") || value.includes("\\")) return false
-  return !CONTROL_CHARACTERS.test(value)
-}
-
-function normalizeFileName(value: string): string | null {
-  const normalized = value.normalize("NFC")
-  return isSafeFileName(normalized) ? normalized : null
-}
-
-function suffixed(name: string, suffix: number, parentheses: boolean): string {
-  const extension = extname(name)
-  const base = extension.length > 0 ? name.slice(0, -extension.length) : name
-  return parentheses ? `${base} (${suffix})${extension}` : `${base}-${suffix}${extension}`
-}
-
-/** True when `child` is `parent` itself or sits below it after resolution. */
-export function isInside(parent: string, child: string): boolean {
-  const path = relative(parent, child)
-  return path === "" || (!path.startsWith("..") && !isAbsolute(path))
-}
-
-function isFileMissing(error: unknown): boolean {
-  return (error as NodeJS.ErrnoException)?.code === "ENOENT"
-}
-
-function isAlreadyPresent(error: unknown): boolean {
-  return (error as NodeJS.ErrnoException)?.code === "EEXIST"
-}
-
-interface StoredIndex {
-  version: number
-  files: ChatFileInfo[]
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isOrigin(value: unknown): value is ChatFileOrigin {
-  return value === "upload" || value === "agent"
-}
-
-function isStoredFile(value: unknown): value is ChatFileInfo {
-  if (!isRecord(value)) return false
-  return (
-    typeof value.name === "string" &&
-    isSafeFileName(value.name) &&
-    typeof value.displayName === "string" &&
-    typeof value.size === "number" &&
-    Number.isSafeInteger(value.size) &&
-    value.size >= 0 &&
-    typeof value.mtime === "string" &&
-    typeof value.mime === "string" &&
-    isOrigin(value.origin) &&
-    typeof value.sha256 === "string" &&
-    /^[0-9a-f]{64}$/.test(value.sha256)
-  )
-}
+const DIRECTORY_MODE = 0o700
+const FILE_MODE = 0o600
 
 export interface ChatFilesStoreOptions {
   /** `WORKSPACE_DIR`; the store appends `chats/<sessionID>`. */
@@ -149,8 +54,16 @@ export type ChatFileWriteResult =
 export type ChatFileRemoveResult = "removed" | "not-found"
 
 interface ResolvedDirs {
-  chatReal: string
   filesReal: string
+}
+
+interface LocatedFile {
+  path: string
+  info: ChatFileInfo
+}
+
+function alreadyPresent(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException)?.code === "EEXIST"
 }
 
 /**
@@ -183,17 +96,37 @@ export class ChatFilesStore {
     return join(this.workspaceDir, CHATS_DIR_NAME)
   }
 
-  private indexFilePath(sessionID: string): string {
-    return join(this.chatsRoot(), sessionID, CHAT_INDEX_FILE)
+  /** Resolved chat directory when it exists and is a direct, real child. */
+  private async validChatDir(sessionID: string): Promise<string | null> {
+    let rootReal: string
+    try {
+      rootReal = await realpath(this.chatsRoot())
+    } catch {
+      return null
+    }
+    const chatPath = join(rootReal, sessionID)
+    let stat
+    try {
+      stat = await lstat(chatPath)
+    } catch {
+      return null
+    }
+    if (!stat.isDirectory() || stat.isSymbolicLink()) return null
+    const chatReal = await realpath(chatPath)
+    if (!isInside(rootReal, chatReal) || dirname(chatReal) !== rootReal) return null
+    return chatReal
   }
 
-  private async readIndex(sessionID: string): Promise<ChatFileInfo[]> {
-    const path = this.indexFilePath(sessionID)
+  async readIndex(sessionID: string): Promise<ChatFileInfo[]> {
+    if (!isSafeSessionID(sessionID)) return []
+    const chatReal = await this.validChatDir(sessionID)
+    if (!chatReal) return []
     try {
-      const stat = await lstat(path)
+      const indexPath = join(chatReal, CHAT_INDEX_FILE)
+      const stat = await lstat(indexPath)
       if (!stat.isFile() || stat.isSymbolicLink()) return []
-      const parsed: unknown = JSON.parse(await readFile(path, "utf8"))
-      if (!isRecord(parsed) || parsed.version !== INDEX_VERSION) return []
+      const parsed: unknown = JSON.parse(await readFile(indexPath, "utf8"))
+      if (!isRecordValue(parsed) || parsed.version !== CHAT_INDEX_VERSION) return []
       if (!Array.isArray(parsed.files)) return []
       return parsed.files.filter(isStoredFile)
     } catch {
@@ -205,31 +138,23 @@ export class ChatFilesStore {
 
   private async writeIndex(sessionID: string, files: ChatFileInfo[]): Promise<void> {
     const directory = join(this.chatsRoot(), sessionID)
-    const payload: StoredIndex = { version: INDEX_VERSION, files }
+    await mkdir(directory, { recursive: true, mode: DIRECTORY_MODE })
     const temporary = join(directory, `.${CHAT_INDEX_FILE}.${process.pid}.${Date.now()}.tmp`)
-    await mkdir(directory, { recursive: true, mode: 0o700 })
-    await (await open(temporary, "wx", 0o600)).writeFile(Buffer.from(JSON.stringify(payload)))
+    const handle = await open(temporary, "wx", FILE_MODE)
+    try {
+      await handle.writeFile(
+        Buffer.from(JSON.stringify({ version: CHAT_INDEX_VERSION, files })),
+      )
+    } finally {
+      await handle.close()
+    }
     await rename(temporary, join(directory, CHAT_INDEX_FILE))
   }
 
   /** Resolved directory of an existing chat; `null` when it does not exist. */
   private async existingDirs(sessionID: string): Promise<ResolvedDirs | null> {
-    let rootReal: string
-    try {
-      rootReal = await realpath(this.chatsRoot())
-    } catch {
-      return null
-    }
-    const chatPath = join(rootReal, sessionID)
-    let chatStat
-    try {
-      chatStat = await lstat(chatPath)
-    } catch {
-      return null
-    }
-    if (!chatStat.isDirectory() || chatStat.isSymbolicLink()) return null
-    const chatReal = await realpath(chatPath)
-    if (!isInside(rootReal, chatReal) || dirname(chatReal) !== rootReal) return null
+    const chatReal = await this.validChatDir(sessionID)
+    if (!chatReal) return null
     const filesPath = join(chatReal, FILES_DIR_NAME)
     let filesStat
     try {
@@ -240,15 +165,22 @@ export class ChatFilesStore {
     if (!filesStat.isDirectory() || filesStat.isSymbolicLink()) return null
     const filesReal = await realpath(filesPath)
     if (!isInside(chatReal, filesReal) || dirname(filesReal) !== chatReal) return null
-    return { chatReal, filesReal }
+    return { filesReal }
   }
 
-  /** Creates the directory chain only on a write that already passed quota. */
+  /**
+   * Creates the directory chain only on a write that already passed quota.
+   * Each level is created non-recursively and inspected before the next one, so
+   * a pre-existing symlink is rejected instead of followed.
+   */
   private async ensureDirs(sessionID: string): Promise<ResolvedDirs> {
     const rootPath = this.chatsRoot()
-    await mkdir(join(rootPath, sessionID, FILES_DIR_NAME), { recursive: true, mode: 0o700 })
+    await mkdir(rootPath, { recursive: true, mode: DIRECTORY_MODE })
     const rootReal = await realpath(rootPath)
     const chatPath = join(rootReal, sessionID)
+    await mkdir(chatPath, { mode: DIRECTORY_MODE }).catch((error: unknown) => {
+      if (!alreadyPresent(error)) throw error
+    })
     const chatStat = await lstat(chatPath)
     if (!chatStat.isDirectory() || chatStat.isSymbolicLink()) {
       throw new Error("chat directory is not a directory")
@@ -257,21 +189,27 @@ export class ChatFilesStore {
     if (!isInside(rootReal, chatReal) || dirname(chatReal) !== rootReal) {
       throw new Error("chat directory escapes the workspace")
     }
-    const filesReal = await realpath(join(chatReal, FILES_DIR_NAME))
+    const filesPath = join(chatReal, FILES_DIR_NAME)
+    await mkdir(filesPath, { mode: DIRECTORY_MODE }).catch((error: unknown) => {
+      if (!alreadyPresent(error)) throw error
+    })
+    const filesStat = await lstat(filesPath)
+    if (!filesStat.isDirectory() || filesStat.isSymbolicLink()) {
+      throw new Error("files directory is not a directory")
+    }
+    const filesReal = await realpath(filesPath)
     if (!isInside(chatReal, filesReal) || dirname(filesReal) !== chatReal) {
       throw new Error("files directory escapes the chat")
     }
-    return { chatReal, filesReal }
+    return { filesReal }
   }
 
   /**
    * Validates one stored file: no symlink, a regular file, one hard link, and
-   * a real path still inside `files/`.
+   * a real path still inside `files/`. Metadata is required, so a stray file
+   * is reported by the boot check instead of being served.
    */
-  private async locate(
-    sessionID: string,
-    name: string,
-  ): Promise<{ path: string; info: ChatFileInfo; bytes?: Buffer } | null> {
+  private async locate(sessionID: string, name: string): Promise<LocatedFile | null> {
     if (!isSafeFileName(name)) return null
     const dirs = await this.existingDirs(sessionID)
     if (!dirs) return null
@@ -285,8 +223,7 @@ export class ChatFilesStore {
     if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) return null
     const real = await realpath(path)
     if (!isInside(dirs.filesReal, real) || dirname(real) !== dirs.filesReal) return null
-    const entries = await this.readIndex(sessionID)
-    const entry = entries.find((file) => file.name === name)
+    const entry = (await this.readIndex(sessionID)).find((file) => file.name === name)
     if (!entry) return null
     return { path: real, info: { ...entry, size: stat.size, mtime: stat.mtime.toISOString() } }
   }
@@ -301,8 +238,7 @@ export class ChatFilesStore {
     let total = 0
     for (const entry of entries) {
       if (!entry.isDirectory() || !isSafeSessionID(entry.name)) continue
-      const files = await this.readIndex(entry.name)
-      for (const file of files) total += file.size
+      for (const file of await this.readIndex(entry.name)) total += file.size
     }
     return total
   }
@@ -320,11 +256,10 @@ export class ChatFilesStore {
 
   async list(sessionID: string): Promise<ChatFileInfo[]> {
     if (!isSafeSessionID(sessionID)) return []
-    const entries = await this.readIndex(sessionID)
     const dirs = await this.existingDirs(sessionID)
     if (!dirs) return []
     const visible: ChatFileInfo[] = []
-    for (const entry of entries) {
+    for (const entry of await this.readIndex(sessionID)) {
       const found = await this.locate(sessionID, entry.name)
       if (found) visible.push(found.info)
     }
@@ -343,7 +278,7 @@ export class ChatFilesStore {
     if (bytes.byteLength === 0) return { ok: false, reason: "empty" }
     if (bytes.byteLength > this.maxFileBytes) return { ok: false, reason: "too-large" }
 
-    return this.run(async () => {
+    return this.run<ChatFileWriteResult>(async (): Promise<ChatFileWriteResult> => {
       const entries = await this.readIndex(sessionID)
       const used = entries.reduce((sum, file) => sum + file.size, 0)
       // Both quotas are checked before the directory chain exists, so an
@@ -367,19 +302,19 @@ export class ChatFilesStore {
           handle = await open(
             join(dirs.filesReal, storedName),
             constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
-            0o600,
+            FILE_MODE,
           )
           break
         } catch (error) {
-          if (!isAlreadyPresent(error)) throw error
+          if (!alreadyPresent(error)) throw error
         }
       }
       if (!handle) return { ok: false, reason: "name-conflict" }
 
+      let written = false
       try {
         await handle.writeFile(bytes)
         const stat = await handle.stat()
-        await handle.close()
         const file: ChatFileInfo = {
           name: storedName,
           displayName,
@@ -390,11 +325,12 @@ export class ChatFilesStore {
           sha256: createHash("sha256").update(bytes).digest("hex"),
         }
         await this.writeIndex(sessionID, [...entries, file])
+        written = true
         return { ok: true, file }
-      } catch (error) {
+      } finally {
         await handle.close().catch(() => undefined)
-        await unlink(join(dirs.filesReal, storedName)).catch(() => undefined)
-        throw error
+        // A failed metadata write must not leave an unlisted file behind.
+        if (!written) await unlink(join(dirs.filesReal, storedName)).catch(() => undefined)
       }
     }).catch((): ChatFileWriteResult => ({ ok: false, reason: "io" }))
   }
@@ -409,8 +345,7 @@ export class ChatFilesStore {
     try {
       const handle = await open(found.path, constants.O_RDONLY | constants.O_NOFOLLOW)
       try {
-        const bytes = await handle.readFile()
-        return { bytes, file: found.info }
+        return { bytes: await handle.readFile(), file: found.info }
       } finally {
         await handle.close()
       }
@@ -423,8 +358,7 @@ export class ChatFilesStore {
     if (!isSafeSessionID(sessionID) || !isSafeFileName(name)) return "not-found"
     return this.run(async () => {
       const entries = await this.readIndex(sessionID)
-      const entry = entries.find((file) => file.name === name)
-      if (!entry) return "not-found"
+      if (!entries.some((file) => file.name === name)) return "not-found"
       const found = await this.locate(sessionID, name)
       if (found) await unlink(found.path)
       await this.writeIndex(
@@ -442,98 +376,9 @@ export class ChatFilesStore {
    */
   async deleteChat(sessionID: string): Promise<boolean> {
     if (!isSafeSessionID(sessionID)) return false
-    let rootReal: string
-    try {
-      rootReal = await realpath(this.chatsRoot())
-    } catch {
-      return false
-    }
-    const chatPath = join(rootReal, sessionID)
-    let stat
-    try {
-      stat = await lstat(chatPath)
-    } catch {
-      return false
-    }
-    if (!stat.isDirectory() || stat.isSymbolicLink()) return false
-    const chatReal = await realpath(chatPath)
-    if (!isInside(rootReal, chatReal) || dirname(chatReal) !== rootReal) return false
+    const chatReal = await this.validChatDir(sessionID)
+    if (!chatReal) return false
     await rm(chatReal, { recursive: true, force: true })
     return true
   }
-
-  /** File names in `files/` that the index does not know, plus unreadable ones. */
-  async audit(): Promise<{ withoutMetadata: string[]; withoutFile: string[] }> {
-    const withoutMetadata: string[] = []
-    const withoutFile: string[] = []
-    let chats
-    try {
-      chats = await readdir(this.chatsRoot(), { withFileTypes: true })
-    } catch {
-      return { withoutMetadata, withoutFile }
-    }
-    for (const chat of chats) {
-      if (!chat.isDirectory() || !isSafeSessionID(chat.name)) continue
-      const entries = await this.readIndex(chat.name)
-      const known = new Set(entries.map((file) => file.name))
-      let files
-      try {
-        files = await readdir(join(this.chatsRoot(), chat.name, FILES_DIR_NAME), {
-          withFileTypes: true,
-        })
-      } catch {
-        files = []
-      }
-      for (const file of files) {
-        if (!file.isFile() || !isSafeFileName(file.name)) continue
-        if (!known.has(file.name)) withoutMetadata.push(`${chat.name}/${file.name}`)
-      }
-      for (const entry of entries) {
-        try {
-          await lstat(join(this.chatsRoot(), chat.name, FILES_DIR_NAME, entry.name))
-        } catch {
-          withoutFile.push(`${chat.name}/${entry.name}`)
-        }
-      }
-    }
-    return { withoutMetadata, withoutFile }
-  }
-}
-
-export interface OrphanReport {
-  orphanDirs: string[]
-  withoutMetadata: string[]
-  withoutFile: string[]
-}
-
-/**
- * Boot check: reports chat directories without a session and files that the
- * index does not know. It only logs; nothing here deletes.
- */
-export async function reportChatFileOrphans(
-  options: { workspaceDir: string; sessionIDs: readonly string[] },
-  log: (message: string) => void = (message) => console.warn(`[openchat] ${message}`),
-): Promise<OrphanReport> {
-  const store = new ChatFilesStore({
-    workspaceDir: options.workspaceDir,
-    quotaPerChatBytes: Number.MAX_SAFE_INTEGER,
-    quotaTotalBytes: Number.MAX_SAFE_INTEGER,
-    maxFileBytes: Number.MAX_SAFE_INTEGER,
-  })
-  const sessions = new Set(options.sessionIDs)
-  const orphanDirs: string[] = []
-  let chats
-  try {
-    chats = await readdir(join(options.workspaceDir, CHATS_DIR_NAME), { withFileTypes: true })
-  } catch {
-    return { orphanDirs, withoutMetadata: [], withoutFile: [] }
-  }
-  for (const chat of chats) {
-    if (chat.isDirectory() && !sessions.has(chat.name)) orphanDirs.push(chat.name)
-  }
-  const audit = await store.audit()
-  for (const dir of orphanDirs) log(`chat files: directory without a session: ${dir}`)
-  for (const file of audit.withoutMetadata) log(`chat files: file without metadata: ${file}`)
-  for (const file of audit.withoutFile) log(`chat files: metadata without a file: ${file}`)
-  return { orphanDirs, ...audit }
 }

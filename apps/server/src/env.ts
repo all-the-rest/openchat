@@ -1,15 +1,10 @@
 import { randomBytes } from "node:crypto"
 import { join } from "node:path"
 import type { FakeScenario } from "@openchat/contracts"
-import {
-  CHAT_FILE_BODY_CEILING_BYTES,
-  CHAT_FILE_MAX_BYTES,
-  CHAT_QUOTA_PER_CHAT_BYTES,
-  CHAT_QUOTA_TOTAL_BYTES,
-} from "@openchat/contracts"
 import { isFakeScenario } from "@openchat/opencode"
 import { ARTIFACT_DIR_NAME, loadArtifactEnv } from "./env-artifacts"
 import { loadCredentialEnv } from "./env-auth"
+import { loadWorkspaceEnv } from "./env-workspace"
 import { webDistDir } from "./static"
 
 export type BackendMode = "fake" | "live"
@@ -59,11 +54,7 @@ export interface EnvConfig {
   ARTIFACT_SIGNING_KEY: string
   /** Directory holding one subdirectory per artifact. */
   ARTIFACTS_DIR: string
-  /**
-   * Bearer token for `POST /internal/artifacts`, shared with the MCP tool.
-   * Generated for a development boot; required in production once the surface
-   * is configured.
-   */
+  /** Internal artifact write token; generated in development, required later. */
   ARTIFACT_INTERNAL_TOKEN: string
   /** Per-chat working-file quota in bytes; writes above it are rejected. */
   WORKSPACE_QUOTA_PER_CHAT_BYTES: number
@@ -304,18 +295,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     },
     { production, warn },
   )
-  const workspaceDir = read(source, "WORKSPACE_DIR") ?? process.cwd()
-
-  let workspaceMaxFileBytes = readNumber(
-    source,
-    "WORKSPACE_MAX_FILE_BYTES",
-    CHAT_FILE_MAX_BYTES,
-    warn,
-  )
-  if (workspaceMaxFileBytes > CHAT_FILE_BODY_CEILING_BYTES) {
-    warn("WORKSPACE_MAX_FILE_BYTES is above the 100 MiB ceiling; using the ceiling")
-    workspaceMaxFileBytes = CHAT_FILE_BODY_CEILING_BYTES
-  }
+  const workspace = loadWorkspaceEnv(source, warn)
 
   if (authMode === "basic" && credentials.passwordHash) {
     throw new Error(
@@ -378,7 +358,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
   return {
     HOST: read(source, "HOST") ?? DEFAULT_HOST,
     PORT: readPort(source, DEFAULT_PORT, warn),
-    WORKSPACE_DIR: workspaceDir,
+    WORKSPACE_DIR: workspace.directory,
     BACKEND_MODE: backendMode,
     FAKE_SCENARIO: isFakeScenario(scenarioValue) ? scenarioValue : "default",
     FAKE_APPS: fakeAppsValue !== "off",
@@ -409,20 +389,11 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     CODE_STATUS_TIMEOUT_MS: codeStatusTimeoutMs,
     ARTIFACT_HOST_URL: artifacts.hostUrl,
     ARTIFACT_SIGNING_KEY: artifacts.signingKey,
-    ARTIFACTS_DIR: read(source, "ARTIFACTS_DIR") ?? join(workspaceDir, ARTIFACT_DIR_NAME),
+    ARTIFACTS_DIR:
+      read(source, "ARTIFACTS_DIR") ?? join(workspace.directory, ARTIFACT_DIR_NAME),
     ARTIFACT_INTERNAL_TOKEN: artifacts.internalToken,
-    WORKSPACE_QUOTA_PER_CHAT_BYTES: readNumber(
-      source,
-      "WORKSPACE_QUOTA_PER_CHAT_BYTES",
-      CHAT_QUOTA_PER_CHAT_BYTES,
-      warn,
-    ),
-    WORKSPACE_QUOTA_TOTAL_BYTES: readNumber(
-      source,
-      "WORKSPACE_QUOTA_TOTAL_BYTES",
-      CHAT_QUOTA_TOTAL_BYTES,
-      warn,
-    ),
-    WORKSPACE_MAX_FILE_BYTES: workspaceMaxFileBytes,
+    WORKSPACE_QUOTA_PER_CHAT_BYTES: workspace.quotaPerChatBytes,
+    WORKSPACE_QUOTA_TOTAL_BYTES: workspace.quotaTotalBytes,
+    WORKSPACE_MAX_FILE_BYTES: workspace.maxFileBytes,
   }
 }

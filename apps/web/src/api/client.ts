@@ -1,6 +1,7 @@
 import type {
   AppsResponse,
   ArtifactResponse,
+  ChatFilesResponse,
   CodeStatusResponse,
   CodeTicketResponse,
   CreateSessionRequest,
@@ -104,14 +105,17 @@ const appPath = (name: string) => `/api/apps/${encodeURIComponent(name)}`
 
 const artifactPath = (id: string) => `/api/artifacts/${encodeURIComponent(id)}`
 
+const chatFilePath = (sessionID: string, name: string) =>
+  `${sessionPath(sessionID)}/files/${encodeURIComponent(name)}`
+
 /**
  * Raw bytes for a download. The app origin serves them, never the signed
  * artifact host, so no short-lived URL reaches the browser's download history.
  */
-async function requestBlob(path: string): Promise<Blob> {
+async function requestBlob(path: string, accept = "application/octet-stream"): Promise<Blob> {
   const response = await fetch(path, {
     credentials: "same-origin",
-    headers: { accept: "text/html" },
+    headers: { accept },
   })
   if (!response.ok) throw await parseError(response)
   return response.blob()
@@ -184,7 +188,26 @@ export const api = {
 
   /** The exact stored document, through the BFF rather than the host URL. */
   artifactDownload(id: string): Promise<Blob> {
-    return requestBlob(`${artifactPath(id)}/download`)
+    return requestBlob(`${artifactPath(id)}/download`, "text/html")
+  },
+
+  /** One chat's working files plus the quota fill level. */
+  chatFiles(sessionID: string): Promise<ChatFilesResponse> {
+    return request<ChatFilesResponse>(`${sessionPath(sessionID)}/files`)
+  },
+
+  /** The exact stored bytes; the BFF names the download after the display name. */
+  chatFileDownload(sessionID: string, name: string): Promise<Blob> {
+    return requestBlob(chatFilePath(sessionID, name))
+  },
+
+  /** Removes one file and its metadata row; only this chat is touched. */
+  deleteChatFile(sessionID: string, name: string): Promise<void> {
+    return request<void>(chatFilePath(sessionID, name), {
+      method: "DELETE",
+      // The BFF requires a JSON content type on state-changing requests.
+      body: JSON.stringify({}),
+    })
   },
 
   async listSessions(): Promise<SessionInfo[]> {
