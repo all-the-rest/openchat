@@ -21,8 +21,7 @@ describe("contract fixture", () => {
     })
   })
 
-  it("keeps a host parent link and omits it for a normal chat", () => {
-    const child = normalizeSession({
+  it("keeps a host parent link and omits it for a normal chat", () => {    const child = normalizeSession({
       id: "ses_child",
       parentID: "ses_parent",
       title: "Subagent run",
@@ -39,6 +38,24 @@ describe("contract fixture", () => {
     } as unknown as OpenCodeSessionInfo)
     expect(plain.parentID).toBeUndefined()
     expect("parentID" in plain).toBe(false)
+  })
+
+  it("maps a host fork to branch fields instead of a subagent parent", () => {
+    const fork = normalizeSession({
+      id: "ses_fork",
+      parentID: "ses_parent",
+      fork: {
+        sessionID: "ses_parent",
+        boundary: { type: "before", messageID: "msg_boundary" },
+      },
+      title: "Branched chat",
+      time: { created: 1, updated: 2 },
+      location: { directory: "/workspace" },
+    } as unknown as OpenCodeSessionInfo)
+
+    expect(fork.branchOf).toBe("ses_parent")
+    expect(fork.branchBefore).toBe("msg_boundary")
+    expect(fork.parentID).toBeUndefined()
   })
 
   it("maps reported tokens and omits an empty report", () => {

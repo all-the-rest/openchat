@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { messageText } from "@openchat/contracts"
+import { messageText, type Message } from "@openchat/contracts"
+import { api } from "../api/client"
 import { ChatFiles } from "../chat/ChatFiles"
 import { ChatMenu } from "../chat/ChatMenu"
 import { CompletionPickers } from "../chat/CompletionPicker"
 import { Composer } from "../chat/Composer"
 import { ConnectionNotice } from "../chat/ConnectionNotice"
 import { ContextMeter } from "../chat/ContextMeter"
+import { clearDraft } from "../chat/drafts"
 import { PermissionCard } from "../chat/PermissionCard"
 import { usePermissions } from "../chat/permissions"
 import { QueuedTurns } from "../chat/QueuedTurns"
@@ -106,18 +108,41 @@ export function ChatPage() {
   const { sessionId = "", messageId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const { sessions } = useSessions()
+  const { sessions, refresh: refreshSessions } = useSessions()
   const chat = useChatSession(sessionId)
   const permission = usePermissions(sessionId)
   const consumedFor = useRef<string | null>(null)
   const [filesVersion, setFilesVersion] = useState(0)
   const refreshFiles = useCallback(() => setFilesVersion((value) => value + 1), [])
+  const [editing, setEditing] = useState<{ messageID: string; text: string } | null>(null)
+  const [branchError, setBranchError] = useState(false)
 
   const session = sessions.find((entry) => entry.id === sessionId)
   const title = session?.title || t("session.untitled")
   const parent = session?.parentID
     ? sessions.find((entry) => entry.id === session.parentID)
     : undefined
+  // A fork is not a subagent chat: it links back through `branchOf`, never
+  // through `parentID`, so the two back links cannot be confused.
+  const branchParent = session?.branchOf
+    ? sessions.find((entry) => entry.id === session.branchOf)
+    : undefined
+
+  /** Branches other chats made before each message of this session. */
+  const branchCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const entry of sessions) {
+      if (entry.branchOf !== sessionId || !entry.branchBefore) continue
+      counts.set(entry.branchBefore, (counts.get(entry.branchBefore) ?? 0) + 1)
+    }
+    return counts
+  }, [sessions, sessionId])
+
+  // Switching chats ends an edit; the composer loads the next draft itself.
+  useEffect(() => {
+    setEditing(null)
+    setBranchError(false)
+  }, [sessionId])
 
   // The palette's copy action needs the newest answer without owning the
   // transcript. Reporting a plain-text value keeps raw parts inside the route.
@@ -140,7 +165,7 @@ export function ChatPage() {
   useEffect(() => {
     if (consumedFor.current === sessionId) return
     if (typeof pendingPrompt !== "string" || pendingPrompt.trim().length === 0) return
-    if (chat.loading) return
+    if (!chat.ready) return
 
     consumedFor.current = sessionId
     navigate(location.pathname, { replace: true, state: null })
@@ -149,6 +174,60 @@ export function ChatPage() {
       .then(refreshFiles)
       .catch(() => undefined)
   }, [pendingPrompt, sessionId, chat, navigate, location.pathname, refreshFiles])
+
+  /** Forks before one message and returns the new session, or null on error. */
+  const openBranch = useCallback(
+    async (messageID: string) => {
+      setBranchError(false)
+      try {
+        const forked = await api.forkSession(sessionId, messageID)
+        // The sidebar and this page read branch metadata from the session
+        // list, so the fork only renders as a branch after the refresh.
+        await refreshSessions()
+        return forked
+      } catch {
+        setBranchError(true)
+        return null
+      }
+    },
+    [sessionId, refreshSessions],
+  )
+
+  const branchMessage = useCallback(
+    (message: Message) => {
+      void openBranch(message.id).then((forked) => {
+        if (forked) navigate(`/c/${forked.id}`)
+      })
+    },
+    [openBranch, navigate],
+  )
+
+  const editMessage = useCallback((message: Message) => {
+    const text = messageText(message)
+    if (!text.trim()) return
+    setBranchError(false)
+    setEditing({ messageID: message.id, text })
+  }, [])
+
+  // Sending while editing forks first: the new branch keeps the history before
+  // that message and receives the edited text as its next turn.
+  const submit = useCallback(
+    async (text: string) => {
+      if (!editing) {
+        await chat.send(text)
+        return
+      }
+      const forked = await openBranch(editing.messageID)
+      if (!forked) throw new Error("fork failed")
+      setEditing(null)
+      // The prefill lived in the old chat's draft key; it must not linger.
+      clearDraft(sessionId)
+      navigate(`/c/${forked.id}`, {
+        state: { pendingPrompt: text } satisfies ChatLocationState,
+      })
+    },
+    [editing, chat.send, openBranch, sessionId, navigate],
+  )
 
   const statusKey: MessageKey = chat.queued
     ? "chat.statusQueued"
@@ -173,7 +252,13 @@ export function ChatPage() {
           ? t("chat.cancelFailed")
           : chat.error === "compact"
             ? t("chat.compactFailed")
-            : null
+            : branchError
+              ? t("chat.branchFailed")
+              : null
+
+  // Editing or branching forks the host session; an active run is not a safe
+  // boundary, so the actions stay hidden until it ends.
+  const canBranch = !chat.running && !chat.loading
 
   // The same controls stay inline on desktop and move behind the overflow
   // trigger on narrow screens; rendering them once keeps their state shared.
@@ -189,7 +274,20 @@ export function ChatPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-subtle bg-app px-4">
         <div className="min-w-0 flex-1">
-          {parent ? (
+          {branchParent ? (
+            <Link
+              to={`/c/${branchParent.id}`}
+              data-testid="branch-parent-link"
+              className="flex min-w-0 items-center gap-1 text-xs text-muted hover:text-base-content"
+            >
+              <ChevronDownIcon className="size-3 shrink-0 rotate-90" />
+              <span className="truncate">
+                {t("session.branchOf", {
+                  title: branchParent.title || t("session.untitled"),
+                })}
+              </span>
+            </Link>
+          ) : parent ? (
             <Link
               to={`/c/${parent.id}`}
               data-testid="parent-link"
@@ -232,6 +330,9 @@ export function ChatPage() {
             ? () => void chat.retryLast()
             : undefined
         }
+        onEditMessage={canBranch ? editMessage : undefined}
+        onBranchMessage={canBranch ? branchMessage : undefined}
+        branchCounts={branchCounts}
       />
 
       <div className="shrink-0 border-t border-subtle bg-app px-4 pb-3 pt-3">
@@ -242,19 +343,27 @@ export function ChatPage() {
           />
           <ConnectionNotice />
           {bannerMessage ? (
-            <ErrorBanner message={bannerMessage} onDismiss={chat.clearError} />
+            <ErrorBanner
+              message={bannerMessage}
+              onDismiss={() => {
+                chat.clearError()
+                setBranchError(false)
+              }}
+            />
           ) : null}
           <PermissionCard value={permission} />
 
           <FirstRunGate>
             <Composer
-              onSend={chat.send}
+              onSend={submit}
               onStop={() => void chat.stop()}
               running={chat.running}
               disabled={permission.pending}
               draftKey={sessionId}
               sessionID={sessionId}
               onAttachmentsChanged={refreshFiles}
+              edit={editing}
+              onCancelEdit={() => setEditing(null)}
             />
           </FirstRunGate>
 

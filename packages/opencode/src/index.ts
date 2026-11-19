@@ -160,6 +160,12 @@ export interface ChatBackend {
   /** Stores one instruction entry for a session, replacing any previous value. */
   putInstruction(sessionID: string, key: string, value: string): Promise<void>
   listMessages(sessionID: string): Promise<Message[]>
+  /**
+   * Creates a branch from `sessionID` ending before `beforeMessageID`. The
+   * original chat is untouched; the fork is marked with `branchOf` and
+   * `branchBefore`, never with `parentID`.
+   */
+  forkSession(sessionID: string, beforeMessageID: string): Promise<SessionInfo>
   prompt(sessionID: string, input: PromptInput): Promise<PromptResult>
   /** Pending turns of a session, oldest first. */
   listInbox(sessionID: string): Promise<InboxEntry[]>

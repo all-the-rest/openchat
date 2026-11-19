@@ -43,6 +43,12 @@ export interface ComposerProps {
   sessionID?: string
   /** Called after an upload or a send so the file list can refetch. */
   onAttachmentsChanged?: () => void
+  /**
+   * A user message being edited. Setting it prefills the field; cancelling
+   * restores whatever draft the composer held before the edit started.
+   */
+  edit?: { messageID: string; text: string } | null
+  onCancelEdit?: () => void
 }
 
 const MAX_HEIGHT = 8 * 24
@@ -57,6 +63,8 @@ export function Composer({
   dictation: dictationOverride,
   sessionID,
   onAttachmentsChanged,
+  edit = null,
+  onCancelEdit,
 }: ComposerProps) {
   const t = useT()
   const { locale } = useI18n()
@@ -78,6 +86,8 @@ export function Composer({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const valueRef = useRef(value)
   const caretRef = useRef<number | null>(null)
+  /** Draft that was in the field when the current edit started. */
+  const editState = useRef<{ messageID: string; previous: string } | null>(null)
   // Phones have no Enter key; the keyboard hint would only describe a gesture
   // the device cannot perform.
   const coarsePointer = useMediaQuery("(pointer: coarse)")
@@ -102,6 +112,28 @@ export function Composer({
     valueRef.current = next
     setValue(next)
   }, [draftKey])
+
+  // Starting an edit saves the current draft once and prefills the message.
+  // Re-rendering the same edit target must not save the prefill as the draft.
+  useEffect(() => {
+    if (!edit || editState.current?.messageID === edit.messageID) return
+    editState.current = { messageID: edit.messageID, previous: valueRef.current }
+    updateValue(edit.text)
+    caretRef.current = edit.text.length
+  }, [edit, updateValue])
+
+  // The owner cleared the edit (sent, or switched chat); a later edit of the
+  // same message must save a fresh draft instead of restoring a stale one.
+  useEffect(() => {
+    if (!edit) editState.current = null
+  }, [edit])
+
+  const cancelEdit = useCallback(() => {
+    const saved = editState.current
+    editState.current = null
+    if (saved) updateValue(saved.previous)
+    onCancelEdit?.()
+  }, [onCancelEdit, updateValue])
 
   const remoteDictation = useDictationConfig(dictationOverride === undefined)
   const dictationConfig = dictationOverride === undefined ? remoteDictation : dictationOverride
@@ -156,6 +188,7 @@ export function Composer({
       await onSend(withAttachmentReferences(text, sessionID ?? "", storedNames))
       // Sent: the draft and its uploaded chips are consumed. A failure keeps
       // both, and an errored chip stays until the owner removes it.
+      editState.current = null
       updateValue("")
       clearSent()
       onAttachmentsChanged?.()
@@ -227,6 +260,22 @@ export function Composer({
           onStop={dictation.stop}
           onCancel={dictation.cancel}
         />
+      ) : null}
+      {edit ? (
+        <div
+          data-testid="composer-editing"
+          className="mb-1.5 flex flex-wrap items-center gap-2 px-2 text-xs text-muted"
+        >
+          <span>{t("composer.editing")}</span>
+          <button
+            type="button"
+            data-testid="composer-edit-cancel"
+            onClick={cancelEdit}
+            className="btn btn-ghost btn-xs"
+          >
+            {t("composer.cancelEdit")}
+          </button>
+        </div>
       ) : null}
       <div className="flex flex-col gap-2 rounded-composer border border-strong bg-surface ps-4 pe-2 py-2 focus-within:border-focus-ring sm:flex-row sm:items-end">
         <textarea

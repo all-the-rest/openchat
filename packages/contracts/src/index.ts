@@ -2,7 +2,7 @@ import { z } from "zod"
 
 import type { AppsSurfaceInfo } from "./apps"
 import type { ArtifactsSurfaceInfo } from "./artifacts"
-import type { PromptNotice, TokenUsage } from "./compaction"
+import type { PromptNotice } from "./compaction"
 import type { FallbackReason, ModelRef } from "./turn-policy"
 import type { ToolPart } from "./transcript"
 
@@ -14,33 +14,11 @@ export * from "./memory"
 export * from "./artifacts/caps"
 export * from "./permissions"
 export * from "./providers"
+export * from "./sessions"
 export * from "./stt-model"
 export * from "./transcript"
 export * from "./tasks"
 export * from "./turn-policy"
-
-/**
- * Token counts the host reported for one chat. Only fields the host actually
- * sent are present; the UI must show "not reported" rather than a zero it
- * invented. `cached` is the provider's cache read, which some hosts omit.
- */
-export interface UsageReport {
-  input: number
-  output: number
-  cached?: number
-}
-
-export interface SessionInfo {
-  id: string
-  title: string
-  directory: string
-  created: number
-  updated: number
-  /** Parent chat of a subagent session; absent for a normal chat. */
-  parentID?: string
-  /** Absent until the host reports a run; zero-token reports are omitted. */
-  usage?: TokenUsage
-}
 
 /** Lifecycle of a model as reported by the OpenCode host. */
 export type ModelStatus = "active" | "alpha" | "beta" | "deprecated"

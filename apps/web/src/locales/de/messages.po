@@ -2871,3 +2871,38 @@ msgstr "Deine Nachricht konnte nicht gesendet werden."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Deine Nachricht wartet, bis der aktuelle Lauf abgeschlossen ist."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.editMessage"
+msgstr "Nachricht bearbeiten"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.branchMessage"
+msgstr "Von hier abzweigen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.branchCount"
+msgstr "{count, plural, one {# Zweig} other {# Zweige}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.branchFailed"
+msgstr "Der Zweig konnte nicht erstellt werden."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.branchOf"
+msgstr "Zweig von {title}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.editing"
+msgstr "Nachricht wird bearbeitet. Senden erstellt einen neuen Zweig."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.cancelEdit"
+msgstr "Abbrechen"

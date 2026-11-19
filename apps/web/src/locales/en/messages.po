@@ -2871,3 +2871,38 @@ msgstr "Your message could not be sent."
 #: src/i18n/messages/chat.ts
 msgid "chat.queuedHint"
 msgstr "Your message is queued until the current run finishes."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.editMessage"
+msgstr "Edit message"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.branchMessage"
+msgstr "Branch from here"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.branchCount"
+msgstr "{count, plural, one {# branch} other {# branches}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "chat.branchFailed"
+msgstr "The branch could not be created."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "session.branchOf"
+msgstr "Branch of {title}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.editing"
+msgstr "Editing a message. Sending creates a new branch."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages/chat.ts
+msgid "composer.cancelEdit"
+msgstr "Cancel"

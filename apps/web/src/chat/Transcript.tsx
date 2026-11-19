@@ -19,6 +19,11 @@ export interface TranscriptProps {
   /** Shown under the last assistant message when it is not streaming. */
   onContinue?: () => void
   onRetryLast?: () => void
+  /** User-message actions: edit (branch + send) and branch without editing. */
+  onEditMessage?: (message: Message) => void
+  onBranchMessage?: (message: Message) => void
+  /** Branch count per user message id, read from the session list. */
+  branchCounts?: ReadonlyMap<string, number>
   /** Deep link target: scrolls there and marks the message. */
   highlightMessageID?: string
 }
@@ -35,6 +40,9 @@ export function Transcript({
   compactionDisabled = false,
   onContinue,
   onRetryLast,
+  onEditMessage,
+  onBranchMessage,
+  branchCounts,
   highlightMessageID,
 }: TranscriptProps) {
   const t = useT()
@@ -170,6 +178,17 @@ export function Transcript({
                     ? onRetryLast
                     : undefined
                 }
+                onEdit={
+                  message.role === "user" && onEditMessage
+                    ? () => onEditMessage(message)
+                    : undefined
+                }
+                onBranch={
+                  message.role === "user" && onBranchMessage
+                    ? () => onBranchMessage(message)
+                    : undefined
+                }
+                branchCount={branchCounts?.get(message.id) ?? 0}
               />
             ))
           )}

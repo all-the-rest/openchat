@@ -137,9 +137,17 @@ export function normalizeSession(info: OpenCodeSessionInfo, workspace?: string):
     created: info.time.created,
     updated: info.time.updated,
   }
-  // A normal chat has no parent; the key stays absent instead of becoming
-  // `undefined`, so the normalized shape mirrors the host.
-  if (info.parentID) session.parentID = info.parentID
+  // A fork and a subagent chat both report a host parent, but they mean
+  // different things. The fork marker wins, so a branch is never grouped or
+  // labelled as a subagent chat; it links back through `branchOf` instead.
+  if (info.fork) {
+    session.branchOf = info.fork.sessionID
+    if (info.fork.boundary.type === "before") {
+      session.branchBefore = info.fork.boundary.messageID
+    }
+  } else if (info.parentID) {
+    session.parentID = info.parentID
+  }
   const usage = normalizeUsage(info.tokens)
   if (usage) session.usage = usage
   return session
