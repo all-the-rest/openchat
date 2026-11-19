@@ -25,7 +25,7 @@ Caddy (TLS, optional Basic Auth, rate limit, security headers)
   ├── app:3000            BFF + static UI + /code switch
   ├── code:3002           authenticated OpenCode UI proxy (code.example.com)
   ├── artifacts:3001      sandbox origin (separate hostname)
-  └── opencode:4096       internal only, Basic auth, never published
+  └── opencode:4096       internal only, no HTTP auth (2.3.2), never published
         │
         ├── model providers
         ├── MCP servers (browse, rea, …)
@@ -35,7 +35,9 @@ Caddy (TLS, optional Basic Auth, rate limit, security headers)
 Rules:
 
 - OpenCode has **no public port** and no host port binding in production. Its
-  HTTP API still requires Basic auth; the network is defense in depth.
+  HTTP API has **no authentication** on 2.3.2; the private network is the only
+  control. The BFF still forwards `OPENCODE_USERNAME`/`OPENCODE_PASSWORD`, but
+  they authenticate nothing on that version.
 - The BFF is the only public application port; the Code host is a second
   authenticated origin.
 - The artifact host is a separate hostname, cookie-less, and reachable only with
@@ -75,18 +77,18 @@ HOST=127.0.0.1               # container: 0.0.0.0
 PORT=8787
 TRUST_PROXY=0                # 1 behind a proxy that sets X-Forwarded-For
 OPENCHAT_USER=owner
-OPENCHAT_PASSWORD=...        # the only credential; hashing is M7
+OPENCHAT_PASSWORD=...        # plaintext credential or OPENCHAT_PASSWORD_HASH
 SESSION_SECRET=...           # 32+ random bytes, base64
 SESSION_TTL_SECONDS=604800   # 7 days
 COOKIE_SECURE=1              # required in production
-ORIGIN=https://chat.example.com
+CODE_HOST_ORIGIN=             # empty: Code surface off; else bare https origin
 OPENCODE_URL=http://opencode:4096
-OPENCODE_USERNAME=opencode   # fixed by OpenCode 2.3
-OPENCODE_PASSWORD=...        # Basic auth; required unless the server prints one
+OPENCODE_USERNAME=opencode   # forwarded only; 2.3.2 ignores credentials
+OPENCODE_PASSWORD=...        # forwarded only; no HTTP auth on 2.3.2
 WORKSPACE_DIR=/workspace
 ARTIFACT_HOST_URL=https://artifacts.example.com
 ARTIFACT_SIGNING_KEY=...     # 32+ random bytes, HMAC for artifact URLs
-ADMIN_PROXY=off              # on: BFF proxies /admin/opencode behind auth
+ADMIN_PROXY=off              # config-only, not implemented (ADR-0005)
 STT_URL=                     # empty: dictation hidden
 STT_API_KEY=                 # optional bearer token; never logged
 DICTATION_MAX_SECONDS=120    # recording limit advertised to the composer
@@ -94,14 +96,17 @@ DICTATION_MAX_BYTES=26214400 # 25 MiB upload cap; clamped to 100 MiB
 BACKEND_MODE=live            # live | fake
 ```
 
-OpenCode 2.3 **does authenticate HTTP requests**. `opencode serve` requires
-HTTP Basic auth with the fixed username `opencode`; the password comes from
-`OPENCODE_PASSWORD` (alias: `OPENCODE_SERVER_PASSWORD`) or is generated and
-printed once at startup. Without it the server answers `401` with
-`WWW-Authenticate: Basic realm="Secure Area"`. The BFF therefore always sends
-`Authorization: Basic base64("opencode:" + OPENCODE_PASSWORD)` and treats the
-password as a required secret. Network isolation remains defense in depth, not
-the only control. Verified against 2.3.0 with a local `opencode serve`.
+OpenCode 2.3.2 has **no HTTP authentication**. Measured against the pinned
+image: `serve --hostname 0.0.0.0 --port 4096` answers `200` on `/session`,
+`/config`, `/app`, `/event` and `/global/health` without credentials, with the
+1.x-style password variables, and with both. The protection is network
+isolation: `opencode` sits on a private bridge, publishes no port and is
+reachable only through the BFF's ticket-protected Code routes
+(`docs/implementation/20-remote-deploy.md`, "Security boundary"). The BFF still
+forwards `OPENCODE_USERNAME`/`OPENCODE_PASSWORD`, but they authenticate nothing
+on 2.3.2 and must not be relied on. The update policy is recorded in
+[`decisions/0009-opencode-update-policy.md`](../decisions/0009-opencode-update-policy.md);
+a future OpenCode that restores auth is tracked there.
 
 ## Production pattern (owner's existing edge)
 
@@ -114,29 +119,29 @@ browser ──TLS──▶ Caddy ──forward_auth──▶ auth sidecar (HMAC 
                     │                        │
                     │◀── 401 → /login.html ──┘
                     │
-                    └── reverse_proxy ──▶ OpenCode (private, Basic upstream)
+                    └── reverse_proxy ──▶ OpenCode (private, no HTTP auth on 2.3.2)
 ```
 
 Properties worth keeping:
 
 - A small auth sidecar validates the session cookie via `forward_auth`; the
   browser never reaches OpenCode without a valid cookie.
-- Caddy injects the OpenCode Basic credential upstream (`header_up
-  Authorization "Basic …"`), so the browser never sees it. The edge credential
-  and the OpenCode credential rotate independently.
+- The edge may inject an `Authorization: Basic …` header upstream; the browser
+  never sees it. With the pinned OpenCode 2.3.2 this header is forwarded but
+  authenticates nothing — it is retained for forward compatibility only.
 - `/login`, `/logout` and `/api/me` are explicit handles above the catch-all.
-- `health_uri /api/info` with the same injected credential marks a dead upstream
-  unhealthy and serves an offline page.
+- `health_uri /api/info` probes the upstream; only rate-limited calls fail on a
+  dead upstream (the route reports `host.reachable: false`).
 - SSE needs no special flush configuration in Caddy; long response times are
   covered by `stream_timeout`.
 
-Difference for this app: the BFF, not the browser, talks to OpenCode. The BFF is
-the only component that needs the OpenCode Basic credential and holds it
-server-side (`OPENCODE_USERNAME` + `OPENCODE_PASSWORD`). The artifact origin
-stays credential-free and is addressed only through signed URLs.
+Difference for this app: the BFF, not the browser, talks to OpenCode. The BFF
+forwards `OPENCODE_USERNAME`/`OPENCODE_PASSWORD` server-side, but the pinned
+2.3.2 ignores them; network isolation is the control. The artifact origin stays
+credential-free and is addressed only through signed URLs.
 
-**Status:** verified on 2.3.0. The BFF sets the Basic header itself; an edge
-credential is optional and independent.
+**Status:** verified on 2.3.0; on the pinned 2.3.2 the forwarded Basic header is
+ignored. An edge credential is optional and independent.
 
 Generate:
 
@@ -170,7 +175,8 @@ page says "configure OpenCode on the host" and shows no link.
 
 The BFF can run next to the UI while OpenCode runs on another machine. The
 browser still talks only to the BFF; the BFF is the only client of the remote
-host and holds its Basic credential.
+host. It forwards the Basic credential, which the pinned 2.3.2 ignores; the
+private address/network is the control.
 
 1. **Private network (preferred).** Give the Code host a WireGuard or Tailscale
    address and set `OPENCODE_URL=http://100.x.y.z:4096`. Bind OpenCode to that
@@ -182,9 +188,11 @@ host and holds its Basic credential.
    ```
 
    and set `OPENCODE_URL=http://127.0.0.1:4096`. Supervise the tunnel (systemd
-   unit, `autossh`, Tailscale). A dead tunnel fails `/api/info` and every API
-   call with `500 internal_error`; `/healthz` is liveness-only and stays `200`,
-   so probe `/api/info` for upstream health. It never falls back to a local
+   unit, `autossh`, Tailscale). A dead tunnel does **not** fail `/api/info`:
+   it still answers `200` with `host.reachable: false` (pinned in
+   `apps/server/test/host-status.test.ts`); only the rate-limited upstream calls
+   fail. `/healthz` is liveness-only and stays `200`, so probe the `host`
+   field of `/api/info` for upstream health. It never falls back to a local
    default.
 3. **Never publish port 4096.** No public DNS name, no port forwarding and no
    unauthenticated reverse proxy in front of it.
@@ -242,9 +250,9 @@ half-open tunnel fails instead of hanging.
 
 - `CODE_SURFACE=on` renders a **Chat | Code** switch. Code is an iframe of
   `CODE_HOST_URL`.
-- The Code host (a small proxy service) holds the OpenCode Basic credential,
-  validates a single-use ticket minted by the BFF, sets its own host-only
-  cookie, and forwards `/api/*` and the event stream.
+- The Code host (a small proxy service) forwards the OpenCode Basic credential
+  (ignored by 2.3.2), validates a single-use ticket minted by the BFF, sets its
+  own host-only cookie, and forwards `/api/*` and the event stream.
 - The iframe origin is separate from the app and the artifact host. No cookie
   is shared; the artifact origin never gets a session.
 - `CODE_TICKET_SECRET` signs `{ sub, codeHost, exp, jti }`; TTL ≤ 60 s.
@@ -446,9 +454,10 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?set 32+ random bytes}
       SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-604800}
       COOKIE_SECURE: "1"
-      ORIGIN: https://chat.example.com
+      CODE_HOST_ORIGIN: ${CODE_HOST_ORIGIN:-}
       OPENCODE_URL: http://opencode:4096
       OPENCODE_USERNAME: opencode
+      # forwarded for forward-compatibility only; ignored by OpenCode 2.3.2
       OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?set a random password}
       WORKSPACE_DIR: /workspace
       ARTIFACT_HOST_URL: https://artifacts.example.com
@@ -470,7 +479,7 @@ services:
     environment:
       OPENCODE_URL: http://opencode:4096
       OPENCODE_USERNAME: opencode
-      OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?same value as the BFF}
+      OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?forwarded only; ignored by 2.3.2}
       CODE_TICKET_SECRET: ${CODE_TICKET_SECRET:?set a ticket secret}
       APP_ORIGIN: https://chat.example.com
     networks: [frontend, backend]
@@ -496,7 +505,8 @@ services:
     image: ${OPENCODE_IMAGE:?pin a verified image tag}
     command: ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
     environment:
-      OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?same value as the BFF}
+      # accepted for compatibility; 2.3.2 does not enforce HTTP auth
+      OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?forwarded only; ignored by 2.3.2}
     volumes:
       - opencode-data:/root/.local/share/opencode
       - opencode-config:/root/.config/opencode

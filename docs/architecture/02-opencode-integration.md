@@ -332,10 +332,11 @@ Verified locally: with `experimental.artifacts: true` the default provider is
 `local` with `capabilities: ["static"]`; create/get/view round-trip a file map.
 Without the flag the API answers `403 ForbiddenError: Artifacts are disabled`.
 
-So the app does not implement artifact storage or a provider. It uses the
-OpenCode artifact API and only adds the sandbox: the artifact origin resolves a
-signed URL, fetches `view()` bytes through the BFF, and serves them with a
-restrictive CSP in an iframe without `allow-same-origin`. See
+The app **does** implement artifact storage: the experimental OpenCode
+artifacts API is not used. The BFF owns storage
+(`apps/server/src/artifacts-store.ts`), keyed by the SHA-256 of the document
+under `<disks>/artifacts/<id>/`, and `apps/artifact-host` serves the documents
+from its own origin behind signed, expiring URLs. See
 [`04-artifact-sandbox.md`](04-artifact-sandbox.md).
 
 ### Creating interactive apps

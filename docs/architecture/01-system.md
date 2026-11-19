@@ -65,7 +65,6 @@ Every session is created with an explicit `location.directory` taken from
 | `apps/artifact-host` | Separate origin for sandboxed agent artifacts |
 | `packages/opencode` | Typed adapter around `@opencode/client`, the fake `ChatBackend`, fixtures |
 | `packages/contracts` | Shared types, event normalization, error shapes |
-| `packages/ui` | Design system components and tokens |
 
 ## Integration options
 

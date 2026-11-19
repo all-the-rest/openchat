@@ -27,7 +27,7 @@ repo.
 **Status:** implemented (`apps/web`, `apps/server`, `packages/opencode`); see
 [`implementation/01-m1-m2.md`](implementation/01-m1-m2.md).
 
-- Bun workspace, `apps/web`, `apps/server`, `packages/opencode`.
+- pnpm workspace, `apps/web`, `apps/server`, `packages/opencode`.
 - Auth (`basic` first), same-origin proxy, `/healthz`.
 - Session list, new chat, prompt, SSE stream, stop.
 - `ChatBackend` fake + fixtures from day one; E2E runs with `BACKEND_MODE=fake`

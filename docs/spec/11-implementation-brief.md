@@ -38,9 +38,9 @@ not open the reference.
 
 Build the smallest end-to-end path:
 
-1. Bun workspace with `apps/web`, `apps/server`, `packages/opencode`.
-2. Auth (`basic` first); the BFF sends OpenCode Basic credentials from
-   `OPENCODE_USERNAME`/`OPENCODE_PASSWORD`.
+1. pnpm workspace with `apps/web`, `apps/server`, `packages/opencode`.
+2. Auth (`basic` first); the BFF forwards `OPENCODE_USERNAME`/
+   `OPENCODE_PASSWORD` (ignored by the pinned OpenCode 2.3.2; see ADR-0009).
 3. `GET /healthz` and a typed OpenCode client, plus the fake `ChatBackend`.
 4. Session list + new chat + prompt + SSE stream + stop, all created with an
    explicit `location.directory` from `WORKSPACE_DIR`.
