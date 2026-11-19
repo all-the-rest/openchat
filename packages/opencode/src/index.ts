@@ -88,6 +88,12 @@ export interface ChatBackend {
   /** Removes one pending turn; `messageID` is the id `prompt` returned. */
   cancelQueued(sessionID: string, messageID: string): Promise<void>
   interrupt(sessionID: string): Promise<void>
+  /**
+   * Asks the host to compact one session now (issue #53). `id` makes the host
+   * call idempotent so a retry cannot start a second summary. Both adapters
+   * surface host failures as `BackendError`.
+   */
+  compact(sessionID: string, id?: string): Promise<void>
   listModels(): Promise<ModelInfo[]>
   listAgents(): Promise<AgentInfo[]>
   /** Outstanding permission requests of a session, oldest first. */

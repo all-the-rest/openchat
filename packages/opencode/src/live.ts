@@ -145,6 +145,12 @@ export class LiveBackend implements ChatBackend {
     await this.client.session.interrupt({ sessionID })
   }
 
+  async compact(sessionID: string, id?: string): Promise<void> {
+    // The host treats `id` as an idempotency key: replaying the same summary
+    // after a timeout must not compact twice (issue #53).
+    await this.client.session.compact({ sessionID, id: id ?? null })
+  }
+
   async listInbox(sessionID: string): Promise<InboxEntry[]> {
     const entries = await this.client.session.inbox.list({ sessionID })
     return entries.map((entry) => ({
@@ -171,11 +177,20 @@ export class LiveBackend implements ChatBackend {
   async listModels(): Promise<ModelInfo[]> {
     const response = await this.client.model.list({ types: ["chat"] })
     this.modelProviders = new Map(response.data.map((model) => [model.modelID, model.providerID]))
-    return response.data.map((model) => ({
-      id: model.modelID,
-      name: model.name,
-      providerID: model.providerID,
-    }))
+    return response.data.map((model) => {
+      const info: ModelInfo = {
+        id: model.modelID,
+        name: model.name,
+        providerID: model.providerID,
+      }
+      // `limit.context` is the effective window, including a named provider
+      // override. It drives the header fill indicator; never invent one.
+      const context = model.limit?.context
+      if (typeof context === "number" && Number.isFinite(context) && context > 0) {
+        info.contextLimit = context
+      }
+      return info
+    })
   }
 
   async listAgents(): Promise<AgentInfo[]> {

@@ -48,7 +48,29 @@ export interface ArtifactPart {
   mime?: string
 }
 
-export type Part = TextPart | ReasoningPart | ToolPart | ErrorPart | ArtifactPart
+/**
+ * One collapsed compaction section. `started` opens the lifecycle, `ended` or
+ * `failed` closes it with the summary or the failure reason (issue #53).
+ * Host-provided text (`summary`, `message`) is data, not UI copy.
+ */
+export interface CompactionPart {
+  type: "compaction"
+  id: string
+  status: "started" | "ended" | "failed"
+  reason?: "auto" | "manual"
+  summary?: string
+  message?: string
+  code?: string
+  retryable?: boolean
+}
+
+export type Part =
+  | TextPart
+  | ReasoningPart
+  | ToolPart
+  | ErrorPart
+  | ArtifactPart
+  | CompactionPart
 
 export type MessageStatus = "streaming" | "complete" | "stopped" | "error"
 
@@ -82,6 +104,16 @@ export const partSchema = z.discriminatedUnion("type", [
     type: z.literal("error"),
     id: z.string(),
     message: z.string(),
+    code: z.string().optional(),
+    retryable: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal("compaction"),
+    id: z.string(),
+    status: z.enum(["started", "ended", "failed"]),
+    reason: z.enum(["auto", "manual"]).optional(),
+    summary: z.string().optional(),
+    message: z.string().optional(),
     code: z.string().optional(),
     retryable: z.boolean().optional(),
   }),

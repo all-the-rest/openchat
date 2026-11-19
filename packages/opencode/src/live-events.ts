@@ -1,4 +1,4 @@
-import type { EventEnvelope, ToolPart } from "@openchat/contracts"
+import type { CompactionReason, EventEnvelope, ToolPart } from "@openchat/contracts"
 import type { V2Event } from "@opencode/client"
 import { textPartID } from "./live-normalize"
 
@@ -50,6 +50,44 @@ function envelope(event: V2Event, type: string, data: Record<string, unknown>): 
 
 function passthrough(event: V2Event): EventEnvelope {
   return envelope(event, event.type, event.data as unknown as Record<string, unknown>)
+}
+
+function fields(event: V2Event): Record<string, unknown> {
+  return event.data as unknown as Record<string, unknown>
+}
+
+function text(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined
+}
+
+function count(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
+function reason(value: unknown): CompactionReason {
+  return value === "manual" ? "manual" : "auto"
+}
+
+/** `session.usage.recorded` nests counts under `tokens` or a `report` entry. */
+function usageCounts(data: Record<string, unknown>): { input: number; output: number } {
+  const tokens = data.tokens
+  if (tokens !== null && typeof tokens === "object") {
+    const record = tokens as Record<string, unknown>
+    return { input: count(record.input) ?? 0, output: count(record.output) ?? 0 }
+  }
+  const report = data.report
+  if (Array.isArray(report)) {
+    const first = report[0]
+    if (first !== null && typeof first === "object") {
+      const record = first as Record<string, unknown>
+      const tokens = record.tokens
+      if (tokens !== null && typeof tokens === "object") {
+        const nested = tokens as Record<string, unknown>
+        return { input: count(nested.input) ?? 0, output: count(nested.output) ?? 0 }
+      }
+    }
+  }
+  return { input: 0, output: 0 }
 }
 
 /**
@@ -276,6 +314,54 @@ export function normalizeEvent(
         sessionID: event.data.sessionID,
         messageID: event.data.assistantMessageID,
         part,
+      })
+    }
+    case "session.usage.updated":
+    case "session.usage.recorded": {
+      const data = fields(event)
+      const { input, output } = usageCounts(data)
+      return envelope(event, event.type, {
+        sessionID: data.sessionID,
+        inputTokens: input,
+        outputTokens: output,
+      })
+    }
+    case "session.compaction.started": {
+      const data = fields(event)
+      return envelope(event, event.type, {
+        sessionID: data.sessionID,
+        reason: reason(data.reason),
+      })
+    }
+    case "session.compaction.delta": {
+      const data = fields(event)
+      return envelope(event, event.type, {
+        sessionID: data.sessionID,
+        text: text(data.delta) ?? text(data.text) ?? "",
+      })
+    }
+    case "session.compaction.ended": {
+      const data = fields(event)
+      const normalized: Record<string, unknown> = {
+        sessionID: data.sessionID,
+        reason: reason(data.reason),
+      }
+      const summary = text(data.summary)
+      if (summary !== undefined) normalized.summary = summary
+      return envelope(event, event.type, normalized)
+    }
+    case "session.compaction.failed": {
+      const data = fields(event)
+      const error = data.error
+      const record = error !== null && typeof error === "object"
+        ? (error as Record<string, unknown>)
+        : {}
+      return envelope(event, event.type, {
+        sessionID: data.sessionID,
+        reason: reason(data.reason),
+        message: text(record.message) ?? "Compaction failed",
+        code: text(record.type),
+        retryable: count(record.retryAfterMs) !== undefined,
       })
     }
     default:

@@ -99,6 +99,8 @@ export class FakeBackend implements ChatBackend {
   private readonly events: FakeEvents
   private readonly permissions: FakePermissions
   private readonly recorded = new Map<string, RecordedPrompt>()
+  /** Number of accepted compaction requests per session (fake-mode probe). */
+  private readonly compactCalls = new Map<string, number>()
   private readonly parts: PartWriter
 
   constructor(options: FakeBackendOptions = {}) {

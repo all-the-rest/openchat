@@ -24,6 +24,12 @@ export interface ModelInfo {
   id: string
   name: string
   providerID: string
+  /**
+   * Effective context window from the host's `limit.context` (issue #53).
+   * Absent when the host did not report a limit; the fill indicator then shows
+   * a neutral state instead of inventing a number.
+   */
+  contextLimit?: number
 }
 
 export interface AgentInfo {
@@ -229,6 +235,14 @@ export const EVENT = {
   inboxDeliveryChanged: "session.inbox.delivery.changed",
   interrupted: "session.interrupted",
   usageUpdated: "session.usage.updated",
+  usageRecorded: "session.usage.recorded",
+  compactionStarted: "session.compaction.started",
+  compactionDelta: "session.compaction.delta",
+  compactionEnded: "session.compaction.ended",
+  compactionFailed: "session.compaction.failed",
+  /** BFF-synthesized, i18n notice rendered as a system message in the chat. */
+  notice: "session.notice",
+  retryScheduled: "session.retry.scheduled",
   permissionAsked: "permission.asked",
   permissionReplied: "permission.replied",
   error: "session.error",
@@ -276,6 +290,63 @@ export interface SessionErrorData {
   message: string
   code?: string
   retryable?: boolean
+}
+
+/** Flat token counts carried by `session.usage.updated`/`recorded`. */
+export interface UsageData {
+  sessionID: string
+  inputTokens: number
+  outputTokens: number
+}
+
+export type CompactionReason = "auto" | "manual"
+
+export interface CompactionStartedData {
+  sessionID: string
+  reason: CompactionReason
+}
+
+export interface CompactionDeltaData {
+  sessionID: string
+  /** Progress text from the summariser, when the host provides one. */
+  text: string
+}
+
+export interface CompactionEndedData {
+  sessionID: string
+  reason: CompactionReason
+  /** Summary text, when the host event carries it. */
+  summary?: string
+}
+
+export interface CompactionFailedData {
+  sessionID: string
+  reason: CompactionReason
+  message: string
+  code?: string
+  retryable?: boolean
+}
+
+/**
+ * Keys the BFF may put on a `session.notice` event. The web translates them
+ * through i18n; an unknown key is dropped rather than rendered raw.
+ */
+export const NOTICE_KEYS = [
+  "chat.compactionNoticeAuto",
+  "chat.compactionNoticeManual",
+  "chat.compactionNoticeFailed",
+] as const
+
+export type NoticeKey = (typeof NOTICE_KEYS)[number]
+
+export function isNoticeKey(value: unknown): value is NoticeKey {
+  return typeof value === "string" && (NOTICE_KEYS as readonly string[]).includes(value)
+}
+
+export interface NoticeData {
+  sessionID: string
+  key: NoticeKey
+  variables?: Record<string, string | number>
 }
 
 /** Scripted fake scenarios; `rich` exercises the M2 renderers. */
