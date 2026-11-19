@@ -12,7 +12,7 @@ stored as `application/zip`), but nothing could look inside it. The agent image
 has no `unzip` and adds no dependency, so the tools use Python's stdlib
 `zipfile` inside the existing fixed-script runner: one JSON request on stdin,
 one JSON answer on stdout, a fresh temporary working directory, a 30 s
-deadline, a 512 MiB address-space cap, and a stable error code instead of a
+deadline, a 1 GiB address-space cap, and a stable error code instead of a
 traceback.
 
 | Piece | Path | Job |
@@ -86,7 +86,13 @@ not turn "read this ZIP" into "write outside the chat".
 | Encrypted archive | general-purpose flag bit 0 is refused: no password API and no prompt path |
 | Overwrite | `O_CREAT \| O_EXCL \| O_NOFOLLOW`, mode 0600; collisions are pre-flighted and refused with `already_exists`; a mid-write collision rolls back everything this call created |
 | Escape through the destination | Node resolves the real `chats/<session>/files`, `lstat`s it, and Python re-checks that the base is an absolute existing directory; each created directory is `lstat`ed, and an existing symlink or non-directory is refused |
-| Resource exhaustion | 500 entries, 10 segments, 200 MiB, 30 s wall clock, 512 MiB address space, 2 MiB child stdout |
+| Resource exhaustion | 500 entries, 10 segments, 200 MiB, 30 s wall clock, 1 GiB address space, 2 MiB child stdout |
+
+The address-space figure is the shared `_common.py` cap, so it covers every
+Python tool and not only the archive reader. It must cover the address space
+markitdown reserves through magika and onnxruntime — 512 MiB failed the DOCX
+smoke on Linux/musl, where `RLIMIT_AS` is enforced — so 1 GiB is the floor. The
+container's own memory limit remains the real bound.
 
 ## Collision rule
 

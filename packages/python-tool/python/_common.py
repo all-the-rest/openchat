@@ -17,7 +17,11 @@ from typing import NoReturn
 # raw file must stay below this bound; the Node runner checks the same number.
 MAX_FILE_BYTES = 700 * 1024
 MAX_REQUEST_BYTES = 4 * 1024 * 1024
-MEMORY_LIMIT = 512 * 1024 * 1024
+# The cap bounds a pathological document, it is not the sandbox: the container's
+# own memory limit stays the real bound. It must still cover the address space
+# markitdown reserves through magika and onnxruntime — 512 MiB fails the DOCX
+# path on Linux/musl (macOS does not enforce RLIMIT_AS) — so 1 GiB is the floor.
+MEMORY_LIMIT = 1024 * 1024 * 1024
 
 
 def fail(code: str) -> NoReturn:

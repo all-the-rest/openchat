@@ -18,6 +18,7 @@ import base64
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -45,6 +46,33 @@ DOCX_BLOCKS = [
 ]
 
 FONT_SAMPLES = ("Grüße", "Ω", "Привет")
+
+# The shape of one of our stable codes; anything else from a tool's stdout is
+# replaced by a fixed word, so a failure message never echoes host text.
+CODE = re.compile(r"[a-z][a-z0-9_]{0,31}")
+
+
+def read_answer(name: str, result: subprocess.CompletedProcess) -> dict:
+    """Parse the tool's one JSON answer; refuse anything else.
+
+    The output is untrusted, so this only ever looks at `ok` and `code`.
+    Payload bytes, stderr and tracebacks stay out of every message.
+    """
+    try:
+        body = json.loads(result.stdout)
+    except ValueError:
+        body = None
+    if not isinstance(body, dict):
+        raise SystemExit(f"{name} exited {result.returncode} without an answer")
+    return body
+
+
+def answered_code(body: dict) -> str:
+    """The stable code from an answer, or `no_answer` for a foreign shape."""
+    code = body.get("code")
+    if isinstance(code, str) and CODE.fullmatch(code):
+        return code
+    return "no_answer"
 
 
 def fixtures(directory: str) -> dict[str, str]:
@@ -100,11 +128,11 @@ def run_tool(scripts: str, name: str, payload: dict) -> dict:
         timeout=60,
         check=False,
     )
+    body = read_answer(name, result)
     if result.returncode != 0:
-        raise SystemExit(f"{name} exited {result.returncode}")
-    body = json.loads(result.stdout)
+        raise SystemExit(f"{name} exited {result.returncode}: {answered_code(body)}")
     if body.get("ok") is not True:
-        raise SystemExit(f"{name} answered {body.get('code')}")
+        raise SystemExit(f"{name} answered {answered_code(body)}")
     return body
 
 
@@ -157,11 +185,12 @@ def read_document(script: str, path: str) -> None:
         timeout=60,
         check=False,
     )
+    name = f"read_document {path}"
+    body = read_answer(name, result)
     if result.returncode != 0:
-        raise SystemExit(f"read_document {path} exited {result.returncode}")
-    body = json.loads(result.stdout)
+        raise SystemExit(f"{name} exited {result.returncode}: {answered_code(body)}")
     if body.get("ok") is not True:
-        raise SystemExit(f"read_document {path} answered {body.get('code')}")
+        raise SystemExit(f"{name} answered {answered_code(body)}")
     text = base64.b64decode(body["data"]).decode("utf-8")
     expected = EXPECTED["docx" if path.endswith(".docx") else "xlsx"]
     if expected not in text:
@@ -183,9 +212,10 @@ def corrupt_document(script: str) -> None:
     )
     if result.returncode == 0:
         raise SystemExit("read_document accepted a corrupt DOCX")
-    body = json.loads(result.stdout)
-    if body.get("code") != "parse_failed":
-        raise SystemExit(f"read_document mapped a corrupt file to {body.get('code')}")
+    body = read_answer("read_document broken.docx", result)
+    code = answered_code(body)
+    if code != "parse_failed":
+        raise SystemExit(f"read_document mapped a corrupt file to {code}")
     if "Traceback" in result.stderr:
         raise SystemExit("read_document leaked a traceback for a corrupt file")
 
