@@ -13,6 +13,7 @@ import {
   BODY_TOO_LARGE, INVALID_JSON, invalidMessage, jsonError, payloadTooLarge, readJson,
 } from "./http"
 import { clientAddress } from "./middleware"
+import { MEMORY_STORE_FULL, MEMORY_STORE_FULL_MESSAGE, MemoryStoreFullError } from "./memory-files"
 import type { createMemoryStore } from "./memory-store"
 import { FixedWindowThrottle } from "./throttle"
 
@@ -291,6 +292,9 @@ export function registerMemoryInternalRoute(
     try {
       result = dispatch(store, checked.value)
     } catch (error) {
+      if (error instanceof MemoryStoreFullError) {
+        return jsonError(c, 507, MEMORY_STORE_FULL, MEMORY_STORE_FULL_MESSAGE)
+      }
       return c.json({ ok: false, error: errorMessage(error) } satisfies MemoryOpResult, 400)
     }
     throttle.record(address)
@@ -360,7 +364,15 @@ export function registerMemoryRoutes(
     const checked = validatePatch(body ?? {})
     if (!checked.ok) return jsonError(c, 400, "invalid_request", checked.error)
     const update = { id: c.req.param("id"), ...checked.value } as unknown as MemoryUpdateInput
-    const updated = store.update([update], actor(c))
+    let updated: MemoryFact[]
+    try {
+      updated = store.update([update], actor(c))
+    } catch (error) {
+      if (error instanceof MemoryStoreFullError) {
+        return jsonError(c, 507, MEMORY_STORE_FULL, MEMORY_STORE_FULL_MESSAGE)
+      }
+      throw error
+    }
     await invalidator.invalidate()
     const fact = updated[0]
     if (!fact) return jsonError(c, 404, "not_found", "Memory fact not found")
@@ -373,7 +385,14 @@ export function registerMemoryRoutes(
     if (body === INVALID_JSON) return jsonError(c, 400, "invalid_request", "Invalid JSON body")
     const error = isRecord(body) ? checkString(body, "reason", 500, true) : INVALID_BODY_MESSAGE
     if (error) return jsonError(c, 400, "invalid_request", error)
-    store.remove({ ids: [c.req.param("id")], reason: (body as { reason: string }).reason }, actor(c))
+    try {
+      store.remove({ ids: [c.req.param("id")], reason: (body as { reason: string }).reason }, actor(c))
+    } catch (storeError) {
+      if (storeError instanceof MemoryStoreFullError) {
+        return jsonError(c, 507, MEMORY_STORE_FULL, MEMORY_STORE_FULL_MESSAGE)
+      }
+      throw storeError
+    }
     await invalidator.invalidate()
     return c.json({ ok: true })
   })

@@ -16,17 +16,28 @@ breadth, currency, token-efficiency — are the acceptance checklist (D11).
 ## Store and writer model
 
 - `MEMORY_DATA_DIR` (default `/workspace/.memory`) holds three files:
-  - `facts.jsonl` — one atomic fact per line, append-only; a write never
-    rewrites an existing line. Fields: `id`, `kind` (`preference | profile |
-    project | decision | episode | snippet`), `text`, `topic`, `tags`, `source
-    { sessionID, messageID, at }`, `trust` (`explicit | observed | inferred`),
-    `status` (`active | superseded | expired | deleted`), `supersedes[]`,
-    `createdAt`, `lastConfirmedAt`, `expiresAt`, `checksum`.
+  - `facts.jsonl` — one fact per line; an ordinary mutation appends complete
+    lines in a single append, so it never reads the file back to grow it. Prune
+    is the one operation that compacts the file. A crash can leave a partial
+    trailing line; reads skip it as corrupt and log it. Fields: `id`, `kind`
+    (`preference | profile | project | decision | episode | snippet`), `text`,
+    `topic`, `tags`, `source { sessionID, messageID, at }`, `trust` (`explicit
+    | observed | inferred`), `status` (`active | superseded | expired |
+    deleted`), `supersedes[]`, `createdAt`, `lastConfirmedAt`, `expiresAt`,
+    `checksum`.
   - `INDEX.md` — the push layer: topic, ID ranges, one line per fact, hard-capped
-    (~400 tokens target) and trimmed by rank, never mid-sentence.
+    (~400 tokens target) and trimmed by rank, never mid-sentence. Replaced via a
+    temp file and rename.
   - `audit.jsonl` — every write/update/delete/prune with actor, time and reason.
+    Appended, never rewritten.
 - Directory `0700`, files `0600`. A directory needs the execute bit to be
   traversable by `node`, so `0600` on the directory would break it.
+- **Bounded store.** `MEMORY_MAX_FACTS_BYTES` (default 64 MiB) is a hard write
+  cap for `facts.jsonl`: a write that would cross it is refused before the first
+  byte is appended, with the stable code `memory_store_full` (HTTP 507) and no
+  path or content in the message. `GET /api/memory` and the export read only the
+  newest 200 audit lines from the end of `audit.jsonl`, so rendering the page
+  never loads the whole file.
 - **The BFF is the only writer.** `memory-data` is mounted read-write in the
   BFF only; the MCP server never writes the volume directly and OpenCode gets no
   memory mount at all. The BFF image pre-creates the mount point, `chown
@@ -34,8 +45,11 @@ breadth, currency, token-efficiency — are the acceptance checklist (D11).
   owned by the same UID that writes every file. An optional read-only visibility
   mount for OpenCode is deferred to a later step; it is deliberately not present
   here so a root-mounted volume can never seed files the BFF cannot write.
-- All writes are atomic; corrupt lines are skipped on read and logged to
-  `audit.jsonl`. Writes exist only through the internal route below.
+- All writes are bounded, not filesystem-atomic: facts and audit entries are
+  appended as complete lines, `INDEX.md` is replaced via a temp file and rename,
+  and prune compacts through the same rename. Corrupt lines are skipped on read
+  and logged to `audit.jsonl`. Writes exist only through the internal route
+  below.
 
 ## HTTP contracts
 
@@ -126,8 +140,12 @@ review-gated fallback: the agent owns content, the owner has the last word.
   retrieval never renews. Superseded/expired/deleted rows are excluded from
   search and reachable only through `mem_get`.
 - **Prune:** agent-invoked (`mem_prune`), with a weekly dry-run reminder; a dry
-  run returns ranked candidates with reasons and applies nothing. Compaction
-  does not delete memory — it lives outside session history.
+  run returns ranked candidates with reasons and applies nothing. With
+  `maxBytes`, the budget is measured on the compacted file: expired, superseded
+  and aged rows go first, then the oldest still-active rows, so an all-active
+  store that exceeds the budget can shrink too. An applied prune compacts
+  `facts.jsonl`; without `maxBytes` it keeps a `deleted` tombstone per row.
+  Compaction does not delete memory — it lives outside session history.
 
 ## Clean-room write boundary
 
@@ -158,9 +176,12 @@ so the blast radius of any future writable mount stays bounded.
 
 ## Tests
 
-- **Store:** atomic append, upsert, supersession links, TTL transitions, prune
-  dry-run ranking, corrupt-line recovery and cap trimming; internal-route auth
-  (`MEMORY_INTERNAL_TOKEN`); fresh-volume bootstrap against a **truly empty**
+- **Store:** append-path growth (no read-rewrite) with an in-place cap check,
+  write-cap refusal at the boundary (file byte-identical after a refusal), prune
+  shrinking an all-active over-budget store, the bounded audit tail, upsert,
+  supersession links, TTL transitions, prune dry-run ranking, corrupt-line
+  recovery and cap trimming; internal-route auth (`MEMORY_INTERNAL_TOKEN`) and
+  the `memory_store_full` 507; fresh-volume bootstrap against a **truly empty**
   volume — ownership `node:node`, directory `0700`, files `0600`.
 - **HTTP contracts:** internal ops map to store actions with token auth and no
   public exposure; public `GET`/`PATCH`/`DELETE` (with `{ reason }`)/`export`
@@ -174,8 +195,9 @@ so the blast radius of any future writable mount stays bounded.
   creation.
 - **UI:** `/memory` browse/edit/delete/export/audit, plain-text rendering and
   keyboard reachability; `en`/`de` strings present with no hard-coded text.
-- **E2E (fake backend):** write a fact via the fake memory tool, start a new
-  chat, assert the injected index contains it; supersede it and assert the old
-  line is gone from the push layer.
+- **Route (fake backend):** a fact written through the internal route appears
+  in the index a new session receives; after supersession the old line is gone
+  from the push layer. This is an `apps/server` route test, not a Playwright
+  spec.
 - Gates before any commit: `pnpm run gates:fast` (lint, typecheck, test, build,
   `ratchet check --tier fast`).

@@ -319,7 +319,10 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
       now: deps.appsNow,
     })
 
-  const memoryStore = createMemoryStore({ dir: deps.config.MEMORY_DATA_DIR })
+  const memoryStore = createMemoryStore({
+    dir: deps.config.MEMORY_DATA_DIR,
+    maxFactsBytes: deps.config.MEMORY_MAX_FACTS_BYTES,
+  })
   const memoryInvalidator = createMemoryInvalidator(deps.backend, memoryStore)
 
   registerAuthRoutes(app, deps)

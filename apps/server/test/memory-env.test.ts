@@ -1,6 +1,6 @@
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { DEFAULT_MEMORY_DATA_DIR } from "../src/env-memory"
+import { DEFAULT_MEMORY_DATA_DIR, DEFAULT_MEMORY_MAX_FACTS_BYTES } from "../src/env-memory"
 import { loadEnv } from "../src/env"
 import type { EnvConfig } from "../src/env"
 
@@ -62,6 +62,26 @@ describe("memory environment: data directory validation", () => {
 
   it("refuses a null byte", () => {
     expect(() => load({ MEMORY_DATA_DIR: "/srv/mem\0ory" })).toThrow(/MEMORY_DATA_DIR/)
+  })
+})
+
+describe("memory environment: write cap", () => {
+  it("defaults to 64 MiB", () => {
+    expect(load().MEMORY_MAX_FACTS_BYTES).toBe(DEFAULT_MEMORY_MAX_FACTS_BYTES)
+    expect(DEFAULT_MEMORY_MAX_FACTS_BYTES).toBe(64 * 1024 * 1024)
+  })
+
+  it("honours a positive override", () => {
+    expect(load({ MEMORY_MAX_FACTS_BYTES: "1024" }).MEMORY_MAX_FACTS_BYTES).toBe(1024)
+  })
+
+  it("falls back to the default and warns on a malformed value", () => {
+    const warnings: string[] = []
+    for (const value of ["0", "-5", "12MiB", "1.5"]) {
+      const config = load({ MEMORY_MAX_FACTS_BYTES: value }, (message) => warnings.push(message))
+      expect(config.MEMORY_MAX_FACTS_BYTES).toBe(DEFAULT_MEMORY_MAX_FACTS_BYTES)
+    }
+    expect(warnings.join("\n")).toMatch(/MEMORY_MAX_FACTS_BYTES is not a positive integer/)
   })
 })
 
