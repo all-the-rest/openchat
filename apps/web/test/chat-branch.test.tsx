@@ -219,9 +219,11 @@ describe("branching from a message", () => {
     expect(link).toHaveAttribute("href", "/c/ses_1")
     expect(link).toHaveTextContent("Branch of Parent chat")
     expect(screen.getByRole("heading", { name: "Parent chat" })).toBeInTheDocument()
-    // Only the history before the boundary is copied into the branch.
-    expect(screen.getByText("original question")).toBeInTheDocument()
-    expect(screen.queryByText("answer")).toBeNull()
+    // Only the history before the boundary is copied into the branch. The
+    // transcript of the old chat is cleared in the session-switch effect, so
+    // this settles a tick after the branch link appears.
+    expect(await screen.findByText("original question")).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText("answer")).toBeNull())
     expect(screen.queryByTestId("parent-link")).toBeNull()
   })
 
