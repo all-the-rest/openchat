@@ -141,7 +141,7 @@ Each step starts from the previous one green:
    the change touches a surface it covers.
 3. **Version.** `pnpm run release:bump --set 2.0.0`. From a 0.x version
    `--major` is not the 2.0 lever: it yields `1.0.0`, and the workflow rejects
-   the tag. Review the nine-file diff.
+   the tag. Review the version-file diff (one line per mirrored file).
 4. **Changelog.** `pnpm run release:changelog --version 2.0.0 --dry-run`,
    then without `--dry-run`. Read the section; the generator groups, it does
    not write prose.
@@ -302,11 +302,11 @@ floor: nothing was deleted.
 
 ## Manual acceptance (not run here)
 
-1. `pnpm run release:bump --set 2.0.1 --dry-run` on a clean tree: nine
-   `would write` lines, no diff.
+1. `pnpm run release:bump --set 2.0.1 --dry-run` on a clean tree: one
+   `would write` line per mirrored file, no diff.
 2. `pnpm run release:changelog --version 2.0.0 --dry-run`: a section that
    groups by issue, with no merge commits.
-3. Actions → Release → Run workflow (`dry_run: true`): five multi-arch builds
+3. Actions → Release → Run workflow (`dry_run: true`): six multi-arch builds
    succeed, nothing appears in GHCR.
 4. On a scratch fork, push a `v2.0.0` tag: the release exists, its notes are
    the changelog section, and `docker manifest inspect` shows both platforms.
