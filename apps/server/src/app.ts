@@ -27,7 +27,7 @@ import { FallbackObserver } from "./fallback-observer"
 import { resolveChatPolicy, validateChainJson } from "./fallback-config"
 import type { TurnPolicy } from "@openchat/contracts"
 
-export const SERVER_VERSION = "2.2.0"
+export const SERVER_VERSION = "2.5.0"
 
 /** Per-address prompt budget: 30 accepted prompts in a rolling 60 s window. */
 export const PROMPT_LIMIT = 30
