@@ -1,3 +1,4 @@
+import { offeredVariant } from "@openchat/contracts"
 import type { AgentInfo, ModelInfo } from "@openchat/contracts"
 import {
   createContext,
@@ -75,9 +76,8 @@ export function completeModelValue(
   const found = models.find((entry) => entry.id === choice.model)
   // A favourite whose model disappeared is never sent to the host.
   if (!found) return { model: undefined, variant: undefined }
-  // A variant the model no longer offers is dropped from the switch.
-  const variant =
-    choice.variant && found.variants.includes(choice.variant) ? choice.variant : undefined
+  // The same catalogue rule the server applies: an unoffered variant is dropped.
+  const variant = offeredVariant(choice.variant ?? undefined, found.variants)
   return { model: found.id, variant }
 }
 

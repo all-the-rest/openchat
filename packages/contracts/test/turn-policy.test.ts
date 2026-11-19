@@ -24,8 +24,8 @@ describe("turn policy schema", () => {
     expect(accepted()).toBe(true)
   })
 
-  it("accepts a code policy with no chain and no caps", () => {
-    expect(accepted({ surface: "code", chain: [] })).toBe(true)
+  it("rejects a code surface: only chat builds a policy", () => {
+    expect(accepted({ surface: "code", chain: [] })).toBe(false)
   })
 
   it(`accepts ${MAX_CHAIN_LENGTH} entries and rejects ${MAX_CHAIN_LENGTH + 1}`, () => {

@@ -9,10 +9,15 @@ import {
   MAX_CHAIN_LENGTH,
   modelKey,
   modelRefSchema,
+  offeredVariant,
   turnPolicySchema,
 } from "@openchat/contracts"
 
 import { nextModel } from "./fallback-policy"
+
+// The variant rule lives in `@openchat/contracts` so the browser's composer and
+// this resolver cannot drift; the symbol stays re-exported for the prompt route.
+export { offeredVariant }
 
 export interface ChatPolicyInput {
   chain: ModelRef[]
@@ -45,24 +50,13 @@ export function requestedModel(policy: TurnPolicy): ModelRef | undefined {
 }
 
 /**
- * A variant survives only while its model's catalogue entry still lists it.
- * Both model-resolution paths use this one rule, so a chain entry cannot
- * forward a variant the catalogue has dropped.
- */
-export function offeredVariant(
-  variant: string | undefined,
-  variants: readonly string[],
-): string | undefined {
-  return variant !== undefined && variants.includes(variant) ? variant : undefined
-}
-
-/**
  * The browser's persisted choice as a full `ModelRef`. Its `model` is a host
  * model id: the catalogue lookup comes first because a model id may itself
  * contain a slash (`fake/echo`). Only when no catalogue entry matches is the
  * value read as `providerID/modelID` (split at the first `/`); an unknown id
  * then yields `undefined` so the caller falls back to the chain. A variant is
- * kept only while the catalogue still offers it, mirroring the live adapter.
+ * kept only while the catalogue still offers it (`offeredVariant`), the same
+ * rule the browser applies.
  */
 export function clientModelRef(
   model: string | undefined,

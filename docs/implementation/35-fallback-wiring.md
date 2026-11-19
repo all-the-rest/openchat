@@ -111,11 +111,14 @@ non-secret configuration: `configured`, the ordered chain entries
 same resolved `TurnPolicy` the prompt route enforces and reads the same
 `UsageLedger` the engine writes, so the answer cannot drift from enforcement;
 the raw `FALLBACK_CHAIN_JSON` value, credentials and the ledger path are never
-part of it. The settings page shows it in the "Model fallback" block
+part of it. A rejected `FALLBACK_CHAIN_JSON` is not reported as "nothing
+configured": the route sets `invalid: true` with a short `invalidReason` that
+names the broken rule, and `configured`/`chain` stay empty because fallback is
+off. The settings page shows it in the "Model fallback" block
 (`apps/web/src/components/FallbackSettings.tsx`): the chain in order, the cap
 ("N paid turns per day" or off) and today's paid turn count, with loading,
-error and retry states. `apps/server/test/fallback-route.test.ts` and
-`apps/web/test/fallback-settings.test.tsx` cover those states.
+error, retry and invalid-chain states. `apps/server/test/fallback-route.test.ts`
+and `apps/web/test/fallback-settings.test.tsx` cover those states.
 
 ## Notice delivery
 

@@ -142,10 +142,6 @@ describe("one-retry fallback decision", () => {
     expect(decision({ next: undefined })).toBe(false)
   })
 
-  it("refuses the code surface", () => {
-    expect(decision({ policy: chatPolicy({ surface: "code" }), next: FREE })).toBe(false)
-  })
-
   it("refuses a paid retry once the daily paid-turn cap is reached", () => {
     expect(decision({ paidTurns: 5 })).toBe(false)
     expect(decision({ paidTurns: 6 })).toBe(false)

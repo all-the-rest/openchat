@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   })),
   fallback: vi.fn(async () => ({
     configured: false,
+    invalid: false,
     chain: [],
     paidDailyCap: 0,
     paidTurnsToday: 0,

@@ -20,14 +20,18 @@ export interface ModelRef {
   contextLimit?: number
 }
 
-/** Which surface owns a turn; only chat applies the fallback chain. */
-export type TurnSurface = "chat" | "code"
+/**
+ * Which surface owns a turn. Only chat ever gets a turn policy: the Code
+ * surface is a separate host and never enters the prompt route, so a "code"
+ * policy would be a value nothing could enforce.
+ */
+export type TurnSurface = "chat"
 
 export interface TurnPolicy {
   surface: TurnSurface
   /**
    * Ordered candidates. Chat starts at the preferred entry; the Code surface
-   * carries an empty chain so its model choice is untouched.
+   * never builds a policy at all.
    */
   chain: ModelRef[]
   /**
@@ -71,6 +75,17 @@ export interface TurnOutcome {
  */
 export interface FallbackStatusResponse {
   configured: boolean
+  /**
+   * True when an admin supplied `FALLBACK_CHAIN_JSON` that failed validation.
+   * The chain is then empty and fallback is off, but the setting is not simply
+   * missing: the settings page says so instead of claiming "not configured".
+   */
+  invalid: boolean
+  /**
+   * Short validation reason when `invalid` is true. Never the raw setting, a
+   * credential or an endpoint.
+   */
+  invalidReason?: string
   /** Ordered candidates as the policy resolved them; empty when unconfigured. */
   chain: ModelRef[]
   /** Paid turns allowed per local day; `0` means the cap is off. */
@@ -103,7 +118,7 @@ export function modelKey(entry: ModelRef): string {
 
 export const turnPolicySchema = z
   .object({
-    surface: z.enum(["chat", "code"]),
+    surface: z.literal("chat"),
     chain: z.array(modelRefSchema).max(MAX_CHAIN_LENGTH),
     paidDailyTurns: z.number().int().min(0),
     contextSoftCap: z.number().int().min(0),

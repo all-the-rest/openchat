@@ -16,16 +16,16 @@ rewrite.
 One `TurnPolicy`:
 
 ```
-{ surface: "chat" | "code", chain: ModelRef[], paidDailyTurns: number, contextSoftCap: number }
+{ surface: "chat", chain: ModelRef[], paidDailyTurns: number, contextSoftCap: number }
 ```
 
 - **chat** carries an ordered chain (≤ 5 entries, duplicates rejected by
   `provider + model + variant`), the paid daily turn cap and the context soft
   cap. A `ModelRef` may also carry `isFree` and `contextLimit`.
-- **code** carries an empty chain and zero caps, so the Code host's model choice
-  is untouched by this machinery. No code policy constant exists: the code
-  surface never enters the prompt route at all, and a wiring test asserts it
-  never touches the engine or the ledger.
+- **Code** never gets a policy. It is a separate host and never enters the
+  prompt route, so `TurnSurface` has no `"code"` member and a code policy cannot
+  be built at all; a wiring test asserts Code never touches the engine or the
+  ledger.
 
 `contextSoftCap` is enforced by the compaction slice (#53), not here; the
 fallback engine only reads it as part of the same policy object.
@@ -50,7 +50,7 @@ erase a stable code.
 
 All must hold:
 
-1. surface is `chat`;
+1. the policy is a chat policy — the only surface that builds one;
 2. the failed attempt was the **first** (`attempts === 1`, so at most one retry
    per turn);
 3. **no assistant text** was emitted — whitespace counts as output;

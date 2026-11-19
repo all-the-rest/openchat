@@ -1113,6 +1113,11 @@ msgid "settings.fallbackLoadFailed"
 msgstr "Fallback settings could not be loaded."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages/settings.ts
+msgid "settings.fallbackInvalid"
+msgstr "The configured fallback chain is invalid; fallback is off."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages/chat.ts
 msgid "chat.favorites"
 msgstr "Favorites"

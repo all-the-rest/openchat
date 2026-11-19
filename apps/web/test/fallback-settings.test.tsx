@@ -19,6 +19,7 @@ describe("fallback settings", () => {
   it("shows a one-line hint when no chain is configured", async () => {
     mocks.fallback.mockResolvedValue({
       configured: false,
+      invalid: false,
       chain: [],
       paidDailyCap: 0,
       paidTurnsToday: 0,
@@ -34,6 +35,7 @@ describe("fallback settings", () => {
   it("lists the chain, the paid-turn cap and today's usage", async () => {
     mocks.fallback.mockResolvedValue({
       configured: true,
+      invalid: false,
       chain: [
         { providerID: "free", modelID: "glm", isFree: true },
         { providerID: "paid", modelID: "gpt", variant: "fast", contextLimit: 128_000 },
@@ -58,6 +60,7 @@ describe("fallback settings", () => {
   it("renders a cap of zero as off", async () => {
     mocks.fallback.mockResolvedValue({
       configured: true,
+      invalid: false,
       chain: [{ providerID: "free", modelID: "glm", isFree: true }],
       paidDailyCap: 0,
       paidTurnsToday: 0,
@@ -68,11 +71,33 @@ describe("fallback settings", () => {
     expect(await screen.findByTestId("fallback-cap")).toHaveTextContent("Off")
   })
 
+  it("warns that a configured but invalid chain leaves fallback off", async () => {
+    mocks.fallback.mockResolvedValue({
+      configured: false,
+      invalid: true,
+      invalidReason: "Fallback chain must be a JSON array",
+      chain: [],
+      paidDailyCap: 0,
+      paidTurnsToday: 0,
+      turnsToday: 0,
+    })
+    wrap(<FallbackSettings />)
+
+    const warning = await screen.findByTestId("fallback-invalid")
+    expect(warning).toHaveTextContent(
+      "The configured fallback chain is invalid; fallback is off.",
+    )
+    // It must not read like "nothing was configured": that hides the misconfig.
+    expect(screen.queryByTestId("fallback-unconfigured")).toBeNull()
+    expect(screen.queryByTestId("fallback-chain")).toBeNull()
+  })
+
   it("offers a retry after a failed read", async () => {
     mocks.fallback
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValueOnce({
         configured: false,
+        invalid: false,
         chain: [],
         paidDailyCap: 0,
         paidTurnsToday: 0,

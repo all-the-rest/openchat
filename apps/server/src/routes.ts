@@ -112,6 +112,9 @@ export interface RouteDeps {
   /** Fallback engine, resolved policy and the shared usage ledger. */
   fallback?: import("./fallback-engine").FallbackEngine
   chatPolicy: import("@openchat/contracts").TurnPolicy
+  /** `FALLBACK_CHAIN_JSON` validation message when the supplied value was rejected. */
+  chainInvalidReason?: string
+  /** Ledger the engine writes and `/api/fallback` reads. */
   usageLedger: UsageLedger
   /** Server-owned merged event stream for the SSE route. */
   events: import("./events-route").EventSource
@@ -302,10 +305,8 @@ function registerSessionRoutes(
     return c.json({ ok: true })
   })
 
-  // Manual compaction. The host rejects a streaming session with `conflict`,
-  // which `createApp` maps to 409; the transcript then renders the failure
-  // event and offers a retry. The optional `id` makes a retried request
-  // idempotent: the host requires the `msg_` prefix on that field.
+  // Manual compaction. The host rejects a streaming session with `conflict`
+  // (mapped to 409); the optional `id` keeps a retried request idempotent.
   app.post("/api/sessions/:id/compact", async (c) => {
     const body = await readJson(c)
     if (body === BODY_TOO_LARGE) return payloadTooLarge(c)
@@ -351,7 +352,7 @@ export function registerRoutes(app: Hono<AppEnv>, deps: RouteDeps): void {
   registerSessionRoutes(app, deps, { store: memoryStore, invalidator: memoryInvalidator })
   registerBranchRoute(app, { backend: deps.backend, noteSession: (id) => memoryInvalidator.noteSession(id) })
   registerPromptRoute(app, deps)
-  registerFallbackRoute(app, { policy: deps.chatPolicy, ledger: deps.usageLedger })
+  registerFallbackRoute(app, { policy: deps.chatPolicy, ledger: deps.usageLedger, invalidReason: deps.chainInvalidReason })
   registerPermissionRoutes(app, deps.backend)
   registerCodeRoutes(app, {
     config: deps.config,

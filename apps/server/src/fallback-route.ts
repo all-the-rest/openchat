@@ -18,6 +18,21 @@ export interface FallbackRouteDeps {
   policy: TurnPolicy
   /** The ledger instance the engine records into. */
   ledger: FallbackUsage
+  /**
+   * Validation message for a rejected `FALLBACK_CHAIN_JSON`. The route reports
+   * only that the setting is invalid plus this short reason, never the value.
+   */
+  invalidReason?: string
+}
+
+/** A reason longer than this turns into noise in a settings card. */
+const MAX_REASON_LENGTH = 200
+
+function shortReason(reason: string): string {
+  const trimmed = reason.trim()
+  return trimmed.length > MAX_REASON_LENGTH
+    ? `${trimmed.slice(0, MAX_REASON_LENGTH - 1)}…`
+    : trimmed
 }
 
 /**
@@ -42,8 +57,11 @@ export function registerFallbackRoute(app: Hono<AppEnv>, deps: FallbackRouteDeps
       deps.ledger.turnsToday(),
     ])
     c.header("Cache-Control", "no-store")
+    const reason = deps.invalidReason
     return c.json({
       configured: deps.policy.chain.length > 0,
+      invalid: reason !== undefined,
+      ...(reason === undefined ? {} : { invalidReason: shortReason(reason) }),
       chain: deps.policy.chain.map(entryOf),
       paidDailyCap: deps.policy.paidDailyTurns,
       paidTurnsToday,
