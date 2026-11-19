@@ -22,11 +22,11 @@ go through i18n (`en`, `de`); no hard-coded UI text is introduced.
   element in the DOM, becomes visible on focus and jumps to the main landmark.
   It is not hidden with `display: none`, which would remove it from the tab
   order.
-- **Drawer focus restore is guarded on viewport width.** Only an overlay drawer
-  (narrow viewport) restores focus to its toggle on close. On a wide viewport,
-  where the drawer is permanently visible rather than a modal overlay, the
-  restore is skipped so focus is never yanked back to the toggle on an ordinary
-  close.
+- **Drawer focus restore always runs, with a viewport-dependent target.** An
+  overlay drawer (narrow viewport) returns focus to its toggle on close. On a
+  wide viewport the drawer is permanently visible and its toggle is hidden, so
+  the restore targets the visible command-palette trigger instead, falling back
+  to the main landmark; focus is never left on a hidden element.
 - **`PermissionCard` uses `role="alertdialog"`** with a focus-in/focus-restore
   pair: when a permission decision appears, focus moves onto the dialog
   container (the next Tab reaches the first decision button), and after
@@ -41,8 +41,9 @@ The map extends the shortcuts already shipped; it does not replace them:
 
 - `Ctrl/Cmd+K` — command palette (existing).
 - `Ctrl/Cmd+Shift+M` — Chat/Code surface switch (existing).
-- `Escape` — close the active overlay and stop editing; overlays restore focus
-  to their trigger.
+- `Escape` — close the active overlay (palette, drawer, menu, dialog) and
+  restore focus to its trigger. The composer registers no `Escape` handler, so
+  `Escape` does not stop editing.
 - `Shift+N` — new chat.
 - `Ctrl/Cmd+/` — shortcuts help. Its dialog owns focus (Tab is contained),
   closes on Escape/backdrop/close and restores focus to the opener; all labels

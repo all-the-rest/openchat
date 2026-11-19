@@ -331,6 +331,29 @@ describe("memory invalidation", () => {
     expect(put).toHaveBeenCalledWith(created.id, MEMORY_INDEX_KEY, expect.stringContaining("# Memory Index"))
   })
 
+  it("recovers sessions listed by the backend after a restart", async () => {
+    const dir = await tempDir()
+    const store = createMemoryStore({ dir })
+    const sessionID = `ses_after_restart_${dir}`
+    const backend = {
+      putInstruction: vi.fn(async () => {}),
+      listSessions: vi.fn(async () => [{ id: sessionID }]),
+    }
+    // A fresh route instance owns a fresh invalidator, as after a restart.
+    const app = new Hono<AppEnv>()
+    registerMemoryInternalRoute(app, {
+      config: makeConfig(env(dir)),
+      store,
+      backends: backend,
+    })
+    const response = await post({ app }, writeOp())
+    expect(response.status).toBe(200)
+    expect(backend.listSessions).toHaveBeenCalled()
+    expect(backend.putInstruction).toHaveBeenCalledWith(
+      sessionID, MEMORY_INDEX_KEY, expect.stringContaining("# Memory Index"),
+    )
+  })
+
   it("ignores host errors on a re-put", async () => {
     const dir = await tempDir()
     const store = createMemoryStore({ dir })
