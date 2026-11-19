@@ -1,4 +1,5 @@
 import { mkdtemp, rm } from "node:fs/promises"
+import { existsSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Hono } from "hono"
@@ -68,8 +69,8 @@ function writeOp(text = TEXT): MemoryOp {
 }
 
 /** Writes one fact through the internal route and returns its id. */
-async function seed(server: { app: Hono<AppEnv> }): Promise<string> {
-  const response = await post(server, writeOp())
+async function seed(server: { app: Hono<AppEnv> }, text = TEXT): Promise<string> {
+  const response = await post(server, writeOp(text))
   expect(response.status).toBe(200)
   const result = await json<MemoryOpResult>(response)
   expect(result.ids).toHaveLength(1)
@@ -225,6 +226,18 @@ describe("memory internal route: operations", () => {
     const result = await json<MemoryOpResult>(await post(server, { op: "stats" }))
     expect(result.stats?.active).toBe(1)
   })
+
+  it("refuses a write at the facts cap with a stable 507 and no store path", async () => {
+    const dir = await tempDir()
+    const server = makeServer({ env: env(dir, { MEMORY_MAX_FACTS_BYTES: "1" }) })
+    const response = await post(server, writeOp())
+    expect(response.status).toBe(507)
+    const body = await json<{ error: { code: string; message: string } }>(response)
+    expect(body.error.code).toBe("memory_store_full")
+    expect(body.error.message).toBe("Memory storage is full")
+    expect(JSON.stringify(body)).not.toContain(dir)
+    expect(existsSync(join(dir, "facts.jsonl"))).toBe(false)
+  })
 })
 
 describe("memory public routes", () => {
@@ -310,6 +323,40 @@ describe("memory public routes", () => {
     const body = await json<{ facts: unknown[]; audit: unknown[]; index: string }>(response)
     expect(body.facts).toHaveLength(1)
     expect(body.audit.length).toBeGreaterThan(0)
+  })
+})
+
+describe("memory injection on session create", () => {
+  it("puts a fact written through the internal route into the next session", async () => {
+    const server = serverFor(await tempDir())
+    const id = await seed(server, "Prefers oat milk")
+    const cookie = await login(server)
+    const created = await json<SessionInfo>(
+      await server.app.request("/api/sessions", {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: "{}",
+      }),
+    )
+    const injected = server.backend.getInstruction(created.id, MEMORY_INDEX_KEY) ?? ""
+    expect(injected).toContain(id)
+    expect(injected).toContain("Prefers oat milk")
+
+    await post(server, {
+      op: "update",
+      updates: [{ id, text: "Prefers soy milk" }],
+      actor: "test",
+    })
+    const next = await json<SessionInfo>(
+      await server.app.request("/api/sessions", {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: "{}",
+      }),
+    )
+    const updated = server.backend.getInstruction(next.id, MEMORY_INDEX_KEY) ?? ""
+    expect(updated).not.toContain(id)
+    expect(updated).toContain("Prefers soy milk")
   })
 })
 

@@ -10,6 +10,12 @@ import { isAbsolute, normalize } from "node:path"
 /** Default memory directory inside the workspace. */
 export const DEFAULT_MEMORY_DATA_DIR = "/workspace/.memory"
 
+/**
+ * Default hard cap for `facts.jsonl`. The memory disk is 1 GiB and the BFF is
+ * capped at 512 MiB, so the store must stop well before either is reached.
+ */
+export const DEFAULT_MEMORY_MAX_FACTS_BYTES = 64 * 1024 * 1024
+
 /** A short bearer token is guessable by anything that can reach the route. */
 export const MIN_MEMORY_INTERNAL_TOKEN_LENGTH = 32
 
@@ -18,6 +24,8 @@ export interface MemoryEnvInput {
   dataDir?: string
   /** Raw `MEMORY_INTERNAL_TOKEN`; exact characters, `undefined` when unset. */
   internalToken?: string
+  /** Raw `MEMORY_MAX_FACTS_BYTES`; a positive integer, `undefined` when unset. */
+  maxFactsBytes?: string
 }
 
 export interface MemoryEnv {
@@ -25,6 +33,8 @@ export interface MemoryEnv {
   dataDir: string
   /** Shared bearer token for `POST /internal/memory`. Never logged. */
   internalToken: string
+  /** Hard cap for `facts.jsonl`; a write that would cross it is refused. */
+  maxFactsBytes: number
 }
 
 /**
@@ -74,6 +84,21 @@ function readInternalToken(
   return randomBytes(32).toString("base64url")
 }
 
+/**
+ * A malformed cap is a warning, not a boot failure: the default is always
+ * safe, and a typo must not turn into an unbounded store.
+ */
+function readMaxFactsBytes(raw: string | undefined, warn: (message: string) => void): number {
+  const value = (raw ?? "").trim()
+  if (!value) return DEFAULT_MEMORY_MAX_FACTS_BYTES
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    warn("MEMORY_MAX_FACTS_BYTES is not a positive integer; using the default cap")
+    return DEFAULT_MEMORY_MAX_FACTS_BYTES
+  }
+  return parsed
+}
+
 /** Validates both halves; no memory token value is ever echoed. */
 export function loadMemoryEnv(
   input: MemoryEnvInput,
@@ -82,5 +107,6 @@ export function loadMemoryEnv(
   return {
     dataDir: readDataDir(input.dataDir),
     internalToken: readInternalToken(input.internalToken, options),
+    maxFactsBytes: readMaxFactsBytes(input.maxFactsBytes, options.warn),
   }
 }

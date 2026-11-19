@@ -1,22 +1,26 @@
 import { createHash } from "node:crypto"
-import { appendFileSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs"
+import {
+  appendFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync,
+} from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import { MEMORY_INDEX_MAX_TOKENS } from "@openchat/contracts"
 import type { MemoryWriteInput } from "@openchat/contracts"
+import { readAuditTail, MemoryStoreFullError } from "../src/memory-files"
 import { createMemoryStore } from "../src/memory-store"
 
 const cleanups: Array<() => Promise<void>> = []
 const DAY = 86_400_000
 
-async function setup() {
+async function setup(options: { maxFactsBytes?: number } = {}) {
   const dir = await mkdtemp(join(tmpdir(), "openchat-memory-"))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
   let clock = new Date("2026-01-01T00:00:00.000Z")
-  const store = createMemoryStore({ dir, now: () => clock })
-  return { store, dir, advance: (days: number) => { clock = new Date(clock.getTime() + days * DAY) } }
+  const now = () => clock
+  const store = createMemoryStore({ dir, now, ...options })
+  return { store, dir, now, advance: (days: number) => { clock = new Date(clock.getTime() + days * DAY) } }
 }
 
 function input(overrides: Partial<MemoryWriteInput> = {}): MemoryWriteInput {
@@ -63,6 +67,41 @@ describe("facts.jsonl append-only storage", () => {
     expect(fact.checksum).toMatch(/^[0-9a-f]{64}$/)
     const { checksum, ...rest } = fact
     expect(checksum).toBe(createHash("sha256").update(canonical(rest)).digest("hex"))
+  })
+})
+
+describe("write cap", () => {
+  it("accepts the line that ends exactly at the cap and refuses the next one untouched", async () => {
+    const { store, dir, now } = await setup()
+    const first = store.write([input({ topic: "ui" })], "agent")[0]!
+    const before = readFileSync(join(dir, "facts.jsonl"))
+    // ids, timestamps and checksums have fixed widths, so the next same-sized
+    // fact appends exactly this many bytes.
+    const lineBytes = Buffer.byteLength(`${JSON.stringify(first)}\n`, "utf8")
+    const capped = createMemoryStore({ dir, now, maxFactsBytes: before.length + lineBytes })
+
+    const second = capped.write([input({ topic: "ux" })], "agent")
+    expect(second).toHaveLength(1)
+    expect(statSync(join(dir, "facts.jsonl")).size).toBe(before.length + lineBytes)
+
+    const atCap = readFileSync(join(dir, "facts.jsonl"))
+    expect(() => capped.write([input({ topic: "zz" })], "agent")).toThrow(MemoryStoreFullError)
+    expect(readFileSync(join(dir, "facts.jsonl")).equals(atCap)).toBe(true)
+    expect(capped.stats().facts).toBe(2)
+  })
+
+  it("refuses a batch that only crosses the cap as a whole", async () => {
+    const { store, dir } = await setup()
+    const first = store.write([input({ topic: "one" })], "agent")[0]!
+    const size = statSync(join(dir, "facts.jsonl")).size
+    const capped = createMemoryStore({
+      dir, now: () => new Date("2026-01-01T00:00:00.000Z"), maxFactsBytes: size,
+    })
+    const before = readFileSync(join(dir, "facts.jsonl"))
+    expect(() => capped.write([input({ topic: "two" }), input({ topic: "three" })], "agent"))
+      .toThrow(MemoryStoreFullError)
+    expect(readFileSync(join(dir, "facts.jsonl")).equals(before)).toBe(true)
+    expect(capped.facts().map((fact) => fact.id)).toEqual([first.id])
   })
 })
 
@@ -144,6 +183,81 @@ describe("prune", () => {
     const result = store.prune({ dryRun: true, maxAgeDays: 90 }, "agent")
     expect(result.candidates.map((c) => c.id)).toContain(recent.id)
     expect(result.candidates.map((c) => c.id)).not.toContain(aged.id)
+  })
+
+  it("shrinks an all-active store over maxBytes by dropping the oldest active facts", async () => {
+    const { store, advance } = await setup()
+    const facts = Array.from({ length: 40 }, (_, index) => input({
+      topic: `topic-${index}`,
+      text: `Note ${index}: ${"detail ".repeat(12)}`,
+      trust: "explicit",
+    }))
+    const ids: string[] = []
+    for (const fact of facts) {
+      ids.push(store.write([fact], "agent")[0]!.id)
+      advance(1)
+    }
+    const before = store.stats().bytes
+    const budget = 4000
+    expect(before).toBeGreaterThan(budget)
+
+    const dry = store.prune({ dryRun: true, maxBytes: budget }, "owner")
+    expect(dry.removed).toEqual([])
+    expect(dry.candidates.some((candidate) => candidate.reason === "over-budget")).toBe(true)
+    expect(store.stats().bytes).toBe(before)
+
+    const applied = store.prune({ dryRun: false, maxBytes: budget }, "owner")
+    expect(applied.removed.length).toBeGreaterThan(0)
+    // Oldest first: the first written fact is the first to go.
+    expect(applied.removed).toContain(ids[0])
+    expect(store.stats().bytes).toBeLessThanOrEqual(budget)
+    expect(store.stats().bytes).toBeLessThan(before)
+    expect(store.facts().length).toBeLessThan(facts.length)
+    expect(store.audit().some((entry) => entry.action === "prune")).toBe(true)
+  })
+})
+
+describe("bounded audit read", () => {
+  it("returns only the newest entries in chronological order", async () => {
+    const { store } = await setup()
+    for (let index = 0; index < 10; index += 1) {
+      store.write([input({ topic: `topic-${index}`, text: `Event ${index}` })], "agent")
+    }
+    const all = store.audit()
+    expect(all).toHaveLength(10)
+    const tail = store.audit(3)
+    expect(tail).toHaveLength(3)
+    expect(tail.map((entry) => entry.reason)).toEqual(all.slice(-3).map((entry) => entry.reason))
+    expect(store.audit(0)).toEqual([])
+  })
+
+  it("caps the default read instead of loading a large audit file", async () => {
+    const { store, dir } = await setup()
+    const lines = Array.from({ length: 205 }, (_, index) => JSON.stringify({
+      at: "2026-01-01T00:00:00.000Z", actor: "agent", action: "write", reason: `row-${index}`, ids: [],
+    }))
+    writeFileSync(join(dir, "audit.jsonl"), `${lines.join("\n")}\n`, { mode: 0o600 })
+    const entries = store.audit()
+    expect(entries).toHaveLength(200)
+    expect(entries[0]?.reason).toBe("row-5")
+    expect(entries[199]?.reason).toBe("row-204")
+  })
+
+  it("walks the tail in chunks and drops a line split at a chunk boundary", () => {
+    const dir = mkdtempSync(join(tmpdir(), "openchat-audit-"))
+    const path = join(dir, "audit.jsonl")
+    const lines = [
+      '{"at":"2026-01-01T00:00:00.000Z","actor":"a","action":"write","reason":"first","ids":[]}',
+      '{"at":"2026-01-01T00:00:01.000Z","actor":"a","action":"update","reason":"second","ids":[]}',
+      '{"at":"2026-01-01T00:00:02.000Z","actor":"a","action":"delete","reason":"third","ids":[]}',
+    ]
+    writeFileSync(path, `${lines.join("\n")}\n`)
+    try {
+      expect(readAuditTail(path, 2, 8)).toEqual(lines.slice(-2))
+      expect(readAuditTail(path, 5, 8)).toEqual(lines)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 

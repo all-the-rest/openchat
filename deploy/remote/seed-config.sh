@@ -8,11 +8,13 @@
 # script writes them once into the config volume instead of asking the owner to
 # hand-edit a file.
 #
-# `/opt/stacks/openchat/opencode-config/opencode.json` is created only when it
-# does not exist. An existing file is left byte-for-byte alone: the agent may
-# have added providers or models, and a deploy must not overwrite them. Its mode
-# is repaired to 0600 on every run, because an earlier release could have left a
-# world-readable file in place and that would expose the bearer token forever.
+# `/opt/stacks/openchat/opencode-config/opencode.json` is created when it does
+# not exist. When it exists, only a missing `mcp.openchat-memory` entry is
+# merged in; every present key keeps its bytes, so an agent's providers, models
+# and unrelated MCP entries survive. That merge is the upgrade path for a host
+# seeded before memory existed (issue #49). Its mode is repaired to 0600 on
+# every run, because an earlier release could have left a world-readable file in
+# place and that would expose the bearer token forever.
 #
 # The file is mode 0600. It is bind-mounted into one container that runs as root
 # (the official image sets no user), so the container can read it while host
@@ -51,7 +53,8 @@ Options:
   --dry-run         print the plan; write nothing
   --help
 
-Creates the file only when absent. Never prints the token.
+Creates the file when absent; an existing file gains a missing
+mcp.openchat-memory entry and keeps every other byte. Never prints a token.
 EOF
 }
 
@@ -84,6 +87,154 @@ file_mode() {
   stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null || true
 }
 
+# The memory MCP entry, written to a 0600 temp file: the token never becomes an
+# awk argument and never reaches stdout. Inner lines keep the seeded indent.
+memory_entry_snippet() {
+  local out=$1
+  umask 077
+  cat > "$out" <<JSON
+"openchat-memory": {
+      "type": "local",
+      "command": ["$TOOL_COMMAND_TSX", "$MEMORY_TOOL_ENTRY"],
+      "enabled": true,
+      "environment": {
+        "OPENCHAT_BFF_URL": "$BFF_URL",
+        "MEMORY_INTERNAL_TOKEN": "$memory_token"
+      }
+    }
+JSON
+}
+
+# Merges one key into the JSON object that already owns `mcp`, leaving every
+# other byte untouched. The scan is string- and comment-aware, so braces in a
+# provider value or a `//` note cannot move the insertion point. Prints the
+# merged document; a non-zero exit means the file must stay as it is.
+merge_memory_entry() {
+  local file=$1 snippet=$2
+  awk -v file="$file" -v snippetfile="$snippet" '
+    function skip_ws(s, n, i) {
+      while (i <= n && substr(s, i, 1) ~ /[ \t\r\n]/) i++
+      return i
+    }
+    # Skips a quoted string starting at i; returns the position after it.
+    function skip_string(s, n, i,   c) {
+      i++
+      while (i <= n) {
+        c = substr(s, i, 1)
+        if (c == "\\") { i += 2; continue }
+        if (c == "\"") return i + 1
+        i++
+      }
+      return i
+    }
+    # Returns the opening brace of the object that follows `key`, or 0.
+    function find_key_object(s, n, key,   i, c, c2, j) {
+      i = 1
+      while (i <= n) {
+        c = substr(s, i, 1); c2 = substr(s, i + 1, 1)
+        if (substr(s, i, length(key)) == key) {
+          j = skip_ws(s, n, i + length(key))
+          if (substr(s, j, 1) == ":") {
+            j = skip_ws(s, n, j + 1)
+            if (substr(s, j, 1) == "{") return j
+          }
+        }
+        if (c == "\"") { i = skip_string(s, n, i); continue }
+        if (c == "/" && c2 == "/") {
+          j = index(substr(s, i), "\n")
+          if (j == 0) return 0
+          i = i + j
+          continue
+        }
+        if (c == "/" && c2 == "*") {
+          j = index(substr(s, i + 2), "*/")
+          if (j == 0) return 0
+          i = i + j + 2
+          continue
+        }
+        i++
+      }
+      return 0
+    }
+    # First `{` outside strings and comments: the root object.
+    function find_root(s, n,   i, c, c2, j) {
+      i = 1
+      while (i <= n) {
+        c = substr(s, i, 1); c2 = substr(s, i + 1, 1)
+        if (c == "{") return i
+        if (c == "\"") { i = skip_string(s, n, i); continue }
+        if (c == "/" && c2 == "/") {
+          j = index(substr(s, i), "\n")
+          if (j == 0) return 0
+          i = i + j
+          continue
+        }
+        if (c == "/" && c2 == "*") {
+          j = index(substr(s, i + 2), "*/")
+          if (j == 0) return 0
+          i = i + j + 2
+          continue
+        }
+        i++
+      }
+      return 0
+    }
+    # Matching close for the object at `open`, or 0.
+    function matching_brace(s, n, open,   i, c, c2, j, depth) {
+      depth = 0
+      i = open
+      while (i <= n) {
+        c = substr(s, i, 1); c2 = substr(s, i + 1, 1)
+        if (c == "\"") { i = skip_string(s, n, i); continue }
+        if (c == "/" && c2 == "/") {
+          j = index(substr(s, i), "\n")
+          if (j == 0) return 0
+          i = i + j
+          continue
+        }
+        if (c == "/" && c2 == "*") {
+          j = index(substr(s, i + 2), "*/")
+          if (j == 0) return 0
+          i = i + j + 2
+          continue
+        }
+        if (c == "{") depth++
+        else if (c == "}") { depth--; if (depth == 0) return i }
+        i++
+      }
+      return 0
+    }
+    # Insert with a comma unless the object is still empty.
+    function insert_at(s, closing, block, indent,   k, sep) {
+      k = closing - 1
+      while (k > 0 && substr(s, k, 1) ~ /[ \t\r\n]/) k--
+      sep = (substr(s, k, 1) == "{") ? "" : ","
+      return substr(s, 1, k) sep "\n" indent block "\n  " substr(s, closing)
+    }
+    BEGIN {
+      s = ""
+      while ((getline line < file) > 0) s = s line "\n"
+      close(file)
+      snippet = ""
+      while ((getline line < snippetfile) > 0) snippet = snippet line "\n"
+      close(snippetfile)
+      sub(/\n$/, "", snippet)
+      n = length(s)
+      open = find_key_object(s, n, "\"mcp\"")
+      if (open) {
+        closing = matching_brace(s, n, open)
+        if (!closing) exit 3
+        printf "%s", insert_at(s, closing, snippet, "    ")
+        exit 0
+      }
+      rootOpen = find_root(s, n)
+      rootClose = rootOpen ? matching_brace(s, n, rootOpen) : 0
+      if (!rootClose) exit 3
+      printf "%s", insert_at(s, rootClose, "\"mcp\": {\n    " snippet "\n  }", "  ")
+    }
+  ' 
+}
+
 main() {
   parse_args "$@"
   CONFIG_DIR=${CONFIG_DIR:-$STACK_DIR/opencode-config}
@@ -100,7 +251,33 @@ main() {
     # Only the entry count, never the content.
     local entries
     entries=$(grep -c '"openchat"' "$file" 2>/dev/null || true)
-    note "config: kept $file (openchat entries: ${entries:-0}); content not shown"
+    if grep -q '"openchat-memory"' "$file" 2>/dev/null; then
+      note "config: kept $file (openchat entries: ${entries:-0}); content not shown"
+      return 0
+    fi
+
+    [ -r "$STACK_DIR/.env" ] || die "missing $STACK_DIR/.env; run env-bootstrap.sh first"
+    local memory_token
+    memory_token=$(env_value MEMORY_INTERNAL_TOKEN)
+    [ -n "$memory_token" ] || die "$STACK_DIR/.env has no MEMORY_INTERNAL_TOKEN; add a 32+ character token and rerun"
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+      note "would: add mcp.openchat-memory to $file; existing keys unchanged"
+      return 0
+    fi
+
+    local snippet out
+    snippet=$(mktemp "${TMPDIR:-/tmp}/openchat-memory-entry.XXXXXX")
+    out=$(mktemp "${TMPDIR:-/tmp}/openchat-memory-config.XXXXXX")
+    memory_entry_snippet "$snippet"
+    if ! merge_memory_entry "$file" "$snippet" > "$out"; then
+      rm -f "$snippet" "$out"
+      die "could not merge mcp.openchat-memory into $file; the file is unchanged"
+    fi
+    chmod 600 "$out"
+    mv "$out" "$file"
+    rm -f "$snippet"
+    note "config: added mcp.openchat-memory to $file (existing keys unchanged; token not shown)"
     return 0
   fi
 

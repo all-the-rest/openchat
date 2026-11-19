@@ -124,7 +124,8 @@ describe("OpenCode MCP config", { timeout: 60_000 }, () => {
     const dir = join(stack, "opencode-config")
     mkdirSync(dir, { recursive: true })
     const file = join(dir, "opencode.json")
-    const body = '{"mcp":{"openchat":{"type":"local"}}}\n'
+    // Fully seeded: the mode repair must not become a rewrite.
+    const body = '{"mcp":{"openchat":{"type":"local"},"openchat-memory":{"type":"local"}}}\n'
     writeFileSync(file, body)
     chmodSync(file, 0o644)
     expect(statSync(file).mode & 0o777).toBe(0o644)

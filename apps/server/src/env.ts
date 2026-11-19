@@ -77,10 +77,11 @@ export interface EnvConfig extends WorkspaceFileEnv {
    * is configured.
    */
   ARTIFACT_INTERNAL_TOKEN: string
-  /** Absolute directory holding the memory store. */
+  /** Absolute memory store directory and the `POST /internal/memory` token. */
   MEMORY_DATA_DIR: string
-  /** Bearer token for `POST /internal/memory`, shared with the memory MCP tool. */
   MEMORY_INTERNAL_TOKEN: string
+  /** Hard cap for `facts.jsonl` in bytes; a write that would cross it is refused. */
+  MEMORY_MAX_FACTS_BYTES: number
   /**
    * Compact before admitting a prompt once a session's context reaches this
    * many tokens. `0` disables the BFF-side guard and leaves compaction to the
@@ -279,6 +280,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     {
       dataDir: read(source, "MEMORY_DATA_DIR"),
       internalToken: readSecret(source, "MEMORY_INTERNAL_TOKEN"),
+      maxFactsBytes: read(source, "MEMORY_MAX_FACTS_BYTES"),
     },
     { production, warn },
   )
@@ -384,6 +386,7 @@ export function loadEnv(options: LoadEnvOptions = {}): EnvConfig {
     ARTIFACT_INTERNAL_TOKEN: artifacts.internalToken,
     MEMORY_DATA_DIR: memory.dataDir,
     MEMORY_INTERNAL_TOKEN: memory.internalToken,
+    MEMORY_MAX_FACTS_BYTES: memory.maxFactsBytes,
     CHAT_CONTEXT_SOFT_CAP: readTokenCap(
       source,
       "CHAT_CONTEXT_SOFT_CAP",

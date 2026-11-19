@@ -30,7 +30,7 @@ routing probes against `caddy:2-alpine`.
 | State migration | `deploy/remote/migrate-opencode-data.sh` | one-time copy of the `opencode-data` volume onto its disk; dry run by default, `--apply`, `--rollback` |
 | Env bootstrap | `deploy/remote/env-bootstrap.sh` | writes `.env` once, escaped, `0600`, never printed |
 | Escape filter | `deploy/remote/env-value.sh` | doubles `$` for Compose, idempotent |
-| MCP seed | `deploy/remote/seed-config.sh` | three `local` entries (artifact, Python, memory) in `opencode.json`, `0600`, once; the Python entry also carries `WORKSPACE_DIR`, `DOCUMENTS_URL` and `DOCUMENTS_TOKEN` |
+| MCP seed | `deploy/remote/seed-config.sh` | three `local` entries (artifact, Python, memory) in `opencode.json`, `0600`, once; a later run merges a missing `mcp.openchat-memory` entry without touching present keys; the Python entry also carries `WORKSPACE_DIR`, `DOCUMENTS_URL` and `DOCUMENTS_TOKEN` |
 | Caddy install | `deploy/remote/caddy.sh` | staged validate, import line, reload, backup, remove |
 | Boot unit | `deploy/remote/openchat-disks.service` | mounts the images before Docker |
 | Boot guard | `deploy/remote/openchat-guard.sh` + `.service` | stops only this stack if a mount failed |
@@ -593,8 +593,10 @@ it refuses by name). The config seed carries both variables the tool reads:
 
 If a future OpenCode release changes the config schema, `seed-config.sh` is the
 one place to adjust; it creates the file once, repairs its mode to `0600` on
-later runs, and reports the entry count instead of rewriting an agent-edited
-file.
+later runs, and leaves an agent-edited file's bytes alone. The one exception is
+the upgrade path: when `mcp.openchat-memory` is missing, the script merges just
+that entry into `mcp` (string- and comment-aware, every present key kept) and
+prints that it added it. A file that already has the entry is not rewritten.
 
 ## What the tests pin
 
