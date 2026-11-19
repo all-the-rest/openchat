@@ -60,10 +60,11 @@ const SurfaceContext = createContext<SurfaceValue | null>(null)
 /**
  * Reads the host state plus `code.configured`, `apps.available` and
  * `artifacts.available` from the single `/api/info` response and owns the
- * Chat | Code shortcut. A failed info call means "not configured": the switch,
- * the apps entry and the artifacts entry stay hidden and their routes redirect
- * home. It also counts as an unreachable host, because the banner's retry is the
- * only useful action left.
+ * Chat | Code shortcut. A failed info call means "host unreachable": the switch
+ * keeps whatever it last reported (a configured Code frame must survive the
+ * failure), while the apps and artifacts entries stay hidden and their routes
+ * redirect home. It also counts as an unreachable host, because the banner's
+ * retry is the only useful action left.
  */
 export function SurfaceProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
@@ -90,7 +91,13 @@ export function SurfaceProvider({ children }: { children: ReactNode }) {
       setHostReachable(info?.host?.reachable !== false)
     } catch {
       if (current !== request.current) return
-      setConfigured(false)
+      // A failed read proves nothing about the deployment, so it must not hide
+      // a Code host that was already reported configured: unmounting the host
+      // would destroy the frame and any unsent prompt inside it. Only a
+      // successful answer that says `configured: false` may switch it off.
+      // The other flags have no mounted surface to protect and keep the
+      // existing "unreachable host" reading.
+      setConfigured((known) => known === true)
       setAppsAvailable(false)
       setArtifactsAvailable(false)
       setModelsAvailable(false)

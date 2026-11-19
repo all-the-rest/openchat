@@ -1,11 +1,12 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { MemoryRouter, Route, Routes, Link, useLocation } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CodeRoute } from "../src/App"
 import { SessionSidebar } from "../src/chat/SessionSidebar"
-import { SurfaceHome, SurfaceProvider } from "../src/code/SurfaceProvider"
+import { CodeSurfaceHost } from "../src/code/CodeSurfaceHost"
+import { SurfaceHome, SurfaceProvider, useSurface } from "../src/code/SurfaceProvider"
 import { SurfaceSwitch } from "../src/code/SurfaceSwitch"
 import {
   SURFACE_STORAGE_KEY,
@@ -105,6 +106,16 @@ function memoryStorage(): Storage {
 
 function LocationProbe() {
   return <output data-testid="location">{useLocation().pathname}</output>
+}
+
+/** Calls the provider's own refresh, the same path the host banner's retry uses. */
+function RefreshProbe() {
+  const { refresh } = useSurface()
+  return (
+    <button type="button" data-testid="refresh-info" onClick={() => void refresh()}>
+      refresh
+    </button>
+  )
 }
 
 function providers(entry: string, children: ReactNode) {
@@ -287,6 +298,41 @@ describe("surface layout", () => {
     expect(await screen.findByText("chat target")).toBeInTheDocument()
     expect(screen.getByTestId("surface-chat")).toHaveAttribute("aria-pressed", "true")
     expect(window.localStorage.getItem(SURFACE_STORAGE_KEY)).toBe("chat")
+  })
+})
+
+describe("mounted Code surface", () => {
+  it("keeps the frame and its src when a refresh of /api/info fails", async () => {
+    stubWideViewport()
+    const user = userEvent.setup()
+    providers(
+      "/code",
+      <SurfaceProvider>
+        <RefreshProbe />
+        <CodeSurfaceHost active />
+      </SurfaceProvider>,
+    )
+
+    const frame = await screen.findByTestId("code-frame")
+    const src = frame.getAttribute("src") ?? ""
+    expect(src).not.toBe("")
+    const ticketsBefore = mocks.codeTicket.mock.calls.length
+
+    let fail!: (error: Error) => void
+    mocks.info.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        fail = reject
+      }),
+    )
+    await user.click(screen.getByTestId("refresh-info"))
+    expect(mocks.info).toHaveBeenCalledTimes(2)
+    await act(async () => fail(new Error("bff down")))
+
+    // Same element, same source: the failed read neither unmounted the host
+    // nor minted a new ticket, so an unsent prompt inside survives.
+    expect(screen.getByTestId("code-frame")).toBe(frame)
+    expect(frame).toHaveAttribute("src", src)
+    expect(mocks.codeTicket).toHaveBeenCalledTimes(ticketsBefore)
   })
 })
 

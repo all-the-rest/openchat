@@ -139,6 +139,8 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
   // an invalid chain JSON only disables fallback rather than failing boot.
   const warn = options.warn ?? ((message: string) => console.warn(`[openchat] ${message}`))
   let chain: ReturnType<typeof validateChainJson> = []
+  /** Set when an admin value was supplied but failed validation. */
+  let chainInvalidReason: string | undefined
   if (config.FALLBACK_CHAIN_JSON.trim() !== "") {
     try {
       chain = validateChainJson(config.FALLBACK_CHAIN_JSON)
@@ -146,6 +148,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       // One boot warning, with the validation message only: the raw value can
       // carry credentials or private endpoints and never belongs in a log.
       const reason = error instanceof Error ? error.message : "unknown validation error"
+      chainInvalidReason = reason
       warn(`FALLBACK_CHAIN_JSON is invalid; fallback stays disabled: ${reason}`)
     }
   }
@@ -207,6 +210,7 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     compactionWaitMs: options.compactionWaitMs,
     fallback,
     chatPolicy,
+    chainInvalidReason,
     usageLedger,
   })
 

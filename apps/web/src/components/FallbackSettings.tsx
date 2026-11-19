@@ -56,6 +56,10 @@ export function FallbackSettings() {
             {t("settings.fallbackRetry")}
           </button>
         </div>
+      ) : fallback.invalid ? (
+        <div data-testid="fallback-invalid" role="alert" className="mt-2 text-sm text-warning">
+          <p>{t("settings.fallbackInvalid")}</p>
+        </div>
       ) : !fallback.configured ? (
         <p data-testid="fallback-unconfigured" className="mt-2 text-sm text-muted">
           {t("settings.fallbackUnconfigured")}

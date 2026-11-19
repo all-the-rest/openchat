@@ -29,6 +29,7 @@ export const settings = {
   "settings.loadFailed": msg({ id: "settings.loadFailed", message: "Server status could not be loaded." }),
   "settings.fallback": msg({ id: "settings.fallback", message: "Model fallback" }),
   "settings.fallbackUnconfigured": msg({ id: "settings.fallbackUnconfigured", message: "No fallback chain is configured." }),
+  "settings.fallbackInvalid": msg({ id: "settings.fallbackInvalid", message: "The configured fallback chain is invalid; fallback is off." }),
   "settings.fallbackLoadFailed": msg({ id: "settings.fallbackLoadFailed", message: "Fallback settings could not be loaded." }),
   "settings.fallbackRetry": msg({ id: "settings.fallbackRetry", message: "Retry" }),
   "settings.fallbackPaidCap": msg({ id: "settings.fallbackPaidCap", message: "Paid-turn cap" }),

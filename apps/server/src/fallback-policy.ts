@@ -199,7 +199,6 @@ export interface FallbackDecisionInput {
  */
 export function shouldFallback(input: FallbackDecisionInput): boolean {
   const { policy, failure, emittedText, attempts, paidTurns, next, current } = input
-  if (policy.surface !== "chat") return false
   if (policy.chain.length === 0) return false
   if (next === undefined) return false
   if (attempts !== 1) return false

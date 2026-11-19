@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import type { FallbackStatusResponse } from "@openchat/contracts"
 import { FakeBackend } from "@openchat/opencode"
 import { createApp } from "../src/app"
@@ -39,6 +39,7 @@ describe("GET /api/fallback", () => {
 
     expect(await readFallback(app, cookie)).toEqual({
       configured: false,
+      invalid: false,
       chain: [],
       paidDailyCap: 0,
       paidTurnsToday: 0,
@@ -62,6 +63,7 @@ describe("GET /api/fallback", () => {
     const body = await readFallback(app, cookie)
     expect(body).toEqual({
       configured: true,
+      invalid: false,
       chain: [
         { providerID: "free", modelID: "glm", isFree: true },
         { providerID: "paid", modelID: "gpt", variant: "fast", contextLimit: 128_000 },
@@ -75,11 +77,33 @@ describe("GET /api/fallback", () => {
     expect(Object.keys(body).sort()).toEqual([
       "chain",
       "configured",
+      "invalid",
       "paidDailyCap",
       "paidTurnsToday",
       "turnsToday",
     ])
     expect(JSON.stringify(body)).not.toContain(config.FALLBACK_USAGE_DIR)
+  })
+
+  it("reports an invalid chain setting instead of an empty one, without echoing it", async () => {
+    const config = makeConfig({ FALLBACK_CHAIN_JSON: '{"apiKey":"sk-live-123"}' })
+    const backend = new FakeBackend({ workspace: config.WORKSPACE_DIR })
+    const ledger = new UsageLedger({ directory: await directory() })
+    const warn = vi.fn()
+    const app = createApp({ config, backend, usageLedger: ledger, warn })
+    const cookie = await login({ app, backend, config })
+
+    const body = await readFallback(app, cookie)
+    expect(body).toMatchObject({
+      configured: false,
+      invalid: true,
+      chain: [],
+      paidDailyCap: 0,
+    })
+    expect(body.invalidReason).toBe("Fallback chain must be a JSON array")
+    // The reason names the rule; the rejected value never travels.
+    expect(JSON.stringify(body)).not.toContain("sk-live-123")
+    expect(warn).toHaveBeenCalledTimes(1)
   })
 
   it("reflects today's paid and free ledger counters", async () => {

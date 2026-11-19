@@ -5,6 +5,7 @@ import {
   EVENT,
   eventEnvelopeSchema,
   messageSchema,
+  offeredVariant,
   partSchema,
   promptRequestSchema,
 } from "../src/index"
@@ -93,5 +94,12 @@ describe("contracts", () => {
         .success,
     ).toBe(true)
     expect(eventEnvelopeSchema.safeParse({ id: "evt_1", created: 1 }).success).toBe(false)
+  })
+
+  it("keeps a variant only while the catalogue still offers it", () => {
+    expect(offeredVariant("fast", ["fast", "deep"])).toBe("fast")
+    expect(offeredVariant("gone", ["fast", "deep"])).toBeUndefined()
+    expect(offeredVariant("fast", [])).toBeUndefined()
+    expect(offeredVariant(undefined, ["fast"])).toBeUndefined()
   })
 })
