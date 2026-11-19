@@ -225,6 +225,15 @@ real DOCX/XLSX/PPTX/PDF, converts all four with both the CLI and
 traceback (`deploy/python-smoke.py`). The `all` extra is never requested — it
 would add audio/video transcription and Azure clients.
 
+Because this step is the only Linux execution of the toolchain, a path-filtered
+CI job (`.github/workflows/ci-opencode-image.yml`) builds this image for
+`linux/amd64` on PRs and on pushes to `main` that touch the Dockerfile, the
+smoke script or `packages/python-{env,tool}/**`, plus a weekly canary. It never
+pushes: it is meant to catch a Linux-only failure (v2.5.0 hit `read_document …
+too_large`, an `RLIMIT_AS` limit macOS does not enforce) before the release tag
+build. PR and push runs warm the same GHA cache scope (`opencode`) the release
+consumes; the weekly canary rebuilds without that cache so the smoke re-executes.
+
 Two deliberate omissions: `pypdfium2` (pdfplumber imports it only for its
 optional page renderer, which `read_document` never uses; the offline PDF
 conversion above covers the code path) and the `pandoc` binary (~150 MB, no

@@ -1,0 +1,70 @@
+name: CI opencode image
+
+# The opencode image is the only image whose build IS a test: Dockerfile.opencode
+# runs deploy/python-smoke.py with `--network=none` at build time. That is the
+# only place the Linux document toolchain is exercised — CI has no Python venv,
+# so `packages/python-tool/test` reports "unit tests skipped" there. v2.5.0
+# proved the gap: the release build hit `read_document … too_large`, a 512 MiB
+# RLIMIT_AS limit that Linux enforces and macOS does not. Building here makes a
+# toolchain regression fail the PR instead of the tag. This job never pushes;
+# release.yml publishes the real multi-arch images.
+
+on:
+  pull_request:
+    paths:
+      - deploy/Dockerfile.opencode
+      - deploy/python-smoke.py
+      - packages/python-env/**
+      - packages/python-tool/**
+      - .github/workflows/ci-opencode-image.yml
+  push:
+    branches: [main]
+    paths:
+      - deploy/Dockerfile.opencode
+      - deploy/python-smoke.py
+      - packages/python-env/**
+      - packages/python-tool/**
+      - .github/workflows/ci-opencode-image.yml
+  # Weekly canary: a pinned base-image digest or a wheel can drift upstream
+  # without a repo change. The scheduled run rebuilds with `no-cache` so the
+  # offline smoke actually re-executes instead of restoring every layer; PR and
+  # push builds reuse the shared cache. Tag builds stay in release.yml.
+  schedule:
+    - cron: "17 4 * * 1" # Mondays 04:17 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build opencode image (linux/amd64)
+    runs-on: ubuntu-latest
+    # amd64 is native on the runner, so no QEMU and well under the release's
+    # 120-minute arm64 budget.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # No GHCR login and no tags: this build is discarded. PR and push builds
+      # use the SAME GHA cache scope as release.yml's `opencode` image, so a
+      # green run warms the cache the release consumes for the amd64 layers it
+      # builds here; arm64 and the release's provenance/sbom are not exercised
+      # in this job. The Linux-only failure this gate targets is independent of
+      # architecture. The scheduled canary opts out of that cache below.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.opencode
+          platforms: linux/amd64
+          push: false
+          provenance: false
+          sbom: false
+          # A cache hit would restore the `--network=none` smoke layer too, so
+          # an unchanged weekly run would prove nothing about upstream drift.
+          no-cache: ${{ github.event_name == 'schedule' }}
+          cache-from: type=gha,scope=opencode
+          cache-to: type=gha,mode=max,scope=opencode
