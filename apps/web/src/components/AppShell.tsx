@@ -15,6 +15,7 @@ import { SessionSidebar } from "../chat/SessionSidebar"
 import { CommandPalette } from "../palette/CommandPalette"
 import { PaletteChatProvider } from "../palette/current-chat"
 import { SurfaceSwitch } from "../code/SurfaceSwitch"
+import { CodeSurfaceHost } from "../code/CodeSurfaceHost"
 import { useSurface } from "../code/SurfaceProvider"
 
 const FOCUSABLE =
@@ -295,6 +296,9 @@ export function AppShell() {
 
           <main id="main-content" className="flex min-h-0 flex-1 flex-col">
             <Outlet />
+            {/* Outside the route switch: Chat → Code → Chat must not unmount
+                the frame or mint a new ticket. Hidden, not removed, on Chat. */}
+            <CodeSurfaceHost active={onCode} />
           </main>
         </div>
 

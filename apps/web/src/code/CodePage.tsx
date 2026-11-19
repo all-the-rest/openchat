@@ -1,20 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import type { CodeStatusResponse } from "@openchat/contracts"
-import { useLocation } from "react-router-dom"
-import { api } from "../api/client"
+import type { ReactNode } from "react"
 import { AlertIcon } from "../components/icons"
 import type { MessageKey } from "../i18n"
 import { useT } from "../i18n/provider"
-import { useMediaQuery } from "../lib/useMediaQuery"
-import { useOnline } from "../lib/useOnline"
 import { SurfaceSwitch } from "./SurfaceSwitch"
-import { codeDeepLink } from "./surface"
+import {
+  CODE_LOAD_TIMEOUT_MS,
+  useCodeFrame,
+  type Phase,
+} from "./useCodeFrame"
 
-/** Desktop breakpoint, matching Tailwind's `lg` (spec 08). */
-const WIDE_QUERY = "(min-width: 1024px)"
-
-/** A frame that never fires `load` is treated as blocked (spec 13). */
-export const CODE_LOAD_TIMEOUT_MS = 15_000
+export {
+  CODE_LOAD_TIMEOUT_MS,
+  CODE_STATUS_POLL_MS,
+  CODE_TICKET_REUSE_MS,
+} from "./useCodeFrame"
 
 /**
  * Only copy-out is delegated: the Code UI copies code and output. Reading the
@@ -22,9 +21,6 @@ export const CODE_LOAD_TIMEOUT_MS = 15_000
  * geolocation and popups stay with the app, never the frame.
  */
 export const CODE_FRAME_ALLOW = "clipboard-write"
-
-type Phase = "loading" | "ready" | "down" | "signedOut" | "blocked"
-type Failure = "ticket" | "status"
 
 const STATE_KEYS: Record<Phase | "offline" | "narrow", MessageKey> = {
   loading: "code.state.loading",
@@ -67,118 +63,38 @@ function Panel({
  * `/code` and `/code/*` — the Code host in a frame with a slim control bar.
  * The frame owns its own navigation; the app only mints the signed entry URL,
  * reports connection states and keeps focus reachable.
+ *
+ * `active` is the surface switch, not a mount switch: while the owner is in
+ * Chat this component stays mounted with its frame hidden, so an unsent prompt
+ * inside the frame, its document state and its scroll position survive the
+ * round trip and returning never mints a new ticket or starts a new host
+ * session. Chat-only work (status polling, focus handling) is paused while
+ * hidden; the state machine lives in `useCodeFrame`.
  */
-export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeoutMs?: number }) {
+export function CodePage({
+  loadTimeoutMs = CODE_LOAD_TIMEOUT_MS,
+  active = true,
+}: {
+  loadTimeoutMs?: number
+  active?: boolean
+}) {
   const t = useT()
-  const location = useLocation()
-  const online = useOnline()
-  const wide = useMediaQuery(WIDE_QUERY)
-  const next = codeDeepLink(location.pathname)
+  const {
+    online,
+    wide,
+    status,
+    frameUrl,
+    newTabUrl,
+    phase,
+    failure,
+    loaded,
+    barRef,
+    frameRef,
+    reload,
+    markLoaded,
+  } = useCodeFrame({ active, loadTimeoutMs })
 
-  const [status, setStatus] = useState<CodeStatusResponse | null>(null)
-  const [frameUrl, setFrameUrl] = useState<string | null>(null)
-  const [newTabUrl, setNewTabUrl] = useState<string | null>(null)
-  const [phase, setPhase] = useState<Phase>("loading")
-  const [failure, setFailure] = useState<Failure>("status")
-  const [loaded, setLoaded] = useState(false)
-  const [attempt, setAttempt] = useState(0)
-
-  const barRef = useRef<HTMLDivElement>(null)
-  const frameRef = useRef<HTMLIFrameElement>(null)
-
-  const reload = useCallback(() => setAttempt((value) => value + 1), [])
-
-  // One ticket for the frame and one for "open in a new tab": the exchange is
-  // single use, so a shared URL would 401 in the second tab.
-  useEffect(() => {
-    let active = true
-    setPhase("loading")
-    setStatus(null)
-    setFrameUrl(null)
-    setNewTabUrl(null)
-    setLoaded(false)
-    if (!online) {
-      return () => {
-        active = false
-      }
-    }
-
-    void (async () => {
-      const [frame, tab, probe] = await Promise.allSettled([
-        api.codeTicket(next),
-        api.codeTicket(next),
-        api.codeStatus(),
-      ])
-      if (!active) return
-      if (probe.status === "fulfilled") setStatus(probe.value)
-      if (frame.status === "rejected") {
-        setFailure("ticket")
-        setPhase("down")
-        return
-      }
-      if (probe.status === "rejected" || probe.value.reachable === false) {
-        setFailure("status")
-        setPhase("down")
-        return
-      }
-      setFrameUrl(frame.value.url)
-      setNewTabUrl(tab.status === "fulfilled" ? tab.value.url : null)
-      setPhase("ready")
-    })()
-
-    return () => {
-      active = false
-    }
-  }, [next, attempt, online])
-
-  // A framed Code UI that never fires `load` is the only blocked case this side
-  // can see (a frame refused by a policy fires `load`, see implementation 07).
-  // The narrow layout mounts no frame at all, so it never starts this timer.
-  useEffect(() => {
-    if (!wide || phase !== "ready" || loaded || !frameUrl) return
-    const timer = window.setTimeout(() => setPhase("blocked"), loadTimeoutMs)
-    return () => window.clearTimeout(timer)
-  }, [wide, phase, loaded, frameUrl, loadTimeoutMs])
-
-  const codeOrigin = useMemo(() => {
-    if (!frameUrl) return null
-    try {
-      return new URL(frameUrl).origin
-    } catch {
-      return null
-    }
-  }, [frameUrl])
-
-  // The frame cannot be inspected; it posts an explicit unauthenticated state.
-  useEffect(() => {
-    if (!codeOrigin) return
-    const onMessage = (event: MessageEvent) => {
-      if (event.origin !== codeOrigin) return
-      const data = event.data as { type?: unknown; state?: unknown } | null
-      if (!data || data.type !== "openchat:code-state" || data.state !== "unauthenticated") return
-      setPhase("signedOut")
-    }
-    window.addEventListener("message", onMessage)
-    return () => window.removeEventListener("message", onMessage)
-  }, [codeOrigin])
-
-  // Escape returns focus to the bar. A key pressed inside the cross-origin
-  // frame never reaches this window, so the app only handles its own side.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      const bar = barRef.current
-      if (!bar) return
-      const active = document.activeElement
-      if (active instanceof Node && bar.contains(active)) return
-      event.preventDefault()
-      bar.focus()
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [])
-
-  const frameVisible = wide && online && phase === "ready"
+  const frameVisible = active && wide && online && phase === "ready" && frameUrl !== null
   // Below `lg` no frame is mounted, so neither "Loading…" nor "Embedding
   // blocked" describes that layout: it gets its own explicit state.
   const state: Phase | "offline" | "narrow" = !online
@@ -188,11 +104,18 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
       : phase === "ready" && !loaded
         ? "loading"
         : phase
-  const ticketFailure = failure === "ticket"
+  const ticketFailure: boolean = failure === "ticket"
   // The panel already says the mint failed; the bar must not claim the Code
   // host is unreachable when it was never asked.
   const stateKey: MessageKey =
     ticketFailure && state === "down" ? "code.state.ticket" : STATE_KEYS[state]
+
+  // While hidden only the frame area survives; the bar, panels and the switch
+  // are not rendered, so Chat still has exactly one surface switch and the
+  // hidden surface contributes no banner, no button and no tab target.
+  const showPanel =
+    active &&
+    (!wide || !online || phase === "down" || phase === "signedOut" || phase === "blocked")
 
   const newTabLink = (short: boolean, testId = "code-new-tab") => (
     <a
@@ -210,54 +133,65 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
     </a>
   )
 
+  const ticketTitle = ticketFailure ? t("code.ticketTitle") : t("code.downTitle")
+  const ticketBody = ticketFailure ? t("code.ticketBody") : t("code.downStatus")
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-app">
-      <div
-        ref={barRef}
-        role="banner"
-        tabIndex={-1}
-        aria-label={t("code.barLabel")}
-        data-testid="code-bar"
-        className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-subtle px-2 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-      >
-        <SurfaceSwitch />
-        <span
-          role="status"
-          aria-live="polite"
-          data-testid="code-state"
-          className="flex items-center gap-1.5 text-xs text-muted"
+    <div
+      data-testid="code-surface"
+      hidden={!active}
+      inert={!active}
+      aria-hidden={active ? undefined : true}
+      className={active ? "flex min-h-0 flex-1 flex-col bg-app" : "hidden"}
+    >
+      {active ? (
+        <div
+          ref={barRef}
+          role="banner"
+          tabIndex={-1}
+          aria-label={t("code.barLabel")}
+          data-testid="code-bar"
+          className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-subtle px-2 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
         >
-          {state === "loading" ? (
-            <span className="loading loading-spinner loading-xs" aria-hidden="true" />
-          ) : null}
-          {t(stateKey)}
-        </span>
-        <span className="flex-1" />
-        <button
-          type="button"
-          data-testid="code-reload"
-          onClick={reload}
-          disabled={!online}
-          aria-label={t("code.reload")}
-          title={t("code.reload")}
-          className="btn btn-outline btn-sm"
-        >
-          {t("code.reload")}
-        </button>
-        {newTabLink(!wide)}
-        {frameVisible ? (
+          <SurfaceSwitch />
+          <span
+            role="status"
+            aria-live="polite"
+            data-testid="code-state"
+            className="flex items-center gap-1.5 text-xs text-muted"
+          >
+            {state === "loading" ? (
+              <span className="loading loading-spinner loading-xs" aria-hidden="true" />
+            ) : null}
+            {t(stateKey)}
+          </span>
+          <span className="flex-1" />
           <button
             type="button"
-            data-testid="code-focus-frame"
-            onClick={() => frameRef.current?.focus()}
+            data-testid="code-reload"
+            onClick={reload}
+            disabled={!online}
+            aria-label={t("code.reload")}
+            title={t("code.reload")}
             className="btn btn-outline btn-sm"
           >
-            {t("code.focusFrame")}
+            {t("code.reload")}
           </button>
-        ) : null}
-      </div>
+          {newTabLink(!wide)}
+          {frameVisible ? (
+            <button
+              type="button"
+              data-testid="code-focus-frame"
+              onClick={() => frameRef.current?.focus()}
+              className="btn btn-outline btn-sm"
+            >
+              {t("code.focusFrame")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
-      {status && status.reachable && status.matches === false ? (
+      {active && status && status.reachable && status.matches === false ? (
         <p
           role="status"
           data-testid="code-version-warning"
@@ -271,60 +205,59 @@ export function CodePage({ loadTimeoutMs = CODE_LOAD_TIMEOUT_MS }: { loadTimeout
         </p>
       ) : null}
 
-      {!wide ? (
-        <Panel title={t("code.mobileTitle")} body={t("code.mobileBody")}>
-          {newTabLink(true, "code-new-tab-fallback")}
-        </Panel>
-      ) : !online ? (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <p
-            role="alert"
-            data-testid="code-offline"
-            className="border-b border-subtle bg-warning/10 px-3 py-2 text-sm text-warning"
-          >
-            {t("code.offlineBody")}
-          </p>
-        </div>
-      ) : phase === "down" ? (
-        <Panel
-          alert
-          title={ticketFailure ? t("code.ticketTitle") : t("code.downTitle")}
-          body={ticketFailure ? t("code.ticketBody") : t("code.downStatus")}
-        >
-          {!ticketFailure && status?.expectedVersion ? (
-            <p className="w-full text-xs text-muted">
-              {t("code.expectedVersion", { version: status.expectedVersion })}
+      {showPanel ? (
+        !wide ? (
+          <Panel title={t("code.mobileTitle")} body={t("code.mobileBody")}>
+            {newTabLink(true, "code-new-tab-fallback")}
+          </Panel>
+        ) : !online ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <p
+              role="alert"
+              data-testid="code-offline"
+              className="border-b border-subtle bg-warning/10 px-3 py-2 text-sm text-warning"
+            >
+              {t("code.offlineBody")}
             </p>
-          ) : null}
-          <button type="button" onClick={reload} className="btn btn-primary btn-sm">
-            {t("code.retry")}
-          </button>
-        </Panel>
-      ) : phase === "signedOut" ? (
-        <Panel title={t("code.signedOutTitle")} body={t("code.signedOutBody")}>
-          <button
-            type="button"
-            data-testid="code-sign-in"
-            onClick={reload}
-            className="btn btn-primary btn-sm"
-          >
-            {t("code.signIn")}
-          </button>
-        </Panel>
-      ) : phase === "blocked" ? (
-        <Panel title={t("code.blockedTitle")} body={t("code.blockedBody")}>
-          {newTabLink(false, "code-new-tab-fallback")}
-        </Panel>
+          </div>
+        ) : phase === "down" ? (
+          <Panel alert title={ticketTitle} body={ticketBody}>
+            {!ticketFailure && status?.expectedVersion ? (
+              <p className="w-full text-xs text-muted">
+                {t("code.expectedVersion", { version: status.expectedVersion })}
+              </p>
+            ) : null}
+            <button type="button" onClick={reload} className="btn btn-primary btn-sm">
+              {t("code.retry")}
+            </button>
+          </Panel>
+        ) : phase === "signedOut" ? (
+          <Panel title={t("code.signedOutTitle")} body={t("code.signedOutBody")}>
+            <button
+              type="button"
+              data-testid="code-sign-in"
+              onClick={reload}
+              className="btn btn-primary btn-sm"
+            >
+              {t("code.signIn")}
+            </button>
+          </Panel>
+        ) : (
+          <Panel title={t("code.blockedTitle")} body={t("code.blockedBody")}>
+            {newTabLink(false, "code-new-tab-fallback")}
+          </Panel>
+        )
       ) : (
         <div data-testid="code-frame-area" className="relative flex min-h-0 flex-1">
-          {frameUrl ? (
+          {frameUrl !== null ? (
             <iframe
               ref={frameRef}
               src={frameUrl}
               title={t("code.frameTitle")}
               allow={CODE_FRAME_ALLOW}
+              tabIndex={active ? undefined : -1}
               data-testid="code-frame"
-              onLoad={() => setLoaded(true)}
+              onLoad={markLoaded}
               className="h-full w-full border-0 bg-surface"
             />
           ) : null}
