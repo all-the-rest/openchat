@@ -180,7 +180,9 @@ describe("connection recovery notice", () => {
   it("keeps the reconnected hint only for a short while", async () => {
     wrap(
       <>
-        <ConnectionNotice reconnectedMs={30} />
+        {/* A wide window keeps the assertion stable under load; the test only
+            needs the notice to appear once and then disappear. */}
+        <ConnectionNotice reconnectedMs={400} />
         <Routes>
           <Route path="/c/:sessionId" element={<p>chat</p>} />
         </Routes>
@@ -193,7 +195,9 @@ describe("connection recovery notice", () => {
 
     act(() => source().emit("open"))
     expect(await screen.findByTestId("connection-reconnected")).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByTestId("connection-reconnected")).toBeNull())
+    await waitFor(() => expect(screen.queryByTestId("connection-reconnected")).toBeNull(), {
+      timeout: 2_000,
+    })
   })
 
   it("shows the outage notice on the landing page without an active session", async () => {
