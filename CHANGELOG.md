@@ -5,6 +5,97 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-11-19
+
+### Added
+
+- issue 5 model/agent pickers, permission cards, settings and retry (#5)
+- accessibility and mobile polish, second slice (#8)
+- upload files through the composer and type them by content (#21)
+- DOCX from blocks or Markdown, embedded PDF fonts (#22)
+- installable shell, offline state and generated icons (#23)
+- ship an offline Python runtime and four typed document tools; ship markitdown preinstalled in the agent image (#24)
+- add per-chat working files with quotas and a boot audit (#25)
+- artifact capacity guard and dry-run eviction CLI (#43)
+- land agent-managed cross-session memory (slices 0-5); keep the Code frame across surface switches and plant memory in Code sessions (#49, #50)
+- first-run onboarding to connect a provider (#50)
+- wire one-shot model fallback into chat turns (#54)
+- backup, status and the operations runbook (#9)
+- command palette, chat search, Markdown export and usage panel (#8)
+- compaction policy with a soft cap and a visible fill (#53)
+- group subagent sessions under their parent (#55)
+- list and extract ZIP archives with guards (#52)
+- model variants, capabilities and per-browser favorites (#51)
+- run dictation on-device with a pinned, cached model (#47)
+- scheduled tasks and background jobs (#48)
+- signed media, PDF preview and gallery (#6)
+- turn policy, failure classification and usage ledger (#54)
+
+### Changed
+
+- issue 5 controls (#5)
+- docs+test(#38): record update policy ADR and prove major pass-through (#38)
+- prove the OpenCode data migration end to end (#43)
+- follow the larger suite after the memory bounds; split memory invalidator out of the memory route (#49)
+- replace timing sleeps with outcome-based waits (#56)
+- generated PDF download byte-for-byte + format validity (#57)
+- choose the model the usage panel should price
+- clear the stored surface between chord tests
+- documents service, tool bridge, compose and docs
+- expect the Code frame to keep only copy-out on the clipboard
+- follow the larger suite after the 2.5 slices
+- follow the larger suite after the compaction merge
+- follow the larger suite after the fallback core
+- follow the larger suite after the model picker
+- follow the larger suite after the review fixes
+- follow the larger suite after the tasks merge
+- follow the parity slice's test count
+- give the 10k-entry eviction case a real budget
+- give the 500-block Markdown case a realistic limit
+- give the dictation harness a realistic wait
+- give the release scripts room to spawn under load
+- give the stale-panel case a realistic wait
+- keep routes and the fake backend under the 400-line ceiling
+- keep the far-future case outside a moving clock
+- move the transcript types into their own module
+- raise the test floor after the controls slice
+- raise the test floor after the PWA slice
+- raise the test floor after the upload slice
+- raise the test floor to the merged 1131 (#25)
+- split the dictation types and the transcribe step out
+- stop dictation only after the first audio frames exist (#47)
+- widen the stream window for the accepts case
+
+### Fixed
+
+- arm the palette shortcut before first paint; arm surface chord listener before paint to stop CI flake (#8); recover model and memory state after failed reads (#8, #49, #51)
+- bound the fact store and merge the MCP seed on upgrade (#43, #49)
+- bound soft-cap bookkeeping and report a full usage ledger (#49, #53, #54)
+- make the soft-cap compaction id unique per attempt (#53)
+- correct fallback model choice, paid-turn cap and turn tracking (#54)
+- export the extracted event route
+- give the BFF a writable chat-files subtree
+- give the local STT stack its own port
+- keep a new chat when an older session list lands late
+- keep a subject's issue ref instead of repeating it
+- link a schedule to its chat by title
+- send a host-valid id, one fill, live labels (#53)
+- wire fallback knobs and correct the memory budget (#54, #43)
+
+### Documentation
+
+- close the remaining review follow-ups (#28, #43)
+- add cross-session memory architecture (#49)
+- add install and run instructions for local and compose (#18)
+- compare existing agent-memory solutions
+- count the files and images the release actually has (#18)
+- document the browser path as the state, server as an escape hatch (#10)
+- document the memory store cap for operators (#49)
+- document the model selector and the fallback policy
+- give the tasks and voice documents their own numbers
+- how the agent can keep approved memories
+- move the subagent note out of the owner-owned architecture page
+
 ## [2.2.0] - 2026-11-18
 
 ### Added
