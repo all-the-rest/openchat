@@ -55,7 +55,11 @@ export function writeCompletion(value: Completion): void {
   }
 }
 
-/** The model choice safe to send: unknown models and variants are dropped. */
+/**
+ * The model choice safe to send: unknown models and variants are dropped. An
+ * empty catalogue is the exception — it means the read failed, so the stored
+ * choice is forwarded and the host guard rejects a truly unknown id.
+ */
 export function completeModelValue(
   choice: Pick<Completion, "model" | "variant">,
   models: readonly ModelInfo[],

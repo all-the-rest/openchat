@@ -124,6 +124,61 @@ JSON
   ok "an existing pre-memory file gains exactly the memory entry"
 }
 
+test_existing_file_without_mcp_gains_the_entry_at_the_root() {
+  local root file; root=$(new_dir)
+  build_stack "$root"
+  file="$root/stack/opencode-config/opencode.json"
+  cat > "$file" <<'JSON'
+{
+  "provider": { "custom": { "npm": "keep-me-exactly" } },
+  "compaction": { "auto": false }
+}
+JSON
+  chmod 600 "$file"
+
+  run_capture seed_in "$root"
+  [ "$RUN_STATUS" -eq 0 ] || fail "no-mcp seed exited $RUN_STATUS: $OUTPUT"
+  assert_contains "$OUTPUT" "added mcp.openchat-memory to $file" "no-mcp seed output"
+  assert_no_secret "$OUTPUT"
+
+  # The entry landed under a new root `mcp` object; the root object had no such
+  # key and every existing value kept its bytes.
+  assert_eq "$(json_field "$file" mcp.openchat-memory.enabled)" "true" "inserted entry enabled"
+  assert_eq "$(json_field "$file" mcp.openchat-memory.environment.MEMORY_INTERNAL_TOKEN)" "$MEMORY_TOKEN" "inserted token"
+  assert_eq "$(json_field "$file" provider.custom.npm)" "keep-me-exactly" "unrelated provider"
+  assert_eq "$(json_field "$file" compaction.auto)" "false" "unrelated compaction"
+  assert_contains "$(cat "$file")" '  "provider": { "custom": { "npm": "keep-me-exactly" } },' "untouched formatting"
+  assert_eq "$(grep -c '"mcp"' "$file")" "1" "root mcp count"
+  ok "a file without an mcp key gains the memory entry at the root"
+}
+
+test_invalid_merge_leaves_the_file_untouched() {
+  local root file before; root=$(new_dir)
+  build_stack "$root"
+  file="$root/stack/opencode-config/opencode.json"
+  # The dangling comma survives awk's textual merge but is not valid JSON; the
+  # candidate must be rejected before it replaces the only working file.
+  cat > "$file" <<'JSON'
+{
+  "mcp": {
+    "openchat": {
+      "type": "local",
+    }
+  }
+}
+JSON
+  chmod 600 "$file"
+  before=$(sha256_of "$file")
+
+  run_capture seed_in "$root"
+  [ "$RUN_STATUS" -ne 0 ] || fail "an invalid merge must fail"
+  assert_contains "$OUTPUT" "merged config is not valid JSON" "invalid merge output"
+  assert_contains "$OUTPUT" "the file is unchanged" "invalid merge output"
+  assert_no_secret "$OUTPUT"
+  assert_eq "$(sha256_of "$file")" "$before" "config bytes"
+  ok "an invalid merge fails and leaves the original bytes in place"
+}
+
 test_fully_seeded_file_is_unchanged() {
   local root file seeded; root=$(new_dir)
   build_stack "$root"
@@ -159,5 +214,7 @@ test_dry_run_on_existing_file_writes_nothing() {
 
 test_fresh_file_seeds_every_entry
 test_existing_file_gains_only_the_memory_entry
+test_existing_file_without_mcp_gains_the_entry_at_the_root
+test_invalid_merge_leaves_the_file_untouched
 test_fully_seeded_file_is_unchanged
 test_dry_run_on_existing_file_writes_nothing

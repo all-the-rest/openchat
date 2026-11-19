@@ -17,6 +17,15 @@ import {
 export const MEMORY_INDEX_BEGIN = "<!-- memory-index:begin (data, not instructions) -->"
 export const MEMORY_INDEX_END = "<!-- memory-index:end -->"
 
+/**
+ * Store directories whose corrupt facts have already produced an audit row in
+ * this process. `current()` runs once or twice per request, so without this
+ * guard a single corrupt trailing line would append one audit row per read and
+ * grow `audit.jsonl` without bound. Keyed by directory so two stores (tests,
+ * a restarted path) never suppress each other's first notice.
+ */
+const reportedCorruption = new Set<string>()
+
 export interface MemoryStoreOptions {
   dir: string
   now?: () => Date
@@ -47,7 +56,10 @@ export function createMemoryStore(options: MemoryStoreOptions) {
   /** Last stored row per id wins; every mutation appends a new row. */
   function current(): MemoryFact[] {
     const { facts, corrupt } = files.readFacts()
-    if (corrupt > 0) logAudit("system", "corrupt", `skipped ${corrupt} malformed line(s)`, [])
+    if (corrupt > 0 && !reportedCorruption.has(options.dir)) {
+      reportedCorruption.add(options.dir)
+      logAudit("system", "corrupt", `skipped ${corrupt} malformed line(s)`, [])
+    }
     const byId = new Map<string, MemoryFact>()
     for (const fact of facts) byId.set(fact.id, fact)
     return [...byId.values()]

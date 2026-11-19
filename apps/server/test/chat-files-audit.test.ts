@@ -83,6 +83,23 @@ describe("chat files audit", () => {
       .toEqual({ orphanDirs: [], withoutMetadata: [], withoutFile: [] })
   })
 
+  it("ignores dot-directory bookkeeping but still reports a real orphan", async () => {
+    const dir = await workspace()
+    // The usage ledger defaults to `chats/.usage`; the boot audit must not
+    // dress it up as an orphan chat on every start.
+    await mkdir(join(dir, "chats", ".usage"), { recursive: true })
+    await writeFile(join(dir, "chats", ".usage", "2026-11-19.jsonl"), "{}\n")
+    await mkdir(join(dir, "chats", "ses_orphan", "files"), { recursive: true })
+
+    const lines: string[] = []
+    const report = await reportChatFileOrphans(
+      { workspaceDir: dir, sessionIDs: [] },
+      (line) => lines.push(line),
+    )
+    expect(report.orphanDirs).toEqual(["ses_orphan"])
+    expect(lines).toEqual(["chat files: directory without a session: ses_orphan"])
+  })
+
   it("keeps an agent-written file in the same list as an upload", async () => {
     const dir = await workspace()
     const files = store(dir)

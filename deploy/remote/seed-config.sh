@@ -14,7 +14,9 @@
 # and unrelated MCP entries survive. That merge is the upgrade path for a host
 # seeded before memory existed (issue #49). Its mode is repaired to 0600 on
 # every run, because an earlier release could have left a world-readable file in
-# place and that would expose the bearer token forever.
+# place and that would expose the bearer token forever. The merged document is
+# parsed before it replaces the original: an invalid result aborts the run and
+# leaves the existing file byte-for-byte in place.
 #
 # The file is mode 0600. It is bind-mounted into one container that runs as root
 # (the official image sets no user), so the container can read it while host
@@ -235,6 +237,26 @@ merge_memory_entry() {
   ' 
 }
 
+# Parses a candidate config before it replaces the live one. The merge is
+# textual, so an invalid result (a dangling comma, a stray brace, broken
+# encoding) must never overwrite the only working file. python3 is tried first
+# because the deploy target is a Linux host; node is the fallback this repo's
+# tests already use. Returns 127 when neither parser is available.
+validate_json() {
+  local file=$1
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import json, sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$file" \
+      >/dev/null 2>&1 && return 0
+    return 1
+  fi
+  if command -v node >/dev/null 2>&1; then
+    node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$file" \
+      >/dev/null 2>&1 && return 0
+    return 1
+  fi
+  return 127
+}
+
 main() {
   parse_args "$@"
   CONFIG_DIR=${CONFIG_DIR:-$STACK_DIR/opencode-config}
@@ -266,7 +288,7 @@ main() {
       return 0
     fi
 
-    local snippet out
+    local snippet out merge_status
     snippet=$(mktemp "${TMPDIR:-/tmp}/openchat-memory-entry.XXXXXX")
     out=$(mktemp "${TMPDIR:-/tmp}/openchat-memory-config.XXXXXX")
     memory_entry_snippet "$snippet"
@@ -275,6 +297,15 @@ main() {
       die "could not merge mcp.openchat-memory into $file; the file is unchanged"
     fi
     chmod 600 "$out"
+    merge_status=0
+    validate_json "$out" || merge_status=$?
+    if [ "$merge_status" -ne 0 ]; then
+      rm -f "$snippet" "$out"
+      if [ "$merge_status" -eq 127 ]; then
+        die "cannot validate the merged config (python3 or node is required); the file is unchanged: $file"
+      fi
+      die "merged config is not valid JSON; the file is unchanged: $file"
+    fi
     mv "$out" "$file"
     rm -f "$snippet"
     note "config: added mcp.openchat-memory to $file (existing keys unchanged; token not shown)"

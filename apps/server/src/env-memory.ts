@@ -6,15 +6,13 @@
  */
 import { randomBytes } from "node:crypto"
 import { isAbsolute, normalize } from "node:path"
+import { DEFAULT_MEMORY_MAX_FACTS_BYTES } from "./memory-files"
+
+/** Re-exported for the env surface; the byte layer owns the default cap. */
+export { DEFAULT_MEMORY_MAX_FACTS_BYTES }
 
 /** Default memory directory inside the workspace. */
 export const DEFAULT_MEMORY_DATA_DIR = "/workspace/.memory"
-
-/**
- * Default hard cap for `facts.jsonl`. The memory disk is 1 GiB and the BFF is
- * capped at 512 MiB, so the store must stop well before either is reached.
- */
-export const DEFAULT_MEMORY_MAX_FACTS_BYTES = 64 * 1024 * 1024
 
 /** A short bearer token is guessable by anything that can reach the route. */
 export const MIN_MEMORY_INTERNAL_TOKEN_LENGTH = 32

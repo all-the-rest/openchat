@@ -15,7 +15,11 @@ import { isAuditEntry, isFact } from "./memory-model"
 export const FACTS_FILE = "facts.jsonl"
 export const AUDIT_FILE = "audit.jsonl"
 export const INDEX_FILE = "INDEX.md"
-/** Default hard cap for `facts.jsonl`; `MEMORY_MAX_FACTS_BYTES` overrides it. */
+/**
+ * Default hard cap for `facts.jsonl`; `MEMORY_MAX_FACTS_BYTES` overrides it.
+ * The memory disk is 1 GiB and the BFF is capped at 512 MiB, so the store must
+ * stop well before either is reached.
+ */
 export const DEFAULT_MEMORY_MAX_FACTS_BYTES = 64 * 1024 * 1024
 /** Newest audit lines the UI receives; the export keeps the same bound. */
 export const MEMORY_AUDIT_READ_LINES = 200

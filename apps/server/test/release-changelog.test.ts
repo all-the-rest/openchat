@@ -80,7 +80,9 @@ describe("changelog", () => {
     expect(output).toContain("- document variables (#11)")
     expect(output).toContain("### Changed")
     expect(output).toContain("- trim the index (#12, #13)")
-    expect(output).toContain("- tidy the scripts")
+    // Tooling commits (`test`, `chore`) stay in history but not in a release.
+    expect(output).not.toContain("tidy the scripts")
+    expect(output).not.toContain("ignore prose")
     // The branch commit is a change; the merge commit that carried it is not,
     // and prose that names an issue without a Refs/Closes keyword is not a
     // reference.
@@ -89,6 +91,35 @@ describe("changelog", () => {
     expect(output).not.toContain("#20")
     // The prior release stays below the new section.
     expect(output.indexOf("## [2.0.0]")).toBeLessThan(output.indexOf("## [1.2.3]"))
+  })
+
+  it("omits test and chore commits while keeping documentation", () => {
+    const root = repo()
+    commit(root, "test: follow the larger suite\n\nRefs #60", {
+      "apps/server/test/suite.test.ts": "// suite\n",
+    })
+    commit(root, "chore(gates): follow the parity slice\n\nRefs #61", {
+      "scripts/gates.json": "{}\n",
+    })
+    commit(root, "docs(env): explain the ledger\n\nRefs #62", {
+      "docs/ledger.md": "ledger\n",
+    })
+    const result = runRelease(root, [
+      "changelog",
+      "--version",
+      "2.0.0",
+      "--date",
+      "2026-11-18",
+      "--dry-run",
+    ])
+    expect(result.status).toBe(0)
+    expect(result.stdout).not.toContain("follow the larger suite")
+    expect(result.stdout).not.toContain("follow the parity slice")
+    // An excluded commit does not smuggle its issue reference in either.
+    expect(result.stdout).not.toContain("#60")
+    expect(result.stdout).not.toContain("#61")
+    expect(result.stdout).toContain("### Documentation")
+    expect(result.stdout).toContain("- explain the ledger (#62)")
   })
 
   it("does not repeat an issue ref the subject already ends with", () => {

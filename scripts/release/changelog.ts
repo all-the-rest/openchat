@@ -33,6 +33,13 @@ const REFS_RE = /\b(?:Refs|Closes|Fixes)\s+((?:#\d+[\s,]*)+)/gi
 const ISSUE_RE = /#(\d+)/g
 const BREAKING_RE = /\bBREAKING[ -]CHANGE:/i
 
+/**
+ * Types that describe the work behind a release rather than the release
+ * itself. They stay in git history but never become changelog entries; a
+ * commit without a conventional prefix still lands in `Changed`.
+ */
+export const EXCLUDED_TYPES = new Set(["test", "chore"])
+
 export function parseSubject(subject: string): ParsedSubject {
   const match = CONVENTIONAL_RE.exec(subject)
   if (!match) return { type: null, description: subject, breaking: false }
@@ -66,6 +73,9 @@ export function groupCommits(commits: RawCommit[]): SectionEntries {
   const keys = new Map<string, Map<string, ChangelogEntry>>()
   for (const commit of commits) {
     const parsed = parseSubject(commit.subject)
+    // Tooling commits must not pad a release; only a recognised type can be
+    // excluded, so an unprefixed subject keeps its place in `Changed`.
+    if (parsed.type !== null && EXCLUDED_TYPES.has(parsed.type)) continue
     const breaking = parsed.breaking || BREAKING_RE.test(commit.body)
     const issues = extractIssues(`${commit.subject}\n${commit.body}`)
     const section = sectionOf(parsed.type)

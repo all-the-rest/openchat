@@ -3,10 +3,27 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
 const WORKFLOW = join(import.meta.dirname, "..", "..", "..", ".github", "workflows", "release.yml")
+const CI_WORKFLOW = join(import.meta.dirname, "..", "..", "..", ".github", "workflows", "ci.yml")
 const COMPOSE = join(import.meta.dirname, "..", "..", "..", "compose.yaml")
 
 function workflow(): string {
   return readFileSync(WORKFLOW, "utf8")
+}
+
+/** One workflow's ratchet action step as trimmed lines, indentation removed. */
+function ratchetStep(path: string): string[] {
+  const lines = readFileSync(path, "utf8").split("\n")
+  const start = lines.findIndex((line) => line.includes("uses: all-the-rest/ratchet-cli@"))
+  expect(start, "ratchet action").toBeGreaterThan(-1)
+  const indent = ((lines[start] ?? "").match(/^\s*/)?.[0] ?? "").length
+  const step = [(lines[start] ?? "").trim()]
+  for (const line of lines.slice(start + 1)) {
+    const trimmed = line.trim()
+    if (trimmed.length === 0) continue
+    if (line.length - line.trimStart().length <= indent) break
+    step.push(trimmed)
+  }
+  return step
 }
 
 interface ComposeService {
@@ -118,6 +135,13 @@ describe("release workflow", () => {
     }
     expect(gates).toContain("all-the-rest/ratchet-cli@")
     expect(gates).toContain("tier: fast")
+
+    // The tag's gates must validate with exactly the binary and flags the
+    // baseline was written for, not a stale pin of its own.
+    const releaseRatchet = ratchetStep(WORKFLOW)
+    expect(releaseRatchet).toEqual(ratchetStep(CI_WORKFLOW))
+    expect(releaseRatchet).toContain("version: v0.8.0")
+    expect(releaseRatchet).toContain("args: --no-ratchet")
 
     const build = text.indexOf("docker/build-push-action")
     expect(build).toBeGreaterThan(-1)

@@ -16,7 +16,7 @@ import { COMPACTION_WAIT_MS, ContextSoftCap } from "./context-cap"
 import { clientAddress } from "./middleware"
 import type { FixedWindowThrottle } from "./throttle"
 import type { FallbackEngine } from "./fallback-engine"
-import { clientModelRef, requestedModel } from "./fallback-config"
+import { clientModelRef, offeredVariant, requestedModel } from "./fallback-config"
 import type { ModelRef, TurnPolicy } from "@openchat/contracts"
 
 export interface PromptRouteDeps {
@@ -33,13 +33,14 @@ export interface PromptRouteDeps {
 
 /**
  * The browser's picker value as a full `ModelRef` for attempt 1. A chain entry
- * with the same model id already names the provider, so the common case needs
- * no host read; anything else goes through the catalogue, because a model id
- * may itself contain a slash. A failed catalogue read leaves only composite
- * `providerID/modelID` values usable; otherwise the caller falls back to the
- * chain.
+ * with the same model id already names the provider, so a model-only choice
+ * needs no host read; a variant does, because only the catalogue knows whether
+ * the model still offers it. Anything else goes through the catalogue, because
+ * a model id may itself contain a slash. A failed catalogue read leaves only
+ * composite `providerID/modelID` values usable; otherwise the caller falls back
+ * to the chain.
  */
-async function resolveClientModel(
+export async function resolveClientModel(
   backend: ChatBackend,
   policy: TurnPolicy,
   model: string | undefined,
@@ -48,13 +49,24 @@ async function resolveClientModel(
   if (model === undefined) return undefined
   const entry = policy.chain.find((candidate) => candidate.modelID === model)
   if (entry !== undefined) {
-    return {
+    const base: ModelRef = {
       providerID: entry.providerID,
       modelID: entry.modelID,
       ...(entry.isFree === undefined ? {} : { isFree: entry.isFree }),
       ...(entry.contextLimit === undefined ? {} : { contextLimit: entry.contextLimit }),
-      ...(variant === undefined ? {} : { variant }),
     }
+    if (variant === undefined) return base
+    let catalogue: Awaited<ReturnType<ChatBackend["listModels"]>>
+    try {
+      catalogue = await backend.listModels()
+    } catch {
+      // An unreadable catalogue cannot confirm the variant; drop it instead of
+      // forwarding one the host may no longer offer.
+      return base
+    }
+    const found = catalogue.find((row) => row.id === model)
+    const offered = offeredVariant(variant, found?.variants ?? [])
+    return offered === undefined ? base : { ...base, variant: offered }
   }
   let catalogue: Awaited<ReturnType<ChatBackend["listModels"]>>
   try {
